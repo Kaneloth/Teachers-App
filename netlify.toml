@@ -1,15 +1,13 @@
 [build]
-  # Install the whole monorepo with pnpm (understands catalog: protocol)
-  # then build only the educross artifact
-  command = "pnpm install --no-frozen-lockfile && pnpm --filter @workspace/educross run build:netlify"
-  publish = "artifacts/educross/dist"
+  base    = "artifacts/educross"
+  command = "npm install && npm run build:netlify"
+  publish = "dist"
 
 [build.environment]
-  NODE_VERSION  = "22"
-  PNPM_VERSION  = "9"
-  # Supabase keys — set these in Netlify → Site settings → Environment variables:
-  #   SUPABASE_URL
-  #   SUPABASE_ANON_KEY
+  NODE_VERSION = "22"
+  # Set these in Netlify → Site settings → Environment variables:
+  #   SUPABASE_URL       ← your Supabase project URL
+  #   SUPABASE_ANON_KEY  ← your Supabase anon public key
 
 [[redirects]]
   from   = "/*"
