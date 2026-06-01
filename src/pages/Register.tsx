@@ -96,13 +96,13 @@ export default function Register() {
       <AuthLayout icon={Mail} title="Verify your email" subtitle={`We sent a code to ${email}`}>
         {error && <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{error}</div>}
         <div className="flex justify-center mb-6">
-          <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode} autoFocus>
+          <InputOTP maxLength={8} value={otpCode} onChange={setOtpCode} autoFocus>
             <InputOTPGroup>
-              {[0, 1, 2, 3, 4, 5].map(i => <InputOTPSlot key={i} index={i} />)}
+              {[0, 1, 2, 3, 4, 5, 6, 7].map(i => <InputOTPSlot key={i} index={i} />)}
             </InputOTPGroup>
           </InputOTP>
         </div>
-        <Button className="w-full h-12 font-medium" onClick={handleVerify} disabled={loading || otpCode.length < 6}>
+        <Button className="w-full h-12 font-medium" onClick={handleVerify} disabled={loading || otpCode.length < 8}>
           {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Verifying...</> : "Verify"}
         </Button>
         <p className="text-center text-sm text-muted-foreground mt-4">
