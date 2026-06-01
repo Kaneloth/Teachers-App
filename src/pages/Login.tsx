@@ -20,7 +20,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
     new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Request timed out. Check your connection and try again.")), ms)
+      setTimeout(() => reject(new Error(
+        "Connection timed out. Please check your internet connection and try again. " +
+        "If the problem persists, the server may be temporarily unavailable."
+      )), ms)
     ),
   ]);
 }
