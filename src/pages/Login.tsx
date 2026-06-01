@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, Mail, Lock, Loader2, Fingerprint, ShieldX, Wifi } from "lucide-react";
+import { LogIn, Mail, Lock, Loader2, Fingerprint, ShieldX, Wifi, Send } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
 
@@ -16,13 +16,12 @@ const safeSession = {
   removeItem: (key: string) => { try { sessionStorage.removeItem(key); } catch { /* noop */ } },
 };
 
-// Race an async op against a timeout
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
     new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error(
-        "Login timed out — your connection may be too slow. Please try again or use Google sign-in."
+        "Login timed out — your connection may be too slow. Try the magic link option below instead."
       )), ms)
     ),
   ]);
@@ -39,6 +38,9 @@ export default function Login() {
   const slowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [loginMethod, setLoginMethod] = useState("password");
   const [biometricLoading, setBiometricLoading] = useState(false);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [magicLinkLoading, setMagicLinkLoading] = useState(false);
+  const [showMagicLink, setShowMagicLink] = useState(false);
   const [accountBlocked, setAccountBlocked] = useState<{ status: string; reason: string } | null>(() => {
     const stored = safeSession.getItem("accountBlocked");
     if (stored) { safeSession.removeItem("accountBlocked"); return JSON.parse(stored); }
@@ -46,8 +48,6 @@ export default function Login() {
   });
 
   // Navigate to home once AuthContext confirms the user is authenticated.
-  // This avoids a race condition where navigate() fires before isAuthenticated=true,
-  // causing ProtectedRoute to redirect back to /login.
   useEffect(() => {
     if (authChecked && isAuthenticated) {
       navigate("/home", { replace: true });
@@ -64,7 +64,6 @@ export default function Login() {
     setError("");
     setSlowConnection(false);
     setLoading(true);
-    // Show "slow connection" hint after 5 s
     slowTimer.current = setTimeout(() => setSlowConnection(true), 5000);
     try {
       const { error: signInError } = await withTimeout(
@@ -94,10 +93,35 @@ export default function Login() {
       // Navigation handled by the useEffect watching isAuthenticated
     } catch (err: unknown) {
       setError((err as Error).message || "Invalid email or password");
+      setShowMagicLink(true); // surface the magic link option on failure
     } finally {
       if (slowTimer.current) clearTimeout(slowTimer.current);
       setSlowConnection(false);
       setLoading(false);
+    }
+  };
+
+  const handleMagicLink = async () => {
+    if (!email.trim()) {
+      setError("Enter your email address above first.");
+      return;
+    }
+    setMagicLinkLoading(true);
+    setError("");
+    try {
+      const { error: otpError } = await withTimeout(
+        supabase.auth.signInWithOtp({
+          email: email.trim(),
+          options: { emailRedirectTo: `${window.location.origin}/home` },
+        }),
+        15000,
+      );
+      if (otpError) throw otpError;
+      setMagicLinkSent(true);
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to send login link. Please try again.");
+    } finally {
+      setMagicLinkLoading(false);
     }
   };
 
@@ -164,6 +188,28 @@ export default function Login() {
     );
   }
 
+  // Magic link sent confirmation screen
+  if (magicLinkSent) {
+    return (
+      <AuthLayout icon={Send} title="Check your email" subtitle={`We sent a login link to ${email}`}>
+        <div className="flex flex-col items-center text-center gap-4 py-2">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <Mail className="w-8 h-8 text-primary" />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Click the link in the email to sign in. You can close this tab.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Didn't get it?{" "}
+            <button onClick={() => setMagicLinkSent(false)} className="text-primary hover:underline font-medium">
+              Try again
+            </button>
+          </p>
+        </div>
+      </AuthLayout>
+    );
+  }
+
   return (
     <AuthLayout
       icon={LogIn}
@@ -220,11 +266,40 @@ export default function Login() {
           <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
             {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Logging in...</> : "Log in"}
           </Button>
+
           {slowConnection && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs">
               <Wifi className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-              <span>Slow connection detected — still trying. Or <button type="button" onClick={handleGoogle} className="underline font-medium">use Google sign-in</button> which is faster on mobile.</span>
+              <span>Slow connection — still trying. Consider using the magic link below instead.</span>
             </div>
+          )}
+
+          {/* Magic link fallback — shown after timeout or on demand */}
+          {(showMagicLink || slowConnection) && (
+            <div className="border border-border rounded-xl p-4 space-y-2">
+              <p className="text-xs font-medium text-foreground">Having trouble? Use a magic link</p>
+              <p className="text-xs text-muted-foreground">We'll email you a one-click login link — no password needed.</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-10 text-sm"
+                onClick={handleMagicLink}
+                disabled={magicLinkLoading}
+              >
+                {magicLinkLoading
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</>
+                  : <><Send className="w-4 h-4 mr-2" />Send me a login link</>}
+              </Button>
+            </div>
+          )}
+
+          {!showMagicLink && !slowConnection && (
+            <p className="text-center text-xs text-muted-foreground">
+              Connection issues?{" "}
+              <button type="button" onClick={() => setShowMagicLink(true)} className="text-primary hover:underline">
+                Get a magic link instead
+              </button>
+            </p>
           )}
         </form>
       )}
