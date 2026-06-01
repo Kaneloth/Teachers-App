@@ -2,10 +2,15 @@ import React, { createContext, useState, useContext, useEffect, useRef } from 'r
 import { supabase } from '@/lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
+interface Profile extends Record<string, unknown> {
+  account_status?: string;
+  status_reason?: string;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  profile: Record<string, unknown> | null;
+  profile: Profile | null;
   isAuthenticated: boolean;
   isLoadingAuth: boolean;
   isLoadingPublicSettings: boolean;
@@ -19,35 +24,18 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Safe sessionStorage wrapper — Safari private mode throws on access
-const safeSession = {
-  setItem: (key: string, value: string) => {
-    try { sessionStorage.setItem(key, value); } catch { /* noop */ }
-  },
-};
-
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser]                   = useState<User | null>(null);
-  const [session, setSession]             = useState<Session | null>(null);
-  const [profile, setProfile]             = useState<Record<string, unknown> | null>(null);
+  const [user, setUser]                     = useState<User | null>(null);
+  const [session, setSession]               = useState<Session | null>(null);
+  const [profile, setProfile]               = useState<Profile | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [isLoadingPublicSettings]         = useState(false);
-  const [authError]                       = useState<{ type: string; message: string } | null>(null);
-  const [authChecked, setAuthChecked]     = useState(false);
+  const [isLoadingAuth, setIsLoadingAuth]   = useState(true);
+  const [authChecked, setAuthChecked]       = useState(false);
+  const mounted                             = useRef(true);
 
-  // Guard against calling setState after unmount
-  const mounted = useRef(true);
-  useEffect(() => { return () => { mounted.current = false; }; }, []);
+  useEffect(() => () => { mounted.current = false; }, []);
 
-  const done = (authenticated: boolean) => {
-    if (!mounted.current) return;
-    setIsAuthenticated(authenticated);
-    setIsLoadingAuth(false);
-    setAuthChecked(true);
-  };
-
-  const loadProfile = async (userId: string) => {
+  const loadProfile = async (userId: string): Promise<Profile | null> => {
     try {
       const { data } = await supabase
         .from('profiles')
@@ -55,43 +43,97 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .eq('id', userId)
         .single();
       if (mounted.current) setProfile(data);
-      return data as Record<string, unknown> | null;
+      return data;
     } catch {
       return null;
     }
   };
 
-  const isBlocked = (profileData: Record<string, unknown> | null) =>
-    profileData?.account_status === 'suspended' ||
-    profileData?.account_status === 'banned';
-
-  const handleBlocked = async (profileData: Record<string, unknown>) => {
-    safeSession.setItem(
-      'accountBlocked',
-      JSON.stringify({ status: profileData.account_status, reason: profileData.status_reason }),
-    );
-    await supabase.auth.signOut().catch(() => {});
-    if (mounted.current) {
-      setUser(null); setSession(null); setProfile(null);
-    }
-    done(false);
+  const markDone = (authenticated: boolean) => {
+    if (!mounted.current) return;
+    setIsAuthenticated(authenticated);
+    setIsLoadingAuth(false);
+    setAuthChecked(true);
   };
 
+  const isBlocked = (p: Profile | null) =>
+    p?.account_status === 'suspended' || p?.account_status === 'banned';
+
+  useEffect(() => {
+    // Safety valve — never hang the spinner more than 10 s
+    const safetyTimer = setTimeout(() => {
+      if (mounted.current) markDone(false);
+    }, 10_000);
+
+    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
+      clearTimeout(safetyTimer);
+      if (!mounted.current) return;
+
+      if (s?.user) {
+        const p = await loadProfile(s.user.id);
+        if (!mounted.current) return;
+
+        if (isBlocked(p)) {
+          try { sessionStorage.setItem('accountBlocked', JSON.stringify({ status: p!.account_status, reason: p!.status_reason })); } catch { /* noop */ }
+          await supabase.auth.signOut();
+          markDone(false);
+          return;
+        }
+        setUser(s.user);
+        setSession(s);
+        markDone(true);
+      } else {
+        markDone(false);
+      }
+    }).catch(() => {
+      clearTimeout(safetyTimer);
+      markDone(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
+      if (!mounted.current) return;
+
+      if (event === 'SIGNED_IN' && s?.user) {
+        const p = await loadProfile(s.user.id);
+        if (!mounted.current) return;
+        if (isBlocked(p)) {
+          try { sessionStorage.setItem('accountBlocked', JSON.stringify({ status: p!.account_status, reason: p!.status_reason })); } catch { /* noop */ }
+          await supabase.auth.signOut();
+          markDone(false);
+          return;
+        }
+        setUser(s.user);
+        setSession(s);
+        markDone(true);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null); setSession(null); setProfile(null);
+        markDone(false);
+      } else if (event === 'TOKEN_REFRESHED' && s?.user) {
+        setUser(s.user); setSession(s);
+      }
+    });
+
+    return () => {
+      clearTimeout(safetyTimer);
+      subscription.unsubscribe();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const checkUserAuth = async () => {
-    if (mounted.current) setIsLoadingAuth(true);
+    setIsLoadingAuth(true);
     try {
       const { data: { session: s } } = await supabase.auth.getSession();
       if (s?.user) {
-        const profileData = await loadProfile(s.user.id);
-        if (isBlocked(profileData)) { await handleBlocked(profileData!); return; }
+        const p = await loadProfile(s.user.id);
+        if (isBlocked(p)) { markDone(false); return; }
         if (mounted.current) { setUser(s.user); setSession(s); }
-        done(true);
+        markDone(true);
       } else {
-        if (mounted.current) { setUser(null); setSession(null); }
-        done(false);
+        markDone(false);
       }
     } catch {
-      done(false);
+      markDone(false);
     }
   };
 
@@ -99,77 +141,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (user) await loadProfile(user.id);
   };
 
-  useEffect(() => {
-    // Safety timeout — if auth check takes >8 s (bad mobile network), unblock the UI
-    const timeout = setTimeout(() => {
-      if (mounted.current && isLoadingAuth) {
-        setIsLoadingAuth(false);
-        setAuthChecked(true);
-      }
-    }, 8000);
-
-    const init = async () => {
-      try {
-        const { data: { session: s } } = await supabase.auth.getSession();
-        if (!mounted.current) return;
-
-        if (s?.user) {
-          const profileData = await loadProfile(s.user.id);
-          if (!mounted.current) return;
-
-          if (isBlocked(profileData)) {
-            await handleBlocked(profileData!);
-          } else {
-            setUser(s.user);
-            setSession(s);
-            done(true);
-          }
-        } else {
-          done(false);
-        }
-      } catch {
-        if (mounted.current) done(false);
-      } finally {
-        clearTimeout(timeout);
-      }
-    };
-
-    init();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
-      if (!mounted.current) return;
-
-      if (event === 'SIGNED_IN' && s?.user) {
-        const profileData = await loadProfile(s.user.id);
-        if (!mounted.current) return;
-        if (isBlocked(profileData)) { await handleBlocked(profileData!); return; }
-        setUser(s.user);
-        setSession(s);
-        done(true);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null); setSession(null); setProfile(null);
-        done(false);
-      } else if (event === 'TOKEN_REFRESHED' && s?.user) {
-        setUser(s.user);
-        setSession(s);
-        if (mounted.current) { setIsLoadingAuth(false); setAuthChecked(true); }
-      } else if (event === 'INITIAL_SESSION') {
-        // Supabase v2 fires INITIAL_SESSION; if no user, we're done
-        if (!s?.user) done(false);
-      }
-    });
-
-    return () => {
-      clearTimeout(timeout);
-      subscription.unsubscribe();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const logout = async (shouldRedirect = true) => {
     await supabase.auth.signOut().catch(() => {});
-    setUser(null); setSession(null); setProfile(null);
-    setIsAuthenticated(false);
+    setUser(null); setSession(null); setProfile(null); setIsAuthenticated(false);
     if (shouldRedirect) window.location.href = '/login';
   };
 
@@ -178,8 +152,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <AuthContext.Provider value={{
       user, session, profile,
-      isAuthenticated, isLoadingAuth, isLoadingPublicSettings,
-      authError, authChecked,
+      isAuthenticated, isLoadingAuth, isLoadingPublicSettings: false,
+      authError: null, authChecked,
       logout, navigateToLogin, checkUserAuth, refreshProfile,
     }}>
       {children}
@@ -188,7 +162,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+  return ctx;
 };
