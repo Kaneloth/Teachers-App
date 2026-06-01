@@ -1,0 +1,125 @@
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useEffect, useState, useRef } from 'react';
+import { Lock, Camera, X, Loader2, ImageIcon } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/AuthContext';
+
+interface PersonalData {
+  full_name: string;
+  email: string;
+  phone: string;
+  address: string;
+  bio: string;
+  photo_url?: string;
+}
+
+interface Props { data: PersonalData; onChange: (d: PersonalData) => void }
+
+export default function CVStepPersonal({ data, onChange }: Props) {
+  const { user } = useAuth();
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    async function loadProfile() {
+      if (!user) return;
+      const { data: educators } = await supabase.from('educators').select('*').eq('created_by_id', user.id).limit(1);
+      const profile = educators?.[0];
+      onChange({
+        full_name: profile?.full_name || user.user_metadata?.full_name || '',
+        email: user.email || '',
+        phone: profile?.phone || '',
+        address: profile?.current_school
+          ? `${profile.current_school}${profile.current_province ? ', ' + profile.current_province : ''}`
+          : '',
+        bio: profile?.bio || data.bio || '',
+      });
+    }
+    loadProfile();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const set = (field: keyof PersonalData, value: string) => onChange({ ...data, [field]: value });
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setUploading(true);
+    const path = `cv-photos/${user.id}-${Date.now()}.${file.name.split('.').pop()}`;
+    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
+    if (!error) {
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      set('photo_url', urlData.publicUrl);
+    }
+    setUploading(false);
+  };
+
+  return (
+    <div className="bg-card rounded-2xl border border-border p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold text-foreground">Personal Information</h2>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-lg">
+          <Lock className="w-3 h-3" /> Locked to profile
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <div className="relative">
+          {data.photo_url
+            ? <img src={data.photo_url} alt="CV photo" className="w-20 h-20 rounded-xl object-cover border border-border" />
+            : <div className="w-20 h-20 rounded-xl bg-muted border border-border flex items-center justify-center"><Camera className="w-7 h-7 text-muted-foreground" /></div>
+          }
+          {data.photo_url && (
+            <button onClick={() => set('photo_url', '')} className="absolute -top-2 -right-2 w-5 h-5 bg-destructive text-white rounded-full flex items-center justify-center shadow">
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-foreground mb-1">Profile Photo <span className="text-muted-foreground font-normal">(optional)</span></p>
+          <p className="text-xs text-muted-foreground mb-2">A professional headshot looks great on modern templates.</p>
+          <div className="flex gap-2">
+            <button onClick={() => cameraRef.current?.click()} disabled={uploading} className="text-xs px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors flex items-center gap-1.5 disabled:opacity-50">
+              {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
+              {uploading ? 'Uploading...' : 'Camera'}
+            </button>
+            <button onClick={() => fileRef.current?.click()} disabled={uploading} className="text-xs px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors flex items-center gap-1.5 disabled:opacity-50">
+              <ImageIcon className="w-3 h-3" /> Gallery
+            </button>
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+          <input ref={cameraRef} type="file" accept="image/*" capture="user" className="hidden" onChange={handlePhotoUpload} />
+        </div>
+      </div>
+
+      <LockedField label="Full Name" value={data.full_name} />
+      <LockedField label="Email Address" value={data.email} />
+      <LockedField label="Phone Number" value={data.phone} />
+      <LockedField label="Current School / Province" value={data.address} />
+
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium">Professional Summary</Label>
+        <Textarea value={data.bio} onChange={e => set('bio', e.target.value)} placeholder="A brief overview of your teaching career and goals..." rows={3} className="rounded-xl" />
+        <p className="text-xs text-muted-foreground">This field is editable — tailor it per CV.</p>
+      </div>
+
+      <p className="text-xs text-muted-foreground bg-muted rounded-xl px-3 py-2">
+        To update your name, email, phone or ID, go to your <strong>Profile page</strong>. Changes require re-verification.
+      </p>
+    </div>
+  );
+}
+
+function LockedField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-sm font-medium">{label}</Label>
+      <div className="flex items-center gap-2 h-9 px-3 rounded-xl border border-border bg-muted/50 text-sm text-foreground">
+        <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        <span className="truncate">{value || <span className="text-muted-foreground italic">Not set on profile</span>}</span>
+      </div>
+    </div>
+  );
+}
