@@ -1,0 +1,99 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "user"
+      ],
+      "default": "user"
+    },
+    "subscription_plan": {
+      "type": "string",
+      "description": "Active subscription plan ID"
+    },
+    "subscription_start": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "subscription_end": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "subscription_cancelled": {
+      "type": "boolean",
+      "default": false
+    },
+    "cv_builds_this_month": {
+      "type": "number",
+      "default": 0
+    },
+    "cv_builds_month_key": {
+      "type": "string"
+    },
+    "last_cv_pdf_url": {
+      "type": "string",
+      "description": "URL of the last generated CV PDF"
+    },
+    "last_cv_data": {
+      "type": "object",
+      "description": "Data used to generate the last CV"
+    },
+    "last_cv_generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the last CV was generated"
+    },
+    "id_number": {
+      "type": "string",
+      "description": "SA ID or passport number"
+    },
+    "id_type": {
+      "type": "string",
+      "enum": [
+        "said",
+        "passport"
+      ],
+      "description": "Type of identity document"
+    },
+    "id_verified": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether identity has been verified"
+    },
+    "id_verification_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "verified",
+        "failed",
+        "needs_review"
+      ],
+      "description": "Verification status"
+    },
+    "passport_front_url": {
+      "type": "string",
+      "description": "URL of uploaded passport front page"
+    },
+    "passport_back_url": {
+      "type": "string",
+      "description": "URL of uploaded passport bio page"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Phone number"
+    },
+    "phone_verified": {
+      "type": "boolean",
+      "default": false
+    },
+    "sace_number": {
+      "type": "string"
+    },
+    "user_code": {
+      "type": "string"
+    }
+  }
+}

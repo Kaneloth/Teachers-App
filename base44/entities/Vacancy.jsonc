@@ -1,0 +1,101 @@
+{
+  "name": "Vacancy",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Job title e.g. Mathematics Educator (FET Phase)"
+    },
+    "school": {
+      "type": "string",
+      "description": "School or institution name, or 'District Office' for district-level posts"
+    },
+    "district": {
+      "type": "string",
+      "description": "Education district"
+    },
+    "province": {
+      "type": "string",
+      "enum": [
+        "Gauteng",
+        "KwaZulu-Natal",
+        "Western Cape",
+        "Eastern Cape",
+        "Mpumalanga",
+        "Limpopo",
+        "North West",
+        "Free State",
+        "Northern Cape"
+      ],
+      "description": "Province"
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "Foundation",
+        "Intermediate",
+        "Senior",
+        "FET",
+        "District/Admin",
+        "Any"
+      ],
+      "description": "Teaching phase or administrative role"
+    },
+    "subjects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Subjects required"
+    },
+    "post_level": {
+      "type": "string",
+      "description": "e.g. Post Level 1, Post Level 2 (HOD), Post Level 3 (Deputy Principal), Post Level 4 (Principal)"
+    },
+    "post_type": {
+      "type": "string",
+      "enum": [
+        "School-Based",
+        "District-Based",
+        "Circuit-Based",
+        "Other"
+      ],
+      "description": "Whether the post is at school, district or circuit level"
+    },
+    "closing_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Application closing date"
+    },
+    "reference": {
+      "type": "string",
+      "description": "Official post reference number"
+    },
+    "requirements": {
+      "type": "string",
+      "description": "Key requirements e.g. SACE registered, relevant degree"
+    },
+    "source": {
+      "type": "string",
+      "description": "Source name e.g. DBE, PNet, Indeed SA"
+    },
+    "source_url": {
+      "type": "string",
+      "description": "Direct URL to the vacancy or source listing"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the vacancy is still open"
+    },
+    "fetched_at": {
+      "type": "string",
+      "description": "ISO datetime when this vacancy was last fetched/refreshed"
+    }
+  },
+  "required": [
+    "title",
+    "province",
+    "source"
+  ]
+}
