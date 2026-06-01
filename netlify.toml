@@ -2,9 +2,6 @@
   command = "npm install && npm run build"
   publish = "dist/public"
 
-[build.environment]
-  NODE_ENV = "production"
-
 [[redirects]]
   from   = "/*"
   to     = "/index.html"
