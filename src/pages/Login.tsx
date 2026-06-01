@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 export default function Login() {
   const navigate = useNavigate();
+  const { isAuthenticated, authChecked } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -42,6 +44,15 @@ export default function Login() {
     if (stored) { safeSession.removeItem("accountBlocked"); return JSON.parse(stored); }
     return null;
   });
+
+  // Navigate to home once AuthContext confirms the user is authenticated.
+  // This avoids a race condition where navigate() fires before isAuthenticated=true,
+  // causing ProtectedRoute to redirect back to /login.
+  useEffect(() => {
+    if (authChecked && isAuthenticated) {
+      navigate("/home", { replace: true });
+    }
+  }, [isAuthenticated, authChecked, navigate]);
 
   useEffect(() => {
     const method = localStorage.getItem("loginMethod") || "password";
@@ -80,7 +91,7 @@ export default function Login() {
           localStorage.setItem("biometricSessionToken", savedToken);
         } catch { /* localStorage unavailable */ }
       }
-      navigate("/home");
+      // Navigation handled by the useEffect watching isAuthenticated
     } catch (err: unknown) {
       setError((err as Error).message || "Invalid email or password");
     } finally {

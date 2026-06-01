@@ -140,10 +140,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (!mounted.current) return;
 
       if (event === 'SIGNED_IN' && s?.user) {
-        // Hold ProtectedRoute in spinner while we load the profile.
-        // Without this, navigate("/home") in Login arrives before isAuthenticated=true
-        // and ProtectedRoute redirects back to /login immediately.
-        if (mounted.current) setIsLoadingAuth(true);
         const profileData = await loadProfile(s.user.id);
         if (!mounted.current) return;
         if (isBlocked(profileData)) { await handleBlocked(profileData!); return; }
