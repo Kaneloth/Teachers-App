@@ -8,6 +8,23 @@ import { LogIn, Mail, Lock, Loader2, Fingerprint, ShieldX } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
 
+// Safe sessionStorage wrapper (throws in Safari private mode)
+const safeSession = {
+  getItem: (key: string): string | null => { try { return sessionStorage.getItem(key); } catch { return null; } },
+  setItem: (key: string, val: string) => { try { sessionStorage.setItem(key, val); } catch { /* noop */ } },
+  removeItem: (key: string) => { try { sessionStorage.removeItem(key); } catch { /* noop */ } },
+};
+
+// Race an async op against a timeout
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Request timed out. Check your connection and try again.")), ms)
+    ),
+  ]);
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -17,8 +34,8 @@ export default function Login() {
   const [loginMethod, setLoginMethod] = useState("password");
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [accountBlocked, setAccountBlocked] = useState<{ status: string; reason: string } | null>(() => {
-    const stored = sessionStorage.getItem("accountBlocked");
-    if (stored) { sessionStorage.removeItem("accountBlocked"); return JSON.parse(stored); }
+    const stored = safeSession.getItem("accountBlocked");
+    if (stored) { safeSession.removeItem("accountBlocked"); return JSON.parse(stored); }
     return null;
   });
 
@@ -32,21 +49,29 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      const { error: signInError } = await withTimeout(
+        supabase.auth.signInWithPassword({ email, password }),
+        15000,
+      );
       if (signInError) throw signInError;
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await withTimeout(supabase.auth.getUser(), 8000);
       if (user) {
-        const { data: profile } = await supabase.from("profiles").select("account_status, status_reason").eq("id", user.id).single();
+        const { data: profile } = await withTimeout(
+          supabase.from("profiles").select("account_status, status_reason").eq("id", user.id).single(),
+          8000,
+        );
         if (profile?.account_status === "suspended" || profile?.account_status === "banned") {
           const blocked = { status: profile.account_status, reason: profile.status_reason };
-          sessionStorage.setItem("accountBlocked", JSON.stringify(blocked));
-          await supabase.auth.signOut();
+          safeSession.setItem("accountBlocked", JSON.stringify(blocked));
+          await supabase.auth.signOut().catch(() => {});
           setAccountBlocked(blocked);
           return;
         }
-        const savedToken = btoa(user.id + ":" + Date.now());
-        localStorage.setItem("biometricSessionToken", savedToken);
+        try {
+          const savedToken = btoa(user.id + ":" + Date.now());
+          localStorage.setItem("biometricSessionToken", savedToken);
+        } catch { /* localStorage unavailable */ }
       }
       navigate("/home");
     } catch (err: unknown) {
