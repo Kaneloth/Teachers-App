@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, Mail, Lock, Loader2, Fingerprint, ShieldX } from "lucide-react";
+import { LogIn, Mail, Lock, Loader2, Fingerprint, ShieldX, Wifi } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
 
@@ -21,8 +21,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     promise,
     new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error(
-        "Connection timed out. Please check your internet connection and try again. " +
-        "If the problem persists, the server may be temporarily unavailable."
+        "Login timed out — your connection may be too slow. Please try again or use Google sign-in."
       )), ms)
     ),
   ]);
@@ -34,6 +33,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [slowConnection, setSlowConnection] = useState(false);
+  const slowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [loginMethod, setLoginMethod] = useState("password");
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [accountBlocked, setAccountBlocked] = useState<{ status: string; reason: string } | null>(() => {
@@ -50,19 +51,22 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSlowConnection(false);
     setLoading(true);
+    // Show "slow connection" hint after 5 s
+    slowTimer.current = setTimeout(() => setSlowConnection(true), 5000);
     try {
       const { error: signInError } = await withTimeout(
         supabase.auth.signInWithPassword({ email, password }),
-        15000,
+        30000,
       );
       if (signInError) throw signInError;
 
-      const { data: { user } } = await withTimeout(supabase.auth.getUser(), 8000);
+      const { data: { user } } = await withTimeout(supabase.auth.getUser(), 15000);
       if (user) {
         const { data: profile } = await withTimeout(
           supabase.from("profiles").select("account_status, status_reason").eq("id", user.id).single(),
-          8000,
+          10000,
         );
         if (profile?.account_status === "suspended" || profile?.account_status === "banned") {
           const blocked = { status: profile.account_status, reason: profile.status_reason };
@@ -80,6 +84,8 @@ export default function Login() {
     } catch (err: unknown) {
       setError((err as Error).message || "Invalid email or password");
     } finally {
+      if (slowTimer.current) clearTimeout(slowTimer.current);
+      setSlowConnection(false);
       setLoading(false);
     }
   };
@@ -203,6 +209,12 @@ export default function Login() {
           <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
             {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Logging in...</> : "Log in"}
           </Button>
+          {slowConnection && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs">
+              <Wifi className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>Slow connection detected — still trying. Or <button type="button" onClick={handleGoogle} className="underline font-medium">use Google sign-in</button> which is faster on mobile.</span>
+            </div>
+          )}
         </form>
       )}
     </AuthLayout>
