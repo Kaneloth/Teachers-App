@@ -1,5 +1,4 @@
 [build]
-  base    = "artifacts/educross"
   command = "npm install && npm run build:netlify"
   publish = "dist"
 
