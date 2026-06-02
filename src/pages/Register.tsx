@@ -67,7 +67,7 @@ export default function Register() {
         <form onSubmit={handleVerify} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="otp">Verification Code</Label>
-            <Input id="otp" value={otp} onChange={e => setOtp(e.target.value)} placeholder="123456" className="rounded-xl text-center text-2xl tracking-widest" maxLength={6} required />
+            <Input id="otp" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))} placeholder="12345678" className="rounded-xl text-center text-2xl tracking-widest font-mono" inputMode="numeric" autoComplete="one-time-code" maxLength={8} required />
           </div>
           <Button type="submit" disabled={loading} className="w-full h-11 rounded-xl font-semibold">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Continue'}

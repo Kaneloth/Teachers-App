@@ -98,14 +98,14 @@ export default function Login() {
               onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
               placeholder="123456"
               className="rounded-xl text-center text-2xl tracking-[0.4em] font-mono"
-              maxLength={6}
+              maxLength={8}
               inputMode="numeric"
               autoComplete="one-time-code"
               autoFocus
               required
             />
           </div>
-          <Button type="submit" disabled={loading || otp.length < 6} className="w-full h-11 rounded-xl font-semibold">
+          <Button type="submit" disabled={loading || otp.length < 8} className="w-full h-11 rounded-xl font-semibold">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Sign In'}
           </Button>
         </form>
