@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, MailCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export default function Login() {
@@ -15,16 +15,53 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  // OTP confirmation state (triggered when email not yet confirmed)
+  const [otpRequired, setOtpRequired] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      toast.error(error.message);
+      const msg = error.message.toLowerCase();
+      if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+        // Re-send OTP and show verification screen
+        await supabase.auth.resend({ type: 'signup', email });
+        setOtpRequired(true);
+        toast.info('A verification code has been sent to your email.');
+      } else {
+        toast.error(error.message);
+      }
     } else {
       navigate('/home');
     }
     setLoading(false);
+  };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: 'email' });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Email verified! Welcome to EduCross.');
+      navigate('/home');
+    }
+    setLoading(false);
+  };
+
+  const handleResend = async () => {
+    setResendLoading(true);
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('New code sent — check your inbox.');
+    }
+    setResendLoading(false);
   };
 
   const handleGoogle = async () => {
@@ -37,6 +74,65 @@ export default function Login() {
     setGoogleLoading(false);
   };
 
+  // ── OTP verification screen ──────────────────────────────────────────────
+  if (otpRequired) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-4">
+            <MailCheck className="w-7 h-7 text-primary" />
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">Verify your email</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            We sent a 6-digit code to <strong>{email}</strong>.<br />
+            Enter it below to continue.
+          </p>
+        </div>
+
+        <form onSubmit={handleVerify} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="otp">Verification Code</Label>
+            <Input
+              id="otp"
+              value={otp}
+              onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
+              placeholder="123456"
+              className="rounded-xl text-center text-2xl tracking-[0.4em] font-mono"
+              maxLength={6}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              required
+            />
+          </div>
+          <Button type="submit" disabled={loading || otp.length < 6} className="w-full h-11 rounded-xl font-semibold">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Sign In'}
+          </Button>
+        </form>
+
+        <div className="text-center space-y-2 text-sm text-muted-foreground">
+          <p>
+            Didn't receive a code?{' '}
+            <button
+              onClick={handleResend}
+              disabled={resendLoading}
+              className="text-primary font-semibold hover:underline disabled:opacity-50"
+            >
+              {resendLoading ? 'Sending…' : 'Resend code'}
+            </button>
+          </p>
+          <p>
+            Wrong email?{' '}
+            <button onClick={() => { setOtpRequired(false); setOtp(''); }} className="text-primary font-semibold hover:underline">
+              Go back
+            </button>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Normal login screen ──────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       <div className="text-center">
