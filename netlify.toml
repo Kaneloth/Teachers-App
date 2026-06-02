@@ -1,16 +1,12 @@
 [build]
   command = "npm install && npm run build:netlify"
   publish = "dist"
-  functions = "netlify/functions"
 
 [build.environment]
   NODE_VERSION = "22"
   # Set these in Netlify → Site settings → Environment variables:
-  #   SUPABASE_URL                ← your Supabase project URL
-  #   SUPABASE_ANON_KEY           ← your Supabase anon public key
-  #   SUPABASE_SERVICE_ROLE_KEY   ← your Supabase service role key (secret)
-  #   BULKSMS_USERNAME            ← BulkSMS username or API token ID
-  #   BULKSMS_PASSWORD            ← BulkSMS password or API token secret
+  #   SUPABASE_URL       ← your Supabase project URL
+  #   SUPABASE_ANON_KEY  ← your Supabase anon public key
 
 [[redirects]]
   from   = "/*"

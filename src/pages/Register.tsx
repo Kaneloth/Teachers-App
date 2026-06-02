@@ -4,62 +4,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, MailCheck, Smartphone } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-
-function normaliseSAPhone(raw: string): string {
-  const digits = raw.replace(/\D/g, '');
-  if (digits.startsWith('27')) return '+' + digits;
-  if (digits.startsWith('0')) return '+27' + digits.slice(1);
-  return '+27' + digits;
-}
-
-async function sendPhoneOtp(phone: string): Promise<string | null> {
-  const res = await fetch('/.netlify/functions/send-otp', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone }),
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    return data.error || 'Failed to send SMS';
-  }
-  return null;
-}
-
-async function verifyPhoneOtp(phone: string, otp: string): Promise<string | null> {
-  const res = await fetch('/.netlify/functions/verify-otp', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone, otp }),
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    return data.error || 'Invalid code';
-  }
-  return null;
-}
-
-type Step = 'form' | 'email-otp' | 'phone-otp';
 
 export default function Register() {
   const navigate = useNavigate();
-  const [step, setStep] = useState<Step>('form');
-
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
-
-  const [emailOtp, setEmailOtp] = useState('');
-  const [phoneOtp, setPhoneOtp] = useState('');
-
   const [loading, setLoading] = useState(false);
-  const [resendLoading, setResendLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState('');
 
-  // ── Step 1: create account ────────────────────────────────────
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -71,67 +29,22 @@ export default function Register() {
     if (error) {
       toast.error(error.message);
     } else {
-      setStep('email-otp');
+      setOtpSent(true);
       toast.success('Check your email for a verification code!');
     }
     setLoading(false);
   };
 
-  // ── Step 2: verify email OTP → send phone OTP ─────────────────
-  const handleVerifyEmail = async (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.verifyOtp({ email, token: emailOtp, type: 'email' });
+    const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: 'email' });
     if (error) {
       toast.error(error.message);
-      setLoading(false);
-      return;
-    }
-    // Email confirmed — now send phone OTP via BulkSMS
-    const normalised = normaliseSAPhone(phone);
-    const err = await sendPhoneOtp(normalised);
-    if (err) {
-      toast.error('Could not send SMS: ' + err);
-      setLoading(false);
-      return;
-    }
-    setStep('phone-otp');
-    toast.success('Email confirmed! Enter the SMS code sent to your phone.');
-    setLoading(false);
-  };
-
-  // ── Step 3: verify phone OTP ──────────────────────────────────
-  const handleVerifyPhone = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    const normalised = normaliseSAPhone(phone);
-    const err = await verifyPhoneOtp(normalised, phoneOtp);
-    if (err) {
-      toast.error(err);
     } else {
-      // Store verified phone in user metadata
-      await supabase.auth.updateUser({ data: { phone: normalised, phone_verified: true } });
-      toast.success('Phone verified! Welcome to EduCross.');
       navigate('/onboarding');
     }
     setLoading(false);
-  };
-
-  const handleResendEmailOtp = async () => {
-    setResendLoading(true);
-    const { error } = await supabase.auth.resend({ type: 'signup', email });
-    if (error) toast.error(error.message);
-    else toast.success('New code sent — check your inbox.');
-    setResendLoading(false);
-  };
-
-  const handleResendPhoneOtp = async () => {
-    setResendLoading(true);
-    const normalised = normaliseSAPhone(phone);
-    const err = await sendPhoneOtp(normalised);
-    if (err) toast.error(err);
-    else toast.success('New SMS code sent.');
-    setResendLoading(false);
   };
 
   const handleGoogle = async () => {
@@ -144,109 +57,29 @@ export default function Register() {
     setGoogleLoading(false);
   };
 
-  // ── Email OTP screen ──────────────────────────────────────────
-  if (step === 'email-otp') {
+  if (otpSent) {
     return (
       <div className="space-y-6">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-4">
-            <MailCheck className="w-7 h-7 text-primary" />
-          </div>
           <h1 className="text-2xl font-bold text-foreground">Verify your email</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            We sent an 8-digit code to <strong>{email}</strong>
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">We sent a 6-digit code to <strong>{email}</strong></p>
         </div>
-        <form onSubmit={handleVerifyEmail} className="space-y-4">
+        <form onSubmit={handleVerify} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="emailOtp">Email Verification Code</Label>
-            <Input
-              id="emailOtp"
-              value={emailOtp}
-              onChange={e => setEmailOtp(e.target.value.replace(/\D/g, ''))}
-              placeholder="12345678"
-              className="rounded-xl text-center text-2xl tracking-[0.4em] font-mono"
-              maxLength={8}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              autoFocus
-              required
-            />
+            <Label htmlFor="otp">Verification Code</Label>
+            <Input id="otp" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))} placeholder="12345678" className="rounded-xl text-center text-2xl tracking-widest font-mono" inputMode="numeric" autoComplete="one-time-code" maxLength={8} required />
           </div>
-          <Button type="submit" disabled={loading || emailOtp.length < 8} className="w-full h-11 rounded-xl font-semibold">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm Email →'}
+          <Button type="submit" disabled={loading} className="w-full h-11 rounded-xl font-semibold">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Continue'}
           </Button>
         </form>
-        <div className="text-center space-y-2 text-sm text-muted-foreground">
-          <p>
-            Didn't receive it?{' '}
-            <button onClick={handleResendEmailOtp} disabled={resendLoading} className="text-primary font-semibold hover:underline disabled:opacity-50">
-              {resendLoading ? 'Sending…' : 'Resend code'}
-            </button>
-          </p>
-          <p>
-            Wrong email?{' '}
-            <button onClick={() => { setStep('form'); setEmailOtp(''); }} className="text-primary font-semibold hover:underline">
-              Go back
-            </button>
-          </p>
-        </div>
+        <p className="text-center text-sm text-muted-foreground">
+          Wrong email? <button onClick={() => setOtpSent(false)} className="text-primary font-semibold hover:underline">Go back</button>
+        </p>
       </div>
     );
   }
 
-  // ── Phone OTP screen ──────────────────────────────────────────
-  if (step === 'phone-otp') {
-    return (
-      <div className="space-y-6">
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-4">
-            <Smartphone className="w-7 h-7 text-primary" />
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">Verify your number</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            We sent a 6-digit SMS code to <strong>{normaliseSAPhone(phone)}</strong>
-          </p>
-        </div>
-        <form onSubmit={handleVerifyPhone} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="phoneOtp">SMS Verification Code</Label>
-            <Input
-              id="phoneOtp"
-              value={phoneOtp}
-              onChange={e => setPhoneOtp(e.target.value.replace(/\D/g, ''))}
-              placeholder="123456"
-              className="rounded-xl text-center text-2xl tracking-[0.4em] font-mono"
-              maxLength={6}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              autoFocus
-              required
-            />
-          </div>
-          <Button type="submit" disabled={loading || phoneOtp.length < 6} className="w-full h-11 rounded-xl font-semibold">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm Phone & Continue'}
-          </Button>
-        </form>
-        <div className="text-center space-y-2 text-sm text-muted-foreground">
-          <p>
-            Didn't receive it?{' '}
-            <button onClick={handleResendPhoneOtp} disabled={resendLoading} className="text-primary font-semibold hover:underline disabled:opacity-50">
-              {resendLoading ? 'Sending…' : 'Resend SMS'}
-            </button>
-          </p>
-          <p>
-            Wrong number?{' '}
-            <button onClick={() => { setStep('form'); setPhoneOtp(''); }} className="text-primary font-semibold hover:underline">
-              Go back
-            </button>
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Registration form ─────────────────────────────────────────
   return (
     <div className="space-y-6">
       <div className="text-center">
@@ -278,25 +111,6 @@ export default function Register() {
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>
           <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="educator@example.co.za" className="rounded-xl" required />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="phone">Phone Number</Label>
-          <div className="flex gap-2">
-            <div className="flex items-center px-3 rounded-xl border border-input bg-muted text-sm font-medium text-muted-foreground select-none shrink-0">
-              🇿🇦 +27
-            </div>
-            <Input
-              id="phone"
-              type="tel"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              placeholder="081 234 5678"
-              className="rounded-xl flex-1"
-              inputMode="tel"
-              required
-            />
-          </div>
-          <p className="text-xs text-muted-foreground pl-1">A 6-digit SMS code will be sent to verify your number.</p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="password">Password</Label>
