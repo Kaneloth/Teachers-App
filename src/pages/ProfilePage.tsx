@@ -133,21 +133,34 @@ export default function ProfilePage() {
     if (!user) return;
     setSaving(true);
     try {
+      // Never send id or server-managed fields in the payload
+      const { id: _id, is_sace_verified: _sv, ...rest } = profile;
       const payload = {
-        ...profile,
+        ...rest,
         created_by_id: user.id,
         years_experience: profile.years_experience ? parseInt(profile.years_experience) : null,
         available_from: profile.available_from || null,
       };
+
       if (profile.id) {
-        await supabase.from('educators').update(payload).eq('id', profile.id);
+        const { error } = await supabase
+          .from('educators')
+          .update(payload)
+          .eq('id', profile.id);
+        if (error) throw error;
       } else {
-        const { data } = await supabase.from('educators').insert([payload]).select().single();
+        const { data, error } = await supabase
+          .from('educators')
+          .insert([{ ...payload }])
+          .select()
+          .single();
+        if (error) throw error;
         if (data) set('id', data.id);
       }
       toast.success('Profile saved!');
     } catch (e: unknown) {
-      toast.error((e as Error).message || 'Failed to save profile');
+      const msg = (e as { message?: string }).message || 'Failed to save profile';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
