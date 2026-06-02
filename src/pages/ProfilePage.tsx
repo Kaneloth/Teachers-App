@@ -805,10 +805,11 @@ export default function ProfilePage() {
                 ))}
               </div>
             )}
+
             <div className="space-y-3">
-              {/* Step 1: Province filter - this selects a province to show its districts */}
+              {/* Step 1: Choose province to filter districts */}
               <div>
-                <Label className="text-xs text-muted-foreground">1. Select a province (filter)</Label>
+                <Label className="text-xs text-muted-foreground">1. Select a province</Label>
                 <Select value={districtProvFilter} onValueChange={v => { setDistrictProvFilter(v); setDistrictToAdd(''); setDistrictOther(false); setCustomDistrict(''); }}>
                   <SelectTrigger className="rounded-xl mt-1">
                     <SelectValue placeholder="Choose province to see its districts" />
@@ -819,14 +820,14 @@ export default function ProfilePage() {
                 </Select>
               </div>
 
-              {/* Step 2: District picker - only shows when a province is selected */}
+              {/* Step 2: District picker (only after province selected) */}
               {districtProvFilter && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">2. Choose a district from {districtProvFilter}</Label>
+                  <Label className="text-xs text-muted-foreground">2. Choose a district in {districtProvFilter}</Label>
                   <div className="flex gap-2 mt-1">
                     <Select value={districtOther ? '__other__' : districtToAdd} onValueChange={v => {
                       if (v === '__other__') { setDistrictOther(true); setDistrictToAdd(''); }
-                      else                  { setDistrictOther(false); setCustomDistrict(''); setDistrictToAdd(v); }
+                      else { setDistrictOther(false); setCustomDistrict(''); setDistrictToAdd(v); }
                     }}>
                       <SelectTrigger className="rounded-xl flex-1">
                         <SelectValue placeholder="Select district" />
