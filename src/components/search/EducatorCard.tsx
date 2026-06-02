@@ -1,4 +1,4 @@
-import { MapPin, Navigation, Monitor, ChevronRight } from 'lucide-react';
+import { MapPin, Navigation, Monitor, ChevronRight, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -61,7 +61,14 @@ export default function EducatorCard({ educator, mySubjects, index = 0 }: Props)
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm text-foreground truncate mb-1">{educator.full_name}</p>
+          <div className="flex items-center gap-1.5 mb-1">
+            <p className="font-semibold text-sm text-foreground truncate">{educator.full_name}</p>
+            {educator.is_sace_verified && (
+              <span title="Identity Verified" className="shrink-0 inline-flex items-center gap-0.5 bg-primary/10 text-primary text-[10px] font-semibold px-1.5 py-0.5 rounded-full border border-primary/20">
+                <ShieldCheck className="w-3 h-3" />Verified
+              </span>
+            )}
+          </div>
           <div className="space-y-0.5">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <MapPin className="w-3 h-3 shrink-0" />
