@@ -143,37 +143,37 @@ export default function VacanciesPage() {
       {/* Page header */}
       <div className="px-4 pt-4 pb-3">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
+          <div className="flex items-center gap-2 min-w-0">
+            <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors shrink-0">
               <ArrowLeft className="w-5 h-5 text-foreground" />
             </button>
-            <Briefcase className="w-5 h-5 text-primary" />
-            <h1 className="text-lg font-bold text-foreground">Vacancies</h1>
+            <Briefcase className="w-5 h-5 text-primary shrink-0" />
+            <h1 className="text-lg font-bold text-foreground truncate">Vacancies</h1>
           </div>
-          <div className="flex items-center gap-2">
-            {lastUpdated && (
-              <div className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
-                <Clock className="w-3 h-3" />
-                Updated {format(lastUpdated, 'dd MMM yyyy')}
-              </div>
-            )}
-            {isAdmin && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="rounded-xl gap-1.5 text-xs h-8 shrink-0"
-              >
-                {refreshing
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : <RefreshCw className="w-3.5 h-3.5" />}
-                {refreshing ? 'Fetching…' : 'Refresh'}
-              </Button>
-            )}
-          </div>
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="rounded-xl gap-1.5 text-xs h-8 shrink-0"
+            >
+              {refreshing
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <RefreshCw className="w-3.5 h-3.5" />}
+              {refreshing ? 'Fetching…' : 'Refresh'}
+            </Button>
+          )}
         </div>
-        <p className="text-sm text-muted-foreground mt-0.5 pl-1">Teaching posts across South Africa</p>
+        <div className="flex items-center justify-between mt-0.5 pl-1">
+          <p className="text-sm text-muted-foreground">Teaching posts across South Africa</p>
+          {lastUpdated && (
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
+              <Clock className="w-3 h-3" />
+              Updated {format(lastUpdated, 'dd MMM yyyy')}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Search */}
