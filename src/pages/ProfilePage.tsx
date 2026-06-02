@@ -30,9 +30,6 @@ const DISTRICTS_BY_PROVINCE: Record<string, string[]> = {
   'Western Cape':  ['Metro Central','Metro East','Metro North','Metro South','Cape Winelands','Eden and Central Karoo','Overberg','West Coast'],
 };
 
-// Flatten all districts for the preferred districts dropdown
-const ALL_DISTRICTS = Object.values(DISTRICTS_BY_PROVINCE).flat().sort();
-
 const SUBJECTS = [
   'Accounting','Afrikaans FAL','Afrikaans HL','Agricultural Sciences',
   'Agricultural Management Practices','Agricultural Technology','Business Studies',
@@ -436,7 +433,7 @@ export default function ProfilePage() {
   const [townOther,     setTownOther]     = useState(false);
   const [customTownText, setCustomTownText] = useState('');
 
-  // Preferred districts picker state (simplified – single dropdown with all districts)
+  // Preferred districts picker state
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [districtOther, setDistrictOther] = useState(false);
   const [customDistrict, setCustomDistrict] = useState('');
@@ -525,6 +522,10 @@ export default function ProfilePage() {
     if (v === '__other__') { setTownOther(true); set('town', '__other__'); }
     else                   { setTownOther(false); setCustomTownText(''); set('town', v); }
   };
+
+  // Derive eligible districts from user's preferred provinces
+  const eligibleDistricts = profile.preferred_provinces.flatMap(prov => DISTRICTS_BY_PROVINCE[prov] || []).filter((v, i, a) => a.indexOf(v) === i);
+  const availableDistricts = eligibleDistricts.filter(d => !profile.preferred_districts.includes(d));
 
   const handleSave = async () => {
     if (!user) return;
@@ -809,25 +810,31 @@ export default function ProfilePage() {
             <div className="space-y-3">
               <div>
                 <Label className="text-xs text-muted-foreground">Select a district</Label>
-                <div className="flex gap-2 mt-1">
-                  <Select value={districtOther ? '__other__' : selectedDistrict} onValueChange={v => {
-                    if (v === '__other__') { setDistrictOther(true); setSelectedDistrict(''); }
-                    else { setDistrictOther(false); setSelectedDistrict(v); }
-                  }}>
-                    <SelectTrigger className="rounded-xl flex-1">
-                      <SelectValue placeholder="Choose district" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-48 overflow-y-auto">
-                      {ALL_DISTRICTS.filter(d => !profile.preferred_districts.includes(d)).map(d => (
-                        <SelectItem key={d} value={d}>{d}</SelectItem>
-                      ))}
-                      <SelectItem value="__other__">Other (type below)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" size="icon" variant="outline" onClick={addDistrict}
-                    disabled={districtOther ? !customDistrict.trim() : !selectedDistrict}
-                    className="rounded-xl shrink-0 h-10 w-10"><Plus className="w-4 h-4" /></Button>
-                </div>
+                {profile.preferred_provinces.length === 0 ? (
+                  <div className="flex h-9 w-full items-center rounded-xl border border-input bg-muted/40 px-3 text-sm text-muted-foreground mt-1">
+                    Add preferred provinces first
+                  </div>
+                ) : (
+                  <div className="flex gap-2 mt-1">
+                    <Select value={districtOther ? '__other__' : selectedDistrict} onValueChange={v => {
+                      if (v === '__other__') { setDistrictOther(true); setSelectedDistrict(''); }
+                      else { setDistrictOther(false); setSelectedDistrict(v); }
+                    }}>
+                      <SelectTrigger className="rounded-xl flex-1">
+                        <SelectValue placeholder="Choose district" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-48 overflow-y-auto">
+                        {availableDistricts.map(d => (
+                          <SelectItem key={d} value={d}>{d}</SelectItem>
+                        ))}
+                        <SelectItem value="__other__">Other (type below)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" size="icon" variant="outline" onClick={addDistrict}
+                      disabled={districtOther ? !customDistrict.trim() : !selectedDistrict}
+                      className="rounded-xl shrink-0 h-10 w-10"><Plus className="w-4 h-4" /></Button>
+                  </div>
+                )}
                 {districtOther && (
                   <Input
                     value={customDistrict}
