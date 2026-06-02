@@ -6,27 +6,35 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import {
   Eye, EyeOff, Loader2, MailCheck, Upload, X,
-  CreditCard, BookOpen, CheckCircle2, XCircle, ShieldCheck,
+  CreditCard, BookOpen, CheckCircle2, XCircle, ShieldCheck, AlertCircle,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-/* ── SA ID validation (Luhn + date check) ────────────────────── */
-function validateSAId(id: string): { valid: boolean; message: string } {
+/* ── SA ID local format check (Luhn + date) ─────────────────── */
+function validateSAIdFormat(id: string): { valid: boolean; message: string } {
   if (!/^\d{13}$/.test(id)) return { valid: false, message: 'ID must be exactly 13 digits.' };
   const month = parseInt(id.slice(2, 4));
   const day   = parseInt(id.slice(4, 6));
   if (month < 1 || month > 12) return { valid: false, message: 'Invalid birth month in ID number.' };
-  if (day   < 1 || day   > 31) return { valid: false, message: 'Invalid birth day in ID number.' };
-  // Luhn check
+  if (day   < 1 || day   > 31) return { valid: false, message: 'Invalid birth day in ID number.'   };
   let sum = 0, alt = false;
   for (let i = id.length - 1; i >= 0; i--) {
     let n = parseInt(id[i]);
     if (alt) { n *= 2; if (n > 9) n -= 9; }
-    sum += n;
-    alt = !alt;
+    sum += n; alt = !alt;
   }
   if (sum % 10 !== 0) return { valid: false, message: 'ID number checksum is invalid. Please check for typos.' };
-  return { valid: true, message: 'SA ID number verified.' };
+  return { valid: true, message: '' };
+}
+
+/* ── File → base64 ──────────────────────────────────────────── */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 /* ── Image upload tile ───────────────────────────────────────── */
@@ -36,7 +44,7 @@ function ImageUploadTile({
   label: string; file: File | null; onChange: (f: File) => void; onClear: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const preview = file ? URL.createObjectURL(file) : null;
+  const preview  = file ? URL.createObjectURL(file) : null;
   return (
     <div className="space-y-1.5">
       <Label className="text-sm font-medium">{label}</Label>
@@ -61,16 +69,24 @@ function ImageUploadTile({
   );
 }
 
-/* ── Verification badge ──────────────────────────────────────── */
-type VerifyState = 'idle' | 'valid' | 'invalid';
+/* ── Verification result badge ───────────────────────────────── */
+type VerifyState = 'idle' | 'verified' | 'unverified' | 'error';
 
 function VerifyBadge({ state, message }: { state: VerifyState; message: string }) {
-  if (state === 'idle') return null;
+  if (state === 'idle' || !message) return null;
+  const styles: Record<Exclude<VerifyState, 'idle'>, string> = {
+    verified:   'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400',
+    unverified: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400',
+    error:      'bg-red-50   text-red-700   dark:bg-red-900/20   dark:text-red-400',
+  };
+  const icons: Record<Exclude<VerifyState, 'idle'>, React.ReactElement> = {
+    verified:   <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />,
+    unverified: <AlertCircle  className="w-4 h-4 mt-0.5 shrink-0" />,
+    error:      <XCircle      className="w-4 h-4 mt-0.5 shrink-0" />,
+  };
   return (
-    <div className={`flex items-start gap-2 rounded-lg px-3 py-2 text-sm ${state === 'valid' ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'}`}>
-      {state === 'valid'
-        ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
-        : <XCircle      className="w-4 h-4 mt-0.5 shrink-0" />}
+    <div className={`flex items-start gap-2 rounded-lg px-3 py-2 text-sm ${styles[state as Exclude<VerifyState, 'idle'>]}`}>
+      {icons[state as Exclude<VerifyState, 'idle'>]}
       <span>{message}</span>
     </div>
   );
@@ -90,13 +106,12 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [showPw,   setShowPw]   = useState(false);
 
-  const [docType,         setDocType]         = useState<DocType>('id');
-  const [idNumber,        setIdNumber]        = useState('');
-  const [passportNumber,  setPassportNumber]  = useState('');
-  const [passportFront,   setPassportFront]   = useState<File | null>(null);
-  const [passportBack,    setPassportBack]    = useState<File | null>(null);
+  const [docType,        setDocType]        = useState<DocType>('id');
+  const [idNumber,       setIdNumber]       = useState('');
+  const [passportNumber, setPassportNumber] = useState('');
+  const [passportFront,  setPassportFront]  = useState<File | null>(null);
+  const [passportBack,   setPassportBack]   = useState<File | null>(null);
 
-  // Verification states
   const [idVerifyState,       setIdVerifyState]       = useState<VerifyState>('idle');
   const [idVerifyMsg,         setIdVerifyMsg]         = useState('');
   const [passportVerifyState, setPassportVerifyState] = useState<VerifyState>('idle');
@@ -108,81 +123,135 @@ export default function Register() {
   const [resendLoading, setResendLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  // Reset verification when doc type changes
   const switchDocType = (t: DocType) => {
     setDocType(t);
-    setIdVerifyState('idle');
-    setPassportVerifyState('idle');
-    setIdNumber('');
-    setPassportNumber('');
-    setPassportFront(null);
-    setPassportBack(null);
+    setIdVerifyState('idle'); setIdVerifyMsg('');
+    setPassportVerifyState('idle'); setPassportVerifyMsg('');
+    setIdNumber(''); setPassportNumber('');
+    setPassportFront(null); setPassportBack(null);
   };
 
-  // Also reset ID verify when user edits the number
   const handleIdChange = (val: string) => {
     setIdNumber(val.replace(/\D/g, ''));
-    if (idVerifyState !== 'idle') setIdVerifyState('idle');
+    setIdVerifyState('idle'); setIdVerifyMsg('');
   };
+  const handlePassportNumberChange = (val: string) => {
+    setPassportNumber(val.toUpperCase());
+    setPassportVerifyState('idle'); setPassportVerifyMsg('');
+  };
+  const handlePassportFrontChange = (f: File) => { setPassportFront(f);  setPassportVerifyState('idle'); setPassportVerifyMsg(''); };
+  const handlePassportBackChange  = (f: File) => { setPassportBack(f);   setPassportVerifyState('idle'); setPassportVerifyMsg(''); };
+  const clearPassportFront = () => { setPassportFront(null); setPassportVerifyState('idle'); setPassportVerifyMsg(''); };
+  const clearPassportBack  = () => { setPassportBack(null);  setPassportVerifyState('idle'); setPassportVerifyMsg(''); };
 
-  // Reset passport verify if user swaps an image
-  const handlePassportFrontChange = (f: File) => {
-    setPassportFront(f);
-    if (passportVerifyState !== 'idle') setPassportVerifyState('idle');
-  };
-  const handlePassportBackChange = (f: File) => {
-    setPassportBack(f);
-    if (passportVerifyState !== 'idle') setPassportVerifyState('idle');
-  };
-  const clearPassportFront = () => { setPassportFront(null); setPassportVerifyState('idle'); };
-  const clearPassportBack  = () => { setPassportBack(null);  setPassportVerifyState('idle'); };
+  /* ── Verify SA ID via VerifyNow ──────────────────────────── */
+  const handleVerifyId = async () => {
+    // Quick local format check first
+    const local = validateSAIdFormat(idNumber);
+    if (!local.valid) {
+      setIdVerifyState('error');
+      setIdVerifyMsg(local.message);
+      toast.error(local.message);
+      return;
+    }
 
-  // ── Verify ID ───────────────────────────────────────────────
-  const handleVerifyId = () => {
     setVerifyLoading(true);
-    setTimeout(() => {
-      const result = validateSAId(idNumber);
-      setIdVerifyState(result.valid ? 'valid' : 'invalid');
-      setIdVerifyMsg(result.message);
-      if (result.valid) toast.success(result.message);
-      else              toast.error(result.message);
+    try {
+      const res  = await fetch('/.netlify/functions/verify-id', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idNumber }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || `Server error ${res.status}`);
+      }
+
+      if (data.verified) {
+        setIdVerifyState('verified');
+        setIdVerifyMsg('ID number verified with Home Affairs records.');
+        toast.success('SA ID verified successfully.');
+      } else {
+        setIdVerifyState('unverified');
+        setIdVerifyMsg('ID number could not be verified. You may still continue — we will follow up.');
+        toast.warning('ID verification inconclusive. You can still register.');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Verification service unavailable';
+      setIdVerifyState('error');
+      setIdVerifyMsg('Verification service unavailable. You may still continue.');
+      toast.error(msg);
+    } finally {
       setVerifyLoading(false);
-    }, 600);
+    }
   };
 
-  // ── Verify passport docs ────────────────────────────────────
-  const handleVerifyPassport = () => {
+  /* ── Verify Passport via VerifyNow ───────────────────────── */
+  const handleVerifyPassport = async () => {
     if (!passportNumber.trim()) {
-      setPassportVerifyState('invalid');
-      setPassportVerifyMsg('Please enter your passport number first.');
       toast.error('Please enter your passport number first.');
       return;
     }
     if (!passportFront || !passportBack) {
-      setPassportVerifyState('invalid');
-      setPassportVerifyMsg('Please upload both the front and back of your passport.');
-      toast.error('Both passport images are required.');
+      toast.error('Please upload both the front and back photos of your passport.');
       return;
     }
+
     setVerifyLoading(true);
-    setTimeout(() => {
-      setPassportVerifyState('valid');
-      setPassportVerifyMsg('Passport number and images accepted.');
-      toast.success('Passport details accepted.');
+    try {
+      const [frontBase64, backBase64] = await Promise.all([
+        fileToBase64(passportFront),
+        fileToBase64(passportBack),
+      ]);
+
+      const res  = await fetch('/.netlify/functions/verify-passport', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          passportNumber,
+          frontBase64,
+          frontType: passportFront.type,
+          backBase64,
+          backType: passportBack.type,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || `Server error ${res.status}`);
+      }
+
+      if (data.verified) {
+        setPassportVerifyState('verified');
+        setPassportVerifyMsg('Passport documents verified successfully.');
+        toast.success('Passport verified successfully.');
+      } else {
+        setPassportVerifyState('unverified');
+        setPassportVerifyMsg('Passport could not be verified. You may still continue — we will follow up.');
+        toast.warning('Passport verification inconclusive. You can still register.');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Verification service unavailable';
+      setPassportVerifyState('error');
+      setPassportVerifyMsg('Verification service unavailable. You may still continue.');
+      toast.error(msg);
+    } finally {
       setVerifyLoading(false);
-    }, 600);
+    }
   };
 
-  const docVerified =
-    (docType === 'id'       && idVerifyState       === 'valid') ||
-    (docType === 'passport' && passportVerifyState === 'valid');
-
-  // ── Create account ──────────────────────────────────────────
+  /* ── Create account ───────────────────────────────────────── */
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!docVerified) {
-      toast.error('Please verify your identity document before continuing.');
-      return;
+    if (docType === 'id' && !idNumber.trim()) {
+      toast.error('Please enter your ID number.'); return;
+    }
+    if (docType === 'passport' && !passportNumber.trim()) {
+      toast.error('Please enter your passport number.'); return;
+    }
+    if (docType === 'passport' && (!passportFront || !passportBack)) {
+      toast.error('Please upload both passport images.'); return;
     }
     setLoading(true);
     const { error } = await supabase.auth.signUp({
@@ -192,6 +261,9 @@ export default function Register() {
           full_name: fullName,
           phone,
           doc_type: docType,
+          doc_verified: docType === 'id'
+            ? idVerifyState === 'verified'
+            : passportVerifyState === 'verified',
           ...(docType === 'id'
             ? { id_number: idNumber }
             : { passport_number: passportNumber }),
@@ -204,7 +276,7 @@ export default function Register() {
     setLoading(false);
   };
 
-  // ── Verify email OTP ────────────────────────────────────────
+  /* ── Verify email OTP ─────────────────────────────────────── */
   const handleVerifyEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -212,7 +284,7 @@ export default function Register() {
     if (error) { toast.error(error.message); setLoading(false); return; }
 
     if (docType === 'passport' && data.user && (passportFront || passportBack)) {
-      const uid     = data.user.id;
+      const uid = data.user.id;
       const uploads = [];
       if (passportFront) {
         const ext = passportFront.name.split('.').pop();
@@ -250,7 +322,7 @@ export default function Register() {
     setGoogleLoading(false);
   };
 
-  /* ── Email OTP screen ──────────────────────────────────────── */
+  /* ── Email OTP screen ─────────────────────────────────────── */
   if (step === 'email-otp') {
     return (
       <div className="space-y-6">
@@ -287,16 +359,17 @@ export default function Register() {
           </p>
           <p>Wrong email?{' '}
             <button onClick={() => { setStep('form'); setEmailOtp(''); }}
-              className="text-primary font-semibold hover:underline">
-              Go back
-            </button>
+              className="text-primary font-semibold hover:underline">Go back</button>
           </p>
         </div>
       </div>
     );
   }
 
-  /* ── Registration form ─────────────────────────────────────── */
+  /* ── Registration form ────────────────────────────────────── */
+  const idBtnDone      = idVerifyState       === 'verified' || idVerifyState       === 'unverified';
+  const passportBtnDone = passportVerifyState === 'verified' || passportVerifyState === 'unverified';
+
   return (
     <div className="space-y-6">
       <div className="text-center">
@@ -359,7 +432,10 @@ export default function Register() {
                 id="idNumber" value={idNumber}
                 onChange={e => handleIdChange(e.target.value)}
                 placeholder="8001015009087"
-                className={`rounded-xl font-mono tracking-wider ${idVerifyState === 'valid' ? 'border-green-500 focus-visible:ring-green-500' : idVerifyState === 'invalid' ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                className={`rounded-xl font-mono tracking-wider
+                  ${idVerifyState === 'verified'   ? 'border-green-500 focus-visible:ring-green-500' : ''}
+                  ${idVerifyState === 'unverified' ? 'border-amber-500 focus-visible:ring-amber-500' : ''}
+                  ${idVerifyState === 'error'      ? 'border-red-500   focus-visible:ring-red-500'   : ''}`}
                 inputMode="numeric" maxLength={13} required
               />
               <p className="text-xs text-muted-foreground pl-1">13-digit South African ID number</p>
@@ -367,17 +443,17 @@ export default function Register() {
             <VerifyBadge state={idVerifyState} message={idVerifyMsg} />
             <Button
               type="button"
-              variant={idVerifyState === 'valid' ? 'outline' : 'default'}
+              variant={idBtnDone ? 'outline' : 'default'}
               onClick={handleVerifyId}
-              disabled={idNumber.length !== 13 || verifyLoading || idVerifyState === 'valid'}
-              className={`w-full h-10 rounded-xl gap-2 font-medium ${idVerifyState === 'valid' ? 'border-green-500 text-green-700 dark:text-green-400' : ''}`}
+              disabled={idNumber.length !== 13 || verifyLoading || idBtnDone}
+              className={`w-full h-10 rounded-xl gap-2 font-medium
+                ${idVerifyState === 'verified'   ? 'border-green-500 text-green-700 dark:text-green-400' : ''}
+                ${idVerifyState === 'unverified' ? 'border-amber-500 text-amber-700 dark:text-amber-400' : ''}`}
             >
-              {verifyLoading
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : idVerifyState === 'valid'
-                  ? <><CheckCircle2 className="w-4 h-4" /> ID Verified</>
-                  : <><ShieldCheck  className="w-4 h-4" /> Verify ID Number</>
-              }
+              {verifyLoading ? <Loader2 className="w-4 h-4 animate-spin" />
+                : idVerifyState === 'verified'   ? <><CheckCircle2 className="w-4 h-4" /> ID Verified</>
+                : idVerifyState === 'unverified' ? <><AlertCircle  className="w-4 h-4" /> Verification Inconclusive</>
+                :                                  <><ShieldCheck  className="w-4 h-4" /> Verify ID Number</>}
             </Button>
           </div>
         )}
@@ -389,9 +465,12 @@ export default function Register() {
               <Label htmlFor="passportNumber">Passport Number</Label>
               <Input
                 id="passportNumber" value={passportNumber}
-                onChange={e => { setPassportNumber(e.target.value.toUpperCase()); if (passportVerifyState !== 'idle') setPassportVerifyState('idle'); }}
+                onChange={e => handlePassportNumberChange(e.target.value)}
                 placeholder="A12345678"
-                className={`rounded-xl font-mono tracking-wider ${passportVerifyState === 'valid' ? 'border-green-500 focus-visible:ring-green-500' : passportVerifyState === 'invalid' ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                className={`rounded-xl font-mono tracking-wider
+                  ${passportVerifyState === 'verified'   ? 'border-green-500 focus-visible:ring-green-500' : ''}
+                  ${passportVerifyState === 'unverified' ? 'border-amber-500 focus-visible:ring-amber-500' : ''}
+                  ${passportVerifyState === 'error'      ? 'border-red-500   focus-visible:ring-red-500'   : ''}`}
                 required
               />
             </div>
@@ -403,17 +482,17 @@ export default function Register() {
             <VerifyBadge state={passportVerifyState} message={passportVerifyMsg} />
             <Button
               type="button"
-              variant={passportVerifyState === 'valid' ? 'outline' : 'default'}
+              variant={passportBtnDone ? 'outline' : 'default'}
               onClick={handleVerifyPassport}
-              disabled={verifyLoading || passportVerifyState === 'valid'}
-              className={`w-full h-10 rounded-xl gap-2 font-medium ${passportVerifyState === 'valid' ? 'border-green-500 text-green-700 dark:text-green-400' : ''}`}
+              disabled={verifyLoading || passportBtnDone}
+              className={`w-full h-10 rounded-xl gap-2 font-medium
+                ${passportVerifyState === 'verified'   ? 'border-green-500 text-green-700 dark:text-green-400' : ''}
+                ${passportVerifyState === 'unverified' ? 'border-amber-500 text-amber-700 dark:text-amber-400' : ''}`}
             >
-              {verifyLoading
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : passportVerifyState === 'valid'
-                  ? <><CheckCircle2 className="w-4 h-4" /> Passport Verified</>
-                  : <><ShieldCheck  className="w-4 h-4" /> Verify Passport Documents</>
-              }
+              {verifyLoading ? <Loader2 className="w-4 h-4 animate-spin" />
+                : passportVerifyState === 'verified'   ? <><CheckCircle2 className="w-4 h-4" /> Passport Verified</>
+                : passportVerifyState === 'unverified' ? <><AlertCircle  className="w-4 h-4" /> Verification Inconclusive</>
+                :                                        <><ShieldCheck  className="w-4 h-4" /> Verify Passport Documents</>}
             </Button>
           </div>
         )}
@@ -422,22 +501,18 @@ export default function Register() {
         <div className="space-y-1.5">
           <Label htmlFor="password">Password</Label>
           <div className="relative">
-            <Input id="password" type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters" className="rounded-xl pr-10" minLength={8} required />
+            <Input id="password" type={showPw ? 'text' : 'password'} value={password}
+              onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters"
+              className="rounded-xl pr-10" minLength={8} required />
             <button type="button" onClick={() => setShowPw(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
               {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
         </div>
 
-        <Button type="submit" disabled={loading || !docVerified} className="w-full h-11 rounded-xl font-semibold">
+        <Button type="submit" disabled={loading} className="w-full h-11 rounded-xl font-semibold">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Account'}
         </Button>
-
-        {!docVerified && (
-          <p className="text-center text-xs text-muted-foreground">
-            Verify your identity document above to continue.
-          </p>
-        )}
       </form>
 
       <p className="text-center text-xs text-muted-foreground">
