@@ -34,7 +34,10 @@ const GENERAL_SOFT_SKILLS = [
   'Project Management','Customer Service','Attention to Detail',
 ];
 
-const LANGUAGES = ['English','Afrikaans','isiZulu','isiXhosa','Sepedi','Setswana','Sesotho','Xitsonga','Tshivenda'];
+const LANGUAGES = [
+  'English','Afrikaans','isiZulu','isiXhosa','Sepedi','Setswana',
+  'Sesotho','Xitsonga','Tshivenda','isiNdebele','isiSwati',
+];
 
 interface SkillsData { subjects: string[]; soft_skills: string[]; languages: string[] }
 interface Props {
@@ -47,6 +50,7 @@ export default function CVStepSkills({ data, onChange, cvType }: Props) {
   const [softInput, setSoftInput] = useState('');
   const [subjectInput, setSubjectInput] = useState('');
   const [skillInput, setSkillInput] = useState('');
+  const [langInput, setLangInput] = useState('');
 
   const toggle = (list: keyof SkillsData, item: string) => {
     const arr = data[list] || [];
@@ -79,6 +83,14 @@ export default function CVStepSkills({ data, onChange, cvType }: Props) {
 
   const removeSkill = (item: string) => {
     onChange({ ...data, subjects: (data.subjects || []).filter(s => s !== item) });
+  };
+
+  const addLang = () => {
+    const val = langInput.trim();
+    if (val && !(data.languages || []).includes(val)) {
+      onChange({ ...data, languages: [...(data.languages || []), val] });
+      setLangInput('');
+    }
   };
 
   const btnClass = (active: boolean) =>
@@ -118,10 +130,14 @@ export default function CVStepSkills({ data, onChange, cvType }: Props) {
         {/* Languages */}
         <div className="bg-card rounded-2xl border border-border p-4">
           <Label className="text-sm font-semibold mb-3 block">Languages</Label>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 mb-3">
             {LANGUAGES.map(l => (
               <button key={l} onClick={() => toggle('languages', l)} className={btnClass(!!data.languages?.includes(l))}>{l}</button>
             ))}
+          </div>
+          <div className="flex gap-2">
+            <Input value={langInput} onChange={e => setLangInput(e.target.value)} placeholder="Add other language..." className="rounded-xl" onKeyDown={e => e.key === 'Enter' && addLang()} />
+            <Button size="icon" variant="outline" className="rounded-xl shrink-0" onClick={addLang}><Plus className="w-4 h-4" /></Button>
           </div>
         </div>
       </div>
@@ -168,10 +184,14 @@ export default function CVStepSkills({ data, onChange, cvType }: Props) {
       {/* Languages */}
       <div className="bg-card rounded-2xl border border-border p-4">
         <Label className="text-sm font-semibold mb-3 block">Languages</Label>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 mb-3">
           {LANGUAGES.map(l => (
             <button key={l} onClick={() => toggle('languages', l)} className={btnClass(!!data.languages?.includes(l))}>{l}</button>
           ))}
+        </div>
+        <div className="flex gap-2">
+          <Input value={langInput} onChange={e => setLangInput(e.target.value)} placeholder="Add other language..." className="rounded-xl" onKeyDown={e => e.key === 'Enter' && addLang()} />
+          <Button size="icon" variant="outline" className="rounded-xl shrink-0" onClick={addLang}><Plus className="w-4 h-4" /></Button>
         </div>
       </div>
     </div>
