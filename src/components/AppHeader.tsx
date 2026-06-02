@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { GraduationCap, User, Settings, LogOut } from 'lucide-react';
+import { GraduationCap, User, Settings, LogOut, ShieldCheck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -52,9 +52,14 @@ export default function AppHeader() {
           {open && (
             <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-2xl shadow-lg py-1 z-50">
               <div className="px-3 py-2 border-b border-border">
-                <p className="text-xs font-semibold text-foreground truncate">
-                  {(meta.full_name as string | undefined) || user?.email || 'Educator'}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-semibold text-foreground truncate">
+                    {(meta.full_name as string | undefined) || user?.email || 'Educator'}
+                  </p>
+                  {meta.doc_verified && (
+                    <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" title="Verified" />
+                  )}
+                </div>
                 <p className="text-[11px] text-muted-foreground truncate">{user?.email}</p>
               </div>
               <MenuItem icon={User} label="Profile" to="/profile" onClick={() => setOpen(false)} />

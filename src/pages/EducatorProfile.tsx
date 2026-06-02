@@ -136,9 +136,9 @@ export default function EducatorProfile() {
           </div>
         )}
         {educator.is_sace_verified && (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-full px-2.5 py-1">
             <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-            <span className="text-xs font-semibold text-primary">SACE Verified</span>
+            <span className="text-xs font-semibold text-primary">Verified</span>
           </div>
         )}
       </div>
