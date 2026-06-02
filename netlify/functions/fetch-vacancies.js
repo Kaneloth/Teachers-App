@@ -7,9 +7,9 @@
  * Auth:    Expects header  x-admin-secret: <ADMIN_SECRET env var>
  *
  * Env vars required:
- *   SUPABASE_URL          — your Supabase project URL
- *   SUPABASE_SERVICE_KEY  — service role key (bypasses RLS)
- *   ADMIN_SECRET          — shared secret so only the admin button can call this
+ *   VITE_SUPABASE_URL              — your Supabase project URL
+ *   VITE_SUPABASE_SERVICE_ROLE_KEY — service role key (bypasses RLS)
+ *   ADMIN_SECRET                   — shared secret so only the admin button can call this
  */
 
 const CORS_HEADERS = {
@@ -20,13 +20,13 @@ const CORS_HEADERS = {
 
 /* ─── Supabase REST helper (no SDK needed in Netlify functions) ─────────── */
 async function supabaseUpsert(rows) {
-  const url = `${process.env.SUPABASE_URL}/rest/v1/vacancies`;
+  const url = `${process.env.VITE_SUPABASE_URL}/rest/v1/vacancies`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'apikey': process.env.SUPABASE_SERVICE_KEY,
-      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+      'apikey': process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
+      'Authorization': `Bearer ${process.env.VITE_SUPABASE_SERVICE_ROLE_KEY}`,
       'Prefer': 'resolution=merge-duplicates,return=minimal',
     },
     body: JSON.stringify(rows),
@@ -92,7 +92,7 @@ function normaliseProvince(str) {
 }
 
 /* ─── Post type detector ────────────────────────────────────────────────── */
-function detectType(title = '', department = '') {
+function detectPostType(title = '', department = '') {
   const text = (title + ' ' + department).toLowerCase();
   if (text.includes('district')) return 'District';
   if (text.includes('circuit')) return 'Circuit';
@@ -203,7 +203,7 @@ async function fetchDPSA() {
           const subjects = extractSubjects(post + ' ' + requirements);
           const postLevel = extractPostLevel(post + ' ' + salary);
           const phase = extractPhase(post + ' ' + requirements);
-          const type = detectType(post, dept);
+          const post_type = detectPostType(post, dept);
 
           // Extract district from centre (often "District: Tshwane North" or just a location)
           let district = null;
@@ -212,17 +212,18 @@ async function fetchDPSA() {
 
           results.push({
             title: post.slice(0, 200),
+            institution: dept.slice(0, 200),
             school: centre.slice(0, 200),
             province,
             district,
             phase,
-            type,
+            post_type,
             subjects: subjects.length ? subjects : null,
             post_level: postLevel,
             closing_date: closing,
             source: 'DPSA',
             reference: ref.slice(0, 100) || `dpsa-${Buffer.from(post + centre).toString('base64').slice(0, 20)}`,
-            url: circUrl,
+            application_url: circUrl,
           });
         }
       } catch (e) {
@@ -284,21 +285,22 @@ async function fetchIndeed() {
             const subjects = extractSubjects(combined);
             const postLevel = extractPostLevel(combined);
             const phase = extractPhase(combined);
-            const type = detectType(title, company);
+            const post_type = detectPostType(title, company);
 
             results.push({
               title: title.slice(0, 200),
+              institution: company.slice(0, 200),
               school: company.slice(0, 200),
               province,
               district: null,
               phase,
-              type,
+              post_type,
               subjects: subjects.length ? subjects : null,
               post_level: postLevel,
-              closing_date: null, // Indeed rarely shows closing dates
+              closing_date: null,
               source: 'Indeed',
               reference: `indeed-${jobKey}`,
-              url: jobKey ? `https://za.indeed.com/viewjob?jk=${jobKey}` : 'https://za.indeed.com',
+              application_url: jobKey ? `https://za.indeed.com/viewjob?jk=${jobKey}` : 'https://za.indeed.com',
             });
           }
           continue; // skip HTML parsing if JSON worked
@@ -331,17 +333,18 @@ async function fetchIndeed() {
 
         results.push({
           title: title.slice(0, 200),
+          institution: company.slice(0, 200),
           school: company.slice(0, 200),
           province: normaliseProvince(location),
           district: null,
           phase: extractPhase(combined),
-          type: detectType(title, company),
+          post_type: detectPostType(title, company),
           subjects: null,
           post_level: null,
           closing_date: null,
           source: 'Indeed',
           reference: jkM ? `indeed-${jkM[1]}` : `indeed-${Buffer.from(title + company).toString('base64').slice(0, 20)}`,
-          url: jkM ? `https://za.indeed.com/viewjob?jk=${jkM[1]}` : 'https://za.indeed.com',
+          application_url: jkM ? `https://za.indeed.com/viewjob?jk=${jkM[1]}` : 'https://za.indeed.com',
         });
       }
     } catch (e) {
@@ -366,7 +369,7 @@ exports.handler = async (event) => {
     return { statusCode: 401, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Unauthorized' }) };
   }
 
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+  if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
     return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Missing Supabase env vars' }) };
   }
 
