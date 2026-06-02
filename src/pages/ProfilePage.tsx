@@ -17,12 +17,61 @@ import { useNavigate } from 'react-router-dom';
 
 const PROVINCES = ['Gauteng','KwaZulu-Natal','Western Cape','Eastern Cape','Mpumalanga','Limpopo','North West','Free State','Northern Cape'];
 const PHASES    = ['Foundation','Intermediate','Senior','FET'];
-const SUBJECTS  = [
-  'Mathematics','Mathematical Literacy','Physical Sciences','Life Sciences',
-  'English HL','English FAL','Afrikaans HL','Afrikaans FAL',
-  'History','Geography','Business Studies','Accounting','Economics',
-  'Life Orientation','Computer Applications Technology','Information Technology',
-  'Agricultural Sciences','Natural Sciences','Social Sciences',
+
+// Full subjects list (from the first code) – includes "Other" at the end
+const SUBJECTS = [
+  'Accounting',
+  'Afrikaans FAL',
+  'Afrikaans HL',
+  'Agricultural Sciences',
+  'Agricultural Management Practices',
+  'Agricultural Technology',
+  'Business Studies',
+  'Computer Applications Technology',
+  'Consumer Studies',
+  'Dance Studies',
+  'Design',
+  'Dramatic Arts',
+  'Economics',
+  'Engineering Graphics and Design',
+  'English FAL',
+  'English HL',
+  'Geography',
+  'History',
+  'Hospitality Studies',
+  'Information Technology',
+  'isiNdebele FAL',
+  'isiNdebele HL',
+  'isiXhosa FAL',
+  'isiXhosa HL',
+  'isiZulu FAL',
+  'isiZulu HL',
+  'Life Orientation',
+  'Life Sciences',
+  'Mathematical Literacy',
+  'Mathematics',
+  'Music',
+  'Natural Sciences',
+  'Physical Sciences',
+  'Religion Studies',
+  'Sepedi FAL',
+  'Sepedi HL',
+  'Sesotho FAL',
+  'Sesotho HL',
+  'Setswana FAL',
+  'Setswana HL',
+  'Sign Language HL',
+  'Siswati FAL',
+  'Siswati HL',
+  'Social Sciences',
+  'Technology',
+  'Tshivenda FAL',
+  'Tshivenda HL',
+  'Tourism',
+  'Visual Arts',
+  'Xitsonga FAL',
+  'Xitsonga HL',
+  'Other',
 ];
 
 interface Profile {
@@ -405,6 +454,7 @@ export default function ProfilePage() {
   const [refreshing,  setRefreshing]  = useState(false);
   const [avatarSheet, setAvatarSheet] = useState(false);
   const [subjectToAdd,  setSubjectToAdd]  = useState('');
+  const [customSubject, setCustomSubject] = useState(''); // for "Other"
   const [provinceToAdd, setProvinceToAdd] = useState('');
   const cameraInputRef  = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -441,17 +491,14 @@ export default function ProfilePage() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-    // Reset the input so the same file can be re-selected if needed
     e.target.value = '';
     setUploading(true);
     try {
-      // Derive extension from MIME type (camera files often have no extension)
       const mimeExt: Record<string, string> = {
         'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
         'image/gif': 'gif', 'image/webp': 'webp', 'image/heic': 'heic',
       };
       const ext = mimeExt[file.type] ?? file.name.split('.').pop() ?? 'jpg';
-      // Path must start with user.id/ so Supabase RLS policy (foldername[1] = auth.uid) passes
       const path = `${user.id}/avatar.${ext}`;
       const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
       if (error) {
@@ -468,9 +515,23 @@ export default function ProfilePage() {
     }
   };
 
-  const addSubject  = () => { if (subjectToAdd  && !profile.subjects.includes(subjectToAdd))            set('subjects',            [...profile.subjects, subjectToAdd]);           setSubjectToAdd('');  };
-  const addProvince = () => { if (provinceToAdd && !profile.preferred_provinces.includes(provinceToAdd)) set('preferred_provinces', [...profile.preferred_provinces, provinceToAdd]); setProvinceToAdd(''); };
-  const removeSubject  = (s: string) => set('subjects',            profile.subjects.filter(x => x !== s));
+  // Updated addSubject to handle "Other"
+  const addSubject = () => {
+    const subject = subjectToAdd === 'Other' ? customSubject.trim() : subjectToAdd;
+    if (subject && !profile.subjects.includes(subject)) {
+      set('subjects', [...profile.subjects, subject]);
+      setSubjectToAdd('');
+      setCustomSubject('');
+    }
+  };
+
+  const addProvince = () => {
+    if (provinceToAdd && !profile.preferred_provinces.includes(provinceToAdd)) {
+      set('preferred_provinces', [...profile.preferred_provinces, provinceToAdd]);
+      setProvinceToAdd('');
+    }
+  };
+  const removeSubject  = (s: string) => set('subjects', profile.subjects.filter(x => x !== s));
   const removeProvince = (p: string) => set('preferred_provinces', profile.preferred_provinces.filter(x => x !== p));
 
   const handleSave = async () => {
@@ -675,13 +736,28 @@ export default function ProfilePage() {
                 ))}
               </div>
             )}
-            <div className="flex gap-2">
-              <Select value={subjectToAdd} onValueChange={setSubjectToAdd}>
+            <div className="flex gap-2 mb-2">
+              <Select value={subjectToAdd} onValueChange={v => { setSubjectToAdd(v); setCustomSubject(''); }}>
                 <SelectTrigger className="rounded-xl flex-1"><SelectValue placeholder="Add subject" /></SelectTrigger>
-                <SelectContent>{SUBJECTS.filter(s => !profile.subjects.includes(s)).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                <SelectContent className="max-h-72 overflow-y-auto">
+                  {SUBJECTS.filter(s => !profile.subjects.includes(s)).map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
-              <Button type="button" size="icon" variant="outline" onClick={addSubject} className="rounded-xl shrink-0 h-10 w-10"><Plus className="w-4 h-4" /></Button>
+              <Button type="button" size="icon" variant="outline" onClick={addSubject} className="rounded-xl shrink-0 h-10 w-10">
+                <Plus className="w-4 h-4" />
+              </Button>
             </div>
+            {subjectToAdd === 'Other' && (
+              <Input
+                value={customSubject}
+                onChange={e => setCustomSubject(e.target.value)}
+                placeholder="Type subject name..."
+                className="rounded-xl h-11 mb-2"
+                autoFocus
+              />
+            )}
           </Field>
         </SectionCard>
 
