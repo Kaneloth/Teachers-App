@@ -46,9 +46,26 @@ export default function Search() {
     if (filters.subject) q = q.contains('subjects', [filters.subject]);
     const { data } = await q.limit(50);
     let results = data || [];
+
+    /* Overlay verified status from profiles table — source of truth for all users */
+    if (results.length > 0) {
+      const userIds = results.map((e: { user_id?: string }) => e.user_id).filter(Boolean);
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('id, is_verified')
+        .in('id', userIds);
+      const verifiedIds = new Set(
+        (profileData ?? []).filter((p: { is_verified?: boolean }) => p.is_verified).map((p: { id: string }) => p.id)
+      );
+      results = results.map((e: { user_id?: string }) => ({
+        ...e,
+        is_sace_verified: verifiedIds.has(e.user_id ?? ''),
+      }));
+    }
+
     if (query.trim()) {
       const lower = query.toLowerCase();
-      results = results.filter(e =>
+      results = results.filter((e: { full_name?: string; current_province?: string; subjects?: string[] }) =>
         e.full_name?.toLowerCase().includes(lower) ||
         e.current_province?.toLowerCase().includes(lower) ||
         e.subjects?.some((s: string) => s.toLowerCase().includes(lower))

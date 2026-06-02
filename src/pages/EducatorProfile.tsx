@@ -53,8 +53,17 @@ export default function EducatorProfile() {
 
   useEffect(() => {
     if (!id) return;
-    supabase.from('educators').select('*').eq('id', id).single().then(({ data }) => {
-      setEducator(data);
+    supabase.from('educators').select('*').eq('id', id).single().then(async ({ data }) => {
+      if (data?.user_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_verified')
+          .eq('id', data.user_id)
+          .single();
+        setEducator({ ...data, is_sace_verified: profile?.is_verified ?? data.is_sace_verified ?? false });
+      } else {
+        setEducator(data);
+      }
       setLoading(false);
     });
   }, [id]);

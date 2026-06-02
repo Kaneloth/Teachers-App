@@ -201,16 +201,30 @@ function IdentityVerificationSection() {
   const clearFront = () => { setPassportFront(null); setPassportVerifyState('idle'); setPassportVerifyMsg(''); };
   const clearBack  = () => { setPassportBack(null);  setPassportVerifyState('idle'); setPassportVerifyMsg(''); };
 
-  /* Persist verification result to user metadata AND educators table */
+  /* Persist verification result to user metadata AND profiles table */
   const saveVerifiedMeta = async (docTypeVal: DocType, docNumber: string, verified: boolean) => {
-    await supabase.auth.updateUser({
+    const { error: metaError } = await supabase.auth.updateUser({
       data: {
         doc_type: docTypeVal,
         doc_verified: verified,
         ...(docTypeVal === 'id' ? { id_number: docNumber } : { passport_number: docNumber }),
       },
     });
+    if (metaError) {
+      console.error('[saveVerifiedMeta] auth.updateUser failed:', metaError.message);
+      toast.error('Could not save verification status. Please try again.');
+      return;
+    }
     if (user?.id) {
+      /* profiles is the source of truth — works for all users, not just educators */
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({ id: user.id, is_verified: verified }, { onConflict: 'id' });
+      if (profileError) {
+        console.error('[saveVerifiedMeta] profiles upsert failed:', profileError.message);
+        toast.error('Verification saved to account but badge could not be updated: ' + profileError.message);
+      }
+      /* Also sync to educators row if one exists, so search results stay in sync */
       await supabase
         .from('educators')
         .update({ is_sace_verified: verified })
@@ -599,7 +613,7 @@ export default function ProfilePage() {
           </div>
         </button>
         <p className="text-xs text-muted-foreground">Tap to change photo</p>
-        {profile.is_sace_verified && (
+        {user?.user_metadata?.doc_verified && (
           <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-full px-2.5 py-1">
             <ShieldCheck className="w-3.5 h-3.5 text-primary" />
             <span className="text-xs font-semibold text-primary">Verified</span>
