@@ -21,13 +21,14 @@ interface Vacancy {
   province?: string;
   district?: string;
   phase?: string;
-  type?: string;
+  post_type?: string;
   subjects?: string[];
   post_level?: string;
   closing_date?: string;
+  institution?: string;
   source?: string;
   reference?: string;
-  url?: string;
+  application_url?: string;
   posted_by_school?: boolean;
   created_at: string;
 }
@@ -71,7 +72,7 @@ function DaysLeftBadge({ closing_date }: { closing_date?: string }) {
 export default function VacanciesPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = (user as any)?.role === 'admin' || (user as any)?.user_metadata?.role === 'admin';
+  const isAdmin = user?.user_metadata?.role === 'admin';
 
   const [vacancies, setVacancies] = useState<Vacancy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +125,7 @@ export default function VacanciesPage() {
 
   const filtered = vacancies.filter(v => {
     if (province && v.province !== province) return false;
-    if (type && v.type !== type) return false;
+    if (type && v.post_type !== type) return false;
     if (query.trim()) {
       const lower = query.toLowerCase();
       if (
@@ -295,17 +296,17 @@ export default function VacanciesPage() {
                       </div>
                     )}
 
-                    {/* Subjects + type + phase tags */}
-                    {(v.subjects?.length || v.type || v.phase) && (
+                    {/* Subjects + post_type + phase tags */}
+                    {(v.subjects?.length || v.post_type || v.phase) && (
                       <div className="flex flex-wrap gap-1.5 pt-0.5">
                         {v.subjects?.map(s => (
                           <span key={s} className="text-[10px] bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 border border-border">
                             {s}
                           </span>
                         ))}
-                        {v.type && (
+                        {v.post_type && (
                           <span className="text-[10px] text-primary bg-primary/10 border border-primary/20 rounded-full px-2.5 py-0.5 font-medium">
-                            {v.type}
+                            {v.post_type}
                           </span>
                         )}
                         {v.phase && (
@@ -333,8 +334,8 @@ export default function VacanciesPage() {
                           {v.reference && `Ref: ${v.reference}`}
                         </p>
                       </div>
-                      {v.url && (
-                        <a href={v.url} target="_blank" rel="noopener noreferrer">
+                      {v.application_url && (
+                        <a href={v.application_url} target="_blank" rel="noopener noreferrer">
                           <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-xs h-8 shrink-0">
                             View / Apply <ExternalLink className="w-3 h-3" />
                           </Button>
