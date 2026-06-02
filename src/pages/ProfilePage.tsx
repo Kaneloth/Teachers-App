@@ -810,9 +810,11 @@ export default function ProfilePage() {
             <div className="space-y-3">
               <div>
                 <Label className="text-xs text-muted-foreground">Select a district</Label>
-                {profile.preferred_provinces.length === 0 ? (
+                {eligibleDistricts.length === 0 ? (
                   <div className="flex h-9 w-full items-center rounded-xl border border-input bg-muted/40 px-3 text-sm text-muted-foreground mt-1">
-                    Add preferred provinces first
+                    {profile.preferred_provinces.length === 0
+                      ? 'Add preferred provinces first'
+                      : 'No districts available for selected provinces'}
                   </div>
                 ) : (
                   <div className="flex gap-2 mt-1">
