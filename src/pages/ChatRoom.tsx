@@ -246,11 +246,11 @@ export default function ChatRoom() {
               )}
 
               <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-1 relative`}>
-                {/* Context menu — floats above the bubble */}
+                {/* Context menu — floats below the bubble */}
                 {isSelected && (
                   <div
                     ref={menuRef}
-                    className={`absolute z-50 bottom-full mb-2 ${isMe ? 'right-0' : 'left-0'} bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[180px]`}
+                    className={`absolute z-50 top-full mt-1 ${isMe ? 'right-0' : 'left-0'} bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[180px]`}
                   >
                     <button
                       onClick={() => handleCopy(msg)}
