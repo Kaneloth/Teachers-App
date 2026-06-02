@@ -441,14 +441,31 @@ export default function ProfilePage() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
+    // Reset the input so the same file can be re-selected if needed
+    e.target.value = '';
     setUploading(true);
-    const path = `avatars/${user.id}.${file.name.split('.').pop()}`;
-    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
-    if (!error) {
-      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-      set('avatar_url', urlData.publicUrl);
-    } else { toast.error('Avatar upload failed'); }
-    setUploading(false);
+    try {
+      // Derive extension from MIME type (camera files often have no extension)
+      const mimeExt: Record<string, string> = {
+        'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
+        'image/gif': 'gif', 'image/webp': 'webp', 'image/heic': 'heic',
+      };
+      const ext = mimeExt[file.type] ?? file.name.split('.').pop() ?? 'jpg';
+      // Path must start with user.id/ so Supabase RLS policy (foldername[1] = auth.uid) passes
+      const path = `${user.id}/avatar.${ext}`;
+      const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
+      if (error) {
+        toast.error(`Upload failed: ${error.message}`);
+      } else {
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+        set('avatar_url', urlData.publicUrl);
+        toast.success('Profile photo updated!');
+      }
+    } catch (err: unknown) {
+      toast.error((err as { message?: string }).message ?? 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const addSubject  = () => { if (subjectToAdd  && !profile.subjects.includes(subjectToAdd))            set('subjects',            [...profile.subjects, subjectToAdd]);           setSubjectToAdd('');  };
