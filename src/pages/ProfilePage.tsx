@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Loader2, Camera, Flame, Save, ArrowLeft, RefreshCw, X, Plus } from 'lucide-react';
+import { Loader2, Camera, Flame, Save, ArrowLeft, RefreshCw, X, Plus, Phone, Mail, Users } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -24,6 +24,9 @@ const SUBJECTS = [
 interface Profile {
   id?: string;
   full_name: string;
+  email: string;
+  phone: string;
+  gender: string;
   bio: string;
   sace_number: string;
   current_school: string;
@@ -61,7 +64,7 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile>({
-    full_name: '', bio: '', sace_number: '',
+    full_name: '', email: '', phone: '', gender: '', bio: '', sace_number: '',
     current_school: '', current_province: '', town: '',
     phase: '', subjects: [], preferred_provinces: [], available_from: '',
     is_actively_looking: false, years_experience: '', avatar_url: '',
@@ -86,6 +89,9 @@ export default function ProfilePage() {
     } else if (data) {
       setProfile({
         ...data,
+        email: data.email ?? user?.email ?? '',
+        phone: data.phone ?? '',
+        gender: data.gender ?? '',
         years_experience: String(data.years_experience ?? ''),
         subjects: data.subjects ?? [],
         preferred_provinces: data.preferred_provinces ?? [],
@@ -93,6 +99,9 @@ export default function ProfilePage() {
         avatar_url: data.avatar_url ?? '',
         town: data.town ?? '',
       });
+    } else {
+      // no row yet — pre-fill email from auth
+      setProfile(p => ({ ...p, email: user?.email ?? '' }));
     }
     setLoading(false);
   };
@@ -245,6 +254,46 @@ export default function ProfilePage() {
               placeholder="Your full name"
               className="rounded-xl"
             />
+          </Field>
+          <Field label="Email Address">
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <Input
+                type="email"
+                value={profile.email}
+                onChange={e => set('email', e.target.value)}
+                placeholder="you@example.com"
+                className="rounded-xl pl-9"
+              />
+            </div>
+          </Field>
+          <Field label="Phone Number">
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <Input
+                type="tel"
+                value={profile.phone}
+                onChange={e => set('phone', e.target.value)}
+                placeholder="+27 71 000 0000"
+                className="rounded-xl pl-9"
+              />
+            </div>
+          </Field>
+          <Field label="Gender">
+            <div className="relative">
+              <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
+              <Select value={profile.gender} onValueChange={v => set('gender', v)}>
+                <SelectTrigger className="rounded-xl pl-9">
+                  <SelectValue placeholder="Select gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Male">Male</SelectItem>
+                  <SelectItem value="Female">Female</SelectItem>
+                  <SelectItem value="Non-binary">Non-binary</SelectItem>
+                  <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </Field>
           <Field label="SACE Number">
             <Input
