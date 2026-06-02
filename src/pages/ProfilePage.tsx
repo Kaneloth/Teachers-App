@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   Loader2, Camera, Flame, Save, ArrowLeft, RefreshCw, X, Plus,
-  Phone, Mail, Users, CreditCard, BookOpen, Upload,
+  Phone, Mail, Users, CreditCard, BookOpen, Upload, ImagePlus,
   CheckCircle2, AlertCircle, XCircle, ShieldCheck, ShieldCheck as ShieldVerified,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -399,12 +399,15 @@ export default function ProfilePage() {
     phase: '', subjects: [], preferred_provinces: [], available_from: '',
     is_actively_looking: false, years_experience: '', avatar_url: '',
   });
-  const [loading,    setLoading]    = useState(true);
-  const [saving,     setSaving]     = useState(false);
-  const [uploading,  setUploading]  = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [loading,     setLoading]     = useState(true);
+  const [saving,      setSaving]      = useState(false);
+  const [uploading,   setUploading]   = useState(false);
+  const [refreshing,  setRefreshing]  = useState(false);
+  const [avatarSheet, setAvatarSheet] = useState(false);
   const [subjectToAdd,  setSubjectToAdd]  = useState('');
   const [provinceToAdd, setProvinceToAdd] = useState('');
+  const cameraInputRef  = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const loadProfile = async () => {
     if (!user) return;
@@ -493,9 +496,13 @@ export default function ProfilePage() {
         <h1 className="text-lg font-bold text-foreground">My Profile</h1>
       </div>
 
+      {/* Hidden file inputs */}
+      <input ref={cameraInputRef}  type="file" accept="image/*" capture="environment" className="hidden" onChange={handleAvatarUpload} />
+      <input ref={galleryInputRef} type="file" accept="image/*"                       className="hidden" onChange={handleAvatarUpload} />
+
       {/* Avatar */}
       <div className="flex flex-col items-center gap-2 pb-5">
-        <label className="relative cursor-pointer">
+        <button type="button" onClick={() => setAvatarSheet(true)} className="relative focus:outline-none">
           <div className="w-24 h-24 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center overflow-hidden">
             {profile.avatar_url
               ? <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
@@ -504,10 +511,59 @@ export default function ProfilePage() {
           <div className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center border-2 border-background shadow">
             {uploading ? <Loader2 className="w-3.5 h-3.5 text-white animate-spin" /> : <Camera className="w-3.5 h-3.5 text-white" />}
           </div>
-          <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-        </label>
-        <p className="text-xs text-muted-foreground">Tap camera to change photo</p>
+        </button>
+        <p className="text-xs text-muted-foreground">Tap to change photo</p>
       </div>
+
+      {/* Avatar action sheet */}
+      {avatarSheet && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={() => setAvatarSheet(false)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div
+            className="relative bg-card rounded-t-2xl px-4 pt-4 pb-8 space-y-2 shadow-xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-4" />
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest text-center mb-3">Change Profile Photo</p>
+
+            <button
+              type="button"
+              onClick={() => { setAvatarSheet(false); cameraInputRef.current?.click(); }}
+              className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl bg-muted/50 hover:bg-muted active:bg-muted transition-colors"
+            >
+              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <Camera className="w-5 h-5 text-primary" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-foreground">Take Photo</p>
+                <p className="text-xs text-muted-foreground">Use your camera</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setAvatarSheet(false); galleryInputRef.current?.click(); }}
+              className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl bg-muted/50 hover:bg-muted active:bg-muted transition-colors"
+            >
+              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <ImagePlus className="w-5 h-5 text-primary" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-foreground">Choose from Gallery</p>
+                <p className="text-xs text-muted-foreground">Pick an existing photo</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAvatarSheet(false)}
+              className="w-full mt-1 py-3 rounded-2xl text-sm font-semibold text-muted-foreground hover:bg-muted active:bg-muted transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="px-4 space-y-3">
         {/* Actively Looking */}
