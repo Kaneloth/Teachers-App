@@ -163,25 +163,17 @@ export default function Register() {
         body: JSON.stringify({ idNumber }),
       });
 
-      let data: { verified?: boolean; error?: string; details?: unknown } = {};
+      let data: { verified?: boolean; message?: string } = {};
       try { data = await res.json(); } catch { /* non-JSON body */ }
-
-      if (data.error) {
-        // Service returned a meaningful error — show it but let user proceed
-        setIdVerifyState('unverified');
-        setIdVerifyMsg(`Could not verify: ${data.error}. You may still continue.`);
-        toast.warning(data.error);
-        return;
-      }
 
       if (data.verified) {
         setIdVerifyState('verified');
-        setIdVerifyMsg('ID number verified with Home Affairs records.');
-        toast.success('SA ID verified successfully.');
+        setIdVerifyMsg(data.message || 'ID number verified with Home Affairs records.');
+        toast.success(data.message || 'SA ID verified successfully.');
       } else {
         setIdVerifyState('unverified');
-        setIdVerifyMsg('ID number could not be confirmed. You may still continue — we will follow up.');
-        toast.warning('ID verification inconclusive. You can still register.');
+        setIdVerifyMsg((data.message || 'ID number could not be confirmed.') + ' You may still continue.');
+        toast.warning(data.message || 'ID verification inconclusive. You can still register.');
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Network error';
@@ -223,24 +215,17 @@ export default function Register() {
         }),
       });
 
-      let data: { verified?: boolean; error?: string; details?: unknown } = {};
+      let data: { verified?: boolean; message?: string } = {};
       try { data = await res.json(); } catch { /* non-JSON body */ }
-
-      if (data.error) {
-        setPassportVerifyState('unverified');
-        setPassportVerifyMsg(`Could not verify: ${data.error}. You may still continue.`);
-        toast.warning(data.error);
-        return;
-      }
 
       if (data.verified) {
         setPassportVerifyState('verified');
-        setPassportVerifyMsg('Passport documents verified successfully.');
-        toast.success('Passport verified successfully.');
+        setPassportVerifyMsg(data.message || 'Passport documents verified successfully.');
+        toast.success(data.message || 'Passport verified successfully.');
       } else {
         setPassportVerifyState('unverified');
-        setPassportVerifyMsg('Passport could not be confirmed. You may still continue — we will follow up.');
-        toast.warning('Passport verification inconclusive. You can still register.');
+        setPassportVerifyMsg((data.message || 'Passport could not be confirmed.') + ' You may still continue.');
+        toast.warning(data.message || 'Passport verification inconclusive. You can still register.');
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Network error';
