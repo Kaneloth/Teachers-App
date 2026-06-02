@@ -24,12 +24,11 @@ export default function Onboarding() {
 
   const [form, setForm] = useState({
     full_name: user?.user_metadata?.full_name || '',
-    phone: '',
     sace_number: '',
     bio: '',
     current_school: '',
     current_province: '',
-    current_district: '',
+    town: '',
     phase: '',
     subjects: [] as string[],
     years_experience: '',
@@ -46,8 +45,8 @@ export default function Onboarding() {
     try {
       const { error } = await supabase.from('educators').insert([{
         ...form,
-        created_by_id: user?.id,
-        years_experience: form.years_experience ? parseInt(form.years_experience) : null,
+        user_id: user?.id,
+        years_experience: form.years_experience ? parseInt(form.years_experience, 10) : null,
       }]);
       if (error) throw error;
       toast.success('Profile created! Welcome to EduCross!');
@@ -74,7 +73,6 @@ export default function Onboarding() {
           {step === 0 && (
             <>
               <Field label="Full Name"><Input value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Thabo Pretorius" className="rounded-xl" /></Field>
-              <Field label="Phone Number"><Input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+27 71 000 0000" className="rounded-xl" /></Field>
               <Field label="SACE Number (optional)"><Input value={form.sace_number} onChange={e => set('sace_number', e.target.value)} placeholder="e.g. 20012345" className="rounded-xl" /></Field>
               <Field label="Bio / Professional Summary">
                 <Textarea value={form.bio} onChange={e => set('bio', e.target.value)} placeholder="Tell other educators about yourself..." rows={3} className="rounded-xl" />
@@ -91,7 +89,7 @@ export default function Onboarding() {
                   <SelectContent>{PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
-              <Field label="District / Circuit"><Input value={form.current_district} onChange={e => set('current_district', e.target.value)} placeholder="e.g. Tshwane South" className="rounded-xl" /></Field>
+              <Field label="Town / Circuit"><Input value={form.town} onChange={e => set('town', e.target.value)} placeholder="e.g. Pretoria" className="rounded-xl" /></Field>
             </>
           )}
 

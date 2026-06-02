@@ -13,14 +13,14 @@ interface Educator {
   bio?: string;
   current_school?: string;
   current_province?: string;
-  current_district?: string;
+  town?: string;
   phase?: string;
   subjects?: string[];
   preferred_provinces?: string[];
   is_actively_looking?: boolean;
   is_sace_verified?: boolean;
   years_experience?: number;
-  created_by_id?: string;
+  user_id?: string;
 }
 
 function SectionCard({ label, children }: { label: string; children: React.ReactNode }) {
@@ -66,18 +66,18 @@ export default function EducatorProfile() {
       const { data: existing } = await supabase
         .from('messages')
         .select('id')
-        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${educator.created_by_id}),and(sender_id.eq.${educator.created_by_id},receiver_id.eq.${user.id})`)
+        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${educator.user_id}),and(sender_id.eq.${educator.user_id},receiver_id.eq.${user.id})`)
         .limit(1);
 
       if (!existing?.length) {
         await supabase.from('messages').insert([{
           sender_id: user.id,
-          receiver_id: educator.created_by_id,
+          receiver_id: educator.user_id,
           content: `Hi ${educator.full_name}, I found your profile on EduCross and would like to connect!`,
         }]);
         toast.success(`Message sent to ${educator.full_name}`);
       }
-      navigate(`/chat/${educator.created_by_id}`);
+      navigate(`/chat/${educator.user_id}`);
     } catch {
       toast.error('Failed to start conversation');
     } finally {
@@ -96,7 +96,7 @@ export default function EducatorProfile() {
     return <div className="text-center py-20 text-muted-foreground">Educator not found</div>;
   }
 
-  const isOwn = educator.created_by_id === user?.id;
+  const isOwn = educator.user_id === user?.id;
   const initials = educator.full_name
     .split(' ')
     .map(n => n[0])
@@ -148,7 +148,7 @@ export default function EducatorProfile() {
         {/* Current Position */}
         <SectionCard label="Current Position">
           <InfoRow icon={MapPin} label="Province" value={educator.current_province} />
-          <InfoRow icon={MapPin} label="District" value={educator.current_district} />
+          <InfoRow icon={MapPin} label="Town" value={educator.town} />
           <InfoRow icon={Briefcase} label="School" value={educator.current_school} />
         </SectionCard>
 

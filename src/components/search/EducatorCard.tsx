@@ -18,7 +18,7 @@ interface Educator {
   is_actively_looking?: boolean;
   is_sace_verified?: boolean;
   current_province?: string;
-  current_district?: string;
+  town?: string;
   preferred_provinces?: string[];
   subjects?: string[];
   phase?: string;
@@ -34,7 +34,7 @@ export default function EducatorCard({ educator, mySubjects, index = 0 }: Props)
   const match = getMatchPercentage(mySubjects, educator.subjects);
   const initial = educator.full_name?.[0]?.toUpperCase() || '?';
 
-  const locationParts = [educator.current_province, educator.current_district].filter(Boolean);
+  const locationParts = [educator.current_province, educator.town].filter(Boolean);
   const location = locationParts.length ? locationParts.join(' – ') : '–';
   const wants = educator.preferred_provinces?.length ? educator.preferred_provinces.join(', ') : 'Any';
   const subjectsStr = educator.subjects?.length

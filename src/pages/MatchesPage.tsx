@@ -15,7 +15,7 @@ interface Educator {
   subjects?: string[];
   phase?: string;
   is_actively_looking?: boolean;
-  created_by_id?: string;
+  user_id?: string;
 }
 
 export default function MatchesPage() {
@@ -27,11 +27,11 @@ export default function MatchesPage() {
   useEffect(() => {
     if (!user) return;
     const fetchMatches = async () => {
-      const { data: mine } = await supabase.from('educators').select('*').eq('created_by_id', user.id).single();
+      const { data: mine } = await supabase.from('educators').select('*').eq('user_id', user.id).maybeSingle();
       if (!mine) { setLoading(false); return; }
       setMyProfile(mine);
 
-      const { data: all } = await supabase.from('educators').select('*').neq('created_by_id', user.id);
+      const { data: all } = await supabase.from('educators').select('*').neq('user_id', user.id);
       if (!all) { setLoading(false); return; }
 
       const scored = all

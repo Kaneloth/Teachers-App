@@ -25,7 +25,7 @@ export default function CVStepPersonal({ data, onChange }: Props) {
   useEffect(() => {
     async function loadProfile() {
       if (!user) return;
-      const { data: educators } = await supabase.from('educators').select('*').eq('created_by_id', user.id).limit(1);
+      const { data: educators } = await supabase.from('educators').select('*').eq('user_id', user.id).limit(1);
       const profile = educators?.[0];
       onChange({
         full_name: profile?.full_name || user.user_metadata?.full_name || '',

@@ -61,9 +61,9 @@ export default function ChatsPage() {
     if (partnerIds.length) {
       const { data: profiles } = await supabase
         .from('educators')
-        .select('created_by_id, full_name')
-        .in('created_by_id', partnerIds);
-      const nameMap = new Map(profiles?.map(p => [p.created_by_id, p.full_name]) || []);
+        .select('user_id, full_name')
+        .in('user_id', partnerIds);
+      const nameMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
       threadMap.forEach(t => { if (nameMap.has(t.partnerId)) t.partnerName = nameMap.get(t.partnerId)!; });
     }
 

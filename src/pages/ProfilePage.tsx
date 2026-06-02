@@ -24,12 +24,11 @@ const SUBJECTS = [
 interface Profile {
   id?: string;
   full_name: string;
-  phone: string;
   bio: string;
   sace_number: string;
   current_school: string;
   current_province: string;
-  current_district: string;
+  town: string;
   phase: string;
   subjects: string[];
   preferred_provinces: string[];
@@ -62,8 +61,8 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile>({
-    full_name: '', phone: '', bio: '', sace_number: '',
-    current_school: '', current_province: '', current_district: '',
+    full_name: '', bio: '', sace_number: '',
+    current_school: '', current_province: '', town: '',
     phase: '', subjects: [], preferred_provinces: [], available_from: '',
     is_actively_looking: false, years_experience: '', avatar_url: '',
   });
@@ -76,15 +75,23 @@ export default function ProfilePage() {
 
   const loadProfile = async () => {
     if (!user) return;
-    const { data } = await supabase.from('educators').select('*').eq('created_by_id', user.id).single();
-    if (data) {
+    const { data, error } = await supabase
+      .from('educators')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (error) {
+      toast.error('Failed to load profile');
+    } else if (data) {
       setProfile({
         ...data,
-        years_experience: String(data.years_experience || ''),
-        subjects: data.subjects || [],
-        preferred_provinces: data.preferred_provinces || [],
-        available_from: data.available_from || '',
-        avatar_url: data.avatar_url || '',
+        years_experience: String(data.years_experience ?? ''),
+        subjects: data.subjects ?? [],
+        preferred_provinces: data.preferred_provinces ?? [],
+        available_from: data.available_from ?? '',
+        avatar_url: data.avatar_url ?? '',
+        town: data.town ?? '',
       });
     }
     setLoading(false);
@@ -105,9 +112,13 @@ export default function ProfilePage() {
     if (!file || !user) return;
     setUploading(true);
     const path = `avatars/${user.id}.${file.name.split('.').pop()}`;
-    await supabase.storage.from('avatars').upload(path, file, { upsert: true });
-    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-    set('avatar_url', urlData.publicUrl);
+    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
+    if (!error) {
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      set('avatar_url', urlData.publicUrl);
+    } else {
+      toast.error('Avatar upload failed');
+    }
     setUploading(false);
   };
 
@@ -133,12 +144,12 @@ export default function ProfilePage() {
     if (!user) return;
     setSaving(true);
     try {
-      // Never send id or server-managed fields in the payload
       const { id: _id, is_sace_verified: _sv, ...rest } = profile;
+      const yearsExp = profile.years_experience ? parseInt(profile.years_experience, 10) : null;
       const payload = {
         ...rest,
-        created_by_id: user.id,
-        years_experience: profile.years_experience ? parseInt(profile.years_experience) : null,
+        user_id: user.id,
+        years_experience: (yearsExp !== null && !isNaN(yearsExp)) ? yearsExp : null,
         available_from: profile.available_from || null,
       };
 
@@ -151,7 +162,7 @@ export default function ProfilePage() {
       } else {
         const { data, error } = await supabase
           .from('educators')
-          .insert([{ ...payload }])
+          .insert([payload])
           .select()
           .single();
         if (error) throw error;
@@ -159,7 +170,7 @@ export default function ProfilePage() {
       }
       toast.success('Profile saved!');
     } catch (e: unknown) {
-      const msg = (e as { message?: string }).message || 'Failed to save profile';
+      const msg = (e as { message?: string }).message ?? 'Failed to save profile';
       toast.error(msg);
     } finally {
       setSaving(false);
@@ -235,14 +246,6 @@ export default function ProfilePage() {
               className="rounded-xl"
             />
           </Field>
-          <Field label="Phone">
-            <Input
-              value={profile.phone}
-              onChange={e => set('phone', e.target.value)}
-              placeholder="+27 XX XXX XXXX"
-              className="rounded-xl"
-            />
-          </Field>
           <Field label="SACE Number">
             <Input
               value={profile.sace_number}
@@ -270,11 +273,11 @@ export default function ProfilePage() {
               <SelectContent>{PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
             </Select>
           </Field>
-          <Field label="District">
+          <Field label="Town / District">
             <Input
-              value={profile.current_district}
-              onChange={e => set('current_district', e.target.value)}
-              placeholder="e.g. Tshwane South"
+              value={profile.town}
+              onChange={e => set('town', e.target.value)}
+              placeholder="e.g. Pretoria"
               className="rounded-xl"
             />
           </Field>
@@ -306,7 +309,6 @@ export default function ProfilePage() {
             />
           </Field>
           <Field label="Subjects">
-            {/* Selected subjects */}
             {profile.subjects.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {profile.subjects.map(s => (
@@ -319,7 +321,6 @@ export default function ProfilePage() {
                 ))}
               </div>
             )}
-            {/* Add subject */}
             <div className="flex gap-2">
               <Select value={subjectToAdd} onValueChange={setSubjectToAdd}>
                 <SelectTrigger className="rounded-xl flex-1"><SelectValue placeholder="Add subject" /></SelectTrigger>
@@ -339,7 +340,6 @@ export default function ProfilePage() {
         {/* Transfer Preferences */}
         <SectionCard label="Transfer Preferences">
           <Field label="Preferred Provinces">
-            {/* Selected provinces */}
             {profile.preferred_provinces.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {profile.preferred_provinces.map(p => (
@@ -352,7 +352,6 @@ export default function ProfilePage() {
                 ))}
               </div>
             )}
-            {/* Add province */}
             <div className="flex gap-2">
               <Select value={provinceToAdd} onValueChange={setProvinceToAdd}>
                 <SelectTrigger className="rounded-xl flex-1"><SelectValue placeholder="Add province" /></SelectTrigger>
@@ -379,7 +378,7 @@ export default function ProfilePage() {
         </SectionCard>
       </div>
 
-      {/* Save button — inline, scrolls with page */}
+      {/* Save button */}
       <div className="px-4 pt-2 pb-6">
         <Button
           onClick={handleSave}

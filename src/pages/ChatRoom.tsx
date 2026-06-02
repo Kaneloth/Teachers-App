@@ -42,7 +42,7 @@ export default function ChatRoom() {
     supabase
       .from('educators')
       .select('full_name, current_province')
-      .eq('created_by_id', partnerId)
+      .eq('user_id', partnerId)
       .single()
       .then(({ data }) => { if (data) setPartner(data); });
   }, [partnerId]);

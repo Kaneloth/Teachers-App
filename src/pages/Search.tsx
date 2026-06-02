@@ -14,7 +14,7 @@ interface Educator {
   is_actively_looking?: boolean;
   is_sace_verified?: boolean;
   current_province?: string;
-  current_district?: string;
+  town?: string;
   preferred_provinces?: string[];
   subjects?: string[];
   phase?: string;
@@ -32,7 +32,7 @@ export default function Search() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from('educators').select('subjects').eq('created_by_id', user.id).limit(1).then(({ data }) => {
+    supabase.from('educators').select('subjects').eq('user_id', user.id).limit(1).then(({ data }) => {
       setMySubjects(data?.[0]?.subjects || []);
     });
   }, [user]);
