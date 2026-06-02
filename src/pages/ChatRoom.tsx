@@ -57,6 +57,14 @@ export default function ChatRoom() {
         .or(`and(sender_id.eq.${user.id},receiver_id.eq.${partnerId}),and(sender_id.eq.${partnerId},receiver_id.eq.${user.id})`)
         .order('created_at', { ascending: true });
       setMessages(data || []);
+
+      // Mark all received messages in this thread as read
+      await supabase
+        .from('messages')
+        .update({ read: true })
+        .eq('receiver_id', user.id)
+        .eq('sender_id', partnerId)
+        .eq('read', false);
     };
 
     fetchMessages();
@@ -70,7 +78,11 @@ export default function ChatRoom() {
         filter: `receiver_id=eq.${user.id}`,
       }, payload => {
         const msg = payload.new as Message;
-        if (msg.sender_id === partnerId) setMessages(prev => [...prev, msg]);
+        if (msg.sender_id === partnerId) {
+          setMessages(prev => [...prev, msg]);
+          // Mark it read immediately since the chat is open
+          supabase.from('messages').update({ read: true }).eq('id', msg.id);
+        }
       })
       .subscribe();
 

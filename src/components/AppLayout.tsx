@@ -239,7 +239,7 @@ export default function AppLayout() {
                 <div className="relative">
                   <Icon className="w-5 h-5" strokeWidth={isActive ? 2 : 1.5} />
                   {showBadge && (
-                    <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center px-0.5">
+                    <span className="absolute -top-2 -right-2.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center px-1 shadow-sm">
                       {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                   )}
