@@ -712,7 +712,7 @@ export default function ProfilePage() {
                   <SelectTrigger className="rounded-xl">
                     <SelectValue placeholder="Select district" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-48 overflow-y-auto">
                     {(DISTRICTS_BY_PROVINCE[profile.current_province] ?? []).map(d => (
                       <SelectItem key={d} value={d}>{d}</SelectItem>
                     ))}
@@ -794,7 +794,7 @@ export default function ProfilePage() {
             </div>
           </Field>
 
-          <Field label="Preferred Districts">
+          <Field label="Preferred Education Districts">
             {profile.preferred_districts.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {profile.preferred_districts.map(d => (
@@ -808,7 +808,9 @@ export default function ProfilePage() {
             {/* Step 1: pick a province to filter districts */}
             <Select value={districtProvFilter} onValueChange={v => { setDistrictProvFilter(v); setDistrictToAdd(''); setDistrictOther(false); setCustomDistrict(''); }}>
               <SelectTrigger className="rounded-xl mb-2"><SelectValue placeholder="Filter by province first" /></SelectTrigger>
-              <SelectContent>{PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+              <SelectContent className="max-h-48 overflow-y-auto">
+                {PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
             </Select>
             {/* Step 2: pick a district (or Other) */}
             {districtProvFilter && (
@@ -818,7 +820,7 @@ export default function ProfilePage() {
                   else                  { setDistrictOther(false); setCustomDistrict(''); setDistrictToAdd(v); }
                 }}>
                   <SelectTrigger className="rounded-xl flex-1"><SelectValue placeholder="Select district" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-48 overflow-y-auto">
                     {(DISTRICTS_BY_PROVINCE[districtProvFilter] ?? [])
                       .filter(d => !profile.preferred_districts.includes(d))
                       .map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
