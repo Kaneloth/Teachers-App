@@ -805,43 +805,56 @@ export default function ProfilePage() {
                 ))}
               </div>
             )}
-            {/* Step 1: pick a province to filter districts */}
-            <Select value={districtProvFilter} onValueChange={v => { setDistrictProvFilter(v); setDistrictToAdd(''); setDistrictOther(false); setCustomDistrict(''); }}>
-              <SelectTrigger className="rounded-xl mb-2"><SelectValue placeholder="Filter by province first" /></SelectTrigger>
-              <SelectContent className="max-h-48 overflow-y-auto">
-                {PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            {/* Step 2: pick a district (or Other) */}
-            {districtProvFilter && (
-              <div className="flex gap-2">
-                <Select value={districtOther ? '__other__' : districtToAdd} onValueChange={v => {
-                  if (v === '__other__') { setDistrictOther(true); setDistrictToAdd(''); }
-                  else                  { setDistrictOther(false); setCustomDistrict(''); setDistrictToAdd(v); }
-                }}>
-                  <SelectTrigger className="rounded-xl flex-1"><SelectValue placeholder="Select district" /></SelectTrigger>
+            <div className="space-y-3">
+              {/* Step 1: Province filter - this selects a province to show its districts */}
+              <div>
+                <Label className="text-xs text-muted-foreground">1. Select a province (filter)</Label>
+                <Select value={districtProvFilter} onValueChange={v => { setDistrictProvFilter(v); setDistrictToAdd(''); setDistrictOther(false); setCustomDistrict(''); }}>
+                  <SelectTrigger className="rounded-xl mt-1">
+                    <SelectValue placeholder="Choose province to see its districts" />
+                  </SelectTrigger>
                   <SelectContent className="max-h-48 overflow-y-auto">
-                    {(DISTRICTS_BY_PROVINCE[districtProvFilter] ?? [])
-                      .filter(d => !profile.preferred_districts.includes(d))
-                      .map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                    <SelectItem value="__other__">Other (type below)</SelectItem>
+                    {PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button type="button" size="icon" variant="outline" onClick={addDistrict}
-                  disabled={districtOther ? !customDistrict.trim() : !districtToAdd}
-                  className="rounded-xl shrink-0 h-10 w-10"><Plus className="w-4 h-4" /></Button>
               </div>
-            )}
-            {districtOther && (
-              <Input
-                value={customDistrict}
-                onChange={e => setCustomDistrict(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addDistrict(); } }}
-                placeholder="Type district name, then press +"
-                className="rounded-xl mt-2"
-                autoFocus
-              />
-            )}
+
+              {/* Step 2: District picker - only shows when a province is selected */}
+              {districtProvFilter && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">2. Choose a district from {districtProvFilter}</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Select value={districtOther ? '__other__' : districtToAdd} onValueChange={v => {
+                      if (v === '__other__') { setDistrictOther(true); setDistrictToAdd(''); }
+                      else                  { setDistrictOther(false); setCustomDistrict(''); setDistrictToAdd(v); }
+                    }}>
+                      <SelectTrigger className="rounded-xl flex-1">
+                        <SelectValue placeholder="Select district" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-48 overflow-y-auto">
+                        {(DISTRICTS_BY_PROVINCE[districtProvFilter] ?? [])
+                          .filter(d => !profile.preferred_districts.includes(d))
+                          .map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                        <SelectItem value="__other__">Other (type below)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" size="icon" variant="outline" onClick={addDistrict}
+                      disabled={districtOther ? !customDistrict.trim() : !districtToAdd}
+                      className="rounded-xl shrink-0 h-10 w-10"><Plus className="w-4 h-4" /></Button>
+                  </div>
+                  {districtOther && (
+                    <Input
+                      value={customDistrict}
+                      onChange={e => setCustomDistrict(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addDistrict(); } }}
+                      placeholder="Type district name, then press +"
+                      className="rounded-xl mt-2"
+                      autoFocus
+                    />
+                  )}
+                </div>
+              )}
+            </div>
           </Field>
 
           <Field label="Available From">
