@@ -1,5 +1,4 @@
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useEffect, useState, useRef } from 'react';
 import { Lock, Camera, X, Loader2, ImageIcon } from 'lucide-react';
@@ -31,9 +30,14 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
   useEffect(() => {
     async function loadProfile() {
       if (!user) return;
+      const { data: educators } = await supabase
+        .from('educators')
+        .select('full_name, phone, bio, current_school, current_province, town')
+        .eq('user_id', user.id)
+        .limit(1);
+      const profile = educators?.[0];
+
       if (cvType === 'educator') {
-        const { data: educators } = await supabase.from('educators').select('*').eq('user_id', user.id).limit(1);
-        const profile = educators?.[0];
         onChange({
           full_name: profile?.full_name || user.user_metadata?.full_name || '',
           email: user.email || '',
@@ -44,12 +48,14 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
           bio: profile?.bio || data.bio || '',
         });
       } else {
+        /* General CV — same source, different address field (town + province, no school) */
+        const location = [profile?.town, profile?.current_province].filter(Boolean).join(', ');
         onChange({
-          full_name: user.user_metadata?.full_name || '',
+          full_name: profile?.full_name || user.user_metadata?.full_name || '',
           email: user.email || '',
-          phone: user.user_metadata?.phone || '',
-          address: '',
-          bio: '',
+          phone: profile?.phone || '',
+          address: location,
+          bio: profile?.bio || data.bio || '',
         });
       }
     }
@@ -72,15 +78,18 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
     setUploading(false);
   };
 
+  const addressLabel = cvType === 'educator' ? 'Current School / Province' : 'Location';
+  const summaryPlaceholder = cvType === 'educator'
+    ? 'A brief overview of your teaching career and goals...'
+    : 'A brief overview of your professional background and goals...';
+
   return (
     <div className="bg-card rounded-2xl border border-border p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold text-foreground">Personal Information</h2>
-        {cvType === 'educator' && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-lg">
-            <Lock className="w-3 h-3" /> Locked to profile
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-lg">
+          <Lock className="w-3 h-3" /> Locked to profile
+        </div>
       </div>
 
       {/* Photo upload */}
@@ -113,42 +122,28 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
         </div>
       </div>
 
-      {/* Fields — locked for educator, editable for general */}
-      {cvType === 'educator' ? (
-        <>
-          <LockedField label="Full Name" value={data.full_name} />
-          <LockedField label="Email Address" value={data.email} />
-          <LockedField label="Phone Number" value={data.phone} />
-          <LockedField label="Current School / Province" value={data.address} />
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Professional Summary</Label>
-            <Textarea value={data.bio} onChange={e => set('bio', e.target.value)} placeholder="A brief overview of your teaching career and goals..." rows={3} className="rounded-xl" />
-            <p className="text-xs text-muted-foreground">This field is editable — tailor it per CV.</p>
-          </div>
-          <p className="text-xs text-muted-foreground bg-muted rounded-xl px-3 py-2">
-            To update your name, email, phone or ID, go to your <strong>Profile page</strong>. Changes require re-verification.
-          </p>
-        </>
-      ) : (
-        <>
-          <EditableField label="Full Name">
-            <Input value={data.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Your full name" className="rounded-xl" />
-          </EditableField>
-          <EditableField label="Email Address">
-            <Input type="email" value={data.email} onChange={e => set('email', e.target.value)} placeholder="your@email.com" className="rounded-xl" />
-          </EditableField>
-          <EditableField label="Phone Number">
-            <Input value={data.phone} onChange={e => set('phone', e.target.value)} placeholder="e.g. 071 000 0000" className="rounded-xl" />
-          </EditableField>
-          <EditableField label="Address / Location">
-            <Input value={data.address} onChange={e => set('address', e.target.value)} placeholder="e.g. Johannesburg, Gauteng" className="rounded-xl" />
-          </EditableField>
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Professional Summary</Label>
-            <Textarea value={data.bio} onChange={e => set('bio', e.target.value)} placeholder="A brief overview of your professional background and goals..." rows={3} className="rounded-xl" />
-          </div>
-        </>
-      )}
+      {/* Locked fields — same structure for both types, labels differ */}
+      <LockedField label="Full Name" value={data.full_name} />
+      <LockedField label="Email Address" value={data.email} />
+      <LockedField label="Phone Number" value={data.phone} />
+      <LockedField label={addressLabel} value={data.address} />
+
+      {/* Professional Summary — editable on both types */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium">Professional Summary</Label>
+        <Textarea
+          value={data.bio}
+          onChange={e => set('bio', e.target.value)}
+          placeholder={summaryPlaceholder}
+          rows={3}
+          className="rounded-xl"
+        />
+        <p className="text-xs text-muted-foreground">This field is editable — tailor it per CV.</p>
+      </div>
+
+      <p className="text-xs text-muted-foreground bg-muted rounded-xl px-3 py-2">
+        To update your name, email, phone or address, go to your <strong>Profile page</strong>.
+      </p>
     </div>
   );
 }
@@ -161,15 +156,6 @@ function LockedField({ label, value }: { label: string; value: string }) {
         <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
         <span className="truncate">{value || <span className="text-muted-foreground italic">Not set on profile</span>}</span>
       </div>
-    </div>
-  );
-}
-
-function EditableField({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-sm font-medium">{label}</Label>
-      {children}
     </div>
   );
 }
