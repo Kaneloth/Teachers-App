@@ -9,44 +9,79 @@ exports.handler = async (event) => {
   try {
     ({ idNumber } = JSON.parse(event.body));
   } catch {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Invalid request body' }) };
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ verified: false, error: 'Invalid request body' }),
+    };
   }
 
   if (!idNumber) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'idNumber is required' }) };
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ verified: false, error: 'idNumber is required' }),
+    };
   }
 
   const apiKey = process.env.VERIFYNOW_API_KEY;
   if (!apiKey) {
-    return { statusCode: 500, body: JSON.stringify({ error: 'Server configuration error: VERIFYNOW_API_KEY not set' }) };
+    console.error('[verify-id] VERIFYNOW_API_KEY env var is not set');
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ verified: false, error: 'Verification service not configured (missing API key)' }),
+    };
   }
 
+  const mode = process.env.VERIFYNOW_MODE || 'sandbox';
   const idempotencyKey = `said-${crypto.createHash('md5').update(idNumber + Date.now()).digest('hex')}`;
 
-  let vnRes, vnData;
+  let vnData;
   try {
-    vnRes = await fetch('https://www.verifynow.co.za/api/external/verify', {
+    const vnRes = await fetch('https://www.verifynow.co.za/api/external/verify', {
       method: 'POST',
       headers: {
         'x-api-key': apiKey,
         'Content-Type': 'application/json',
         'Idempotency-Key': idempotencyKey,
       },
-      body: JSON.stringify({
-        reportType: 'said_verification',
-        idNumber,
-        mode: process.env.VERIFYNOW_MODE || 'live',
-      }),
+      body: JSON.stringify({ reportType: 'said_verification', idNumber, mode }),
     });
-    vnData = await vnRes.json();
+
+    const text = await vnRes.text();
+    try {
+      vnData = JSON.parse(text);
+    } catch {
+      console.error('[verify-id] Non-JSON response from VerifyNow:', text);
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verified: false, error: `VerifyNow error (HTTP ${vnRes.status})`, details: text }),
+      };
+    }
+
+    if (!vnRes.ok) {
+      console.error('[verify-id] VerifyNow returned', vnRes.status, vnData);
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          verified: false,
+          error: vnData?.message || vnData?.error || `VerifyNow returned HTTP ${vnRes.status}`,
+          details: vnData,
+        }),
+      };
+    }
   } catch (err) {
+    console.error('[verify-id] Fetch error:', err);
     return {
-      statusCode: 502,
-      body: JSON.stringify({ error: 'Failed to reach VerifyNow: ' + err.message }),
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ verified: false, error: 'Could not reach VerifyNow: ' + err.message }),
     };
   }
 
-  // Normalise the verified flag across possible response shapes
   const verified =
     vnData?.verified === true ||
     vnData?.result?.verified === true ||
@@ -55,7 +90,7 @@ exports.handler = async (event) => {
     vnData?.verificationStatus === 'verified';
 
   return {
-    statusCode: vnRes.status,
+    statusCode: 200,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ verified, raw: vnData }),
   };
