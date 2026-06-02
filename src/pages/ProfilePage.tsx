@@ -327,7 +327,7 @@ function IdentityVerificationSection() {
               ? <Loader2 className="w-4 h-4 animate-spin" />
               : idVerifyState === 'verified'   ? <><CheckCircle2 className="w-4 h-4" /> ID Verified</>
               : idVerifyState === 'unverified' ? <><AlertCircle  className="w-4 h-4" /> Verification Inconclusive</>
-              :                                  <><ShieldCheck  className="w-4 h-4" /> Verify ID Number</>}
+              :                                  <><ShieldCheck  className="w-4 h-4" /> Verify ID Number (Optional)</>}
           </Button>
           {idBtnDone && (
             <button type="button" onClick={() => { setIdVerifyState('idle'); setIdVerifyMsg(''); }}
@@ -375,7 +375,7 @@ function IdentityVerificationSection() {
               ? <Loader2 className="w-4 h-4 animate-spin" />
               : passportVerifyState === 'verified'   ? <><CheckCircle2 className="w-4 h-4" /> Passport Verified</>
               : passportVerifyState === 'unverified' ? <><AlertCircle  className="w-4 h-4" /> Verification Inconclusive</>
-              :                                        <><ShieldCheck  className="w-4 h-4" /> Verify Passport Documents</>}
+              :                                        <><ShieldCheck  className="w-4 h-4" /> Verify Passport Documents (Optional)</>}
           </Button>
           {passportBtnDone && (
             <button type="button" onClick={() => { setPassportVerifyState('idle'); setPassportVerifyMsg(''); setPassportFront(null); setPassportBack(null); }}
