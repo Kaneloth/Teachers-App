@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import { Eye, EyeOff, Loader2, MailCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
+type Step = 'form' | 'email-otp';
+
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -15,11 +17,11 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  // OTP confirmation state (triggered when email not yet confirmed)
-  const [otpRequired, setOtpRequired] = useState(false);
-  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState<Step>('form');
+  const [emailOtp, setEmailOtp] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
 
+  // ── Login ───────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -27,9 +29,8 @@ export default function Login() {
     if (error) {
       const msg = error.message.toLowerCase();
       if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
-        // Re-send OTP and show verification screen
         await supabase.auth.resend({ type: 'signup', email });
-        setOtpRequired(true);
+        setStep('email-otp');
         toast.info('A verification code has been sent to your email.');
       } else {
         toast.error(error.message);
@@ -40,27 +41,25 @@ export default function Login() {
     setLoading(false);
   };
 
-  const handleVerify = async (e: React.FormEvent) => {
+  // ── Email OTP (unconfirmed email path) ──────────────────────
+  const handleVerifyEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: 'email' });
+    const { error } = await supabase.auth.verifyOtp({ email, token: emailOtp, type: 'email' });
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success('Email verified! Welcome to EduCross.');
+      toast.success('Email verified! Welcome back.');
       navigate('/home');
     }
     setLoading(false);
   };
 
-  const handleResend = async () => {
+  const handleResendEmailOtp = async () => {
     setResendLoading(true);
     const { error } = await supabase.auth.resend({ type: 'signup', email });
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success('New code sent — check your inbox.');
-    }
+    if (error) toast.error(error.message);
+    else toast.success('New code sent — check your inbox.');
     setResendLoading(false);
   };
 
@@ -74,8 +73,8 @@ export default function Login() {
     setGoogleLoading(false);
   };
 
-  // ── OTP verification screen ──────────────────────────────────────────────
-  if (otpRequired) {
+  // ── Email OTP screen ────────────────────────────────────────
+  if (step === 'email-otp') {
     return (
       <div className="space-y-6">
         <div className="text-center">
@@ -84,19 +83,17 @@ export default function Login() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">Verify your email</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            We sent a 6-digit code to <strong>{email}</strong>.<br />
-            Enter it below to continue.
+            We sent an 8-digit code to <strong>{email}</strong>.<br />Enter it below to sign in.
           </p>
         </div>
-
-        <form onSubmit={handleVerify} className="space-y-4">
+        <form onSubmit={handleVerifyEmail} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="otp">Verification Code</Label>
+            <Label htmlFor="emailOtp">Verification Code</Label>
             <Input
-              id="otp"
-              value={otp}
-              onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
-              placeholder="123456"
+              id="emailOtp"
+              value={emailOtp}
+              onChange={e => setEmailOtp(e.target.value.replace(/\D/g, ''))}
+              placeholder="12345678"
               className="rounded-xl text-center text-2xl tracking-[0.4em] font-mono"
               maxLength={8}
               inputMode="numeric"
@@ -105,25 +102,20 @@ export default function Login() {
               required
             />
           </div>
-          <Button type="submit" disabled={loading || otp.length < 8} className="w-full h-11 rounded-xl font-semibold">
+          <Button type="submit" disabled={loading || emailOtp.length < 8} className="w-full h-11 rounded-xl font-semibold">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Sign In'}
           </Button>
         </form>
-
         <div className="text-center space-y-2 text-sm text-muted-foreground">
           <p>
-            Didn't receive a code?{' '}
-            <button
-              onClick={handleResend}
-              disabled={resendLoading}
-              className="text-primary font-semibold hover:underline disabled:opacity-50"
-            >
+            Didn't receive it?{' '}
+            <button onClick={handleResendEmailOtp} disabled={resendLoading} className="text-primary font-semibold hover:underline disabled:opacity-50">
               {resendLoading ? 'Sending…' : 'Resend code'}
             </button>
           </p>
           <p>
             Wrong email?{' '}
-            <button onClick={() => { setOtpRequired(false); setOtp(''); }} className="text-primary font-semibold hover:underline">
+            <button onClick={() => { setStep('form'); setEmailOtp(''); }} className="text-primary font-semibold hover:underline">
               Go back
             </button>
           </p>
@@ -132,7 +124,7 @@ export default function Login() {
     );
   }
 
-  // ── Normal login screen ──────────────────────────────────────────────────
+  // ── Login form ──────────────────────────────────────────────
   return (
     <div className="space-y-6">
       <div className="text-center">

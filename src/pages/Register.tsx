@@ -1,50 +1,167 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, MailCheck, Upload, X, CreditCard, BookOpen } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+
+/* ── Image upload tile ───────────────────────────────────────── */
+function ImageUploadTile({
+  label,
+  file,
+  onChange,
+  onClear,
+}: {
+  label: string;
+  file: File | null;
+  onChange: (f: File) => void;
+  onClear: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const preview = file ? URL.createObjectURL(file) : null;
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-sm font-medium">{label}</Label>
+      {preview ? (
+        <div className="relative rounded-xl overflow-hidden border border-border">
+          <img src={preview} alt={label} className="w-full h-32 object-cover" />
+          <button
+            type="button"
+            onClick={onClear}
+            className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center"
+          >
+            <X className="w-3.5 h-3.5 text-white" />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="w-full h-32 rounded-xl border-2 border-dashed border-border bg-muted/30 hover:bg-muted/60 transition-colors flex flex-col items-center justify-center gap-2"
+        >
+          <Upload className="w-5 h-5 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Tap to upload photo</span>
+        </button>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={e => { if (e.target.files?.[0]) onChange(e.target.files[0]); }}
+      />
+    </div>
+  );
+}
+
+/* ── Main component ──────────────────────────────────────────── */
+type Step = 'form' | 'email-otp';
+type DocType = 'id' | 'passport';
 
 export default function Register() {
   const navigate = useNavigate();
+  const [step, setStep] = useState<Step>('form');
+
+  // Form fields
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState('');
 
+  // Document fields
+  const [docType, setDocType] = useState<DocType>('id');
+  const [idNumber, setIdNumber] = useState('');
+  const [passportNumber, setPassportNumber] = useState('');
+  const [passportFront, setPassportFront] = useState<File | null>(null);
+  const [passportBack, setPassportBack] = useState<File | null>(null);
+
+  // OTP
+  const [emailOtp, setEmailOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  // ── Step 1: create account ──────────────────────────────────
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (docType === 'id' && !idNumber.trim()) {
+      toast.error('Please enter your ID number.');
+      return;
+    }
+    if (docType === 'passport' && !passportNumber.trim()) {
+      toast.error('Please enter your passport number.');
+      return;
+    }
+    if (docType === 'passport' && (!passportFront || !passportBack)) {
+      toast.error('Please upload both the front and back of your passport.');
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName, subscription_plan: 'free' } },
+      options: {
+        data: {
+          full_name: fullName,
+          phone,
+          doc_type: docType,
+          ...(docType === 'id' ? { id_number: idNumber } : { passport_number: passportNumber }),
+          subscription_plan: 'free',
+        },
+      },
     });
     if (error) {
       toast.error(error.message);
     } else {
-      setOtpSent(true);
+      setStep('email-otp');
       toast.success('Check your email for a verification code!');
     }
     setLoading(false);
   };
 
-  const handleVerify = async (e: React.FormEvent) => {
+  // ── Step 2: verify email OTP ────────────────────────────────
+  const handleVerifyEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: 'email' });
+    const { data, error } = await supabase.auth.verifyOtp({ email, token: emailOtp, type: 'email' });
     if (error) {
       toast.error(error.message);
-    } else {
-      navigate('/onboarding');
+      setLoading(false);
+      return;
     }
+    // Upload passport images if applicable
+    if (docType === 'passport' && data.user && (passportFront || passportBack)) {
+      const uid = data.user.id;
+      const uploads = [];
+      if (passportFront) {
+        const ext = passportFront.name.split('.').pop();
+        uploads.push(supabase.storage.from('documents').upload(`${uid}/passport-front.${ext}`, passportFront, { upsert: true }));
+      }
+      if (passportBack) {
+        const ext = passportBack.name.split('.').pop();
+        uploads.push(supabase.storage.from('documents').upload(`${uid}/passport-back.${ext}`, passportBack, { upsert: true }));
+      }
+      const results = await Promise.all(uploads);
+      const failed = results.filter(r => r.error);
+      if (failed.length) {
+        toast.warning('Account created, but passport images failed to upload. You can re-upload in your profile.');
+      }
+    }
+    toast.success('Email verified! Setting up your profile…');
+    navigate('/onboarding');
     setLoading(false);
+  };
+
+  const handleResendEmailOtp = async () => {
+    setResendLoading(true);
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    if (error) toast.error(error.message);
+    else toast.success('New code sent — check your inbox.');
+    setResendLoading(false);
   };
 
   const handleGoogle = async () => {
@@ -57,29 +174,58 @@ export default function Register() {
     setGoogleLoading(false);
   };
 
-  if (otpSent) {
+  // ── Email OTP screen ────────────────────────────────────────
+  if (step === 'email-otp') {
     return (
       <div className="space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">Verify your email</h1>
-          <p className="text-sm text-muted-foreground mt-1">We sent a 6-digit code to <strong>{email}</strong></p>
-        </div>
-        <form onSubmit={handleVerify} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="otp">Verification Code</Label>
-            <Input id="otp" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))} placeholder="12345678" className="rounded-xl text-center text-2xl tracking-widest font-mono" inputMode="numeric" autoComplete="one-time-code" maxLength={8} required />
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-4">
+            <MailCheck className="w-7 h-7 text-primary" />
           </div>
-          <Button type="submit" disabled={loading} className="w-full h-11 rounded-xl font-semibold">
+          <h1 className="text-2xl font-bold text-foreground">Verify your email</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            We sent an 8-digit code to <strong>{email}</strong>
+          </p>
+        </div>
+        <form onSubmit={handleVerifyEmail} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="emailOtp">Verification Code</Label>
+            <Input
+              id="emailOtp"
+              value={emailOtp}
+              onChange={e => setEmailOtp(e.target.value.replace(/\D/g, ''))}
+              placeholder="12345678"
+              className="rounded-xl text-center text-2xl tracking-[0.4em] font-mono"
+              maxLength={8}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              required
+            />
+          </div>
+          <Button type="submit" disabled={loading || emailOtp.length < 8} className="w-full h-11 rounded-xl font-semibold">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Continue'}
           </Button>
         </form>
-        <p className="text-center text-sm text-muted-foreground">
-          Wrong email? <button onClick={() => setOtpSent(false)} className="text-primary font-semibold hover:underline">Go back</button>
-        </p>
+        <div className="text-center space-y-2 text-sm text-muted-foreground">
+          <p>
+            Didn't receive it?{' '}
+            <button onClick={handleResendEmailOtp} disabled={resendLoading} className="text-primary font-semibold hover:underline disabled:opacity-50">
+              {resendLoading ? 'Sending…' : 'Resend code'}
+            </button>
+          </p>
+          <p>
+            Wrong email?{' '}
+            <button onClick={() => { setStep('form'); setEmailOtp(''); }} className="text-primary font-semibold hover:underline">
+              Go back
+            </button>
+          </p>
+        </div>
       </div>
     );
   }
 
+  // ── Registration form ───────────────────────────────────────
   return (
     <div className="space-y-6">
       <div className="text-center">
@@ -104,6 +250,7 @@ export default function Register() {
       </div>
 
       <form onSubmit={handleRegister} className="space-y-4">
+        {/* Basic info */}
         <div className="space-y-1.5">
           <Label htmlFor="fullName">Full Name</Label>
           <Input id="fullName" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Thabo Pretorius" className="rounded-xl" required />
@@ -113,6 +260,85 @@ export default function Register() {
           <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="educator@example.co.za" className="rounded-xl" required />
         </div>
         <div className="space-y-1.5">
+          <Label htmlFor="phone">Phone Number</Label>
+          <Input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="081 234 5678" className="rounded-xl" inputMode="tel" />
+        </div>
+
+        {/* Document type */}
+        <div className="space-y-2">
+          <Label>Identity Document</Label>
+          <div className="grid grid-cols-2 bg-muted rounded-xl p-1 gap-1">
+            <button
+              type="button"
+              onClick={() => setDocType('id')}
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${docType === 'id' ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <CreditCard className="w-4 h-4" />
+              SA ID
+            </button>
+            <button
+              type="button"
+              onClick={() => setDocType('passport')}
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${docType === 'passport' ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <BookOpen className="w-4 h-4" />
+              Passport
+            </button>
+          </div>
+        </div>
+
+        {/* SA ID fields */}
+        {docType === 'id' && (
+          <div className="space-y-1.5">
+            <Label htmlFor="idNumber">SA ID Number</Label>
+            <Input
+              id="idNumber"
+              value={idNumber}
+              onChange={e => setIdNumber(e.target.value.replace(/\D/g, ''))}
+              placeholder="8001015009087"
+              className="rounded-xl font-mono tracking-wider"
+              inputMode="numeric"
+              maxLength={13}
+              required
+            />
+            <p className="text-xs text-muted-foreground pl-1">13-digit South African ID number</p>
+          </div>
+        )}
+
+        {/* Passport fields */}
+        {docType === 'passport' && (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="passportNumber">Passport Number</Label>
+              <Input
+                id="passportNumber"
+                value={passportNumber}
+                onChange={e => setPassportNumber(e.target.value.toUpperCase())}
+                placeholder="A12345678"
+                className="rounded-xl font-mono tracking-wider"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <ImageUploadTile
+                label="Passport — Front"
+                file={passportFront}
+                onChange={setPassportFront}
+                onClear={() => setPassportFront(null)}
+              />
+              <ImageUploadTile
+                label="Passport — Back"
+                file={passportBack}
+                onChange={setPassportBack}
+                onClear={() => setPassportBack(null)}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground pl-1">Upload clear photos of both sides of your passport.</p>
+          </div>
+        )}
+
+        {/* Password */}
+        <div className="space-y-1.5">
           <Label htmlFor="password">Password</Label>
           <div className="relative">
             <Input id="password" type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters" className="rounded-xl pr-10" minLength={8} required />
@@ -121,6 +347,7 @@ export default function Register() {
             </button>
           </div>
         </div>
+
         <Button type="submit" disabled={loading} className="w-full h-11 rounded-xl font-semibold">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Account'}
         </Button>
