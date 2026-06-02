@@ -4,8 +4,36 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, MailCheck } from 'lucide-react';
+import { Eye, EyeOff, Loader2, MailCheck, Smartphone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+
+async function sendPhoneOtp(phone: string): Promise<string | null> {
+  const res = await fetch('/.netlify/functions/send-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    return (data as { error?: string }).error || 'Failed to send SMS';
+  }
+  return null;
+}
+
+async function verifyPhoneOtp(phone: string, otp: string): Promise<string | null> {
+  const res = await fetch('/.netlify/functions/verify-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, otp }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    return (data as { error?: string }).error || 'Invalid code';
+  }
+  return null;
+}
+
+type Step = 'form' | 'email-otp' | 'phone-otp';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -15,52 +43,118 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  // OTP confirmation state (triggered when email not yet confirmed)
-  const [otpRequired, setOtpRequired] = useState(false);
-  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState<Step>('form');
+  const [emailOtp, setEmailOtp] = useState('');
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [userPhone, setUserPhone] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
 
+  // ── Step 1: password login ────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
     if (error) {
       const msg = error.message.toLowerCase();
       if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
-        // Re-send OTP and show verification screen
         await supabase.auth.resend({ type: 'signup', email });
-        setOtpRequired(true);
+        setStep('email-otp');
         toast.info('A verification code has been sent to your email.');
       } else {
         toast.error(error.message);
       }
-    } else {
-      navigate('/home');
+      setLoading(false);
+      return;
     }
+
+    const u = data.user;
+    const phone = u?.user_metadata?.phone as string | undefined;
+    const phoneVerified = u?.user_metadata?.phone_verified as boolean | undefined;
+
+    // If phone exists but isn't verified, require phone OTP before entry
+    if (phone && !phoneVerified) {
+      setUserPhone(phone);
+      const err = await sendPhoneOtp(phone);
+      if (err) {
+        toast.error('Could not send SMS: ' + err);
+        // Sign out so they can't bypass phone verification
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
+      setStep('phone-otp');
+      toast.info('Please verify your phone number to continue.');
+      setLoading(false);
+      return;
+    }
+
+    navigate('/home');
     setLoading(false);
   };
 
-  const handleVerify = async (e: React.FormEvent) => {
+  // ── Step 2a: verify email OTP (unconfirmed-email path) ────────
+  const handleVerifyEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: 'email' });
+    const { data, error } = await supabase.auth.verifyOtp({ email, token: emailOtp, type: 'email' });
     if (error) {
       toast.error(error.message);
+      setLoading(false);
+      return;
+    }
+    const u = data.user;
+    const phone = u?.user_metadata?.phone as string | undefined;
+    const phoneVerified = u?.user_metadata?.phone_verified as boolean | undefined;
+
+    if (phone && !phoneVerified) {
+      setUserPhone(phone);
+      const err = await sendPhoneOtp(phone);
+      if (err) {
+        toast.error('Could not send SMS: ' + err);
+        setLoading(false);
+        return;
+      }
+      setStep('phone-otp');
+      toast.success('Email confirmed! Now verify your phone number.');
+      setLoading(false);
+      return;
+    }
+
+    toast.success('Email verified! Welcome back.');
+    navigate('/home');
+    setLoading(false);
+  };
+
+  // ── Step 2b: verify phone OTP ─────────────────────────────────
+  const handleVerifyPhone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const err = await verifyPhoneOtp(userPhone, phoneOtp);
+    if (err) {
+      toast.error(err);
     } else {
-      toast.success('Email verified! Welcome to EduCross.');
+      // Mark phone as verified in user metadata
+      await supabase.auth.updateUser({ data: { phone_verified: true } });
+      toast.success('Phone verified! Welcome back.');
       navigate('/home');
     }
     setLoading(false);
   };
 
-  const handleResend = async () => {
+  const handleResendEmailOtp = async () => {
     setResendLoading(true);
     const { error } = await supabase.auth.resend({ type: 'signup', email });
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success('New code sent — check your inbox.');
-    }
+    if (error) toast.error(error.message);
+    else toast.success('New code sent — check your inbox.');
+    setResendLoading(false);
+  };
+
+  const handleResendPhoneOtp = async () => {
+    setResendLoading(true);
+    const err = await sendPhoneOtp(userPhone);
+    if (err) toast.error(err);
+    else toast.success('New SMS code sent.');
     setResendLoading(false);
   };
 
@@ -74,8 +168,8 @@ export default function Login() {
     setGoogleLoading(false);
   };
 
-  // ── OTP verification screen ──────────────────────────────────────────────
-  if (otpRequired) {
+  // ── Email OTP screen ──────────────────────────────────────────
+  if (step === 'email-otp') {
     return (
       <div className="space-y-6">
         <div className="text-center">
@@ -84,19 +178,17 @@ export default function Login() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">Verify your email</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            We sent a 6-digit code to <strong>{email}</strong>.<br />
-            Enter it below to continue.
+            We sent an 8-digit code to <strong>{email}</strong>.<br />Enter it below to continue.
           </p>
         </div>
-
-        <form onSubmit={handleVerify} className="space-y-4">
+        <form onSubmit={handleVerifyEmail} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="otp">Verification Code</Label>
+            <Label htmlFor="emailOtp">Verification Code</Label>
             <Input
-              id="otp"
-              value={otp}
-              onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
-              placeholder="123456"
+              id="emailOtp"
+              value={emailOtp}
+              onChange={e => setEmailOtp(e.target.value.replace(/\D/g, ''))}
+              placeholder="12345678"
               className="rounded-xl text-center text-2xl tracking-[0.4em] font-mono"
               maxLength={8}
               inputMode="numeric"
@@ -105,25 +197,20 @@ export default function Login() {
               required
             />
           </div>
-          <Button type="submit" disabled={loading || otp.length < 8} className="w-full h-11 rounded-xl font-semibold">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Sign In'}
+          <Button type="submit" disabled={loading || emailOtp.length < 8} className="w-full h-11 rounded-xl font-semibold">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify Email →'}
           </Button>
         </form>
-
         <div className="text-center space-y-2 text-sm text-muted-foreground">
           <p>
-            Didn't receive a code?{' '}
-            <button
-              onClick={handleResend}
-              disabled={resendLoading}
-              className="text-primary font-semibold hover:underline disabled:opacity-50"
-            >
+            Didn't receive it?{' '}
+            <button onClick={handleResendEmailOtp} disabled={resendLoading} className="text-primary font-semibold hover:underline disabled:opacity-50">
               {resendLoading ? 'Sending…' : 'Resend code'}
             </button>
           </p>
           <p>
             Wrong email?{' '}
-            <button onClick={() => { setOtpRequired(false); setOtp(''); }} className="text-primary font-semibold hover:underline">
+            <button onClick={() => { setStep('form'); setEmailOtp(''); }} className="text-primary font-semibold hover:underline">
               Go back
             </button>
           </p>
@@ -132,7 +219,57 @@ export default function Login() {
     );
   }
 
-  // ── Normal login screen ──────────────────────────────────────────────────
+  // ── Phone OTP screen ──────────────────────────────────────────
+  if (step === 'phone-otp') {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-4">
+            <Smartphone className="w-7 h-7 text-primary" />
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">Verify your number</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            We sent a 6-digit SMS code to <strong>{userPhone}</strong>.<br />Enter it below to sign in.
+          </p>
+        </div>
+        <form onSubmit={handleVerifyPhone} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="phoneOtp">SMS Verification Code</Label>
+            <Input
+              id="phoneOtp"
+              value={phoneOtp}
+              onChange={e => setPhoneOtp(e.target.value.replace(/\D/g, ''))}
+              placeholder="123456"
+              className="rounded-xl text-center text-2xl tracking-[0.4em] font-mono"
+              maxLength={6}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              required
+            />
+          </div>
+          <Button type="submit" disabled={loading || phoneOtp.length < 6} className="w-full h-11 rounded-xl font-semibold">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Sign In'}
+          </Button>
+        </form>
+        <div className="text-center space-y-2 text-sm text-muted-foreground">
+          <p>
+            Didn't receive it?{' '}
+            <button onClick={handleResendPhoneOtp} disabled={resendLoading} className="text-primary font-semibold hover:underline disabled:opacity-50">
+              {resendLoading ? 'Sending…' : 'Resend SMS'}
+            </button>
+          </p>
+          <p>
+            <button onClick={() => { setStep('form'); setPhoneOtp(''); }} className="text-primary font-semibold hover:underline">
+              Back to sign in
+            </button>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Normal login form ─────────────────────────────────────────
   return (
     <div className="space-y-6">
       <div className="text-center">
