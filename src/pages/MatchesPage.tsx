@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Users, MapPin, BookOpen } from 'lucide-react';
+import { Users, MapPin, BookOpen, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -15,6 +15,7 @@ interface Educator {
   subjects?: string[];
   phase?: string;
   is_actively_looking?: boolean;
+  is_sace_verified?: boolean;
   user_id?: string;
 }
 
@@ -91,7 +92,15 @@ export default function MatchesPage() {
                     }
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm text-foreground">{ed.full_name}</h3>
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="font-semibold text-sm text-foreground">{ed.full_name}</h3>
+                      {ed.is_sace_verified && (
+                        <span title="Identity Verified" className="shrink-0 flex items-center gap-0.5 bg-primary/10 text-primary text-[10px] font-semibold px-1.5 py-0.5 rounded-full border border-primary/20">
+                          <ShieldCheck className="w-3 h-3" />
+                          Verified
+                        </span>
+                      )}
+                    </div>
                     <div className="space-y-1 mt-1.5">
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <MapPin className="w-3 h-3" /> {ed.current_province} → wants {myProfile.current_province}

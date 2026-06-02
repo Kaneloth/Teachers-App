@@ -30,7 +30,6 @@ const DISTRICTS_BY_PROVINCE: Record<string, string[]> = {
   'Western Cape':  ['Metro Central','Metro East','Metro North','Metro South','Cape Winelands','Eden and Central Karoo','Overberg','West Coast'],
 };
 
-// Flatten all districts for the preferred districts dropdown
 const ALL_DISTRICTS = Object.values(DISTRICTS_BY_PROVINCE).flat().sort();
 
 const SUBJECTS = [
@@ -202,7 +201,7 @@ function IdentityVerificationSection() {
   const clearFront = () => { setPassportFront(null); setPassportVerifyState('idle'); setPassportVerifyMsg(''); };
   const clearBack  = () => { setPassportBack(null);  setPassportVerifyState('idle'); setPassportVerifyMsg(''); };
 
-  /* Persist verification result to user metadata */
+  /* Persist verification result to user metadata AND educators table */
   const saveVerifiedMeta = async (docTypeVal: DocType, docNumber: string, verified: boolean) => {
     await supabase.auth.updateUser({
       data: {
@@ -211,6 +210,12 @@ function IdentityVerificationSection() {
         ...(docTypeVal === 'id' ? { id_number: docNumber } : { passport_number: docNumber }),
       },
     });
+    if (user?.id) {
+      await supabase
+        .from('educators')
+        .update({ is_sace_verified: verified })
+        .eq('user_id', user.id);
+    }
   };
 
   /* ── Verify SA ID ─────────────────────────────────────────── */
@@ -438,8 +443,8 @@ export default function ProfilePage() {
 
   // Preferred districts picker state (simplified – single dropdown with all districts)
   const [selectedDistrict, setSelectedDistrict] = useState('');
-  const [districtOther, setDistrictOther] = useState(false);
-  const [customDistrict, setCustomDistrict] = useState('');
+  const [districtOther,    setDistrictOther]    = useState(false);
+  const [customDistrict,   setCustomDistrict]   = useState('');
 
   const cameraInputRef  = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -481,14 +486,17 @@ export default function ProfilePage() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
+    // Reset the input so the same file can be re-selected if needed
     e.target.value = '';
     setUploading(true);
     try {
+      // Derive extension from MIME type (camera files often have no extension)
       const mimeExt: Record<string, string> = {
         'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
         'image/gif': 'gif', 'image/webp': 'webp', 'image/heic': 'heic',
       };
       const ext = mimeExt[file.type] ?? file.name.split('.').pop() ?? 'jpg';
+      // Path must start with user.id/ so Supabase RLS policy (foldername[1] = auth.uid) passes
       const path = `${user.id}/avatar.${ext}`;
       const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
       if (error) {
@@ -532,6 +540,7 @@ export default function ProfilePage() {
     try {
       const { id: _id, is_sace_verified: _sv, ...rest } = profile;
       const yearsExp = profile.years_experience ? parseInt(profile.years_experience, 10) : null;
+      // Resolve the __other__ sentinel before saving
       const resolvedTown = rest.town === '__other__' ? customTownText.trim() : rest.town;
       const payload = {
         ...rest,
@@ -712,7 +721,7 @@ export default function ProfilePage() {
                   <SelectTrigger className="rounded-xl">
                     <SelectValue placeholder="Select district" />
                   </SelectTrigger>
-                  <SelectContent className="max-h-48 overflow-y-auto">
+                  <SelectContent>
                     {(DISTRICTS_BY_PROVINCE[profile.current_province] ?? []).map(d => (
                       <SelectItem key={d} value={d}>{d}</SelectItem>
                     ))}
@@ -805,7 +814,6 @@ export default function ProfilePage() {
                 ))}
               </div>
             )}
-
             <div className="space-y-3">
               <div>
                 <Label className="text-xs text-muted-foreground">Select a district</Label>
