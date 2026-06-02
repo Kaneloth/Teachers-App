@@ -4,10 +4,14 @@ import { ReactNode } from 'react';
 interface Template { id: string; name: string; description: string; category: string; preview: ReactNode }
 
 const TEMPLATES: Template[] = [
-  { id: 'classic', name: 'Classic', description: 'Clean, traditional layout. Preferred by government schools.', category: 'Corporate', preview: <ClassicPreview /> },
-  { id: 'modern', name: 'Modern', description: 'Two-column layout with a coloured teal sidebar.', category: 'Colourful', preview: <ModernPreview /> },
-  { id: 'professional', name: 'Professional', description: 'Gradient banner layout. Great for HOD applications.', category: 'Corporate', preview: <ProfessionalPreview /> },
-  { id: 'minimal', name: 'Minimal', description: 'Simple and elegant. Lets your content speak for itself.', category: 'Colourful', preview: <MinimalPreview /> },
+  { id: 'classic',      name: 'Classic',      description: 'Clean, traditional layout. Preferred by government schools.',      category: 'Corporate',   preview: <ClassicPreview /> },
+  { id: 'modern',       name: 'Modern',       description: 'Two-column layout with a coloured teal sidebar.',                  category: 'Colourful',   preview: <ModernPreview /> },
+  { id: 'professional', name: 'Professional', description: 'Gradient banner layout. Great for HOD applications.',              category: 'Corporate',   preview: <ProfessionalPreview /> },
+  { id: 'minimal',      name: 'Minimal',      description: 'Simple and elegant. Lets your content speak for itself.',          category: 'Colourful',   preview: <MinimalPreview /> },
+  { id: 'sidebar',      name: 'Sidebar',      description: 'Avatar initials, contact left, work history right. Blue & white.', category: 'Corporate',   preview: <SidebarPreview /> },
+  { id: 'bold',         name: 'Bold',         description: 'Striking pink header. Eye-catching two-column design.',            category: 'Colourful',   preview: <BoldPreview /> },
+  { id: 'executive',    name: 'Executive',    description: 'Rich burgundy banner with icon-accented contact details.',         category: 'Colourful',   preview: <ExecutivePreview /> },
+  { id: 'corporate',    name: 'Corporate',    description: 'Navy sidebar, white content. Polished and structured.',            category: 'Corporate',   preview: <CorporatePreview /> },
 ];
 
 interface Props { selected: string; onChange: (id: string) => void }
@@ -36,6 +40,8 @@ export default function CVStepTemplate({ selected, onChange }: Props) {
     </div>
   );
 }
+
+/* ─── Existing previews (unchanged) ────────────────────────────────────────── */
 
 function ClassicPreview() {
   return (
@@ -121,6 +127,156 @@ function MinimalPreview() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ─── New previews ──────────────────────────────────────────────────────────── */
+
+/* Template 5 — Sidebar (blue-grey left panel, avatar initials, right content) */
+function SidebarPreview() {
+  return (
+    <div style={{ width: '210mm', background: '#fff', display: 'flex', fontFamily: 'Arial, sans-serif', minHeight: '140px' }}>
+      {/* Left panel */}
+      <div style={{ width: '64px', background: '#3b5998', padding: '14px 8px', color: '#fff', flexShrink: 0 }}>
+        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#fff', margin: '0 auto 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b5998', fontSize: '13px', fontWeight: '800' }}>JS</div>
+        {['CONTACT','SKILLS'].map(s => (
+          <div key={s} style={{ marginBottom: '7px' }}>
+            <div style={{ fontSize: '5px', fontWeight: '800', letterSpacing: '1px', color: 'rgba(255,255,255,0.55)', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '2px', marginBottom: '3px' }}>{s}</div>
+            <div style={{ height: '3.5px', background: 'rgba(255,255,255,0.35)', borderRadius: '2px', marginBottom: '2px' }} />
+            <div style={{ height: '3.5px', background: 'rgba(255,255,255,0.2)', borderRadius: '2px', width: '70%', marginBottom: '2px' }} />
+            <div style={{ height: '3.5px', background: 'rgba(255,255,255,0.25)', borderRadius: '2px', width: '55%' }} />
+          </div>
+        ))}
+      </div>
+      {/* Right content */}
+      <div style={{ flex: 1, padding: '14px 12px' }}>
+        <div style={{ fontSize: '14px', fontWeight: '700', color: '#1a1a2e' }}>John Smith</div>
+        <div style={{ fontSize: '7px', color: '#3b5998', fontWeight: '600', marginBottom: '8px' }}>Senior Sales Associate</div>
+        {['WORK HISTORY','EDUCATION'].map(s => (
+          <div key={s} style={{ marginBottom: '7px' }}>
+            <div style={{ fontSize: '6px', fontWeight: '700', letterSpacing: '1px', color: '#3b5998', borderBottom: '1.5px solid #3b5998', paddingBottom: '2px', marginBottom: '3px' }}>{s}</div>
+            <div style={{ height: '4px', background: '#e5e7eb', borderRadius: '2px', marginBottom: '2px', width: '95%' }} />
+            <div style={{ height: '4px', background: '#f3f4f6', borderRadius: '2px', width: '80%', marginBottom: '2px' }} />
+            <div style={{ height: '4px', background: '#f3f4f6', borderRadius: '2px', width: '60%' }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* Template 6 — Bold (pink/magenta header, two-column body) */
+function BoldPreview() {
+  return (
+    <div style={{ width: '210mm', background: '#fff', fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div style={{ background: '#c2185b', color: '#fff', padding: '14px 22px 10px' }}>
+        <div style={{ fontSize: '16px', fontWeight: '800' }}>John Smith</div>
+        <div style={{ fontSize: '7.5px', color: 'rgba(255,255,255,0.8)', marginTop: '3px' }}>Senior Sales Associate</div>
+      </div>
+      {/* Pink divider bar */}
+      <div style={{ height: '3px', background: 'linear-gradient(90deg,#e91e8c,#f8bbd0)' }} />
+      {/* Two-column body */}
+      <div style={{ display: 'flex', padding: '10px 22px', gap: '16px' }}>
+        {/* Left */}
+        <div style={{ width: '70px', flexShrink: 0 }}>
+          {['CONTACT','SKILLS'].map(s => (
+            <div key={s} style={{ marginBottom: '7px' }}>
+              <div style={{ fontSize: '5.5px', fontWeight: '800', letterSpacing: '1px', color: '#c2185b', borderBottom: '1px solid #f48fb1', paddingBottom: '2px', marginBottom: '3px' }}>{s}</div>
+              <div style={{ height: '3.5px', background: '#fce4ec', borderRadius: '2px', marginBottom: '2px' }} />
+              <div style={{ height: '3.5px', background: '#fce4ec', borderRadius: '2px', width: '70%', marginBottom: '2px' }} />
+              <div style={{ height: '3.5px', background: '#fce4ec', borderRadius: '2px', width: '55%' }} />
+            </div>
+          ))}
+        </div>
+        {/* Right */}
+        <div style={{ flex: 1 }}>
+          {['WORK HISTORY','EDUCATION'].map(s => (
+            <div key={s} style={{ marginBottom: '7px' }}>
+              <div style={{ fontSize: '6px', fontWeight: '700', letterSpacing: '1px', color: '#c2185b', borderBottom: '1px solid #f48fb1', paddingBottom: '2px', marginBottom: '3px' }}>{s}</div>
+              <div style={{ height: '4px', background: '#fce4ec', borderRadius: '2px', marginBottom: '2px', width: '95%' }} />
+              <div style={{ height: '4px', background: '#fce4ec', borderRadius: '2px', width: '75%', marginBottom: '2px' }} />
+              <div style={{ height: '4px', background: '#fce4ec', borderRadius: '2px', width: '55%' }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Template 7 — Executive (burgundy/red header, icon-accented contact row, clean sections) */
+function ExecutivePreview() {
+  return (
+    <div style={{ width: '210mm', background: '#fff', fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div style={{ background: '#7b1829', color: '#fff', padding: '14px 22px' }}>
+        <div style={{ fontSize: '16px', fontWeight: '800', letterSpacing: '0.5px' }}>John Smith</div>
+        <div style={{ fontSize: '7.5px', color: 'rgba(255,255,255,0.75)', marginTop: '3px' }}>Senior Sales Associate</div>
+      </div>
+      {/* Contact icon row */}
+      <div style={{ background: '#a01e30', padding: '5px 22px', display: 'flex', gap: '14px' }}>
+        {['📍 Address','📞 Phone','✉ Email'].map(c => (
+          <div key={c} style={{ fontSize: '5.5px', color: 'rgba(255,255,255,0.85)', display: 'flex', alignItems: 'center', gap: '3px' }}>{c}</div>
+        ))}
+      </div>
+      {/* Body — two column */}
+      <div style={{ display: 'flex', padding: '10px 22px', gap: '16px' }}>
+        <div style={{ flex: 1.6 }}>
+          {['WORK HISTORY','EDUCATION'].map(s => (
+            <div key={s} style={{ marginBottom: '7px' }}>
+              <div style={{ fontSize: '6px', fontWeight: '700', letterSpacing: '1px', color: '#7b1829', borderBottom: '1.5px solid #7b1829', paddingBottom: '2px', marginBottom: '3px' }}>{s}</div>
+              <div style={{ height: '4px', background: '#fde8ea', borderRadius: '2px', marginBottom: '2px', width: '95%' }} />
+              <div style={{ height: '4px', background: '#fde8ea', borderRadius: '2px', width: '75%', marginBottom: '2px' }} />
+              <div style={{ height: '4px', background: '#fde8ea', borderRadius: '2px', width: '55%' }} />
+            </div>
+          ))}
+        </div>
+        <div style={{ flex: 1 }}>
+          {['SKILLS','LANGUAGES'].map(s => (
+            <div key={s} style={{ marginBottom: '7px' }}>
+              <div style={{ fontSize: '6px', fontWeight: '700', letterSpacing: '1px', color: '#7b1829', borderBottom: '1.5px solid #7b1829', paddingBottom: '2px', marginBottom: '3px' }}>{s}</div>
+              <div style={{ height: '3.5px', background: '#fde8ea', borderRadius: '2px', marginBottom: '2px' }} />
+              <div style={{ height: '3.5px', background: '#fde8ea', borderRadius: '2px', width: '70%', marginBottom: '2px' }} />
+              <div style={{ height: '3.5px', background: '#fde8ea', borderRadius: '2px', width: '50%' }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Template 8 — Corporate (dark navy left sidebar, white right area, very structured) */
+function CorporatePreview() {
+  return (
+    <div style={{ width: '210mm', background: '#fff', display: 'flex', fontFamily: 'Arial, sans-serif', minHeight: '140px' }}>
+      {/* Dark navy sidebar */}
+      <div style={{ width: '72px', background: '#0f2044', padding: '14px 10px', color: '#fff', flexShrink: 0 }}>
+        <div style={{ fontSize: '8px', fontWeight: '800', color: '#fff', marginBottom: '2px', lineHeight: 1.2 }}>John{'\n'}Smith</div>
+        <div style={{ fontSize: '5.5px', color: '#7eaadc', marginBottom: '10px' }}>Sales Associate</div>
+        {['CONTACT','SKILLS','LANGUAGES'].map(s => (
+          <div key={s} style={{ marginBottom: '6px' }}>
+            <div style={{ fontSize: '5px', fontWeight: '800', letterSpacing: '1px', color: '#7eaadc', borderBottom: '1px solid rgba(126,170,220,0.3)', paddingBottom: '2px', marginBottom: '3px' }}>{s}</div>
+            <div style={{ height: '3px', background: 'rgba(255,255,255,0.2)', borderRadius: '2px', marginBottom: '2px' }} />
+            <div style={{ height: '3px', background: 'rgba(255,255,255,0.13)', borderRadius: '2px', width: '70%', marginBottom: '2px' }} />
+            <div style={{ height: '3px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', width: '50%' }} />
+          </div>
+        ))}
+      </div>
+      {/* White content area */}
+      <div style={{ flex: 1, padding: '14px 12px' }}>
+        <div style={{ height: '3px', background: '#0f2044', marginBottom: '8px', width: '100%' }} />
+        {['WORK HISTORY','EDUCATION'].map(s => (
+          <div key={s} style={{ marginBottom: '7px' }}>
+            <div style={{ fontSize: '6px', fontWeight: '800', letterSpacing: '1.5px', color: '#0f2044', marginBottom: '3px' }}>{s}</div>
+            <div style={{ height: '4px', background: '#e8edf5', borderRadius: '2px', marginBottom: '2px', width: '95%' }} />
+            <div style={{ height: '4px', background: '#f1f4f9', borderRadius: '2px', width: '80%', marginBottom: '2px' }} />
+            <div style={{ height: '4px', background: '#f1f4f9', borderRadius: '2px', width: '60%' }} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
