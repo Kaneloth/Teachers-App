@@ -222,13 +222,18 @@ export default function VacanciesPage() {
 
       const { adzuna = 0, careers24 = 0 } = json.sources ?? {};
       const total = json.total ?? (adzuna + careers24);
-      const parts = [];
-      if (adzuna)    parts.push(`${adzuna} Adzuna`);
-      if (careers24) parts.push(`${careers24} Careers24`);
-      const summary = parts.length
-        ? `${total} posts imported — ${parts.join(' · ')}`
-        : 'Refresh complete — no new posts found (see console for details)';
-      toast.success(summary, { duration: 6000 });
+      const logLines: string[] = json.log ?? [];
+
+      if (total > 0) {
+        const parts = [];
+        if (adzuna)    parts.push(`${adzuna} Adzuna`);
+        if (careers24) parts.push(`${careers24} Careers24`);
+        toast.success(`${total} posts imported — ${parts.join(' · ')}`, { duration: 6000 });
+      } else {
+        // Show the first meaningful log line so the user can see the actual reason
+        const detail = logLines.find(l => l.includes('error') || l.includes('skipped') || l.includes('results')) || logLines[0] || 'No details available';
+        toast.info(`0 posts found — ${detail}`, { duration: 10000 });
+      }
       await load();
     } catch (e: any) {
       toast.error(`Refresh failed: ${e.message}`);

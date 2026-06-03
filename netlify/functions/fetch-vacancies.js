@@ -115,27 +115,34 @@ async function fetchAdzuna(log) {
   }
 
   const results = [];
+  // Three separate keyword searches — no category filter (SA education category
+  // tag varies; we rely on the search terms to target education posts).
+  // content_type is NOT a valid Adzuna param — removed.
   const queries = [
-    { what: 'educator teacher school', category: 'education-jobs' },
-    { what: 'school principal deputy principal', category: 'education-jobs' },
-    { what: 'foundation phase intermediate phase educator', category: 'education-jobs' },
+    'educator teacher school',
+    'school principal deputy principal',
+    'lecturer professor academic',
   ];
 
   const settled = await Promise.allSettled(
-    queries.map(({ what, category }) => {
+    queries.map(what => {
       const params = new URLSearchParams({
         app_id:           appId,
         app_key:          appKey,
         what,
-        category,
         results_per_page: '50',
         sort_by:          'date',
-        content_type:     'application/json',
       });
       return fetch(
         `https://api.adzuna.com/v1/api/jobs/za/search/1?${params}`,
-        { signal: AbortSignal.timeout(10000) }
-      ).then(r => r.json());
+        {
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(10000),
+        }
+      ).then(async r => {
+        if (!r.ok) throw new Error(`Adzuna HTTP ${r.status} for query "${what}"`);
+        return r.json();
+      });
     })
   );
 
@@ -145,15 +152,23 @@ async function fetchAdzuna(log) {
       log.push(`Adzuna query error: ${r.reason?.message}`);
       continue;
     }
-    const jobs = r.value?.results || [];
+    const raw = r.value;
+    if (raw?.exception) {
+      log.push(`Adzuna API error: ${raw.display || raw.exception}`);
+      continue;
+    }
+    const jobs = raw?.results || [];
+    log.push(`Adzuna: query returned ${jobs.length} raw results`);
     for (const job of jobs) {
-      const id = job.id || job.__CLASS__;
+      const id = job.id;
       if (!id || seen.has(id)) continue;
       seen.add(id);
 
       const title   = strip(job.title || '');
       const company = strip(job.company?.display_name || '');
-      if (!title || !isEdu(title + ' ' + company)) continue;
+      // We already searched for education terms — skip the isEdu filter here
+      // so we don't discard valid SA teaching posts with unusual titles.
+      if (!title) continue;
 
       const location = [job.location?.display_name, job.location?.area?.[2]].filter(Boolean).join(', ');
       const combined = title + ' ' + company + ' ' + strip(job.description || '');
