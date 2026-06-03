@@ -2,29 +2,14 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
-const rawPort = process.env.PORT;
+// True only inside the Replit editor
+const isReplit = process.env.REPL_ID !== undefined;
 
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
-
-const port = Number(rawPort);
-
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
-
-const basePath = process.env.BASE_PATH;
-
-if (!basePath) {
-  throw new Error(
-    "BASE_PATH environment variable is required but was not provided.",
-  );
-}
+// PORT and BASE_PATH are injected by Replit workflows; on Netlify they are absent.
+// Fall back to safe defaults so the Netlify build never throws here.
+const port = process.env.PORT ? Number(process.env.PORT) : 5173;
+const basePath = process.env.BASE_PATH ?? "/";
 
 export default defineConfig(async ({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -33,19 +18,27 @@ export default defineConfig(async ({ mode }) => {
   const supabaseAnonKey =
     env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || "";
 
-  const extraPlugins =
-    process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined
-      ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer({
-              root: path.resolve(import.meta.dirname, ".."),
-            }),
-          ),
-          await import("@replit/vite-plugin-dev-banner").then((m) =>
-            m.devBanner(),
-          ),
-        ]
-      : [];
+  // All @replit/* plugins are loaded dynamically and ONLY in the Replit editor.
+  // They are never installed on Netlify, so any static import would break the build.
+  const replitPlugins = isReplit
+    ? await Promise.all([
+        import("@replit/vite-plugin-runtime-error-modal").then((m) =>
+          m.default()
+        ),
+        ...(process.env.NODE_ENV !== "production"
+          ? [
+              import("@replit/vite-plugin-cartographer").then((m) =>
+                m.cartographer({
+                  root: path.resolve(import.meta.dirname, ".."),
+                })
+              ),
+              import("@replit/vite-plugin-dev-banner").then((m) =>
+                m.devBanner()
+              ),
+            ]
+          : []),
+      ])
+    : [];
 
   return {
     base: basePath,
@@ -53,16 +46,20 @@ export default defineConfig(async ({ mode }) => {
       __SUPABASE_URL__: JSON.stringify(supabaseUrl),
       __SUPABASE_ANON_KEY__: JSON.stringify(supabaseAnonKey),
     },
-    plugins: [react(), tailwindcss(), runtimeErrorOverlay(), ...extraPlugins],
+    plugins: [react(), tailwindcss(), ...replitPlugins],
     resolve: {
       alias: {
         "@": path.resolve(import.meta.dirname, "src"),
-        "@assets": path.resolve(
-          import.meta.dirname,
-          "..",
-          "..",
-          "attached_assets",
-        ),
+        // @assets is a Replit-specific path; omit it on Netlify to avoid
+        // "directory does not exist" errors during the build.
+        ...(isReplit && {
+          "@assets": path.resolve(
+            import.meta.dirname,
+            "..",
+            "..",
+            "attached_assets"
+          ),
+        }),
       },
       dedupe: ["react", "react-dom"],
     },
@@ -76,9 +73,7 @@ export default defineConfig(async ({ mode }) => {
       strictPort: true,
       host: "0.0.0.0",
       allowedHosts: true,
-      fs: {
-        strict: true,
-      },
+      fs: { strict: true },
     },
     preview: {
       port,
