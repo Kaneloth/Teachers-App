@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ArrowLeft, FileText, GraduationCap, Briefcase } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, FileText, GraduationCap, Briefcase, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 import CVStepPersonal from '@/components/cv/CVStepPersonal';
 import CVStepEducation from '@/components/cv/CVStepEducation';
 import CVStepExperience from '@/components/cv/CVStepExperience';
@@ -130,6 +131,17 @@ export default function CVBuilderPage() {
   const [cvType, setCvType] = useState<CVType | null>(null);
   const [step, setStep] = useState(0);
   const [data, setData] = useState<CVData>(defaultData('educator'));
+  const [isVerified, setIsVerified] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .select('is_verified')
+      .eq('id', user.id)
+      .single()
+      .then(({ data: profile }) => setIsVerified(profile?.is_verified ?? false));
+  }, [user]);
 
   const prev = () => setStep(s => Math.max(0, s - 1));
   const next = () => setStep(s => Math.min(STEPS.length - 1, s + 1));
@@ -149,6 +161,68 @@ export default function CVBuilderPage() {
       navigate(-1);
     }
   };
+
+  /* ── ID verification gate ────────────────────────────────── */
+  if (isVerified === null) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center gap-2 px-4 pt-4 pb-5">
+          <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
+            <ArrowLeft className="w-5 h-5 text-foreground" />
+          </button>
+          <FileText className="w-5 h-5 text-primary" />
+          <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
+        </div>
+        <div className="flex items-center justify-center py-16">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!isVerified) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center gap-2 px-4 pt-4 pb-5">
+          <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
+            <ArrowLeft className="w-5 h-5 text-foreground" />
+          </button>
+          <FileText className="w-5 h-5 text-primary" />
+          <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
+        </div>
+        <div className="px-4 pb-8">
+          <div className="bg-card border border-border rounded-2xl p-6 flex flex-col items-center text-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+              <ShieldAlert className="w-8 h-8 text-amber-500" />
+            </div>
+            <div className="space-y-1.5">
+              <h2 className="text-lg font-bold text-foreground">Identity Verification Required</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                You need to verify your identity before you can create a CV. This helps us ensure that
+                all educators on Crosssa are who they say they are.
+              </p>
+            </div>
+            <div className="w-full bg-muted rounded-xl px-4 py-3 text-left space-y-2">
+              <p className="text-xs font-semibold text-foreground">Why is this required?</p>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                <li className="flex items-start gap-2"><ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" /> Builds trust with schools reviewing your CV</li>
+                <li className="flex items-start gap-2"><ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" /> Prevents fraudulent applications</li>
+                <li className="flex items-start gap-2"><ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" /> Keeps the platform safe for all educators</li>
+              </ul>
+            </div>
+            <div className="flex flex-col gap-2 w-full pt-1">
+              <Button onClick={() => navigate('/verify-identity')} className="w-full h-11 rounded-xl font-semibold gap-2">
+                <ShieldCheck className="w-4 h-4" /> Verify My Identity
+              </Button>
+              <Button variant="ghost" onClick={() => navigate(-1)} className="w-full h-10 rounded-xl text-muted-foreground">
+                Go Back
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /* ── Last CV state ────────────────────────────────────────── */
   if (!showBuilder && lastCVData) {
