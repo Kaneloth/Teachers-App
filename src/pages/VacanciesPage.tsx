@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Briefcase, MapPin, Calendar, ExternalLink, Search,
-  ArrowLeft, Clock, RefreshCw, Loader2, Building2,
+  ArrowLeft, Clock, RefreshCw, Loader2, Building2, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,7 @@ interface Vacancy {
   post_level?: string;
   closing_date?: string;
   institution?: string;
+  description?: string;
   source?: string;
   reference?: string;
   application_url?: string;
@@ -41,9 +42,10 @@ const PROVINCES = [
 const TYPES = ['School-Based', 'Circuit', 'District', 'Provincial', 'National'];
 
 const SOURCE_BADGE: Record<string, string> = {
-  DPSA: 'bg-blue-50 text-blue-700 border-blue-200',
-  Indeed: 'bg-orange-50 text-orange-700 border-orange-200',
-  School: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  DPSA:      'bg-blue-50 text-blue-700 border-blue-200',
+  Indeed:    'bg-orange-50 text-orange-700 border-orange-200',
+  Careers24: 'bg-purple-50 text-purple-700 border-purple-200',
+  School:    'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 
 function DaysLeftBadge({ closing_date }: { closing_date?: string }) {
@@ -66,6 +68,116 @@ function DaysLeftBadge({ closing_date }: { closing_date?: string }) {
     <span className={`text-[11px] font-semibold rounded-full px-2.5 py-0.5 border shrink-0 ${color}`}>
       {days === 0 ? 'Closes today' : days === 1 ? '1 day left' : `${days} days left`}
     </span>
+  );
+}
+
+function VacancyCard({ vacancy: v, index: i }: { vacancy: Vacancy; index: number }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: i * 0.03 }}
+    >
+      <div className="bg-card rounded-2xl border border-border p-4 space-y-2.5">
+        {/* Title + days left */}
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-semibold text-foreground text-sm leading-snug flex-1">{v.title}</h3>
+          <DaysLeftBadge closing_date={v.closing_date} />
+        </div>
+
+        {/* School + post level */}
+        {(v.school || v.post_level) && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Building2 className="w-3 h-3 shrink-0" />
+            <span className="truncate">
+              {[v.school, v.post_level ? `Post Level ${v.post_level}` : null].filter(Boolean).join(' · ')}
+            </span>
+          </div>
+        )}
+
+        {/* Province / district */}
+        {(v.province || v.district) && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MapPin className="w-3 h-3 shrink-0" />
+            <span>{[v.province, v.district].filter(Boolean).join(' – ')}</span>
+          </div>
+        )}
+
+        {/* Closing date */}
+        {v.closing_date && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Calendar className="w-3 h-3 shrink-0" />
+            <span>Closes: {format(new Date(v.closing_date), 'dd MMM yyyy')}</span>
+          </div>
+        )}
+
+        {/* Subjects + post_type + phase tags */}
+        {(v.subjects?.length || v.post_type || v.phase) && (
+          <div className="flex flex-wrap gap-1.5 pt-0.5">
+            {v.subjects?.map(s => (
+              <span key={s} className="text-[10px] bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 border border-border">
+                {s}
+              </span>
+            ))}
+            {v.post_type && (
+              <span className="text-[10px] text-primary bg-primary/10 border border-primary/20 rounded-full px-2.5 py-0.5 font-medium">
+                {v.post_type}
+              </span>
+            )}
+            {v.phase && (
+              <span className="text-[10px] text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2.5 py-0.5 font-medium">
+                {v.phase}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Expandable description (snippet / DPSA Ctrl+F tip) */}
+        {v.description && (
+          <div className="pt-0.5">
+            <button
+              onClick={() => setExpanded(x => !x)}
+              className="flex items-center gap-1 text-[11px] text-primary font-medium hover:underline"
+            >
+              {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              {expanded ? 'Hide details' : 'Show details'}
+            </button>
+            {expanded && (
+              <p className="mt-1.5 text-xs text-muted-foreground whitespace-pre-line leading-relaxed bg-muted/40 rounded-xl px-3 py-2">
+                {v.description}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Footer: source badge + ref + view button */}
+        <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60">
+          <div className="flex items-center gap-2 min-w-0">
+            {v.source && (
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${SOURCE_BADGE[v.source] || 'bg-muted text-muted-foreground border-border'}`}>
+                {v.source}
+              </span>
+            )}
+            {v.posted_by_school && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200 shrink-0">
+                School Post
+              </span>
+            )}
+            <p className="text-[11px] text-muted-foreground truncate">
+              {v.reference && `Ref: ${v.reference}`}
+            </p>
+          </div>
+          {v.application_url && (
+            <a href={v.application_url} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-xs h-8 shrink-0">
+                View / Apply <ExternalLink className="w-3 h-3" />
+              </Button>
+            </a>
+          )}
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -112,8 +224,9 @@ export default function VacanciesPage() {
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || 'Unknown error');
 
+      const { dpsa = 0, indeed = 0, careers24 = 0 } = json.sources ?? {};
       toast.success(
-        `Refreshed — ${json.sources?.dpsa ?? 0} DPSA + ${json.sources?.indeed ?? 0} Indeed posts imported`,
+        `Refreshed — ${dpsa} DPSA · ${indeed} Indeed · ${careers24} Careers24 posts imported`,
         { duration: 5000 }
       );
       await load();
@@ -257,93 +370,7 @@ export default function VacanciesPage() {
           ) : (
             <div className="px-4 pb-6 space-y-3">
               {filtered.map((v, i) => (
-                <motion.div
-                  key={v.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.03 }}
-                >
-                  <div className="bg-card rounded-2xl border border-border p-4 space-y-2.5">
-                    {/* Title + days left */}
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-foreground text-sm leading-snug flex-1">{v.title}</h3>
-                      <DaysLeftBadge closing_date={v.closing_date} />
-                    </div>
-
-                    {/* School + post level */}
-                    {(v.school || v.post_level) && (
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Building2 className="w-3 h-3 shrink-0" />
-                        <span className="truncate">
-                          {[v.school, v.post_level ? `Post Level ${v.post_level}` : null].filter(Boolean).join(' · ')}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Province / district */}
-                    {(v.province || v.district) && (
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <MapPin className="w-3 h-3 shrink-0" />
-                        <span>{[v.province, v.district].filter(Boolean).join(' – ')}</span>
-                      </div>
-                    )}
-
-                    {/* Closing date */}
-                    {v.closing_date && (
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Calendar className="w-3 h-3 shrink-0" />
-                        <span>Closes: {format(new Date(v.closing_date), 'dd MMM yyyy')}</span>
-                      </div>
-                    )}
-
-                    {/* Subjects + post_type + phase tags */}
-                    {(v.subjects?.length || v.post_type || v.phase) && (
-                      <div className="flex flex-wrap gap-1.5 pt-0.5">
-                        {v.subjects?.map(s => (
-                          <span key={s} className="text-[10px] bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 border border-border">
-                            {s}
-                          </span>
-                        ))}
-                        {v.post_type && (
-                          <span className="text-[10px] text-primary bg-primary/10 border border-primary/20 rounded-full px-2.5 py-0.5 font-medium">
-                            {v.post_type}
-                          </span>
-                        )}
-                        {v.phase && (
-                          <span className="text-[10px] text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2.5 py-0.5 font-medium">
-                            {v.phase}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Footer: ref + source badge + view button */}
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60">
-                      <div className="flex items-center gap-2 min-w-0">
-                        {v.source && (
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${SOURCE_BADGE[v.source] || 'bg-muted text-muted-foreground border-border'}`}>
-                            {v.source}
-                          </span>
-                        )}
-                        {v.posted_by_school && (
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200 shrink-0">
-                            School Post
-                          </span>
-                        )}
-                        <p className="text-[11px] text-muted-foreground truncate">
-                          {v.reference && `Ref: ${v.reference}`}
-                        </p>
-                      </div>
-                      {v.application_url && (
-                        <a href={v.application_url} target="_blank" rel="noopener noreferrer">
-                          <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-xs h-8 shrink-0">
-                            View / Apply <ExternalLink className="w-3 h-3" />
-                          </Button>
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
+                <VacancyCard key={v.id} vacancy={v} index={i} />
               ))}
             </div>
           )}
