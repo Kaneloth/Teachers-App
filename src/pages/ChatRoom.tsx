@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Send, Check, CheckCheck, Copy, Trash, Trash2 } from 'lucide-react';
+import { ArrowLeft, Send, Check, CheckCheck, Copy, Trash, Trash2, Lock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { format, isToday, isYesterday, isSameDay } from 'date-fns';
@@ -63,6 +63,7 @@ export default function ChatRoom() {
   const [partner, setPartner] = useState<PartnerInfo | null>(null);
   const [sending, setSending] = useState(false);
   const [selectedMsg, setSelectedMsg] = useState<Message | null>(null);
+  const [chatLimitReached, setChatLimitReached] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
@@ -153,6 +154,42 @@ export default function ChatRoom() {
     return () => { supabase.removeChannel(channel); };
   }, [user, partnerId]);
 
+  /* ── Free-tier 2-chat limit check ──────────────────────────── */
+  useEffect(() => {
+    if (!user || !partnerId) return;
+
+    const check = async () => {
+      // Check subscription — dual source (user_metadata + profiles fallback)
+      const metaPlan = user.user_metadata?.subscription_plan as string | undefined;
+      const metaEnd  = user.user_metadata?.subscription_end  as string | undefined;
+      const isProMeta = metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date();
+      if (isProMeta) return; // Pro via metadata — no limit
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('subscription_plan, subscription_end')
+        .eq('id', user.id)
+        .single();
+      const isPro =
+        profile?.subscription_plan &&
+        profile.subscription_plan !== 'free' &&
+        profile.subscription_end &&
+        new Date(profile.subscription_end) > new Date();
+      if (isPro) return; // Pro via profiles — no limit
+
+      // Free user: count distinct outgoing partners
+      const { data: sent } = await supabase
+        .from('messages')
+        .select('receiver_id')
+        .eq('sender_id', user.id);
+
+      const distinctPartners = new Set((sent || []).map(m => m.receiver_id));
+      if (distinctPartners.size >= 2) setChatLimitReached(true);
+    };
+
+    check();
+  }, [user, partnerId]);
+
   /* ── Load partner info ──────────────────────────────────────── */
   useEffect(() => {
     if (!partnerId) return;
@@ -232,7 +269,7 @@ export default function ChatRoom() {
   /* ── Send ───────────────────────────────────────────────────── */
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim() || !user || !partnerId) return;
+    if (!text.trim() || !user || !partnerId || chatLimitReached) return;
     setSending(true);
     const optimistic: Message = {
       id: `temp-${Date.now()}`,
@@ -373,26 +410,44 @@ export default function ChatRoom() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input bar */}
-      <form
-        onSubmit={handleSend}
-        className="flex items-center gap-2 px-4 py-3 border-t border-border bg-background"
-      >
-        <Input
-          value={text}
-          onChange={e => setText(e.target.value)}
-          placeholder="Type a message..."
-          className="rounded-full flex-1 bg-muted/40 border-border"
-        />
-        <Button
-          type="submit"
-          size="icon"
-          disabled={sending || !text.trim()}
-          className="rounded-full shrink-0 w-10 h-10"
+      {/* Input bar / upgrade wall */}
+      {chatLimitReached ? (
+        <div className="flex items-center gap-3 px-4 py-3 border-t border-border bg-background">
+          <div className="flex items-center gap-2.5 flex-1 bg-muted/60 rounded-full px-4 py-2.5">
+            <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+            <span className="text-sm text-muted-foreground">
+              You've used both free chat slots.{' '}
+              <button
+                onClick={() => navigate('/settings')}
+                className="text-primary font-medium underline underline-offset-2"
+              >
+                Upgrade to Pro
+              </button>{' '}
+              to keep messaging.
+            </span>
+          </div>
+        </div>
+      ) : (
+        <form
+          onSubmit={handleSend}
+          className="flex items-center gap-2 px-4 py-3 border-t border-border bg-background"
         >
-          <Send className="w-4 h-4" />
-        </Button>
-      </form>
+          <Input
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder="Type a message..."
+            className="rounded-full flex-1 bg-muted/40 border-border"
+          />
+          <Button
+            type="submit"
+            size="icon"
+            disabled={sending || !text.trim()}
+            className="rounded-full shrink-0 w-10 h-10"
+          >
+            <Send className="w-4 h-4" />
+          </Button>
+        </form>
+      )}
     </div>
   );
 }
