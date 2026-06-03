@@ -8,13 +8,15 @@ import CVStepPersonal from '@/components/cv/CVStepPersonal';
 import CVStepEducation from '@/components/cv/CVStepEducation';
 import CVStepExperience from '@/components/cv/CVStepExperience';
 import CVStepSkills from '@/components/cv/CVStepSkills';
+import CVStepReferences from '@/components/cv/CVStepReferences';
+import type { RefEntry } from '@/components/cv/CVStepReferences';
 import CVStepTemplate from '@/components/cv/CVStepTemplate';
 import CVStepReview from '@/components/cv/CVStepReview';
 import LastCVBanner from '@/components/cv/LastCVBanner';
 
 export type CVType = 'educator' | 'general';
 
-const STEPS = ['Personal', 'Education', 'Experience', 'Skills', 'Template', 'Review'];
+const STEPS = ['Personal', 'Education', 'Experience', 'Skills', 'References', 'Template', 'Review'];
 
 interface CVData {
   cvType: CVType;
@@ -22,6 +24,7 @@ interface CVData {
   education: { institution: string; qualification: string; year: string }[];
   experience: { school: string; role: string; from: string; to: string; description: string }[];
   skills: { subjects: string[]; soft_skills: string[]; languages: string[] };
+  references: RefEntry[];
   template: string;
 }
 
@@ -32,6 +35,10 @@ function defaultData(cvType: CVType): CVData {
     education: [{ institution: '', qualification: '', year: '' }],
     experience: [{ school: '', role: '', from: '', to: '', description: '' }],
     skills: { subjects: [], soft_skills: [], languages: [] },
+    references: [
+      { name: '', title: '', organisation: '', phone: '', email: '', relationship: '' },
+      { name: '', title: '', organisation: '', phone: '', email: '', relationship: '' },
+    ],
     template: 'classic',
   };
 }
@@ -231,8 +238,9 @@ export default function CVBuilderPage() {
                   {step === 1 && <CVStepEducation data={data.education} onChange={education => setData(d => ({ ...d, education }))} />}
                   {step === 2 && <CVStepExperience cvType={cvType} data={data.experience} onChange={experience => setData(d => ({ ...d, experience }))} />}
                   {step === 3 && <CVStepSkills cvType={cvType} data={data.skills} onChange={skills => setData(d => ({ ...d, skills }))} />}
-                  {step === 4 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} />}
-                  {step === 5 && <CVStepReview data={data} onGenerated={() => {}} />}
+                  {step === 4 && <CVStepReferences cvType={cvType} data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
+                  {step === 5 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} />}
+                  {step === 6 && <CVStepReview data={data} onGenerated={() => {}} />}
                 </motion.div>
               </AnimatePresence>
             </div>

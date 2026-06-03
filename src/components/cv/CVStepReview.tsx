@@ -13,6 +13,7 @@ interface CVData {
   education: { institution: string; qualification: string; year: string }[];
   experience: { school: string; role: string; from: string; to: string; description: string }[];
   skills: { subjects?: string[]; soft_skills?: string[]; languages?: string[] };
+  references?: { name: string; title: string; organisation: string; phone: string; email: string; relationship: string }[];
   template: string;
 }
 
@@ -125,6 +126,18 @@ export default function CVStepReview({ data, onGenerated }: Props) {
             </div>
             {skills.languages?.length ? <p className="text-sm text-muted-foreground mt-1">Languages: {skills.languages.join(', ')}</p> : null}
           </SummaryCard>
+          {data.references?.filter(r => r.name).length ? (
+            <SummaryCard title="References">
+              {data.references.filter(r => r.name).map((r, i) => (
+                <div key={i} className="text-sm">
+                  <p className="font-medium text-foreground">{r.name}</p>
+                  <p className="text-muted-foreground text-xs">{[r.title, r.organisation].filter(Boolean).join(' · ')}</p>
+                  {r.relationship && <p className="text-muted-foreground text-xs">{r.relationship}</p>}
+                  <p className="text-muted-foreground text-xs">{[r.phone, r.email].filter(Boolean).join(' · ')}</p>
+                </div>
+              ))}
+            </SummaryCard>
+          ) : null}
         </div>
       )}
 

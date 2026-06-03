@@ -2,6 +2,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useEffect, useState, useRef } from 'react';
 import { Lock, Camera, X, Loader2, ImageIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import type { CVType } from '@/pages/CVBuilderPage';
@@ -67,14 +68,31 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) return;
+    if (!user) { toast.error('You must be signed in to upload a photo.'); return; }
     setUploading(true);
-    const path = `cv-photos/${user.id}-${Date.now()}.${file.name.split('.').pop()}`;
-    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
-    if (!error) {
+
+    /* Derive extension from MIME type so camera-captured images (which
+       often arrive as "image" with no dot-extension in their filename)
+       still get a valid path like ".jpg" instead of ".image". */
+    const mimeToExt: Record<string, string> = {
+      'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
+      'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif',
+    };
+    const ext = mimeToExt[file.type] ?? (file.name.includes('.') ? file.name.split('.').pop() : 'jpg');
+    const path = `cv-photos/${user.id}-${Date.now()}.${ext}`;
+
+    const { error } = await supabase.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true });
+    if (error) {
+      toast.error('Photo upload failed: ' + error.message);
+    } else {
       const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
       set('photo_url', urlData.publicUrl);
+      toast.success('Photo added!');
     }
+
+    /* Reset the input so the same file can be re-selected if needed */
+    e.target.value = '';
     setUploading(false);
   };
 
