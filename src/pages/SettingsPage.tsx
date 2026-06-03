@@ -107,7 +107,7 @@ function GeneralTab() {
         <SettingToggleRow icon={Bell} label="Notifications" sub="Push and in-app alerts" checked={notifications}
           onChange={v => { setNotifications(v); localStorage.setItem('crosssa_notifications', v ? '1' : '0'); }} />
         <div className="border-t border-border" />
-        <SettingToggleRow icon={Moon} label="Dark Mode" sub="Switch to dark theme" checked={darkMode} onChange={handleDarkMode} />
+        <SettingToggleRow icon={Moon} label="Dark Mode" sub={darkMode ? 'Switch to light theme' : 'Switch to dark theme'} checked={darkMode} onChange={handleDarkMode} />
       </Card>
 
       <Card>
