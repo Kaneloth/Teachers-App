@@ -85,10 +85,10 @@ export default function ChatsPage() {
     navigate(`/chat/${partnerId}`);
   };
 
-  /* ── Fetch threads ──────────────────────────────────────────── */
-  const fetchThreads = async () => {
+  /* ── Core fetch function ────────────────────────────────────── */
+  const fetchThreads = async (showLoading = true) => {
     if (!user) return;
-    setLoading(true);
+    if (showLoading) setLoading(true);
     const { data: messages } = await supabase
       .from('messages')
       .select('*')
@@ -96,7 +96,10 @@ export default function ChatsPage() {
       .order('created_at', { ascending: false })
       .limit(200);
 
-    if (!messages) { setLoading(false); return; }
+    if (!messages) {
+      if (showLoading) setLoading(false);
+      return;
+    }
 
     const seenPartners = new Set<string>();
     const threadMap: Thread[] = [];
@@ -127,18 +130,52 @@ export default function ChatsPage() {
     }
 
     setThreads(threadMap);
-    setLoading(false);
+    if (showLoading) setLoading(false);
   };
 
-  useEffect(() => { fetchThreads(); }, [user]);
+  /* ── Real‑time subscription + visibility ───────────────────── */
+  useEffect(() => {
+    if (!user) return;
+
+    fetchThreads(true);
+
+    // Subscribe to INSERT, UPDATE, DELETE on messages that involve this user
+    const channel = supabase
+      .channel('public:messages')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages' },
+        async (payload) => {
+          const msg = payload.new || payload.old;
+          // Only refresh if the change involves the current user
+          if (msg && (msg.sender_id === user.id || msg.receiver_id === user.id)) {
+            await fetchThreads(false); // silent refresh
+          }
+        }
+      )
+      .subscribe();
+
+    // Refresh when the page becomes visible again (e.g., after closing a chat)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchThreads(false);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      supabase.removeChannel(channel);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [user]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchThreads();
+    await fetchThreads(true);
     setRefreshing(false);
   };
 
-  /* ── Delete chat ────────────────────────────────────────────── */
+  /* ── Delete entire conversation ─────────────────────────────── */
   const handleDeleteChat = async (partnerId: string) => {
     if (!user) return;
     await supabase
@@ -148,6 +185,7 @@ export default function ChatsPage() {
         `and(sender_id.eq.${user.id},receiver_id.eq.${partnerId}),` +
         `and(sender_id.eq.${partnerId},receiver_id.eq.${user.id})`
       );
+    // Optimistically remove from state (realtime will also refresh, but this avoids flicker)
     setThreads(prev => prev.filter(t => t.partnerId !== partnerId));
     setSelectedThread(null);
     setConfirmDelete(null);
