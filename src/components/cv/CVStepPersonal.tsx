@@ -80,7 +80,7 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
       'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif',
     };
     const ext = mimeToExt[file.type] ?? (file.name.includes('.') ? file.name.split('.').pop() : 'jpg');
-    const path = `cv-photos/${user.id}-${Date.now()}.${ext}`;
+    const path = `${user.id}/cv-photo-${Date.now()}.${ext}`;
 
     const { error } = await supabase.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true });
     if (error) {
