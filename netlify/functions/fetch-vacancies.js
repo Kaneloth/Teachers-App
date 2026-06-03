@@ -106,7 +106,8 @@ const isEdu = (t='') => /educat|teacher|school|principal|tutor|grade|phase|curri
    ═══════════════════════════════════════════════════════════════════════════ */
 async function fetchAdzuna(log) {
   const appId  = process.env.ADZUNA_APP_ID;
-  const appKey = process.env.ADZUNA_APP_KEY;
+  // Accept both ADZUNA_APP_KEY and ADZUNA_API_KEY (Netlify env var name varies)
+  const appKey = process.env.ADZUNA_APP_KEY || process.env.ADZUNA_API_KEY;
 
   if (!appId || !appKey) {
     log.push('Adzuna: skipped — ADZUNA_APP_ID / ADZUNA_APP_KEY not set in Netlify env vars. Sign up free at https://developer.adzuna.com to enable this source.');
