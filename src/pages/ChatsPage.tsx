@@ -129,18 +129,43 @@ export default function ChatsPage() {
 
   useEffect(() => { fetchThreads(); }, [fetchThreads]);
 
-  // Persistent broadcast listener – refreshes threads when any message is deleted
+  // 1. Broadcast listener (for instant update on "delete for everyone")
   useEffect(() => {
     if (!user) return;
     const channel = supabase
       .channel(`user-events-${user.id}`)
       .on('broadcast', { event: 'message_deleted' }, async () => {
+        console.log('[ChatsPage] Received broadcast, refreshing threads');
         await fetchThreads();
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[ChatsPage] Broadcast channel status:', status);
+      });
     userEventsChannelRef.current = channel;
     return () => { supabase.removeChannel(channel); };
   }, [user, fetchThreads]);
+
+  // 2. Polling fallback: refresh every 2 seconds while page visible
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchThreads();
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [user, fetchThreads]);
+
+  // 3. Refresh when page becomes visible
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchThreads();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [fetchThreads]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
