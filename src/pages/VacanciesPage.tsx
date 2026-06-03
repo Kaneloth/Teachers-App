@@ -72,7 +72,23 @@ function DaysLeftBadge({ closing_date }: { closing_date?: string }) {
   );
 }
 
-function VacancyCard({ vacancy: v, index: i, isPro }: { vacancy: Vacancy; index: number; isPro: boolean }) {
+const FREE_APPLY_LIMIT = 5;
+
+function VacancyCard({
+  vacancy: v,
+  index: i,
+  isPro,
+  isApplied,
+  appliedCount,
+  onApply,
+}: {
+  vacancy: Vacancy;
+  index: number;
+  isPro: boolean;
+  isApplied: boolean;
+  appliedCount: number;
+  onApply: (vacancyId: string, url: string) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   return (
     <motion.div
@@ -169,12 +185,34 @@ function VacancyCard({ vacancy: v, index: i, isPro }: { vacancy: Vacancy; index:
                   Apply <ExternalLink className="w-3 h-3" />
                 </Button>
               </a>
+            ) : isApplied ? (
+              /* Already used one of their 5 slots on this post — re-clicking is fine */
+              <a href={v.application_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg gap-1 text-primary border-primary/40">
+                  Applied <ExternalLink className="w-3 h-3" />
+                </Button>
+              </a>
+            ) : appliedCount < FREE_APPLY_LIMIT ? (
+              /* Still has free slots */
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs rounded-lg gap-1"
+                onClick={() => onApply(v.id, v.application_url!)}
+              >
+                Apply <ExternalLink className="w-3 h-3" />
+              </Button>
             ) : (
+              /* Limit reached */
               <Button
                 variant="outline"
                 size="sm"
                 className="h-7 text-xs rounded-lg gap-1 opacity-60 cursor-not-allowed"
-                onClick={() => toast.info('Upgrade to Pro to apply for vacancies', { description: 'Go to Settings → Subscription to upgrade.' })}
+                onClick={() =>
+                  toast.info(`Free plan: ${FREE_APPLY_LIMIT} applications used`, {
+                    description: 'Upgrade to Pro for unlimited applications — Settings → Subscription.',
+                  })
+                }
               >
                 🔒 Apply
               </Button>
@@ -186,6 +224,18 @@ function VacancyCard({ vacancy: v, index: i, isPro }: { vacancy: Vacancy; index:
       </div>
     </motion.div>
   );
+}
+
+/* ── localStorage helpers for free-tier apply tracking ─────────── */
+const appliedKey = (userId: string) => `crosssa_applied_vacancies_${userId}`;
+
+function getAppliedIds(userId: string): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(appliedKey(userId)) || '[]')); }
+  catch { return new Set(); }
+}
+
+function saveAppliedIds(userId: string, ids: Set<string>) {
+  localStorage.setItem(appliedKey(userId), JSON.stringify([...ids]));
 }
 
 export default function VacanciesPage() {
@@ -207,6 +257,31 @@ export default function VacanciesPage() {
   const metaEnd = user?.user_metadata?.subscription_end as string | undefined;
   const subEnd = profileEnd ? new Date(profileEnd) : metaEnd ? new Date(metaEnd) : null;
   const isPro = plan !== 'free' && subEnd !== null && subEnd > new Date();
+
+  /* ── Free-tier apply tracking ─────────────────────────────────── */
+  const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (user) setAppliedIds(getAppliedIds(user.id));
+  }, [user]);
+
+  const handleApply = (vacancyId: string, url: string) => {
+    if (!user) return;
+    const updated = new Set(appliedIds);
+    updated.add(vacancyId);
+    setAppliedIds(updated);
+    saveAppliedIds(user.id, updated);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    const remaining = FREE_APPLY_LIMIT - updated.size;
+    if (remaining > 0) {
+      toast.success(`Application opened`, {
+        description: `${remaining} free application${remaining !== 1 ? 's' : ''} remaining.`,
+      });
+    } else {
+      toast.info(`Last free application used`, {
+        description: 'Upgrade to Pro for unlimited applications — Settings → Subscription.',
+      });
+    }
+  };
 
   const [vacancies, setVacancies] = useState<Vacancy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -397,7 +472,15 @@ export default function VacanciesPage() {
           ) : (
             <div className="px-4 pb-6 space-y-3">
               {filtered.map((v, i) => (
-                <VacancyCard key={v.id} vacancy={v} index={i} isPro={isPro} />
+                <VacancyCard
+                  key={v.id}
+                  vacancy={v}
+                  index={i}
+                  isPro={isPro}
+                  isApplied={appliedIds.has(v.id)}
+                  appliedCount={appliedIds.size}
+                  onApply={handleApply}
+                />
               ))}
             </div>
           )}
