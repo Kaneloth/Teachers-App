@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Bell, Moon, Type, Shield, FileText, Headphones,
-  Lock, ChevronRight, ChevronDown, Star,
+  Lock, ChevronRight, ChevronDown, Star, Zap,
   Search, AlertTriangle, CheckCircle, UserX, Ban, X,
   Save, Loader2,
 } from 'lucide-react';
@@ -125,6 +125,7 @@ function SubscriptionTab() {
   const [profile, setProfile] = useState<{ subscription_plan: string; subscription_end: string | null } | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
   const [billing, setBilling] = useState<'monthly' | 'semi' | 'annual'>('semi');
 
   useEffect(() => {
@@ -154,6 +155,30 @@ function SubscriptionTab() {
 
   const fmtDate = (d: Date) =>
     d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const getPlanEndDate = (planId: string): string => {
+    const d = new Date();
+    if (planId === 'semi') d.setMonth(d.getMonth() + 6);
+    else if (planId === 'annual') d.setFullYear(d.getFullYear() + 1);
+    else d.setMonth(d.getMonth() + 1);
+    return d.toISOString();
+  };
+
+  const handleSubscribe = async () => {
+    if (!user) return;
+    setSubscribing(true);
+    const endDate = getPlanEndDate(billing);
+    const { error: dbErr } = await supabase
+      .from('profiles')
+      .update({ subscription_plan: billing, subscription_end: endDate })
+      .eq('id', user.id);
+    if (dbErr) { toast.error('Failed to activate plan: ' + dbErr.message); setSubscribing(false); return; }
+    await supabase.auth.updateUser({ data: { subscription_cancelled: false } });
+    setProfile({ subscription_plan: billing, subscription_end: endDate });
+    const planObj = BILLING.find(b => b.id === billing);
+    toast.success(`🎉 Pro ${planObj?.label} plan activated!`);
+    setSubscribing(false);
+  };
 
   const handleCancel = async () => {
     if (!window.confirm(
@@ -195,9 +220,11 @@ function SubscriptionTab() {
             </span>
           </div>
         ) : (
-          <div className="flex items-center justify-between bg-muted/50 border border-border rounded-2xl px-4 py-3">
-            <span className="text-sm font-medium text-muted-foreground">Free plan</span>
-            <span className="text-[11px] font-bold bg-muted text-muted-foreground px-2.5 py-0.5 rounded-full">Free</span>
+          <div className="flex items-center gap-2.5 bg-muted border border-border rounded-2xl px-4 py-3">
+            <Zap className="w-4 h-4 text-muted-foreground shrink-0" />
+            <p className="text-sm text-muted-foreground">
+              You're on the <span className="font-semibold text-foreground">Free Tier</span> — 1 CV/mo, 2 chats, view-only vacancies.
+            </p>
           </div>
         )
       )}
@@ -226,8 +253,12 @@ function SubscriptionTab() {
         </div>
       </div>
 
-      <Button className="w-full h-12 rounded-2xl text-base font-semibold" onClick={() => toast.info('Payment integration coming soon')}>
-        Subscribe — R{selected.perMonth}/mo
+      <Button
+        className="w-full h-12 rounded-2xl text-base font-semibold"
+        onClick={handleSubscribe}
+        disabled={subscribing}
+      >
+        {subscribing ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Activating…</> : `Subscribe — R${selected.perMonth}/mo`}
       </Button>
 
       {isPro && !isCancelled && (
