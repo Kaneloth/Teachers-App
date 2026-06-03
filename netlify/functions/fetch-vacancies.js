@@ -34,13 +34,15 @@ const CORS_HEADERS = {
 /* ─── Supabase upsert ───────────────────────────────────────────────────── */
 async function supabaseUpsert(rows) {
   if (!rows.length) return;
-  const res = await fetch(`${process.env.VITE_SUPABASE_URL}/rest/v1/vacancies`, {
+  // ?on_conflict=reference is required — without it Supabase does a plain
+  // INSERT and the unique constraint on `reference` throws a 409.
+  const res = await fetch(`${process.env.VITE_SUPABASE_URL}/rest/v1/vacancies?on_conflict=reference`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       apikey: process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
       Authorization: `Bearer ${process.env.VITE_SUPABASE_SERVICE_ROLE_KEY}`,
-      Prefer: 'resolution=merge-duplicates,return=minimal',
+      Prefer: 'resolution=ignore-duplicates,return=minimal',
     },
     body: JSON.stringify(rows),
   });
@@ -124,27 +126,34 @@ async function fetchAdzuna(log) {
     'lecturer professor academic',
   ];
 
-  const settled = await Promise.allSettled(
-    queries.map(what => {
-      const params = new URLSearchParams({
-        app_id:           appId,
-        app_key:          appKey,
-        what,
-        results_per_page: '50',
-        sort_by:          'date',
-      });
-      return fetch(
+  // Send queries sequentially with a 1.1 s gap — Adzuna free tier allows
+  // ~1 request/second; firing them in parallel triggers HTTP 429.
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const settled = [];
+  for (let i = 0; i < queries.length; i++) {
+    if (i > 0) await sleep(1100);
+    const what = queries[i];
+    const params = new URLSearchParams({
+      app_id:           appId,
+      app_key:          appKey,
+      what,
+      results_per_page: '50',
+      sort_by:          'date',
+    });
+    try {
+      const r = await fetch(
         `https://api.adzuna.com/v1/api/jobs/za/search/1?${params}`,
         {
           headers: { Accept: 'application/json' },
           signal: AbortSignal.timeout(10000),
         }
-      ).then(async r => {
-        if (!r.ok) throw new Error(`Adzuna HTTP ${r.status} for query "${what}"`);
-        return r.json();
-      });
-    })
-  );
+      );
+      if (!r.ok) throw new Error(`Adzuna HTTP ${r.status} for query "${what}"`);
+      settled.push({ status: 'fulfilled', value: await r.json() });
+    } catch (err) {
+      settled.push({ status: 'rejected', reason: err });
+    }
+  }
 
   const seen = new Set();
   for (const r of settled) {
