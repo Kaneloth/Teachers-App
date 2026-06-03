@@ -1,6 +1,6 @@
 /**
  * fetch-vacancies.js
- * Fetches teaching vacancies from DPSA and Indeed SA,
+ * Fetches teaching vacancies from DPSA, Indeed SA, and Careers24,
  * normalises them into the vacancies table shape, and upserts into Supabase.
  *
  * Trigger: POST /.netlify/functions/fetch-vacancies
@@ -41,8 +41,9 @@ async function supabaseUpsert(rows) {
 async function fetchHtml(url, extraHeaders = {}) {
   const res = await fetch(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; EduCrossBot/1.0; +https://educross.app)',
-      'Accept': 'text/html,application/xhtml+xml',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-ZA,en;q=0.9',
       ...extraHeaders,
     },
     signal: AbortSignal.timeout(15000),
@@ -51,10 +52,14 @@ async function fetchHtml(url, extraHeaders = {}) {
   return res.text();
 }
 
+/* ─── Strip HTML tags ───────────────────────────────────────────────────── */
+function stripTags(s = '') {
+  return s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 /* ─── Date parser ───────────────────────────────────────────────────────── */
 function parseDate(str) {
   if (!str) return null;
-  // Handle "DD Month YYYY", "YYYY-MM-DD", "DD/MM/YYYY"
   const clean = str.trim();
   const iso = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (iso) return clean;
@@ -134,9 +139,10 @@ function extractPhase(text = '') {
 /* ═══════════════════════════════════════════════════════════════════════════
    SOURCE 1 — DPSA Vacancy Circulars
    URL: https://www.dpsa.gov.za/dpsa2g/vacancies.asp
-   The page lists weekly circulars as downloadable PDFs. We scrape the HTML
-   index to get circular dates and links, then attempt to parse text from
-   the most recent HTML-accessible circular pages.
+   DPSA has NO individual per-vacancy URLs — their vacancies are published in
+   weekly circular pages (HTML tables). The circular page URL IS the direct
+   link. We include the reference number in the description so the user can
+   press Ctrl+F on the page to jump straight to their post.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 async function fetchDPSA() {
@@ -144,7 +150,6 @@ async function fetchDPSA() {
   try {
     const indexHtml = await fetchHtml('https://www.dpsa.gov.za/dpsa2g/vacancies.asp');
 
-    // Find links to individual vacancy circular pages
     const circularLinks = [];
     const linkRe = /href="([^"]*vacancies[^"]*\.asp[^"]*)"/gi;
     let m;
@@ -156,73 +161,67 @@ async function fetchDPSA() {
       }
     }
 
-    // Also try the standard circular URL pattern for recent weeks
-    const now = new Date();
-    for (let w = 0; w < 2; w++) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - w * 7);
-      // DPSA uses patterns like vacancies230.asp, vacancies231.asp
-      // We'll scan the index for these numbers
-    }
-
     for (const circUrl of circularLinks.slice(0, 2)) {
       try {
         const html = await fetchHtml(circUrl);
-        // DPSA circular pages list vacancies in tables
-        // Each row typically: Department | Post | Salary | Centre | Requirements | Enquiries | Closing date | Post ref
         const tableRowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-        const cellRe = /<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi;
-        const stripTags = s => s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-
         let rowMatch;
         while ((rowMatch = tableRowRe.exec(html)) !== null) {
           const cells = [];
           let cellMatch;
-          const cellText = rowMatch[1];
           const cellReCopy = /<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi;
-          while ((cellMatch = cellReCopy.exec(cellText)) !== null) {
+          while ((cellMatch = cellReCopy.exec(rowMatch[1])) !== null) {
             cells.push(stripTags(cellMatch[1]));
           }
           if (cells.length < 4) continue;
 
-          const dept = cells[0] || '';
-          const post = cells[1] || '';
-          const salary = cells[2] || '';
-          const centre = cells[3] || '';
+          const dept         = cells[0] || '';
+          const post         = cells[1] || '';
+          const salary       = cells[2] || '';
+          const centre       = cells[3] || '';
           const requirements = cells[4] || '';
-          const closingRaw = cells[cells.length - 2] || '';
-          const ref = cells[cells.length - 1] || '';
+          const closingRaw   = cells[cells.length - 2] || '';
+          const ref          = cells[cells.length - 1] || '';
 
-          // Only process education-related posts
           const combined = (dept + post + requirements).toLowerCase();
           const isEducation = combined.includes('education') || combined.includes('educator') || combined.includes('teacher') || combined.includes('school') || combined.includes('dbe');
           if (!isEducation || !post || post.length < 5) continue;
 
-          const province = normaliseProvince(centre) || normaliseProvince(dept);
-          const closing = parseDate(closingRaw);
-          const subjects = extractSubjects(post + ' ' + requirements);
+          const refClean  = ref.slice(0, 100);
+          const province  = normaliseProvince(centre) || normaliseProvince(dept);
+          const closing   = parseDate(closingRaw);
+          const subjects  = extractSubjects(post + ' ' + requirements);
           const postLevel = extractPostLevel(post + ' ' + salary);
-          const phase = extractPhase(post + ' ' + requirements);
+          const phase     = extractPhase(post + ' ' + requirements);
           const post_type = detectPostType(post, dept);
 
-          // Extract district from centre (often "District: Tshwane North" or just a location)
           let district = null;
           const districtM = centre.match(/district[:\s]+([^,\n]+)/i);
           if (districtM) district = districtM[1].trim();
 
+          // Help the user locate the post: include reference + Ctrl+F hint
+          const searchTerm = refClean || post.slice(0, 40);
+          const descParts = [];
+          if (refClean) descParts.push(`Reference: ${refClean}`);
+          if (salary)   descParts.push(`Salary: ${salary}`);
+          if (requirements) descParts.push(requirements.slice(0, 400));
+          descParts.push(`To find this post: click "View on DPSA", then press Ctrl+F (Windows) or Cmd+F (Mac) and search for "${searchTerm}".`);
+
           results.push({
-            title: post.slice(0, 200),
-            institution: dept.slice(0, 200),
-            school: centre.slice(0, 200),
+            title:        post.slice(0, 200),
+            institution:  dept.slice(0, 200),
+            school:       centre.slice(0, 200),
             province,
             district,
             phase,
             post_type,
-            subjects: subjects.length ? subjects : null,
-            post_level: postLevel,
+            subjects:     subjects.length ? subjects : null,
+            post_level:   postLevel,
+            description:  descParts.join('\n\n'),
             closing_date: closing,
-            source: 'DPSA',
-            reference: ref.slice(0, 100) || `dpsa-${Buffer.from(post + centre).toString('base64').slice(0, 20)}`,
+            source:       'DPSA',
+            reference:    refClean || `dpsa-${Buffer.from(post + centre).toString('base64').slice(0, 20)}`,
+            // DPSA has no per-vacancy URL — the circular page is the direct source
             application_url: circUrl,
           });
         }
@@ -239,9 +238,10 @@ async function fetchDPSA() {
 /* ═══════════════════════════════════════════════════════════════════════════
    SOURCE 2 — Indeed SA
    URL: https://za.indeed.com/jobs?q=educator+teacher&l=South+Africa&sort=date
-   Scrapes the search results page for job cards.
-   Note: Indeed's HTML structure changes periodically — this targets their
-   current job card markup. May need updating if Indeed changes their layout.
+   When a job key (jk=) is captured we build:
+     https://za.indeed.com/viewjob?jk=<jobKey>  ← direct link to that post
+   Posts without a real job key are SKIPPED — we never fall back to the
+   Indeed homepage or any generic URL.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 async function fetchIndeed() {
@@ -255,13 +255,9 @@ async function fetchIndeed() {
   for (const q of queries) {
     try {
       const url = `https://za.indeed.com/jobs?q=${q}&sort=date&fromage=14`;
-      const html = await fetchHtml(url, {
-        'Accept-Language': 'en-ZA,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-      });
+      const html = await fetchHtml(url, { 'Accept-Encoding': 'gzip, deflate, br' });
 
-      // Indeed embeds job data in a window.__initialData or mosaic JSON blob
-      // Try JSON blob first (more reliable than HTML scraping)
+      // Indeed embeds job data in a mosaic JSON blob — try it first
       const jsonBlobRe = /window\.mosaic\.providerData\["mosaic-provider-jobcards"\]\s*=\s*(\{[\s\S]*?\});\s*window/;
       const jsonMatch = html.match(jsonBlobRe);
 
@@ -270,81 +266,84 @@ async function fetchIndeed() {
           const data = JSON.parse(jsonMatch[1]);
           const jobs = data?.metaData?.mosaicProviderJobCardsModel?.results || [];
           for (const job of jobs.slice(0, 30)) {
-            const title = job.title || '';
+            const jobKey = job.jobkey || job.jobKey || '';
+            // No job key → no direct link → skip entirely
+            if (!jobKey || jobKey.length < 4) continue;
+
+            const title   = job.title || '';
             const company = job.company || '';
             const location = job.formattedLocation || job.jobLocationCity || '';
-            const jobKey = job.jobkey || job.jobKey || '';
-            const snippet = (job.snippet || '').replace(/<[^>]+>/g, ' ');
-            const datePosted = job.pubDate ? new Date(job.pubDate).toISOString().split('T')[0] : null;
+            const snippet  = (job.snippet || '').replace(/<[^>]+>/g, ' ');
 
             const combined = title + ' ' + company + ' ' + snippet;
-            const isEducation = /educat|teacher|school|principal|tutor|grade|phase/i.test(combined);
-            if (!isEducation) continue;
+            if (!/educat|teacher|school|principal|tutor|grade|phase/i.test(combined)) continue;
 
-            const province = normaliseProvince(location);
-            const subjects = extractSubjects(combined);
+            const subjects  = extractSubjects(combined);
             const postLevel = extractPostLevel(combined);
-            const phase = extractPhase(combined);
-            const post_type = detectPostType(title, company);
+            const phase     = extractPhase(combined);
 
             results.push({
-              title: title.slice(0, 200),
-              institution: company.slice(0, 200),
-              school: company.slice(0, 200),
-              province,
-              district: null,
+              title:        title.slice(0, 200),
+              institution:  company.slice(0, 200),
+              school:       company.slice(0, 200),
+              province:     normaliseProvince(location),
+              district:     null,
               phase,
-              post_type,
-              subjects: subjects.length ? subjects : null,
-              post_level: postLevel,
+              post_type:    detectPostType(title, company),
+              subjects:     subjects.length ? subjects : null,
+              post_level:   postLevel,
+              description:  snippet.slice(0, 500) || null,
               closing_date: null,
-              source: 'Indeed',
-              reference: `indeed-${jobKey}`,
-              application_url: jobKey ? `https://za.indeed.com/viewjob?jk=${jobKey}` : 'https://za.indeed.com',
+              source:       'Indeed',
+              reference:    `indeed-${jobKey}`,
+              // Direct link to this specific posting on Indeed
+              application_url: `https://za.indeed.com/viewjob?jk=${jobKey}`,
             });
           }
-          continue; // skip HTML parsing if JSON worked
+          continue; // JSON worked — skip HTML fallback
         } catch (e) {
           console.warn('[Indeed] JSON parse failed, falling back to HTML:', e.message);
         }
       }
 
       // Fallback: HTML card scraping
-      // Indeed job cards: <div class="job_seen_beacon"> ... <h2 class="jobTitle"> ... </h2>
       const cardRe = /<div[^>]+class="[^"]*job_seen_beacon[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/g;
-      const stripTags = s => s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
       let card;
       while ((card = cardRe.exec(html)) !== null) {
         const cardHtml = card[1];
 
-        const titleM = cardHtml.match(/<h2[^>]*jobTitle[^>]*>[\s\S]*?<span[^>]*>([\s\S]*?)<\/span>/i);
-        const companyM = cardHtml.match(/<span[^>]*company[^"]*"[^>]*>([\s\S]*?)<\/span>/i);
-        const locationM = cardHtml.match(/<div[^>]*recJobLoc[^>]*>[\s\S]*?<span[^>]*>([\s\S]*?)<\/span>/i);
-        const linkM = cardHtml.match(/href="(\/rc\/clk[^"]+)"/i) || cardHtml.match(/href="(\/pagead[^"]+)"/i);
-        const jkM = (linkM?.[1] || '').match(/jk=([a-zA-Z0-9]+)/);
+        // Extract job key — skip if absent (can't build a direct link)
+        const jkM = cardHtml.match(/jk=([a-zA-Z0-9]{8,})/);
+        if (!jkM) continue;
+        const jobKey = jkM[1];
 
-        const title = titleM ? stripTags(titleM[1]) : '';
-        const company = companyM ? stripTags(companyM[1]) : '';
+        const titleM    = cardHtml.match(/<h2[^>]*jobTitle[^>]*>[\s\S]*?<span[^>]*>([\s\S]*?)<\/span>/i);
+        const companyM  = cardHtml.match(/<span[^>]*company[^"]*"[^>]*>([\s\S]*?)<\/span>/i);
+        const locationM = cardHtml.match(/<div[^>]*recJobLoc[^>]*>[\s\S]*?<span[^>]*>([\s\S]*?)<\/span>/i);
+
+        const title   = titleM    ? stripTags(titleM[1])    : '';
+        const company = companyM  ? stripTags(companyM[1])  : '';
         const location = locationM ? stripTags(locationM[1]) : '';
 
         if (!title || title.length < 3) continue;
-        const combined = title + ' ' + company;
-        if (!/educat|teacher|school|principal|grade/i.test(combined)) continue;
+        if (!/educat|teacher|school|principal|grade/i.test(title + ' ' + company)) continue;
 
         results.push({
-          title: title.slice(0, 200),
-          institution: company.slice(0, 200),
-          school: company.slice(0, 200),
-          province: normaliseProvince(location),
-          district: null,
-          phase: extractPhase(combined),
-          post_type: detectPostType(title, company),
-          subjects: null,
-          post_level: null,
+          title:        title.slice(0, 200),
+          institution:  company.slice(0, 200),
+          school:       company.slice(0, 200),
+          province:     normaliseProvince(location),
+          district:     null,
+          phase:        extractPhase(title + ' ' + company),
+          post_type:    detectPostType(title, company),
+          subjects:     null,
+          post_level:   null,
+          description:  null,
           closing_date: null,
-          source: 'Indeed',
-          reference: jkM ? `indeed-${jkM[1]}` : `indeed-${Buffer.from(title + company).toString('base64').slice(0, 20)}`,
-          application_url: jkM ? `https://za.indeed.com/viewjob?jk=${jkM[1]}` : 'https://za.indeed.com',
+          source:       'Indeed',
+          reference:    `indeed-${jobKey}`,
+          // Direct link to this specific posting on Indeed
+          application_url: `https://za.indeed.com/viewjob?jk=${jobKey}`,
         });
       }
     } catch (e) {
@@ -352,6 +351,122 @@ async function fetchIndeed() {
     }
   }
   return results;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SOURCE 3 — Careers24
+   URL: https://www.careers24.com/jobs/c-education-training-teaching/
+   Careers24 is a major South African job board. Every job has its own page
+   with a unique URL — clicking "View/Apply" takes the user directly to that
+   specific vacancy, no searching required.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+async function fetchCareers24() {
+  const results  = [];
+  const BASE     = 'https://www.careers24.com';
+  const seenUrls = new Set();
+
+  const listingPages = [
+    `${BASE}/jobs/c-education-training-teaching/`,
+    `${BASE}/jobs/c-education-training-teaching/?page=2`,
+  ];
+
+  for (const pageUrl of listingPages) {
+    try {
+      const html = await fetchHtml(pageUrl);
+
+      // Job cards link to pages like /jobs/mathematics-educator-12345678/
+      const jobLinkRe = /href="(\/jobs\/[a-z0-9][a-z0-9\-]+-\d+\/)"/gi;
+      const jobUrls   = [];
+      let m;
+      while ((m = jobLinkRe.exec(html)) !== null) {
+        const full = `${BASE}${m[1]}`;
+        if (!seenUrls.has(full)) {
+          seenUrls.add(full);
+          jobUrls.push(full);
+        }
+      }
+
+      // Fetch detail pages in batches of 5 to avoid hitting rate limits
+      for (let i = 0; i < Math.min(jobUrls.length, 20); i += 5) {
+        const batch   = jobUrls.slice(i, i + 5);
+        const settled = await Promise.allSettled(batch.map(u => fetchJobDetailCareers24(u)));
+        for (const r of settled) {
+          if (r.status === 'fulfilled' && r.value) results.push(r.value);
+        }
+      }
+    } catch (e) {
+      console.warn(`[Careers24] Failed to fetch listing page ${pageUrl}:`, e.message);
+    }
+  }
+
+  return results;
+}
+
+async function fetchJobDetailCareers24(jobUrl) {
+  try {
+    const html = await fetchHtml(jobUrl);
+
+    // Title
+    const titleM = html.match(/<h1[^>]*class="[^"]*job[^"]*"[^>]*>([\s\S]*?)<\/h1>/i)
+                || html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    const title = titleM ? stripTags(titleM[1]) : '';
+    if (!title || title.length < 3) return null;
+
+    // Only education-related posts
+    if (!/educat|teacher|school|principal|tutor|grade|phase|curriculum/i.test(title)) return null;
+
+    // Company
+    const companyM = html.match(/class="[^"]*company[^"]*"[^>]*>([\s\S]*?)<\/[a-z]+>/i)
+                  || html.match(/"employer"\s*:\s*"([^"]+)"/i);
+    const company = companyM ? stripTags(companyM[1]) : '';
+
+    // Location
+    const locationM = html.match(/class="[^"]*location[^"]*"[^>]*>([\s\S]*?)<\/[a-z]+>/i)
+                   || html.match(/"addressRegion"\s*:\s*"([^"]+)"/i);
+    const location = locationM ? stripTags(locationM[1]) : '';
+
+    // Closing date
+    const closingM = html.match(/closing\s*date[^:]*:\s*([^<\n]{5,30})/i)
+                  || html.match(/apply\s*before[^:]*:\s*([^<\n]{5,30})/i)
+                  || html.match(/expires?\s*:?\s*([^<\n]{5,30})/i);
+    const closing = closingM ? parseDate(closingM[1].trim()) : null;
+
+    // Description
+    const descM = html.match(/<div[^>]*class="[^"]*job-description[^"]*"[^>]*>([\s\S]*?)<\/div>/i)
+               || html.match(/<div[^>]*id="[^"]*description[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+    const description = descM ? stripTags(descM[1]).slice(0, 600) : null;
+
+    // Unique reference from the numeric ID in the slug
+    const refM      = jobUrl.match(/-(\d+)\/?$/);
+    const reference = `careers24-${refM ? refM[1] : Buffer.from(title + company).toString('base64').slice(0, 20)}`;
+
+    const combined  = title + ' ' + company + ' ' + (description || '');
+    const subjects  = extractSubjects(combined);
+    const postLevel = extractPostLevel(combined);
+    const phase     = extractPhase(combined);
+
+    return {
+      title:        title.slice(0, 200),
+      institution:  company.slice(0, 200),
+      school:       company.slice(0, 200),
+      province:     normaliseProvince(location),
+      district:     null,
+      phase,
+      post_type:    detectPostType(title, company),
+      subjects:     subjects.length ? subjects : null,
+      post_level:   postLevel,
+      description:  description || null,
+      closing_date: closing,
+      source:       'Careers24',
+      reference,
+      // This IS the exact vacancy page — clicking View/Apply lands right here
+      application_url: jobUrl,
+    };
+  } catch (e) {
+    console.warn(`[Careers24] Failed to parse ${jobUrl}:`, e.message);
+    return null;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -377,23 +492,29 @@ exports.handler = async (event) => {
   let total = 0;
 
   try {
-    // Run both scrapers in parallel
-    const [dpsaRows, indeedRows] = await Promise.allSettled([fetchDPSA(), fetchIndeed()]);
+    // Run all three scrapers in parallel
+    const [dpsaRes, indeedRes, careers24Res] = await Promise.allSettled([
+      fetchDPSA(),
+      fetchIndeed(),
+      fetchCareers24(),
+    ]);
 
-    const dpsa = dpsaRows.status === 'fulfilled' ? dpsaRows.value : [];
-    const indeed = indeedRows.status === 'fulfilled' ? indeedRows.value : [];
+    const dpsa      = dpsaRes.status      === 'fulfilled' ? dpsaRes.value      : [];
+    const indeed    = indeedRes.status    === 'fulfilled' ? indeedRes.value    : [];
+    const careers24 = careers24Res.status === 'fulfilled' ? careers24Res.value : [];
 
-    if (dpsaRows.status === 'rejected') log.push(`DPSA scraper error: ${dpsaRows.reason?.message}`);
-    if (indeedRows.status === 'rejected') log.push(`Indeed scraper error: ${indeedRows.reason?.message}`);
+    if (dpsaRes.status      === 'rejected') log.push(`DPSA error: ${dpsaRes.reason?.message}`);
+    if (indeedRes.status    === 'rejected') log.push(`Indeed error: ${indeedRes.reason?.message}`);
+    if (careers24Res.status === 'rejected') log.push(`Careers24 error: ${careers24Res.reason?.message}`);
 
     log.push(`DPSA: ${dpsa.length} posts found`);
-    log.push(`Indeed: ${indeed.length} posts found`);
+    log.push(`Indeed: ${indeed.length} posts found (direct links only — skipped posts without a job key)`);
+    log.push(`Careers24: ${careers24.length} posts found (each links directly to its vacancy page)`);
 
-    const allRows = [...dpsa, ...indeed];
+    const allRows = [...dpsa, ...indeed, ...careers24];
     total = allRows.length;
 
     if (allRows.length > 0) {
-      // Batch upsert in chunks of 50
       const CHUNK = 50;
       for (let i = 0; i < allRows.length; i += CHUNK) {
         await supabaseUpsert(allRows.slice(i, i + CHUNK));
@@ -407,7 +528,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         ok: true,
         total,
-        sources: { dpsa: dpsa.length, indeed: indeed.length },
+        sources: { dpsa: dpsa.length, indeed: indeed.length, careers24: careers24.length },
         log,
       }),
     };
