@@ -1,18 +1,8 @@
-[build]
-  command = "npm install && npm run build:netlify"
-  publish = "dist"
-  functions = "netlify/functions"
+[functions]
+  # Extend timeout to 26 s (maximum on free/pro Netlify plans).
+  # The fetch-vacancies scraper runs 3 parallel HTTP requests and needs
+  # more than the default 10 s to complete reliably.
+  included_files = ["netlify/functions/**"]
 
-[build.environment]
-  NODE_VERSION = "22"
-  # Set these in Netlify → Site settings → Environment variables:
-  #   SUPABASE_URL                ← your Supabase project URL
-  #   SUPABASE_ANON_KEY           ← your Supabase anon public key
-  #   SUPABASE_SERVICE_ROLE_KEY   ← your Supabase service role key (secret)
-  #   BULKSMS_USERNAME            ← BulkSMS username or API token ID
-  #   BULKSMS_PASSWORD            ← BulkSMS password or API token secret
-
-[[redirects]]
-  from   = "/*"
-  to     = "/index.html"
-  status = 200
+[functions."fetch-vacancies"]
+  timeout = 26
