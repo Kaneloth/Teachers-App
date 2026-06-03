@@ -61,17 +61,53 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
 
 /* ── General tab ────────────────────────────────────────────── */
 
+const TEXT_SIZES: Record<string, string> = { Small: '13px', Medium: '16px', Large: '19px' };
+
+function applyDark(val: boolean) {
+  document.documentElement.classList.toggle('dark', val);
+  localStorage.setItem('crosssa_dark_mode', val ? '1' : '0');
+}
+
+function applyTextSize(size: string) {
+  document.documentElement.style.fontSize = TEXT_SIZES[size] ?? '16px';
+  localStorage.setItem('crosssa_text_size', size);
+}
+
 function GeneralTab() {
-  const [notifications, setNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
-  const [textSize, setTextSize] = useState<'Small' | 'Medium' | 'Large'>('Medium');
+  const [notifications, setNotifications] = useState(
+    () => localStorage.getItem('crosssa_notifications') !== '0'
+  );
+  const [darkMode, setDarkMode] = useState(
+    () => localStorage.getItem('crosssa_dark_mode') === '1' ||
+          document.documentElement.classList.contains('dark')
+  );
+  const [textSize, setTextSize] = useState<'Small' | 'Medium' | 'Large'>(
+    () => (localStorage.getItem('crosssa_text_size') as 'Small' | 'Medium' | 'Large') || 'Medium'
+  );
+
+  /* Restore stored prefs whenever this tab mounts (handles page-refresh) */
+  useEffect(() => {
+    applyDark(darkMode);
+    applyTextSize(textSize);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleDarkMode = (val: boolean) => {
+    setDarkMode(val);
+    applyDark(val);
+  };
+
+  const handleTextSize = (size: 'Small' | 'Medium' | 'Large') => {
+    setTextSize(size);
+    applyTextSize(size);
+  };
 
   return (
     <div className="space-y-3">
       <Card>
-        <SettingToggleRow icon={Bell} label="Notifications" sub="Push and in-app alerts" checked={notifications} onChange={setNotifications} />
+        <SettingToggleRow icon={Bell} label="Notifications" sub="Push and in-app alerts" checked={notifications}
+          onChange={v => { setNotifications(v); localStorage.setItem('crosssa_notifications', v ? '1' : '0'); }} />
         <div className="border-t border-border" />
-        <SettingToggleRow icon={Moon} label="Dark Mode" sub="Switch to dark theme" checked={darkMode} onChange={setDarkMode} />
+        <SettingToggleRow icon={Moon} label="Dark Mode" sub="Switch to dark theme" checked={darkMode} onChange={handleDarkMode} />
       </Card>
 
       <Card>
@@ -84,7 +120,7 @@ function GeneralTab() {
           </div>
           <div className="grid grid-cols-3 gap-1 bg-muted rounded-xl p-1">
             {(['Small', 'Medium', 'Large'] as const).map(size => (
-              <button key={size} onClick={() => setTextSize(size)}
+              <button key={size} onClick={() => handleTextSize(size)}
                 className={`py-2 rounded-lg text-sm font-medium transition-all ${textSize === size ? 'bg-primary text-white shadow' : 'text-muted-foreground hover:text-foreground'}`}
               >{size}</button>
             ))}
