@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Bell, Moon, Type, Shield, FileText, Headphones,
-  Lock, Trash2, ChevronRight, ChevronDown, Star,
+  Lock, ChevronRight, ChevronDown, Star,
   Search, AlertTriangle, CheckCircle, UserX, Ban, X,
   Save, Loader2,
 } from 'lucide-react';
@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import DeleteAccountSection from '@/components/DeleteAccountSection';
 
 const TABS = ['General', 'Subscription', 'Security', 'Admin'] as const;
 type Tab = typeof TABS[number];
@@ -193,7 +194,6 @@ function SubscriptionTab() {
 
 function SecurityTab() {
   const [pwOpen, setPwOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const [newPw, setNewPw] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -248,28 +248,7 @@ function SecurityTab() {
         </div>
       </Card>
 
-      <Card className="border-destructive/30">
-        <button onClick={() => setDeleteOpen(o => !o)} className="w-full flex items-center gap-3 px-4 py-3.5">
-          <div className="w-8 h-8 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
-            <Trash2 className="w-4 h-4 text-destructive" />
-          </div>
-          <div className="flex-1 text-left">
-            <p className="text-sm font-medium text-foreground">Delete Account</p>
-            <p className="text-xs text-muted-foreground">Permanently remove your account and data</p>
-          </div>
-          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${deleteOpen ? 'rotate-180' : ''}`} />
-        </button>
-        {deleteOpen && (
-          <div className="border-t border-destructive/20 px-4 pb-4 pt-3 space-y-3">
-            <p className="text-xs text-muted-foreground">
-              This action is permanent and cannot be undone. All your data, chats, and CV will be deleted.
-            </p>
-            <Button variant="outline" className="w-full rounded-xl text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => toast.error('Contact support to delete your account')}>
-              Confirm Delete Account
-            </Button>
-          </div>
-        )}
-      </Card>
+      <DeleteAccountSection />
     </div>
   );
 }
