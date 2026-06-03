@@ -1,8 +1,12 @@
 [functions]
-  # Extend timeout to 26 s (maximum on free/pro Netlify plans).
-  # The fetch-vacancies scraper runs 3 parallel HTTP requests and needs
-  # more than the default 10 s to complete reliably.
   included_files = ["netlify/functions/**"]
 
 [functions."fetch-vacancies"]
   timeout = 26
+
+# SPA catch-all — must come LAST so Netlify functions still resolve first.
+# Without this every direct URL hit (e.g. /profile, /vacancies) returns 404.
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
