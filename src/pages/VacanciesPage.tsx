@@ -72,7 +72,7 @@ function DaysLeftBadge({ closing_date }: { closing_date?: string }) {
   );
 }
 
-function VacancyCard({ vacancy: v, index: i }: { vacancy: Vacancy; index: number }) {
+function VacancyCard({ vacancy: v, index: i, isPro }: { vacancy: Vacancy; index: number; isPro: boolean }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <motion.div
@@ -163,11 +163,22 @@ function VacancyCard({ vacancy: v, index: i }: { vacancy: Vacancy; index: number
                 : ''}
           </span>
           {v.application_url ? (
-            <a href={v.application_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-              <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg gap-1">
-                View / Apply <ExternalLink className="w-3 h-3" />
+            isPro ? (
+              <a href={v.application_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg gap-1">
+                  Apply <ExternalLink className="w-3 h-3" />
+                </Button>
+              </a>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs rounded-lg gap-1 opacity-60 cursor-not-allowed"
+                onClick={() => toast.info('Upgrade to Pro to apply for vacancies', { description: 'Go to Settings → Subscription to upgrade.' })}
+              >
+                🔒 Apply
               </Button>
-            </a>
+            )
           ) : (
             <span className="text-[10px] text-muted-foreground italic shrink-0">No link</span>
           )}
@@ -181,6 +192,21 @@ export default function VacanciesPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.user_metadata?.role === 'admin';
+
+  /* Subscription check — dual source (profiles + user_metadata fallback) */
+  const [subProfile, setSubProfile] = useState<{ subscription_plan: string; subscription_end: string | null } | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('profiles').select('subscription_plan, subscription_end').eq('id', user.id).single()
+      .then(({ data }) => setSubProfile(data));
+  }, [user]);
+  const profilePlan = subProfile?.subscription_plan;
+  const metaPlan = user?.user_metadata?.subscription_plan as string | undefined;
+  const plan = (profilePlan && profilePlan !== 'free') ? profilePlan : (metaPlan || 'free');
+  const profileEnd = subProfile?.subscription_end;
+  const metaEnd = user?.user_metadata?.subscription_end as string | undefined;
+  const subEnd = profileEnd ? new Date(profileEnd) : metaEnd ? new Date(metaEnd) : null;
+  const isPro = plan !== 'free' && subEnd !== null && subEnd > new Date();
 
   const [vacancies, setVacancies] = useState<Vacancy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -371,7 +397,7 @@ export default function VacanciesPage() {
           ) : (
             <div className="px-4 pb-6 space-y-3">
               {filtered.map((v, i) => (
-                <VacancyCard key={v.id} vacancy={v} index={i} />
+                <VacancyCard key={v.id} vacancy={v} index={i} isPro={isPro} />
               ))}
             </div>
           )}
