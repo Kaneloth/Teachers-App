@@ -42,10 +42,11 @@ const PROVINCES = [
 const TYPES = ['School-Based', 'Circuit', 'District', 'Provincial', 'National'];
 
 const SOURCE_BADGE: Record<string, string> = {
-  DPSA:      'bg-blue-50 text-blue-700 border-blue-200',
-  Indeed:    'bg-orange-50 text-orange-700 border-orange-200',
+  Adzuna:    'bg-green-50 text-green-700 border-green-200',
   Careers24: 'bg-purple-50 text-purple-700 border-purple-200',
   School:    'bg-emerald-50 text-emerald-700 border-emerald-200',
+  DPSA:      'bg-blue-50 text-blue-700 border-blue-200',
+  Indeed:    'bg-orange-50 text-orange-700 border-orange-200',
 };
 
 function DaysLeftBadge({ closing_date }: { closing_date?: string }) {
@@ -224,11 +225,15 @@ export default function VacanciesPage() {
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || 'Unknown error');
 
-      const { dpsa = 0, indeed = 0, careers24 = 0 } = json.sources ?? {};
-      toast.success(
-        `Refreshed — ${dpsa} DPSA · ${indeed} Indeed · ${careers24} Careers24 posts imported`,
-        { duration: 5000 }
-      );
+      const { adzuna = 0, careers24 = 0 } = json.sources ?? {};
+      const total = json.total ?? (adzuna + careers24);
+      const parts = [];
+      if (adzuna)    parts.push(`${adzuna} Adzuna`);
+      if (careers24) parts.push(`${careers24} Careers24`);
+      const summary = parts.length
+        ? `${total} posts imported — ${parts.join(' · ')}`
+        : 'Refresh complete — no new posts found (see console for details)';
+      toast.success(summary, { duration: 6000 });
       await load();
     } catch (e: any) {
       toast.error(`Refresh failed: ${e.message}`);
