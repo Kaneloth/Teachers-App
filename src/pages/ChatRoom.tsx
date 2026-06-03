@@ -184,7 +184,8 @@ export default function ChatRoom() {
         .eq('sender_id', user.id);
 
       const distinctPartners = new Set((sent || []).map(m => m.receiver_id));
-      if (distinctPartners.size >= 2) setChatLimitReached(true);
+      // Block only when the limit is reached AND this partner is someone new
+      if (distinctPartners.size >= 5 && !distinctPartners.has(partnerId)) setChatLimitReached(true);
     };
 
     check();
@@ -416,14 +417,14 @@ export default function ChatRoom() {
           <div className="flex items-center gap-2.5 flex-1 bg-muted/60 rounded-full px-4 py-2.5">
             <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="text-sm text-muted-foreground">
-              You've used both free chat slots.{' '}
+              You've reached your 5 free chat limit.{' '}
               <button
                 onClick={() => navigate('/settings')}
                 className="text-primary font-medium underline underline-offset-2"
               >
                 Upgrade to Pro
               </button>{' '}
-              to keep messaging.
+              to message more educators.
             </span>
           </div>
         </div>
