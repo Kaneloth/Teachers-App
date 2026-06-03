@@ -123,7 +123,6 @@ const COMPARISON = [
 function SubscriptionTab() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<{ subscription_plan: string; subscription_end: string | null } | null>(null);
-  const [loadingProfile, setLoadingProfile] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const [billing, setBilling] = useState<'monthly' | 'semi' | 'annual'>('semi');
@@ -135,23 +134,23 @@ function SubscriptionTab() {
       .select('subscription_plan, subscription_end')
       .eq('id', user.id)
       .single()
-      .then(({ data }) => { setProfile(data); setLoadingProfile(false); });
+      .then(({ data }) => setProfile(data));
   }, [user]);
 
-  const plan = profile?.subscription_plan || 'free';
-  const subEnd = profile?.subscription_end ? new Date(profile.subscription_end) : null;
-  const isExpired = subEnd ? subEnd < new Date() : true;
-  const isPro = plan !== 'free' && !isExpired;
+  /* Read from profiles first; fall back to user_metadata if profiles update was blocked by RLS */
+  const profilePlan = profile?.subscription_plan;
+  const metaPlan = user?.user_metadata?.subscription_plan as string | undefined;
+  const plan = (profilePlan && profilePlan !== 'free') ? profilePlan : (metaPlan || 'free');
+
+  const profileEnd = profile?.subscription_end;
+  const metaEnd = user?.user_metadata?.subscription_end as string | undefined;
+  const subEnd = profileEnd ? new Date(profileEnd) : metaEnd ? new Date(metaEnd) : null;
+
   const isCancelled = user?.user_metadata?.subscription_cancelled === true;
+  const isActive = plan !== 'free' && subEnd !== null && subEnd > new Date();
   const selected = BILLING.find(b => b.id === billing)!;
 
-  const planLabel = () => {
-    const p = plan.toLowerCase();
-    if (p.includes('semi')) return 'Semi-Annual';
-    if (p.includes('annual')) return 'Annual';
-    if (p.includes('month')) return 'Monthly';
-    return plan;
-  };
+  const activePlanLabel = BILLING.find(b => b.id === plan)?.label ?? plan;
 
   const fmtDate = (d: Date) =>
     d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -168,65 +167,47 @@ function SubscriptionTab() {
     if (!user) return;
     setSubscribing(true);
     const endDate = getPlanEndDate(billing);
-    const { error: dbErr } = await supabase
-      .from('profiles')
-      .update({ subscription_plan: billing, subscription_end: endDate })
-      .eq('id', user.id);
-    if (dbErr) { toast.error('Failed to activate plan: ' + dbErr.message); setSubscribing(false); return; }
-    await supabase.auth.updateUser({ data: { subscription_cancelled: false } });
-    setProfile({ subscription_plan: billing, subscription_end: endDate });
+    /* Write to profiles (primary) */
+    await supabase.from('profiles').update({ subscription_plan: billing, subscription_end: endDate }).eq('id', user.id);
+    /* Write to user_metadata as reliable fallback (no RLS required) */
+    await supabase.auth.updateUser({ data: { subscription_plan: billing, subscription_end: endDate, subscription_cancelled: false } });
+    setProfile(prev => ({ ...prev, subscription_plan: billing, subscription_end: endDate }));
     const planObj = BILLING.find(b => b.id === billing);
     toast.success(`🎉 Pro ${planObj?.label} plan activated!`);
     setSubscribing(false);
   };
 
-  const handleCancel = async () => {
-    if (!window.confirm(
-      `Cancel your subscription? You'll keep Pro access until ${subEnd ? fmtDate(subEnd) : 'the end of your billing period'}.`
-    )) return;
+  const handleCancel = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!window.confirm('Are you sure you want to cancel? You will keep access until your current period ends.')) return;
     setCancelling(true);
-    const { error } = await supabase.auth.updateUser({
-      data: { subscription_cancelled: true },
-    });
+    const { error } = await supabase.auth.updateUser({ data: { subscription_cancelled: true } });
     setCancelling(false);
     if (error) {
       toast.error('Failed to cancel: ' + error.message);
     } else {
-      toast.success(
-        `Subscription cancelled. Access continues until ${subEnd ? fmtDate(subEnd) : 'end of period'}.`
-      );
+      toast.success('Subscription cancelled. You keep access until your current period ends.');
     }
   };
 
   return (
     <div className="space-y-4">
-      {/* Current plan status banner */}
-      {!loadingProfile && (
-        isPro ? (
-          <div className={`flex items-center justify-between border rounded-2xl px-4 py-3 ${isCancelled ? 'bg-amber-50 border-amber-200' : 'bg-primary/10 border-primary/20'}`}>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Star className={`w-4 h-4 shrink-0 ${isCancelled ? 'text-amber-600' : 'text-primary'}`} />
-              <span className={`text-sm font-semibold ${isCancelled ? 'text-amber-700' : 'text-primary'}`}>
-                Pro — {planLabel()}
+      {/* Active plan banner — only shown when subscribed, matches Base44 style */}
+      {isActive && (
+        <div className="flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-xl px-4 py-2.5">
+          <Star className="w-4 h-4 text-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-semibold text-primary">Pro · {activePlanLabel}</span>
+            {subEnd && (
+              <span className="text-xs text-muted-foreground ml-2">
+                · {isCancelled ? 'Access ends' : 'Renews'} {fmtDate(subEnd)}
               </span>
-              {subEnd && (
-                <span className="text-xs text-muted-foreground">
-                  · {isCancelled ? 'Access ends' : 'Renews'} {fmtDate(subEnd)}
-                </span>
-              )}
-            </div>
-            <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full shrink-0 ${isCancelled ? 'bg-amber-500 text-white' : 'bg-primary text-white'}`}>
-              {isCancelled ? 'Cancelled' : 'Active'}
-            </span>
+            )}
           </div>
-        ) : (
-          <div className="flex items-center gap-2.5 bg-muted border border-border rounded-2xl px-4 py-3">
-            <Zap className="w-4 h-4 text-muted-foreground shrink-0" />
-            <p className="text-sm text-muted-foreground">
-              You're on the <span className="font-semibold text-foreground">Free Tier</span> — 1 CV/mo, 2 chats, view-only vacancies.
-            </p>
-          </div>
-        )
+          <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full shrink-0 text-white ${isCancelled ? 'bg-amber-500' : 'bg-primary'}`}>
+            {isCancelled ? 'Cancelled' : 'Active'}
+          </span>
+        </div>
       )}
 
       <div>
@@ -261,23 +242,14 @@ function SubscriptionTab() {
         {subscribing ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Activating…</> : `Subscribe — R${selected.perMonth}/mo`}
       </Button>
 
-      {isPro && !isCancelled && (
-        <p className="text-center text-xs text-muted-foreground">
-          Cancel anytime.{' '}
-          <button
-            disabled={cancelling}
-            className="text-destructive underline underline-offset-2 disabled:opacity-50"
-            onClick={handleCancel}
-          >
+      <p className="text-center text-xs text-muted-foreground mt-2">
+        Cancel anytime.{' '}
+        {isActive && !isCancelled && (
+          <a href="#" onClick={handleCancel} className="text-destructive underline underline-offset-2">
             {cancelling ? 'Cancelling…' : 'Cancel subscription'}
-          </button>
-        </p>
-      )}
-      {isPro && isCancelled && subEnd && (
-        <p className="text-center text-xs text-amber-600 font-medium">
-          Your Pro access continues until {fmtDate(subEnd)}.
-        </p>
-      )}
+          </a>
+        )}
+      </p>
 
       <div>
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 px-1">Plan Comparison</p>
