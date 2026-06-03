@@ -77,7 +77,7 @@ export default function MatchesPage() {
         <div className="text-center py-16 text-muted-foreground">
           <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">No matches yet</p>
-          <p className="text-sm mt-1">Check back as more educators join EduCross</p>
+          <p className="text-sm mt-1">Check back as more educators join Crosssa</p>
         </div>
       ) : (
         <div className="space-y-3">

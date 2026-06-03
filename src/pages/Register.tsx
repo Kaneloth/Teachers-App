@@ -16,8 +16,10 @@ export default function Register() {
   const [fullName, setFullName] = useState('');
   const [email,    setEmail]    = useState('');
   const [phone,    setPhone]    = useState('');
-  const [password, setPassword] = useState('');
-  const [showPw,   setShowPw]   = useState(false);
+  const [password,        setPassword]        = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPw,          setShowPw]          = useState(false);
+  const [showConfirmPw,   setShowConfirmPw]   = useState(false);
 
   const [emailOtp,      setEmailOtp]      = useState('');
   const [loading,       setLoading]       = useState(false);
@@ -26,6 +28,10 @@ export default function Register() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email, password,
@@ -157,6 +163,22 @@ export default function Register() {
               {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="confirmPassword">Confirm Password</Label>
+          <div className="relative">
+            <Input id="confirmPassword" type={showConfirmPw ? 'text' : 'password'} value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)} placeholder="Re-enter your password"
+              className={`rounded-xl pr-10 ${confirmPassword && confirmPassword !== password ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+              minLength={8} required />
+            <button type="button" onClick={() => setShowConfirmPw(p => !p)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              {showConfirmPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+          {confirmPassword && confirmPassword !== password && (
+            <p className="text-xs text-destructive">Passwords do not match</p>
+          )}
         </div>
 
         <Button type="submit" disabled={loading} className="w-full h-11 rounded-xl font-semibold">
