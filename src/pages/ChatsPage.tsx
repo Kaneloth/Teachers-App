@@ -38,14 +38,13 @@ export default function ChatsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  /* ── Delete-chat state ──────────────────────────────────────── */
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const userEventsChannelRef = useRef<any>(null);
 
-  /* ── Close context menu on outside click ───────────────────── */
   useEffect(() => {
     const handle = (e: MouseEvent | TouchEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -60,7 +59,6 @@ export default function ChatsPage() {
     };
   }, []);
 
-  /* ── Long-press helpers ─────────────────────────────────────── */
   const startLongPress = (partnerId: string) => {
     longPressTriggered.current = false;
     longPressRef.current = setTimeout(() => {
@@ -85,7 +83,6 @@ export default function ChatsPage() {
     navigate(`/chat/${partnerId}`);
   };
 
-  /* ── Core fetch function ────────────────────────────────────── */
   const fetchThreads = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -96,10 +93,7 @@ export default function ChatsPage() {
       .order('created_at', { ascending: false })
       .limit(200);
 
-    if (!messages) {
-      setLoading(false);
-      return;
-    }
+    if (!messages) { setLoading(false); return; }
 
     const seenPartners = new Set<string>();
     const threadMap: Thread[] = [];
@@ -126,21 +120,32 @@ export default function ChatsPage() {
         .select('user_id, full_name')
         .in('user_id', partnerIds);
       const nameMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
-      threadMap.forEach(t => {
-        if (nameMap.has(t.partnerId)) t.partnerName = nameMap.get(t.partnerId)!;
-      });
+      threadMap.forEach(t => { if (nameMap.has(t.partnerId)) t.partnerName = nameMap.get(t.partnerId)!; });
     }
 
     setThreads(threadMap);
     setLoading(false);
   }, [user]);
 
-  // ── 1. Initial fetch ──────────────────────────────────────────
-  useEffect(() => {
-    fetchThreads();
-  }, [fetchThreads]);
+  useEffect(() => { fetchThreads(); }, [fetchThreads]);
 
-  // ── 2. Polling: refresh every 2 seconds while page is visible ─
+  // 1. Broadcast listener (for instant update on "delete for everyone")
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`user-events-${user.id}`)
+      .on('broadcast', { event: 'message_deleted' }, async () => {
+        console.log('[ChatsPage] Received broadcast, refreshing threads');
+        await fetchThreads();
+      })
+      .subscribe((status) => {
+        console.log('[ChatsPage] Broadcast channel status:', status);
+      });
+    userEventsChannelRef.current = channel;
+    return () => { supabase.removeChannel(channel); };
+  }, [user, fetchThreads]);
+
+  // 2. Polling fallback: refresh every 2 seconds while page visible
   useEffect(() => {
     if (!user) return;
     const interval = setInterval(() => {
@@ -151,7 +156,7 @@ export default function ChatsPage() {
     return () => clearInterval(interval);
   }, [user, fetchThreads]);
 
-  // ── 3. Refresh when the page becomes visible again ────────────
+  // 3. Refresh when page becomes visible
   useEffect(() => {
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -162,20 +167,12 @@ export default function ChatsPage() {
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [fetchThreads]);
 
-  // ── 4. Refresh when the window gains focus (e.g., after closing a modal) ──
-  useEffect(() => {
-    const onFocus = () => fetchThreads();
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, [fetchThreads]);
-
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchThreads();
     setRefreshing(false);
   };
 
-  /* ── Delete chat ────────────────────────────────────────────── */
   const handleDeleteChat = async (partnerId: string) => {
     if (!user) return;
     await supabase
@@ -185,7 +182,6 @@ export default function ChatsPage() {
         `and(sender_id.eq.${user.id},receiver_id.eq.${partnerId}),` +
         `and(sender_id.eq.${partnerId},receiver_id.eq.${user.id})`
       );
-    // Optimistically remove from state (polling will confirm)
     setThreads(prev => prev.filter(t => t.partnerId !== partnerId));
     setSelectedThread(null);
     setConfirmDelete(null);
@@ -195,7 +191,6 @@ export default function ChatsPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Header */}
       <div className="flex items-center gap-2 px-4 pt-4 pb-4">
         <button onClick={handleRefresh} className="p-1 rounded-full hover:bg-muted transition-colors">
           <RefreshCw className={`w-4 h-4 text-primary ${refreshing ? 'animate-spin' : ''}`} />
@@ -218,10 +213,8 @@ export default function ChatsPage() {
           {threads.map(t => {
             const isSelected = selectedThread === t.partnerId;
             const initials = t.partnerName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
-
             return (
               <div key={t.partnerId} className="relative">
-                {/* Thread row */}
                 <div
                   onMouseDown={() => startLongPress(t.partnerId)}
                   onMouseUp={cancelLongPress}
@@ -249,8 +242,6 @@ export default function ChatsPage() {
                     </div>
                   </div>
                 </div>
-
-                {/* Context menu on long-press */}
                 {isSelected && (
                   <div
                     ref={menuRef}
@@ -274,7 +265,6 @@ export default function ChatsPage() {
         </div>
       )}
 
-      {/* Confirm delete dialog */}
       <AlertDialog open={!!confirmDelete} onOpenChange={open => { if (!open) setConfirmDelete(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
