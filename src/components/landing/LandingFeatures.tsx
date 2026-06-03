@@ -5,7 +5,7 @@ const FEATURES = [
   { icon: FileText, title: 'Build a Professional CV', desc: 'Create a CAPS-aligned teaching CV in minutes using our guided builder and professional templates.', color: 'bg-[#fef3c7] text-amber-600' },
   { icon: MessageCircle, title: 'Connect with Peers', desc: 'Message other educators directly. Explore mutual transfer opportunities and build your network.', color: 'bg-[#dbeafe] text-blue-600' },
   { icon: Briefcase, title: 'Manage Transfers', desc: 'Indicate availability for transfer, set preferences, and get matched with educators in your target area.', color: 'bg-[#f3e8ff] text-purple-600' },
-  { icon: ShieldCheck, title: 'SACE Verification', desc: 'Verify your SACE registration directly on the platform for credibility when applying to posts.', color: 'bg-[#dcfce7] text-green-700' },
+  { icon: ShieldCheck, title: 'Identity Verification', desc: 'Verify your identity directly on the platform to build trust with peers and strengthen your applications.', color: 'bg-[#dcfce7] text-green-700' },
   { icon: Star, title: 'Smart Matching', desc: 'Our algorithm surfaces the most relevant vacancies and peer connections based on your profile.', color: 'bg-[#ffe4e6] text-rose-600' },
 ];
 
