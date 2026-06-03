@@ -34,7 +34,7 @@ export default function AppHeader() {
         {/* Logo — left-aligned */}
         <Link to="/home" className="flex items-center gap-2">
           <GraduationCap className="w-6 h-6 text-primary" strokeWidth={2} />
-          <span className="text-xl font-extrabold text-foreground tracking-tight">Crosssa</span>
+          <span className="text-xl font-extrabold text-foreground tracking-tight">EduCross</span>
         </Link>
 
         {/* Avatar + dropdown */}

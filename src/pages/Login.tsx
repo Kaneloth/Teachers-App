@@ -129,7 +129,7 @@ export default function Login() {
     <div className="space-y-6">
       <div className="text-center">
         <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
-        <p className="text-sm text-muted-foreground mt-1">Sign in to your Crosssa account</p>
+        <p className="text-sm text-muted-foreground mt-1">Sign in to your EduCross account</p>
       </div>
 
       <Button variant="outline" onClick={handleGoogle} disabled={googleLoading} className="w-full h-11 rounded-xl gap-3">
