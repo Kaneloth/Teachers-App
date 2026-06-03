@@ -268,20 +268,18 @@ export default function VacanciesPage() {
             <Briefcase className="w-5 h-5 text-primary shrink-0" />
             <h1 className="text-lg font-bold text-foreground truncate">Vacancies</h1>
           </div>
-          {isAdmin && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="rounded-xl gap-1.5 text-xs h-8 shrink-0"
-            >
-              {refreshing
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : <RefreshCw className="w-3.5 h-3.5" />}
-              {refreshing ? 'Fetching…' : 'Refresh'}
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="rounded-xl gap-1.5 text-xs h-8 shrink-0"
+          >
+            {refreshing
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <RefreshCw className="w-3.5 h-3.5" />}
+            {refreshing ? 'Fetching…' : 'Refresh'}
+          </Button>
         </div>
         <div className="flex items-center justify-between mt-0.5 pl-1">
           <p className="text-sm text-muted-foreground">Teaching posts across South Africa</p>
@@ -350,14 +348,12 @@ export default function VacanciesPage() {
           </div>
           <h3 className="font-semibold text-foreground mb-1">No vacancies yet</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            Vacancies are fetched automatically. Check back soon{isAdmin ? ', or tap Refresh to fetch now.' : '.'}
+            Vacancies are fetched automatically. Check back soon, or tap Refresh to fetch now.
           </p>
-          {isAdmin && (
-            <Button onClick={handleRefresh} disabled={refreshing} className="rounded-xl gap-2">
-              {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              {refreshing ? 'Fetching vacancies…' : 'Fetch Vacancies Now'}
-            </Button>
-          )}
+          <Button onClick={handleRefresh} disabled={refreshing} className="rounded-xl gap-2">
+            {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {refreshing ? 'Fetching vacancies…' : 'Fetch Vacancies Now'}
+          </Button>
         </div>
       ) : (
         <>
