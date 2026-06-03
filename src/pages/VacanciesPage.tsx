@@ -152,29 +152,24 @@ function VacancyCard({ vacancy: v, index: i }: { vacancy: Vacancy; index: number
           </div>
         )}
 
-        {/* Footer: source badge + ref + view button */}
+        {/* Footer: source · ref · apply button */}
         <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60">
-          <div className="flex items-center gap-2 min-w-0">
-            {v.source && (
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${SOURCE_BADGE[v.source] || 'bg-muted text-muted-foreground border-border'}`}>
-                {v.source}
-              </span>
-            )}
-            {v.posted_by_school && (
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200 shrink-0">
-                School Post
-              </span>
-            )}
-            <p className="text-[11px] text-muted-foreground truncate">
-              {v.reference && `Ref: ${v.reference}`}
-            </p>
-          </div>
-          {v.application_url && (
-            <a href={v.application_url} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-xs h-8 shrink-0">
+          <span className="text-[10px] text-muted-foreground truncate">
+            {v.reference ? `Ref: ${v.reference} · ` : ''}
+            {v.posted_by_school
+              ? 'School Post'
+              : v.source
+                ? `via ${v.source}`
+                : ''}
+          </span>
+          {v.application_url ? (
+            <a href={v.application_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+              <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg gap-1">
                 View / Apply <ExternalLink className="w-3 h-3" />
               </Button>
             </a>
+          ) : (
+            <span className="text-[10px] text-muted-foreground italic shrink-0">No link</span>
           )}
         </div>
       </div>
