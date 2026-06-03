@@ -49,7 +49,7 @@ export default function Onboarding() {
         years_experience: form.years_experience ? parseInt(form.years_experience, 10) : null,
       }]);
       if (error) throw error;
-      toast.success('Profile created! Welcome to EduCross!');
+      toast.success('Profile created! Welcome to Crosssa!');
       navigate('/home');
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Failed to create profile');
