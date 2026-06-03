@@ -1,8 +1,13 @@
 [functions]
-  # Extend timeout to 26 s (maximum on free/pro Netlify plans).
-  # The fetch-vacancies scraper runs 3 parallel HTTP requests and needs
-  # more than the default 10 s to complete reliably.
   included_files = ["netlify/functions/**"]
 
 [functions."fetch-vacancies"]
   timeout = 26
+
+# React Router SPA fix — redirect all routes to index.html so the client
+# handles navigation. Netlify functions (/.netlify/*) are matched first
+# at a higher priority and are never affected by this rule.
+[[redirects]]
+  from = "/*"
+  to   = "/index.html"
+  status = 200
