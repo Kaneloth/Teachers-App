@@ -121,19 +121,86 @@ const COMPARISON = [
 ];
 
 function SubscriptionTab() {
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<{ subscription_plan: string; subscription_end: string | null } | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
   const [billing, setBilling] = useState<'monthly' | 'semi' | 'annual'>('semi');
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .select('subscription_plan, subscription_end')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => { setProfile(data); setLoadingProfile(false); });
+  }, [user]);
+
+  const plan = profile?.subscription_plan || 'free';
+  const subEnd = profile?.subscription_end ? new Date(profile.subscription_end) : null;
+  const isExpired = subEnd ? subEnd < new Date() : true;
+  const isPro = plan !== 'free' && !isExpired;
+  const isCancelled = user?.user_metadata?.subscription_cancelled === true;
   const selected = BILLING.find(b => b.id === billing)!;
+
+  const planLabel = () => {
+    const p = plan.toLowerCase();
+    if (p.includes('semi')) return 'Semi-Annual';
+    if (p.includes('annual')) return 'Annual';
+    if (p.includes('month')) return 'Monthly';
+    return plan;
+  };
+
+  const fmtDate = (d: Date) =>
+    d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const handleCancel = async () => {
+    if (!window.confirm(
+      `Cancel your subscription? You'll keep Pro access until ${subEnd ? fmtDate(subEnd) : 'the end of your billing period'}.`
+    )) return;
+    setCancelling(true);
+    const { error } = await supabase.auth.updateUser({
+      data: { subscription_cancelled: true },
+    });
+    setCancelling(false);
+    if (error) {
+      toast.error('Failed to cancel: ' + error.message);
+    } else {
+      toast.success(
+        `Subscription cancelled. Access continues until ${subEnd ? fmtDate(subEnd) : 'end of period'}.`
+      );
+    }
+  };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between bg-primary/10 border border-primary/20 rounded-2xl px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Star className="w-4 h-4 text-primary" />
-          <span className="text-sm font-semibold text-primary">Pro - semi-annual</span>
-          <span className="text-xs text-muted-foreground">· Renews 30 Nov 2026</span>
-        </div>
-        <span className="text-[11px] font-bold bg-primary text-white px-2.5 py-0.5 rounded-full">Active</span>
-      </div>
+      {/* Current plan status banner */}
+      {!loadingProfile && (
+        isPro ? (
+          <div className={`flex items-center justify-between border rounded-2xl px-4 py-3 ${isCancelled ? 'bg-amber-50 border-amber-200' : 'bg-primary/10 border-primary/20'}`}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Star className={`w-4 h-4 shrink-0 ${isCancelled ? 'text-amber-600' : 'text-primary'}`} />
+              <span className={`text-sm font-semibold ${isCancelled ? 'text-amber-700' : 'text-primary'}`}>
+                Pro — {planLabel()}
+              </span>
+              {subEnd && (
+                <span className="text-xs text-muted-foreground">
+                  · {isCancelled ? 'Access ends' : 'Renews'} {fmtDate(subEnd)}
+                </span>
+              )}
+            </div>
+            <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full shrink-0 ${isCancelled ? 'bg-amber-500 text-white' : 'bg-primary text-white'}`}>
+              {isCancelled ? 'Cancelled' : 'Active'}
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between bg-muted/50 border border-border rounded-2xl px-4 py-3">
+            <span className="text-sm font-medium text-muted-foreground">Free plan</span>
+            <span className="text-[11px] font-bold bg-muted text-muted-foreground px-2.5 py-0.5 rounded-full">Free</span>
+          </div>
+        )
+      )}
 
       <div>
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2.5 px-1">PRO PLAN — CHOOSE BILLING</p>
@@ -162,12 +229,24 @@ function SubscriptionTab() {
       <Button className="w-full h-12 rounded-2xl text-base font-semibold" onClick={() => toast.info('Payment integration coming soon')}>
         Subscribe — R{selected.perMonth}/mo
       </Button>
-      <p className="text-center text-xs text-muted-foreground">
-        Cancel anytime.{' '}
-        <button className="text-destructive underline underline-offset-2" onClick={() => toast.info('To cancel, contact support')}>
-          Cancel subscription
-        </button>
-      </p>
+
+      {isPro && !isCancelled && (
+        <p className="text-center text-xs text-muted-foreground">
+          Cancel anytime.{' '}
+          <button
+            disabled={cancelling}
+            className="text-destructive underline underline-offset-2 disabled:opacity-50"
+            onClick={handleCancel}
+          >
+            {cancelling ? 'Cancelling…' : 'Cancel subscription'}
+          </button>
+        </p>
+      )}
+      {isPro && isCancelled && subEnd && (
+        <p className="text-center text-xs text-amber-600 font-medium">
+          Your Pro access continues until {fmtDate(subEnd)}.
+        </p>
+      )}
 
       <div>
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 px-1">Plan Comparison</p>
