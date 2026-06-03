@@ -126,6 +126,10 @@ export default function CVBuilderPage() {
   const lastCVData = meta.last_cv_data;
   const lastCVPdfUrl = meta.last_cv_pdf_url as string | undefined;
   const lastCVGeneratedAt = meta.last_cv_generated_at as string | undefined;
+  const cvCount = (meta.cv_count as number) ?? 0;
+  const isFree = !meta.subscription_plan || meta.subscription_plan === 'free';
+  const FREE_LIMIT = 2;
+  const buildsLeft = Math.max(0, FREE_LIMIT - cvCount);
 
   const [showBuilder, setShowBuilder] = useState(!lastCVData);
   const [cvType, setCvType] = useState<CVType | null>(null);
@@ -224,6 +228,73 @@ export default function CVBuilderPage() {
     );
   }
 
+  /* ── Free tier limit gate ────────────────────────────────── */
+  if (showBuilder && isFree && cvCount >= FREE_LIMIT) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center gap-2 px-4 pt-4 pb-5">
+          <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
+            <ArrowLeft className="w-5 h-5 text-foreground" />
+          </button>
+          <FileText className="w-5 h-5 text-primary" />
+          <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
+        </div>
+        <div className="px-4 pb-8">
+          <div className="bg-card border border-border rounded-2xl p-6 flex flex-col items-center text-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <FileText className="w-8 h-8 text-primary" />
+            </div>
+            <div className="space-y-1.5">
+              <h2 className="text-lg font-bold text-foreground">Free Plan Limit Reached</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                You've used all <strong>{FREE_LIMIT} free CV builds</strong> included in your plan.
+                Upgrade to create unlimited CVs and unlock premium templates.
+              </p>
+            </div>
+
+            {/* Usage bar */}
+            <div className="w-full space-y-1.5">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>CVs created</span>
+                <span className="font-semibold text-foreground">{cvCount} / {FREE_LIMIT}</span>
+              </div>
+              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-primary rounded-full" style={{ width: '100%' }} />
+              </div>
+            </div>
+
+            {/* What you get */}
+            <div className="w-full bg-muted rounded-xl px-4 py-3 text-left space-y-2">
+              <p className="text-xs font-semibold text-foreground">What you get with a paid plan</p>
+              <ul className="text-xs text-muted-foreground space-y-1.5">
+                {[
+                  'Unlimited CV builds',
+                  'Access to all premium templates',
+                  'Priority application support',
+                  'Verified badge on your profile',
+                ].map(item => (
+                  <li key={item} className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="flex flex-col gap-2 w-full pt-1">
+              <Button onClick={() => navigate('/subscribe')} className="w-full h-11 rounded-xl font-semibold">
+                Upgrade Plan
+              </Button>
+              <Button variant="ghost" onClick={() => { setShowBuilder(false); }} className="w-full h-10 rounded-xl text-muted-foreground">
+                View My Last CV
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   /* ── Last CV state ────────────────────────────────────────── */
   if (!showBuilder && lastCVData) {
     return (
@@ -266,9 +337,9 @@ export default function CVBuilderPage() {
       {/* Subtitle + builds-left badge */}
       <div className="flex items-center justify-between px-4 pb-4 pt-1 gap-3">
         <p className="text-sm text-muted-foreground">{subtitle}</p>
-        {cvType && (
-          <div className="shrink-0 bg-muted rounded-xl px-3 py-1 text-xs text-muted-foreground font-medium whitespace-nowrap">
-            1 build left
+        {cvType && isFree && (
+          <div className={`shrink-0 rounded-xl px-3 py-1 text-xs font-medium whitespace-nowrap ${buildsLeft === 0 ? 'bg-destructive/10 text-destructive' : buildsLeft === 1 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-muted text-muted-foreground'}`}>
+            {buildsLeft === 0 ? 'No builds left' : `${buildsLeft} build${buildsLeft !== 1 ? 's' : ''} left`}
           </div>
         )}
       </div>

@@ -48,7 +48,13 @@ export default function CVStepReview({ data, onGenerated }: Props) {
 
       if (uploadedUrl) {
         setPdfUrl(uploadedUrl);
-        await updateUserMeta({ last_cv_pdf_url: uploadedUrl, last_cv_data: data, last_cv_generated_at: new Date().toISOString() });
+        const newCount = ((user?.user_metadata?.cv_count as number) ?? 0) + 1;
+        await updateUserMeta({
+          last_cv_pdf_url: uploadedUrl,
+          last_cv_data: data,
+          last_cv_generated_at: new Date().toISOString(),
+          cv_count: newCount,
+        });
       }
 
       setSent(true);
