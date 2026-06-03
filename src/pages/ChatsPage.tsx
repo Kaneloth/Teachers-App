@@ -38,7 +38,6 @@ export default function ChatsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  /* ── Delete-chat state ──────────────────────────────────────── */
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -46,7 +45,6 @@ export default function ChatsPage() {
   const menuRef = useRef<HTMLDivElement>(null);
   const userEventsChannelRef = useRef<any>(null);
 
-  /* ── Close context menu on outside click ───────────────────── */
   useEffect(() => {
     const handle = (e: MouseEvent | TouchEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -61,7 +59,6 @@ export default function ChatsPage() {
     };
   }, []);
 
-  /* ── Long-press helpers ─────────────────────────────────────── */
   const startLongPress = (partnerId: string) => {
     longPressTriggered.current = false;
     longPressRef.current = setTimeout(() => {
@@ -86,7 +83,6 @@ export default function ChatsPage() {
     navigate(`/chat/${partnerId}`);
   };
 
-  /* ── Fetch threads ──────────────────────────────────────────── */
   const fetchThreads = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -133,7 +129,7 @@ export default function ChatsPage() {
 
   useEffect(() => { fetchThreads(); }, [fetchThreads]);
 
-  /* ── Broadcast listener — refresh threads when any message is deleted ── */
+  // Persistent broadcast listener – refreshes threads when any message is deleted
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -152,7 +148,6 @@ export default function ChatsPage() {
     setRefreshing(false);
   };
 
-  /* ── Delete chat ────────────────────────────────────────────── */
   const handleDeleteChat = async (partnerId: string) => {
     if (!user) return;
     await supabase
@@ -171,7 +166,6 @@ export default function ChatsPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Header */}
       <div className="flex items-center gap-2 px-4 pt-4 pb-4">
         <button onClick={handleRefresh} className="p-1 rounded-full hover:bg-muted transition-colors">
           <RefreshCw className={`w-4 h-4 text-primary ${refreshing ? 'animate-spin' : ''}`} />
@@ -194,10 +188,8 @@ export default function ChatsPage() {
           {threads.map(t => {
             const isSelected = selectedThread === t.partnerId;
             const initials = t.partnerName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
-
             return (
               <div key={t.partnerId} className="relative">
-                {/* Thread row */}
                 <div
                   onMouseDown={() => startLongPress(t.partnerId)}
                   onMouseUp={cancelLongPress}
@@ -225,8 +217,6 @@ export default function ChatsPage() {
                     </div>
                   </div>
                 </div>
-
-                {/* Context menu on long-press */}
                 {isSelected && (
                   <div
                     ref={menuRef}
@@ -250,7 +240,6 @@ export default function ChatsPage() {
         </div>
       )}
 
-      {/* Confirm delete dialog */}
       <AlertDialog open={!!confirmDelete} onOpenChange={open => { if (!open) setConfirmDelete(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>

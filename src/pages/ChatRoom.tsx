@@ -28,10 +28,7 @@ function formatDateSeparator(date: Date) {
   return format(date, 'd MMM yyyy');
 }
 
-/* ── localStorage helpers for "Delete for me" ──────────────────────────────
-   Stores hidden message IDs per user so they don't reappear when the user
-   navigates away and comes back. No database schema change required.
-   ───────────────────────────────────────────────────────────────────────── */
+/* ── localStorage helpers for "Delete for me" ────────────────────────────── */
 const hiddenKey = (userId: string) => `educross_hidden_msgs_${userId}`;
 
 function getHidden(userId: string): Set<string> {
@@ -125,19 +122,39 @@ export default function ChatRoom() {
     } else {
       if (user) removeHidden(user.id, msg.id);
       setMessages(prev => prev.filter(m => m.id !== msg.id));
-      // Broadcast the deletion so the other participant's UI updates instantly,
-      // even if they are on the ChatsPage rather than inside this chat room.
+
+      // 1. Broadcast on the conversation‑specific channel (so the other user,
+      //    if they have this chat open, sees the deletion immediately).
       broadcastChannelRef.current?.send({
         type: 'broadcast',
         event: 'message_deleted',
         payload: { id: msg.id },
       });
+
+      // 2. Broadcast on the recipient’s persistent user‑events channel.
+      //    This ensures the chats list updates even when the recipient is
+      //    not inside this conversation.
+      const recipientId = msg.receiver_id === user?.id ? msg.sender_id : msg.receiver_id;
+      if (recipientId) {
+        const tmpCh = supabase.channel(`user-events-${recipientId}`);
+        tmpCh.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            tmpCh.send({
+              type: 'broadcast',
+              event: 'message_deleted',
+              payload: { id: msg.id },
+            });
+            setTimeout(() => supabase.removeChannel(tmpCh), 3000);
+          }
+        });
+      }
+
       toast.success('Message deleted for everyone');
     }
     setSelectedMsg(null);
   };
 
-  /* ── Broadcast channel for "Delete for everyone" ───────────── */
+  /* ── Broadcast channel for this conversation ───────────────── */
   useEffect(() => {
     if (!user || !partnerId) return;
     const channelName = `chat-broadcast-${[user.id, partnerId].sort().join('_')}`;
@@ -178,7 +195,6 @@ export default function ChatRoom() {
         )
         .order('created_at', { ascending: true });
 
-      // Filter out messages the user has hidden ("Delete for me")
       const hidden = getHidden(user.id);
       setMessages((data || []).filter(m => !hidden.has(m.id)));
 
@@ -200,7 +216,6 @@ export default function ChatRoom() {
         payload => {
           const msg = payload.new as Message;
           if (msg.sender_id === partnerId) {
-            // Don't surface a message the user has already hidden
             const hidden = getHidden(user.id);
             if (!hidden.has(msg.id)) {
               setMessages(prev => [...prev, msg]);
@@ -306,7 +321,7 @@ export default function ChatRoom() {
               )}
 
               <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-1 relative`}>
-                {/* Context menu — floats below the bubble */}
+                {/* Context menu */}
                 {isSelected && (
                   <div
                     ref={menuRef}
