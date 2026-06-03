@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageCircle, RefreshCw, CheckCheck, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -38,16 +38,58 @@ export default function ChatsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  /* ── Delete-chat state ──────────────────────────────────────── */
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const userEventsChannelRef = useRef<any>(null);
 
-  // Core fetch function
-  const fetchThreads = async (showLoading = true) => {
+  /* ── Close context menu on outside click ───────────────────── */
+  useEffect(() => {
+    const handle = (e: MouseEvent | TouchEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setSelectedThread(null);
+      }
+    };
+    document.addEventListener('mousedown', handle);
+    document.addEventListener('touchstart', handle);
+    return () => {
+      document.removeEventListener('mousedown', handle);
+      document.removeEventListener('touchstart', handle);
+    };
+  }, []);
+
+  /* ── Long-press helpers ─────────────────────────────────────── */
+  const startLongPress = (partnerId: string) => {
+    longPressTriggered.current = false;
+    longPressRef.current = setTimeout(() => {
+      longPressTriggered.current = true;
+      setSelectedThread(partnerId);
+    }, 400);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressRef.current) clearTimeout(longPressRef.current);
+  };
+
+  const handleRowClick = (partnerId: string) => {
+    if (longPressTriggered.current) {
+      longPressTriggered.current = false;
+      return;
+    }
+    if (selectedThread) {
+      setSelectedThread(null);
+      return;
+    }
+    navigate(`/chat/${partnerId}`);
+  };
+
+  /* ── Fetch threads ──────────────────────────────────────────── */
+  const fetchThreads = useCallback(async () => {
     if (!user) return;
-    if (showLoading) setLoading(true);
+    setLoading(true);
     const { data: messages } = await supabase
       .from('messages')
       .select('*')
@@ -55,10 +97,7 @@ export default function ChatsPage() {
       .order('created_at', { ascending: false })
       .limit(200);
 
-    if (!messages) {
-      if (showLoading) setLoading(false);
-      return;
-    }
+    if (!messages) { setLoading(false); return; }
 
     const seenPartners = new Set<string>();
     const threadMap: Thread[] = [];
@@ -89,63 +128,31 @@ export default function ChatsPage() {
     }
 
     setThreads(threadMap);
-    if (showLoading) setLoading(false);
-  };
+    setLoading(false);
+  }, [user]);
 
-  // Initial fetch + real‑time + polling + visibility
+  useEffect(() => { fetchThreads(); }, [fetchThreads]);
+
+  /* ── Broadcast listener — refresh threads when any message is deleted ── */
   useEffect(() => {
     if (!user) return;
-
-    fetchThreads(true);
-
-    // 1. Realtime subscription (if enabled)
     const channel = supabase
-      .channel('public:messages')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'messages' },
-        async (payload) => {
-          const msg = payload.new || payload.old;
-          if (msg && (msg.sender_id === user.id || msg.receiver_id === user.id)) {
-            await fetchThreads(false);
-          }
-        }
-      )
+      .channel(`user-events-${user.id}`)
+      .on('broadcast', { event: 'message_deleted' }, async () => {
+        await fetchThreads();
+      })
       .subscribe();
-
-    // 2. Polling fallback: refresh every 3 seconds while the page is visible
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchThreads(false);
-      }
-    }, 3000);
-
-    // 3. Refresh when the page gets focus
-    const onFocus = () => fetchThreads(false);
-    window.addEventListener('focus', onFocus);
-
-    // 4. Refresh when the page becomes visible (already covered by interval, but for completeness)
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchThreads(false);
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    return () => {
-      supabase.removeChannel(channel);
-      clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [user]);
+    userEventsChannelRef.current = channel;
+    return () => { supabase.removeChannel(channel); };
+  }, [user, fetchThreads]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchThreads(true);
+    await fetchThreads();
     setRefreshing(false);
   };
 
+  /* ── Delete chat ────────────────────────────────────────────── */
   const handleDeleteChat = async (partnerId: string) => {
     if (!user) return;
     await supabase
@@ -160,46 +167,11 @@ export default function ChatsPage() {
     setConfirmDelete(null);
   };
 
-  // Long‑press handlers
-  const startLongPress = (partnerId: string) => {
-    longPressTriggered.current = false;
-    longPressRef.current = setTimeout(() => {
-      longPressTriggered.current = true;
-      setSelectedThread(partnerId);
-    }, 400);
-  };
-  const cancelLongPress = () => {
-    if (longPressRef.current) clearTimeout(longPressRef.current);
-  };
-  const handleRowClick = (partnerId: string) => {
-    if (longPressTriggered.current) {
-      longPressTriggered.current = false;
-      return;
-    }
-    if (selectedThread) {
-      setSelectedThread(null);
-      return;
-    }
-    navigate(`/chat/${partnerId}`);
-  };
-  useEffect(() => {
-    const handle = (e: MouseEvent | TouchEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setSelectedThread(null);
-      }
-    };
-    document.addEventListener('mousedown', handle);
-    document.addEventListener('touchstart', handle);
-    return () => {
-      document.removeEventListener('mousedown', handle);
-      document.removeEventListener('touchstart', handle);
-    };
-  }, []);
-
   const deletingPartner = confirmDelete ? threads.find(t => t.partnerId === confirmDelete) : null;
 
   return (
     <div className="max-w-2xl mx-auto">
+      {/* Header */}
       <div className="flex items-center gap-2 px-4 pt-4 pb-4">
         <button onClick={handleRefresh} className="p-1 rounded-full hover:bg-muted transition-colors">
           <RefreshCw className={`w-4 h-4 text-primary ${refreshing ? 'animate-spin' : ''}`} />
@@ -222,8 +194,10 @@ export default function ChatsPage() {
           {threads.map(t => {
             const isSelected = selectedThread === t.partnerId;
             const initials = t.partnerName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
+
             return (
               <div key={t.partnerId} className="relative">
+                {/* Thread row */}
                 <div
                   onMouseDown={() => startLongPress(t.partnerId)}
                   onMouseUp={cancelLongPress}
@@ -251,6 +225,8 @@ export default function ChatsPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Context menu on long-press */}
                 {isSelected && (
                   <div
                     ref={menuRef}
@@ -274,6 +250,7 @@ export default function ChatsPage() {
         </div>
       )}
 
+      {/* Confirm delete dialog */}
       <AlertDialog open={!!confirmDelete} onOpenChange={open => { if (!open) setConfirmDelete(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>

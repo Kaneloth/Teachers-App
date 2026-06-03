@@ -67,6 +67,7 @@ export default function ChatRoom() {
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const broadcastChannelRef = useRef<any>(null);
 
   /* ── Close menu on outside click/touch ─────────────────────── */
   useEffect(() => {
@@ -124,9 +125,33 @@ export default function ChatRoom() {
     } else {
       if (user) removeHidden(user.id, msg.id);
       setMessages(prev => prev.filter(m => m.id !== msg.id));
+      // Broadcast the deletion so the other participant's UI updates instantly,
+      // even if they are on the ChatsPage rather than inside this chat room.
+      broadcastChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'message_deleted',
+        payload: { id: msg.id },
+      });
+      toast.success('Message deleted for everyone');
     }
     setSelectedMsg(null);
   };
+
+  /* ── Broadcast channel for "Delete for everyone" ───────────── */
+  useEffect(() => {
+    if (!user || !partnerId) return;
+    const channelName = `chat-broadcast-${[user.id, partnerId].sort().join('_')}`;
+    const channel = supabase
+      .channel(channelName)
+      .on('broadcast', { event: 'message_deleted' }, payload => {
+        if (payload.payload?.id) {
+          setMessages(prev => prev.filter(m => m.id !== payload.payload.id));
+        }
+      })
+      .subscribe();
+    broadcastChannelRef.current = channel;
+    return () => { supabase.removeChannel(channel); };
+  }, [user, partnerId]);
 
   /* ── Load partner info ──────────────────────────────────────── */
   useEffect(() => {
