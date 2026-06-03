@@ -28,6 +28,32 @@ function formatDateSeparator(date: Date) {
   return format(date, 'd MMM yyyy');
 }
 
+/* ── localStorage helpers for "Delete for me" ──────────────────────────────
+   Stores hidden message IDs per user so they don't reappear when the user
+   navigates away and comes back. No database schema change required.
+   ───────────────────────────────────────────────────────────────────────── */
+const hiddenKey = (userId: string) => `educross_hidden_msgs_${userId}`;
+
+function getHidden(userId: string): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(hiddenKey(userId)) || '[]'));
+  } catch {
+    return new Set();
+  }
+}
+
+function addHidden(userId: string, msgId: string) {
+  const hidden = getHidden(userId);
+  hidden.add(msgId);
+  localStorage.setItem(hiddenKey(userId), JSON.stringify([...hidden]));
+}
+
+function removeHidden(userId: string, msgId: string) {
+  const hidden = getHidden(userId);
+  hidden.delete(msgId);
+  localStorage.setItem(hiddenKey(userId), JSON.stringify([...hidden]));
+}
+
 export default function ChatRoom() {
   const { partnerId } = useParams<{ partnerId: string }>();
   const navigate = useNavigate();
@@ -86,6 +112,7 @@ export default function ChatRoom() {
   };
 
   const handleDeleteForMe = (msg: Message) => {
+    if (user) addHidden(user.id, msg.id);
     setMessages(prev => prev.filter(m => m.id !== msg.id));
     setSelectedMsg(null);
   };
@@ -95,6 +122,7 @@ export default function ChatRoom() {
     if (error) {
       toast.error('Could not delete message');
     } else {
+      if (user) removeHidden(user.id, msg.id);
       setMessages(prev => prev.filter(m => m.id !== msg.id));
     }
     setSelectedMsg(null);
@@ -124,7 +152,10 @@ export default function ChatRoom() {
           `and(sender_id.eq.${partnerId},receiver_id.eq.${user.id})`
         )
         .order('created_at', { ascending: true });
-      setMessages(data || []);
+
+      // Filter out messages the user has hidden ("Delete for me")
+      const hidden = getHidden(user.id);
+      setMessages((data || []).filter(m => !hidden.has(m.id)));
 
       await supabase
         .from('messages')
@@ -144,7 +175,11 @@ export default function ChatRoom() {
         payload => {
           const msg = payload.new as Message;
           if (msg.sender_id === partnerId) {
-            setMessages(prev => [...prev, msg]);
+            // Don't surface a message the user has already hidden
+            const hidden = getHidden(user.id);
+            if (!hidden.has(msg.id)) {
+              setMessages(prev => [...prev, msg]);
+            }
             supabase.from('messages').update({ read: true }).eq('id', msg.id);
           }
         }
