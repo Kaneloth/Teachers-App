@@ -211,7 +211,7 @@ export default function CVBuilderPage() {
               </ul>
             </div>
             <div className="flex flex-col gap-2 w-full pt-1">
-              <Button onClick={() => navigate('/verify-identity')} className="w-full h-11 rounded-xl font-semibold gap-2">
+              <Button onClick={() => navigate('/profile')} className="w-full h-11 rounded-xl font-semibold gap-2">
                 <ShieldCheck className="w-4 h-4" /> Verify My Identity
               </Button>
               <Button variant="ghost" onClick={() => navigate(-1)} className="w-full h-10 rounded-xl text-muted-foreground">
