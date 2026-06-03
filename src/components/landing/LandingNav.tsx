@@ -7,7 +7,7 @@ export default function LandingNav() {
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <GraduationCap className="w-7 h-7 text-white" />
-          <span className="text-white text-xl font-bold tracking-tight">EduCross</span>
+          <span className="text-white text-xl font-bold tracking-tight">Crosssa</span>
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm text-white/90">
           <a href="#features" className="hover:text-white transition-colors">Features</a>

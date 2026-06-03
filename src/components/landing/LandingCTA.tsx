@@ -6,7 +6,7 @@ export default function LandingCTA() {
     <section id="contact" className="bg-[#0d9488] py-20 px-6">
       <div className="max-w-3xl mx-auto text-center">
         <p className="text-white/60 text-sm font-semibold uppercase tracking-widest mb-3">📱 Free to Download · Works on Any Device</p>
-        <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">Get the EduCross App Today</h2>
+        <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">Get the Crosssa App Today</h2>
         <p className="text-white/80 text-lg mb-8 max-w-xl mx-auto">
           Your teaching career, in your pocket. Sign up in 2 minutes and start connecting with educators, finding vacancies, and building your CV — free.
         </p>

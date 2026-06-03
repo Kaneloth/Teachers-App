@@ -1,7 +1,7 @@
 const STEPS = [
   { num: '01', title: 'Create Your Profile', desc: 'Sign up and complete your educator profile — subjects, phase, province, and SACE number.' },
   { num: '02', title: 'Explore Vacancies & Peers', desc: 'Browse live vacancies or search for educators open to mutual transfers in your target area.' },
-  { num: '03', title: 'Connect & Apply', desc: 'Send connection requests, start conversations, and apply using your EduCross-built CV.' },
+  { num: '03', title: 'Connect & Apply', desc: 'Send connection requests, start conversations, and apply using your Crosssa-built CV.' },
   { num: '04', title: 'Get Placed', desc: 'Secure your next post with confidence, supported by verified credentials and a polished CV.' },
 ];
 
@@ -11,7 +11,7 @@ export default function LandingHowItWorks() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-14">
           <span className="text-xs font-semibold text-[#0d9488] uppercase tracking-widest">Simple Process</span>
-          <h2 className="text-3xl md:text-4xl font-extrabold text-[#0f172a] mt-2 mb-3">How EduCross Works</h2>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-[#0f172a] mt-2 mb-3">How Crosssa Works</h2>
           <p className="text-[#64748b] max-w-xl mx-auto">From registration to placement in four straightforward steps.</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

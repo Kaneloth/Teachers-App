@@ -14,7 +14,7 @@ export default function LandingHero() {
             <span className="text-[#0d9488]">SA Educators.</span>
           </h1>
           <p className="text-lg text-[#475569] mb-6 max-w-lg mx-auto md:mx-0">
-            Find vacancies, connect with peers, build your CV, and manage transfers — all from your phone. EduCross is your career in your pocket.
+            Find vacancies, connect with peers, build your CV, and manage transfers — all from your phone. Crosssa is your career in your pocket.
           </p>
           <div className="flex items-center gap-2 justify-center md:justify-start mb-6">
             <span className="text-xs bg-[#0f172a] text-white px-3 py-1 rounded-full font-semibold">📱 Free App</span>

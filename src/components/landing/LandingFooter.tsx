@@ -9,7 +9,7 @@ export default function LandingFooter() {
           <div className="max-w-xs">
             <div className="flex items-center gap-2 mb-3">
               <GraduationCap className="w-6 h-6 text-[#0d9488]" />
-              <span className="text-white text-lg font-bold">EduCross</span>
+              <span className="text-white text-lg font-bold">Crosssa</span>
             </div>
             <p className="text-sm leading-relaxed">
               The dedicated platform connecting South African educators with opportunities, peers, and professional growth tools.
@@ -41,7 +41,7 @@ export default function LandingFooter() {
           </div>
         </div>
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <p>© {new Date().getFullYear()} EduCross. All rights reserved. EduCross is a product of <span className="text-white/90 font-medium">Skootlink (Pty) Ltd</span>.</p>
+          <p>© {new Date().getFullYear()} Crosssa. All rights reserved. Crosssa is a product of <span className="text-white/90 font-medium">Skootlink (Pty) Ltd</span>.</p>
           <p>Built for South African educators 🇿🇦</p>
         </div>
       </div>
