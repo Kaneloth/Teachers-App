@@ -4,7 +4,7 @@ import { Search as SearchIcon, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
-import EducatorCard from '@/components/search/EducatorCard';
+import EducatorCard, { calculateMatch, MyProfile } from '@/components/search/EducatorCard';
 import SearchFilters, { Filters } from '@/components/search/SearchFilters';
 
 interface Educator {
@@ -21,17 +21,6 @@ interface Educator {
   user_id?: string;
 }
 
-
-/** Jaccard subject-similarity — same formula as EducatorCard and MatchesPage. */
-function computeMatchScore(eSubjects: string[] | undefined, mySubjects: string[] | undefined): number {
-  if (!eSubjects?.length || !mySubjects?.length) return 0;
-  const setA = new Set(mySubjects.map(s => s.toLowerCase()));
-  const setB = new Set(eSubjects.map(s => s.toLowerCase()));
-  const intersection = [...setA].filter(s => setB.has(s)).length;
-  const union = new Set([...setA, ...setB]).size;
-  return Math.round((intersection / union) * 100);
-}
-
 export default function Search() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -40,18 +29,18 @@ export default function Search() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filters, setFilters] = useState<Filters>({ province: '', subject: '', phase: '', activeOnly: false });
-  const [mySubjects, setMySubjects] = useState<string[]>([]);
+  const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
 
-  /* ── Fetch current user's subjects ─────────────────────────── */
+  /* ── Fetch current user's full profile for scoring ──────────── */
   useEffect(() => {
     if (!user) return;
     supabase
       .from('educators')
-      .select('subjects')
+      .select('phase, current_province, town, subjects')
       .eq('user_id', user.id)
       .limit(1)
       .then(({ data }) => {
-        setMySubjects(data?.[0]?.subjects || []);
+        setMyProfile(data?.[0] ?? null);
       });
   }, [user]);
 
@@ -63,10 +52,10 @@ export default function Search() {
     // Always exclude the current user's own card
     if (user?.id) q = q.neq('user_id', user.id);
 
-    if (filters.province)    q = q.eq('current_province', filters.province);
-    if (filters.phase)       q = q.eq('phase', filters.phase);
-    if (filters.activeOnly)  q = q.eq('is_actively_looking', true);
-    if (filters.subject)     q = q.contains('subjects', [filters.subject]);
+    if (filters.province)   q = q.eq('current_province', filters.province);
+    if (filters.phase)      q = q.eq('phase', filters.phase);
+    if (filters.activeOnly) q = q.eq('is_actively_looking', true);
+    if (filters.subject)    q = q.contains('subjects', [filters.subject]);
 
     const { data } = await q.limit(50);
     let results: Educator[] = data || [];
@@ -100,17 +89,23 @@ export default function Search() {
     }
 
     /* Exclude 85–100 % matches — those belong on the Matches page only.
-       If the user has no subjects yet we can't compute scores, so show everyone. */
-    if (mySubjects.length > 0) {
-      results = results.filter(e => computeMatchScore(e.subjects, mySubjects) < 85);
+       Falls back to simple own-card exclusion if profile not loaded yet. */
+    if (myProfile) {
+      results = results.filter(e =>
+        calculateMatch(myProfile, {
+          phase: e.phase,
+          current_province: e.current_province,
+          town: e.town,
+          subjects: e.subjects,
+        }) < 85
+      );
     } else if (user?.id) {
-      // Still exclude own card client-side as a safety net
       results = results.filter(e => e.user_id !== user.id);
     }
 
     setEducators(results);
     setLoading(false);
-  }, [filters, query, user, mySubjects]);
+  }, [filters, query, user, myProfile]);
 
   useEffect(() => { fetchEducators(); }, [fetchEducators]);
 
@@ -168,7 +163,7 @@ export default function Search() {
           </p>
           <div className="space-y-2 px-4 pb-6">
             {educators.map((ed, i) => (
-              <EducatorCard key={ed.id} educator={ed} mySubjects={mySubjects} index={i} />
+              <EducatorCard key={ed.id} educator={ed} myProfile={myProfile ?? undefined} index={i} />
             ))}
           </div>
         </>

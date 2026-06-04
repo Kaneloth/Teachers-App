@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import SubscriptionModal from '@/components/SubscriptionModal';
+import { calculateMatch } from '@/components/search/EducatorCard';
 
 
 interface Educator {
@@ -73,19 +74,15 @@ export default function MatchesPage() {
 
       if (!all) { setLoading(false); return; }
 
-      // Same Jaccard subject-similarity formula used by EducatorCard
-      const jaccardScore = (a: string[] | undefined, b: string[] | undefined): number => {
-        if (!a?.length || !b?.length) return 0;
-        const setA = new Set(a.map(s => s.toLowerCase()));
-        const setB = new Set(b.map(s => s.toLowerCase()));
-        const intersection = [...setA].filter(s => setB.has(s)).length;
-        const union = new Set([...setA, ...setB]).size;
-        return Math.round((intersection / union) * 100);
-      };
-
       const scored = all
-        .map(e => ({ ...e, score: jaccardScore(mine.subjects, e.subjects) }))
-        // Matches page: only educators with 85 – 100 % subject match
+        .map(e => ({
+          ...e,
+          score: calculateMatch(
+            { phase: mine.phase, current_province: mine.current_province, town: mine.town, subjects: mine.subjects },
+            { phase: e.phase,    current_province: e.current_province,    town: e.town,    subjects: e.subjects }
+          ),
+        }))
+        // Matches page: 85–100 % with the weighted formula
         .filter(e => e.score >= 85)
         .sort((a, b) => b.score - a.score);
 

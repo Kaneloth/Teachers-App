@@ -2,13 +2,35 @@ import { MapPin, Navigation, Monitor, ChevronRight, ShieldCheck } from 'lucide-r
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
-function getMatchPercentage(mySubjects: string[] | undefined, theirSubjects: string[] | undefined) {
-  if (!mySubjects?.length || !theirSubjects?.length) return 0;
-  const mySet = new Set(mySubjects.map(s => s.toLowerCase()));
-  const theirSet = new Set(theirSubjects.map(s => s.toLowerCase()));
-  const intersection = [...mySet].filter(s => theirSet.has(s));
-  const union = new Set([...mySet, ...theirSet]);
-  return Math.round((intersection.length / union.size) * 100);
+export interface MyProfile {
+  phase?: string;
+  current_province?: string;
+  town?: string;
+  subjects?: string[];
+}
+
+/**
+ * Weighted match formula:
+ *   Phase 20% + Province 20% + District 20% + Subjects (Jaccard) 40%
+ * Hard rule: no common subjects → always 0%.
+ */
+export function calculateMatch(me: MyProfile, them: MyProfile): number {
+  const setA = new Set((me.subjects || []).map(s => s.toLowerCase()));
+  const setB = new Set((them.subjects || []).map(s => s.toLowerCase()));
+  const common = [...setA].filter(s => setB.has(s)).length;
+
+  // Exception: no shared subjects → 0% regardless of other criteria
+  if (common === 0) return 0;
+
+  const totalDistinct = new Set([...setA, ...setB]).size;
+  const subjectScore  = totalDistinct > 0 ? common / totalDistinct : 0;
+
+  const phaseScore    = me.phase    && them.phase    && me.phase    === them.phase    ? 0.20 : 0;
+  const provinceScore = me.current_province && them.current_province
+                        && me.current_province === them.current_province ? 0.20 : 0;
+  const districtScore = me.town     && them.town     && me.town     === them.town     ? 0.20 : 0;
+
+  return Math.round((phaseScore + provinceScore + districtScore + subjectScore * 0.40) * 100);
 }
 
 interface Educator {
@@ -26,12 +48,12 @@ interface Educator {
 
 interface Props {
   educator: Educator;
-  mySubjects?: string[];
+  myProfile?: MyProfile;
   index?: number;
 }
 
-export default function EducatorCard({ educator, mySubjects, index = 0 }: Props) {
-  const match = getMatchPercentage(mySubjects, educator.subjects);
+export default function EducatorCard({ educator, myProfile, index = 0 }: Props) {
+  const match = myProfile ? calculateMatch(myProfile, educator) : 0;
   const initial = educator.full_name?.[0]?.toUpperCase() || '?';
 
   const locationParts = [educator.current_province, educator.town].filter(Boolean);
