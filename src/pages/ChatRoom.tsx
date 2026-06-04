@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
+import SubscriptionModal from '@/components/SubscriptionModal';
 
 interface Message {
   id: string;
@@ -64,6 +65,7 @@ export default function ChatRoom() {
   const [sending, setSending] = useState(false);
   const [selectedMsg, setSelectedMsg] = useState<Message | null>(null);
   const [chatLimitReached, setChatLimitReached] = useState(false);
+  const [showSubModal, setShowSubModal] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
@@ -419,7 +421,7 @@ export default function ChatRoom() {
             <span className="text-sm text-muted-foreground">
               You've reached your 5 free chat limit.{' '}
               <button
-                onClick={() => navigate('/settings')}
+                onClick={() => setShowSubModal(true)}
                 className="text-primary font-medium underline underline-offset-2"
               >
                 Upgrade to Pro
@@ -449,6 +451,8 @@ export default function ChatRoom() {
           </Button>
         </form>
       )}
+
+      <SubscriptionModal open={showSubModal} onClose={() => setShowSubModal(false)} />
     </div>
   );
 }

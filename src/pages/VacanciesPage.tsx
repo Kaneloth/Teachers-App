@@ -13,6 +13,7 @@ import { format, differenceInDays, isPast } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { toast } from 'sonner';
+import SubscriptionModal from '@/components/SubscriptionModal';
 
 interface Vacancy {
   id: string;
@@ -81,6 +82,7 @@ function VacancyCard({
   isApplied,
   appliedCount,
   onApply,
+  onUpgrade,
 }: {
   vacancy: Vacancy;
   index: number;
@@ -88,6 +90,7 @@ function VacancyCard({
   isApplied: boolean;
   appliedCount: number;
   onApply: (vacancyId: string, url: string) => void;
+  onUpgrade: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -207,14 +210,10 @@ function VacancyCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs rounded-lg gap-1 opacity-60 cursor-not-allowed"
-                onClick={() =>
-                  toast.info(`Free plan: ${FREE_APPLY_LIMIT} applications used`, {
-                    description: 'Upgrade to Pro for unlimited applications — Settings → Subscription.',
-                  })
-                }
+                className="h-7 text-xs rounded-lg gap-1 text-primary border-primary/40"
+                onClick={onUpgrade}
               >
-                🔒 Apply
+                🔒 Upgrade to Apply
               </Button>
             )
           ) : (
@@ -277,11 +276,12 @@ export default function VacanciesPage() {
         description: `${remaining} free application${remaining !== 1 ? 's' : ''} remaining.`,
       });
     } else {
-      toast.info(`Last free application used`, {
-        description: 'Upgrade to Pro for unlimited applications — Settings → Subscription.',
-      });
+      toast.info(`Last free application used — upgrade to Pro for unlimited applications.`);
+      setShowSubModal(true);
     }
   };
+
+  const [showSubModal, setShowSubModal] = useState(false);
 
   const [vacancies, setVacancies] = useState<Vacancy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -480,12 +480,15 @@ export default function VacanciesPage() {
                   isApplied={appliedIds.has(v.id)}
                   appliedCount={appliedIds.size}
                   onApply={handleApply}
+                  onUpgrade={() => setShowSubModal(true)}
                 />
               ))}
             </div>
           )}
         </>
       )}
+
+      <SubscriptionModal open={showSubModal} onClose={() => setShowSubModal(false)} />
     </div>
   );
 }
