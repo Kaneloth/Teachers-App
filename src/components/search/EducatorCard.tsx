@@ -1,4 +1,4 @@
-import { MapPin, Navigation, Monitor, ChevronRight, ShieldCheck } from 'lucide-react';
+import { MapPin, Navigation, Monitor, ChevronRight, ShieldCheck, Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -19,16 +19,15 @@ export function calculateMatch(me: MyProfile, them: MyProfile): number {
   const setB = new Set((them.subjects || []).map(s => s.toLowerCase()));
   const common = [...setA].filter(s => setB.has(s)).length;
 
-  // Exception: no shared subjects → 0% regardless of other criteria
   if (common === 0) return 0;
 
   const totalDistinct = new Set([...setA, ...setB]).size;
   const subjectScore  = totalDistinct > 0 ? common / totalDistinct : 0;
 
-  const phaseScore    = me.phase    && them.phase    && me.phase    === them.phase    ? 0.20 : 0;
+  const phaseScore    = me.phase && them.phase && me.phase === them.phase ? 0.20 : 0;
   const provinceScore = me.current_province && them.current_province
                         && me.current_province === them.current_province ? 0.20 : 0;
-  const districtScore = me.town     && them.town     && me.town     === them.town     ? 0.20 : 0;
+  const districtScore = me.town && them.town && me.town === them.town ? 0.20 : 0;
 
   return Math.round((phaseScore + provinceScore + districtScore + subjectScore * 0.40) * 100);
 }
@@ -49,17 +48,18 @@ interface Educator {
 interface Props {
   educator: Educator;
   myProfile?: MyProfile;
+  isPro?: boolean;
   index?: number;
 }
 
-export default function EducatorCard({ educator, myProfile, index = 0 }: Props) {
-  const match = myProfile ? calculateMatch(myProfile, educator) : 0;
+export default function EducatorCard({ educator, myProfile, isPro = false, index = 0 }: Props) {
+  const match   = myProfile ? calculateMatch(myProfile, educator) : 0;
   const initial = educator.full_name?.[0]?.toUpperCase() || '?';
 
   const locationParts = [educator.current_province, educator.town].filter(Boolean);
-  const location = locationParts.length ? locationParts.join(' – ') : '–';
-  const wants = educator.preferred_provinces?.length ? educator.preferred_provinces.join(', ') : 'Any';
-  const subjectsStr = educator.subjects?.length
+  const location      = locationParts.length ? locationParts.join(' – ') : '–';
+  const wants         = educator.preferred_provinces?.length ? educator.preferred_provinces.join(', ') : 'Any';
+  const subjectsStr   = educator.subjects?.length
     ? `${educator.subjects.join(', ')}${educator.phase ? ` (${educator.phase})` : ''}`
     : '()';
 
@@ -91,11 +91,21 @@ export default function EducatorCard({ educator, myProfile, index = 0 }: Props) 
               </span>
             )}
           </div>
+
           <div className="space-y-0.5">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <MapPin className="w-3 h-3 shrink-0" />
-              <span className="truncate">{location}</span>
-            </div>
+            {/* Current province & school — hidden for free users */}
+            {isPro ? (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <MapPin className="w-3 h-3 shrink-0" />
+                <span className="truncate">{location}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <MapPin className="w-3 h-3 shrink-0" />
+                <Lock className="w-3 h-3 shrink-0" />
+                <span className="truncate italic">Message to view location</span>
+              </div>
+            )}
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Navigation className="w-3 h-3 shrink-0" />
               <span className="truncate">Wants: {wants}</span>
@@ -107,7 +117,7 @@ export default function EducatorCard({ educator, myProfile, index = 0 }: Props) 
           </div>
         </div>
 
-        {/* Match % badge + chevron */}
+        {/* Match % ring + chevron — visible to all users */}
         <div className="flex flex-col items-center gap-1.5 shrink-0">
           <div className="relative w-9 h-9">
             <svg className="w-9 h-9 -rotate-90" viewBox="0 0 36 36">
