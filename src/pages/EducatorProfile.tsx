@@ -71,7 +71,7 @@ export default function EducatorProfile() {
       /* ── Gate: check subscription + chat limit before doing anything ── */
       const allowed = await canStartNewChat(user.id, targetId);
       if (!allowed) {
-        toast.error('You've reached your 5 free chat limit. Upgrade to Pro for unlimited messaging.');
+        toast.error("You've reached your 5 free chat limit. Upgrade to Pro for unlimited messaging.");
         setShowSubModal(true);
         return;
       }
