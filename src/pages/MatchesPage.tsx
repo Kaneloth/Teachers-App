@@ -75,21 +75,23 @@ export default function MatchesPage() {
       if (!all) { setLoading(false); return; }
 
       const scored = all
-        .filter(e => e.is_actively_looking)
         .map(e => {
           let score = 0;
-          const wantsMyProvince   = e.preferred_provinces?.includes(mine.current_province);
+          const wantsMyProvince    = e.preferred_provinces?.includes(mine.current_province);
           const iWantTheirProvince = mine.preferred_provinces?.includes(e.current_province);
-          if (wantsMyProvince)    score += 40;
-          if (iWantTheirProvince) score += 40;
-          const sharedSubjects = (e.subjects || []).filter((s: string) => (mine.subjects || []).includes(s)).length;
+          if (wantsMyProvince)     score += 40;
+          if (iWantTheirProvince)  score += 40;
+          const sharedSubjects = (e.subjects || []).filter(
+            (s: string) => (mine.subjects || []).includes(s)
+          ).length;
           score += sharedSubjects * 10;
           if (e.phase === mine.phase) score += 10;
-          return { ...e, score };
+          // Cap at 100 so percentages stay meaningful
+          return { ...e, score: Math.min(score, 100) };
         })
-        .filter(e => e.score! > 0)
-        .sort((a, b) => b.score! - a.score!)
-        .slice(0, 20);
+        // Matches page: only educators with 85 – 100 % match
+        .filter(e => e.score >= 85)
+        .sort((a, b) => b.score - a.score);
 
       setMatches(scored);
       setLoading(false);
@@ -126,8 +128,11 @@ export default function MatchesPage() {
       ) : matches.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No matches yet</p>
-          <p className="text-sm mt-1">Check back as more educators join Crosssa</p>
+          <p className="font-medium">No high matches yet</p>
+          <p className="text-sm mt-1 max-w-xs mx-auto">
+            Educators with an 85–100% compatibility with your profile will appear here.
+            Browse all educators on the Search page.
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
