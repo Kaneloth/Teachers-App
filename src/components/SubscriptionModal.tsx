@@ -12,12 +12,12 @@ const BILLING = [
 ] as const;
 
 const COMPARISON = [
-  { feature: 'CV builds per month',  free: '1',               pro: 'Unlimited' },
-  { feature: 'CV watermark',         free: 'Yes',             pro: 'No'        },
-  { feature: 'Active chats',         free: '5',               pro: 'Unlimited' },
-  { feature: 'Vacancy applications', free: '5',               pro: 'Unlimited' },
-  { feature: 'Ads',                  free: 'Yes',             pro: 'No'        },
-  { feature: 'Personal details',     free: 'Locked to profile', pro: 'Locked to profile' },
+  { feature: 'CV builds / month', free: '1',        pro: 'Unlimited' },
+  { feature: 'CV watermark',      free: 'Yes',      pro: 'No'        },
+  { feature: 'Active chats',      free: '5',        pro: 'Unlimited' },
+  { feature: 'Applications',      free: '5',        pro: 'Unlimited' },
+  { feature: 'Ads',               free: 'Yes',      pro: 'No'        },
+  { feature: 'Contact details',   free: 'Protected', pro: 'Protected' },
 ];
 
 function getPlanEndDate(planId: string): string {
@@ -102,7 +102,7 @@ export default function SubscriptionModal({ open, onClose }: Props) {
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       {/* Sheet */}
-      <div className="relative w-full sm:max-w-md bg-background rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92dvh] flex flex-col">
+      <div className="relative w-full sm:max-w-md max-w-[100vw] bg-background rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0">
           <div className="flex items-center gap-2">
@@ -190,16 +190,16 @@ export default function SubscriptionModal({ open, onClose }: Props) {
               What you get
             </p>
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <div className="grid grid-cols-3 bg-muted/50 px-4 py-2 border-b border-border">
-                <span className="text-xs font-semibold text-muted-foreground">Feature</span>
-                <span className="text-xs font-semibold text-muted-foreground text-center">Free</span>
-                <span className="text-xs font-semibold text-primary text-center">Pro</span>
+              <div className="grid grid-cols-3 bg-muted/50 px-3 py-2 border-b border-border">
+                <span className="text-xs font-semibold text-muted-foreground min-w-0">Feature</span>
+                <span className="text-xs font-semibold text-muted-foreground text-center min-w-0">Free</span>
+                <span className="text-xs font-semibold text-primary text-center min-w-0">Pro</span>
               </div>
               {COMPARISON.map((row, i) => (
-                <div key={row.feature} className={`grid grid-cols-3 px-4 py-2.5 ${i < COMPARISON.length - 1 ? 'border-b border-border/50' : ''}`}>
-                  <span className="text-xs text-foreground">{row.feature}</span>
-                  <span className="text-xs text-muted-foreground text-center">{row.free}</span>
-                  <span className={`text-xs text-center font-medium ${row.pro === row.free ? 'text-muted-foreground' : 'text-primary'}`}>{row.pro}</span>
+                <div key={row.feature} className={`grid grid-cols-3 px-3 py-2 ${i < COMPARISON.length - 1 ? 'border-b border-border/50' : ''}`}>
+                  <span className="text-xs text-foreground min-w-0 break-words leading-tight">{row.feature}</span>
+                  <span className="text-xs text-muted-foreground text-center min-w-0 break-words leading-tight">{row.free}</span>
+                  <span className={`text-xs text-center font-medium min-w-0 break-words leading-tight ${row.pro === row.free ? 'text-muted-foreground' : 'text-primary'}`}>{row.pro}</span>
                 </div>
               ))}
             </div>
