@@ -28,29 +28,31 @@ export default function Login() {
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [sessionExpiredBanner, setSessionExpiredBanner] = useState(false);
 
-  // Helper to store the Supabase refresh token for biometric (Base44 pattern)
-  const storeBiometricToken = async (userId: string) => {
-    // Get the current session (which is fresh after login)
+  // Store full session tokens after successful password login
+  const storeBiometricTokens = async (userId: string) => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (session?.refresh_token) {
-      localStorage.setItem('crosssa_biometric_token', session.refresh_token);
+    if (session) {
+      localStorage.setItem('crosssa_biometric_access_token', session.access_token);
+      localStorage.setItem('crosssa_biometric_refresh_token', session.refresh_token);
       localStorage.setItem('crosssa_biometric_userId', userId);
       localStorage.setItem('loginMethod', 'biometric');
     }
   };
 
-  // Helper to restore session from stored refresh token
-  const restoreSessionFromStoredToken = async (): Promise<boolean> => {
-    const refreshToken = localStorage.getItem('crosssa_biometric_token');
-    if (!refreshToken) return false;
-    try {
-      const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
-      if (error || !data.session) return false;
-      // Success – session is restored
-      return true;
-    } catch {
-      return false;
-    }
+  // Restore session from stored tokens using setSession
+  const restoreSessionFromStoredTokens = async (): Promise<boolean> => {
+    const accessToken = localStorage.getItem('crosssa_biometric_access_token');
+    const refreshToken = localStorage.getItem('crosssa_biometric_refresh_token');
+    if (!accessToken || !refreshToken) return false;
+    const { data, error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (error || !data.session) return false;
+    // Update stored tokens with the new ones (in case they were refreshed)
+    localStorage.setItem('crosssa_biometric_access_token', data.session.access_token);
+    localStorage.setItem('crosssa_biometric_refresh_token', data.session.refresh_token);
+    return true;
   };
 
   const switchToPassword = (showExpiredBanner = false) => {
@@ -58,7 +60,7 @@ export default function Login() {
     setSessionExpiredBanner(showExpiredBanner);
     const saved = localStorage.getItem('crosssa_last_email');
     if (saved) setEmail(saved);
-    // Do NOT clear the biometric token – it might be valid later, but we fall back now
+    // Do NOT clear biometric tokens – they may be valid later, but we fall back now
   };
 
   const handleBiometricLogin = async () => {
@@ -71,7 +73,7 @@ export default function Login() {
         return;
       }
 
-      // 1. Perform WebAuthn verification
+      // 1. WebAuthn verification
       const credIdB64 = localStorage.getItem('biometricCredentialId');
       if (!credIdB64) {
         toast.error('Biometric credential not found. Please re‑register.');
@@ -90,16 +92,15 @@ export default function Login() {
         },
       });
 
-      // 2. Restore the Supabase session using the stored refresh token
-      const success = await restoreSessionFromStoredToken();
+      // 2. Restore session using stored tokens
+      const success = await restoreSessionFromStoredTokens();
       if (!success) {
-        // Token expired or invalid – need password again
-        toast.error('Your saved session has expired. Please sign in with your password to refresh biometric.');
+        toast.error('Your saved session has expired. Please sign in with your password to reactivate biometric.');
         switchToPassword(true);
         return;
       }
 
-      // 3. Verify the restored user matches the stored user ID (optional but safe)
+      // 3. Verify user matches
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || user.id !== storedUserId) {
         toast.error('User mismatch. Please sign in with your password.');
@@ -107,7 +108,7 @@ export default function Login() {
         return;
       }
 
-      // 4. Success – go home
+      // 4. Success
       navigate('/home');
     } catch (err: any) {
       if (err.name === 'NotAllowedError') {
@@ -120,7 +121,7 @@ export default function Login() {
     }
   };
 
-  // ── Login ───────────────────────────────────────────────────
+  // ── Login with password ─────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -136,16 +137,15 @@ export default function Login() {
       }
     } else {
       localStorage.setItem('crosssa_last_email', email);
-      // After successful login, store the biometric token for future fast logins
       if (data.user) {
-        await storeBiometricToken(data.user.id);
+        await storeBiometricTokens(data.user.id);
       }
       navigate('/home');
     }
     setLoading(false);
   };
 
-  // ── Email OTP (unconfirmed email path) ──────────────────────
+  // ── Email OTP (unconfirmed email) ───────────────────────────
   const handleVerifyEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -154,9 +154,8 @@ export default function Login() {
       toast.error(error.message);
     } else {
       toast.success('Email verified! Welcome back.');
-      // After successful verification, also store biometric token
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) await storeBiometricToken(user.id);
+      if (user) await storeBiometricTokens(user.id);
       navigate('/home');
     }
     setLoading(false);
@@ -288,7 +287,7 @@ export default function Login() {
     );
   }
 
-  // ── Login form ──────────────────────────────────────────────
+  // ── Password login form ─────────────────────────────────────
   return (
     <div className="space-y-6">
       {sessionExpiredBanner && (
