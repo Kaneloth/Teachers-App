@@ -10,8 +10,8 @@ import { supabase } from '@/lib/supabase';
 type LoginMethod = 'password' | 'biometric' | 'biometric-confirmed';
 type Step = 'form' | 'email-otp';
 
-/* Key where we persist the Supabase token pair for biometric restore */
-const BIO_SESSION_KEY = 'crosssa_biometric_session';
+const BIO_REFRESH_KEY = 'crosssa_biometric_refresh';   // stores refresh token
+const BIO_CRED_ID_KEY = 'biometricCredentialId';       // stores credential ID (set elsewhere)
 
 export default function Login() {
   const navigate = useNavigate();
@@ -29,23 +29,31 @@ export default function Login() {
   const [loginMethod, setLoginMethod] = useState<LoginMethod>('password');
   const [biometricLoading, setBiometricLoading] = useState(false);
 
+  // ─────────────────────────────────────────────────────────────
+  // 1. Persist refresh token whenever a new session is created
+  //    (covers password login, Google redirect, and refresh)
+  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const method = localStorage.getItem('loginMethod') || 'password';
-    setLoginMethod(method as LoginMethod);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.refresh_token) {
+        localStorage.setItem(BIO_REFRESH_KEY, session.refresh_token);
+        localStorage.setItem('crosssa_last_email', session.user.email || email);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [email]);
+
+  // ─────────────────────────────────────────────────────────────
+  // 2. Restore login method preference from localStorage
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const method = localStorage.getItem('loginMethod') as LoginMethod || 'password';
+    setLoginMethod(method);
   }, []);
 
-  /* ── Helpers ──────────────────────────────────────────────── */
-
-  /** Save the refresh token after any successful Supabase sign-in.
-   *  Refresh tokens are valid for ~60 days, so biometric works long-term. */
-  const persistBiometricSession = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.refresh_token) {
-      localStorage.setItem(BIO_SESSION_KEY, session.refresh_token);
-    }
-  };
-
-  /* ── Biometric login ──────────────────────────────────────── */
+  // ─────────────────────────────────────────────────────────────
+  // 3. Core biometric verification + session restoration
+  // ─────────────────────────────────────────────────────────────
   const handleBiometricLogin = async () => {
     setError('');
     setBiometricLoading(true);
@@ -54,12 +62,17 @@ export default function Login() {
         throw new Error('Biometric authentication is not supported on this device.');
       }
 
+      // WebAuthn challenge
       const challenge = new Uint8Array(32);
       crypto.getRandomValues(challenge);
 
-      const storedId = localStorage.getItem('biometricCredentialId');
+      const storedId = localStorage.getItem(BIO_CRED_ID_KEY);
       const allowCredentials = storedId
-        ? [{ type: 'public-key' as const, id: Uint8Array.from(atob(storedId), c => c.charCodeAt(0)), transports: ['internal'] as AuthenticatorTransport[] }]
+        ? [{
+            type: 'public-key' as const,
+            id: Uint8Array.from(atob(storedId), c => c.charCodeAt(0)),
+            transports: ['internal'] as AuthenticatorTransport[],
+          }]
         : [];
 
       await navigator.credentials.get({
@@ -72,30 +85,41 @@ export default function Login() {
         },
       });
 
-      /* Biometric passed — use the saved refresh token to get a live session */
-      const savedRefreshToken = localStorage.getItem(BIO_SESSION_KEY);
-      if (savedRefreshToken) {
-        const { data, error: refreshErr } = await supabase.auth.refreshSession({ refresh_token: savedRefreshToken });
-        if (!refreshErr && data.session) {
-          /* Update the stored refresh token (Supabase rotates it on each refresh) */
-          localStorage.setItem(BIO_SESSION_KEY, data.session.refresh_token);
-          navigate('/home');
-          return;
-        }
+      // Biometric succeeded – now restore Supabase session
+      const savedRefreshToken = localStorage.getItem(BIO_REFRESH_KEY);
+      if (!savedRefreshToken) {
+        // No token stored → first‑time biometric setup: ask for password once
+        setLoginMethod('biometric-confirmed');
+        return;
       }
 
-      /* No saved token yet (first biometric use) — ask for password once to generate one */
-      setLoginMethod('biometric-confirmed');
+      // Try to refresh the session
+      const { data, error: refreshErr } = await supabase.auth.refreshSession({
+        refresh_token: savedRefreshToken,
+      });
+
+      if (refreshErr || !data.session) {
+        // Refresh token is invalid/expired – clear it and ask for password
+        localStorage.removeItem(BIO_REFRESH_KEY);
+        throw new Error('Your biometric session has expired. Please sign in with password once.');
+      }
+
+      // Success: update stored refresh token (Supabase rotates it)
+      localStorage.setItem(BIO_REFRESH_KEY, data.session.refresh_token);
+      navigate('/home');
     } catch (err: any) {
       if (err.name !== 'NotAllowedError') {
-        setError(err.message || 'Biometric verification failed. Try again.');
+        setError(err.message || 'Biometric verification failed. Please try again.');
       }
     } finally {
       setBiometricLoading(false);
     }
   };
 
-  /* One-time password entry after first biometric use — saves the token for all future scans */
+  // ─────────────────────────────────────────────────────────────
+  // 4. One‑time password entry after first biometric use
+  //    (creates the initial refresh token for future scans)
+  // ─────────────────────────────────────────────────────────────
   const handleBiometricConfirmedLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -103,7 +127,7 @@ export default function Login() {
     try {
       const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
       if (signInErr) throw signInErr;
-      await persistBiometricSession();
+      // Token will be saved automatically by onAuthStateChange
       localStorage.setItem('crosssa_last_email', email);
       navigate('/home');
     } catch (err: any) {
@@ -113,7 +137,9 @@ export default function Login() {
     }
   };
 
-  /* ── Password login ─────────────────────────────────────────  */
+  // ─────────────────────────────────────────────────────────────
+  // 5. Standard password login
+  // ─────────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -129,14 +155,15 @@ export default function Login() {
         setError(signInErr.message);
       }
     } else {
-      await persistBiometricSession();
       localStorage.setItem('crosssa_last_email', email);
       navigate('/home');
     }
     setLoading(false);
   };
 
-  /* ── Email OTP (unconfirmed-email path) ─────────────────────  */
+  // ─────────────────────────────────────────────────────────────
+  // 6. Email OTP verification (unconfirmed email case)
+  // ─────────────────────────────────────────────────────────────
   const handleVerifyEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -144,7 +171,6 @@ export default function Login() {
     if (error) {
       setError(error.message);
     } else {
-      await persistBiometricSession();
       localStorage.setItem('crosssa_last_email', email);
       toast.success('Email verified! Welcome back.');
       navigate('/home');
@@ -160,6 +186,9 @@ export default function Login() {
     setResendLoading(false);
   };
 
+  // ─────────────────────────────────────────────────────────────
+  // 7. Google OAuth – session will be persisted by onAuthStateChange
+  // ─────────────────────────────────────────────────────────────
   const handleGoogle = async () => {
     setGoogleLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
@@ -170,7 +199,9 @@ export default function Login() {
     setGoogleLoading(false);
   };
 
-  /* ── Google SVG ─────────────────────────────────────────────  */
+  // ─────────────────────────────────────────────────────────────
+  // 8. Helper: Google icon SVG
+  // ─────────────────────────────────────────────────────────────
   const GoogleSvg = (
     <svg viewBox="0 0 24 24" className="w-4 h-4">
       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -180,7 +211,9 @@ export default function Login() {
     </svg>
   );
 
-  /* ── Email OTP screen ───────────────────────────────────────  */
+  // ─────────────────────────────────────────────────────────────
+  // 9. Screens (Email OTP, Biometric, Biometric‑confirmed, Password)
+  // ─────────────────────────────────────────────────────────────
   if (step === 'email-otp') {
     return (
       <div className="space-y-6">
@@ -231,7 +264,6 @@ export default function Login() {
     );
   }
 
-  /* ── Biometric screen ───────────────────────────────────────  */
   if (loginMethod === 'biometric') {
     return (
       <div className="space-y-6">
@@ -287,7 +319,6 @@ export default function Login() {
     );
   }
 
-  /* ── Biometric-confirmed (one-time password entry) ──────────  */
   if (loginMethod === 'biometric-confirmed') {
     return (
       <div className="space-y-6">
@@ -348,7 +379,7 @@ export default function Login() {
     );
   }
 
-  /* ── Standard password form ─────────────────────────────────  */
+  // Standard password form
   return (
     <div className="space-y-6">
       <div className="text-center">
