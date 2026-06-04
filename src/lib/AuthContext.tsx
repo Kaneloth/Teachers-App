@@ -50,13 +50,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(newSession?.user ?? null);
       setAuthChecked(true);
       setIsLoadingAuth(false);
-      // Keep the biometric token always current — Supabase rotates it on every auto-refresh.
-      // Without this, the saved token goes stale within ~1 hour and biometric always falls
-      // back to asking for a password.
+
+      // Keep the biometric token always in sync with Supabase's latest rotated token.
+      // We do NOT remove it on SIGNED_OUT because we use scope:'local' logout, which
+      // keeps the token valid server-side so biometric can restore the session afterward.
       if (newSession?.refresh_token) {
         localStorage.setItem(BIO_RT_KEY, newSession.refresh_token);
-      } else if (_event === 'SIGNED_OUT') {
-        localStorage.removeItem(BIO_RT_KEY);
       }
     });
 
@@ -64,7 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [checkUserAuth]);
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    // 'local' scope clears the session on this device only.
+    // The refresh token remains valid server-side so biometric login can
+    // restore the session after logout without the user re-entering their password.
+    await supabase.auth.signOut({ scope: 'local' });
     setUser(null);
     setSession(null);
   };
