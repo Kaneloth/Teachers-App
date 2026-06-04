@@ -21,27 +21,15 @@ interface Educator {
   user_id?: string;
 }
 
-interface MyProfile {
-  current_province?: string;
-  preferred_provinces?: string[];
-  subjects?: string[];
-  phase?: string;
-}
 
-/** Same scoring formula used by MatchesPage — capped at 100. */
-function computeMatchScore(e: Educator, mine: MyProfile): number {
-  let score = 0;
-  // "Any" in preferred_provinces means willing to go anywhere
-  const wantsMyProvince    = e.preferred_provinces?.includes('Any') ||
-                             (mine.current_province ? e.preferred_provinces?.includes(mine.current_province) : false);
-  const iWantTheirProvince = mine.preferred_provinces?.includes('Any') ||
-                             (e.current_province ? mine.preferred_provinces?.includes(e.current_province) : false);
-  if (wantsMyProvince)    score += 40;
-  if (iWantTheirProvince) score += 40;
-  const shared = (e.subjects || []).filter(s => (mine.subjects || []).includes(s)).length;
-  score += shared * 10;
-  if (e.phase && e.phase === mine.phase) score += 10;
-  return Math.min(score, 100);
+/** Jaccard subject-similarity — same formula as EducatorCard and MatchesPage. */
+function computeMatchScore(eSubjects: string[] | undefined, mySubjects: string[] | undefined): number {
+  if (!eSubjects?.length || !mySubjects?.length) return 0;
+  const setA = new Set(mySubjects.map(s => s.toLowerCase()));
+  const setB = new Set(eSubjects.map(s => s.toLowerCase()));
+  const intersection = [...setA].filter(s => setB.has(s)).length;
+  const union = new Set([...setA, ...setB]).size;
+  return Math.round((intersection / union) * 100);
 }
 
 export default function Search() {
@@ -53,20 +41,17 @@ export default function Search() {
   const [refreshing, setRefreshing] = useState(false);
   const [filters, setFilters] = useState<Filters>({ province: '', subject: '', phase: '', activeOnly: false });
   const [mySubjects, setMySubjects] = useState<string[]>([]);
-  const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
 
-  /* ── Fetch current user's educator profile ─────────────────── */
+  /* ── Fetch current user's subjects ─────────────────────────── */
   useEffect(() => {
     if (!user) return;
     supabase
       .from('educators')
-      .select('subjects, current_province, preferred_provinces, phase')
+      .select('subjects')
       .eq('user_id', user.id)
       .limit(1)
       .then(({ data }) => {
-        const p = data?.[0] ?? null;
-        setMySubjects(p?.subjects || []);
-        setMyProfile(p);
+        setMySubjects(data?.[0]?.subjects || []);
       });
   }, [user]);
 
@@ -115,9 +100,9 @@ export default function Search() {
     }
 
     /* Exclude 85–100 % matches — those belong on the Matches page only.
-       If the user has no profile yet we can't compute scores, so show everyone. */
-    if (myProfile) {
-      results = results.filter(e => computeMatchScore(e, myProfile) < 85);
+       If the user has no subjects yet we can't compute scores, so show everyone. */
+    if (mySubjects.length > 0) {
+      results = results.filter(e => computeMatchScore(e.subjects, mySubjects) < 85);
     } else if (user?.id) {
       // Still exclude own card client-side as a safety net
       results = results.filter(e => e.user_id !== user.id);
@@ -125,7 +110,7 @@ export default function Search() {
 
     setEducators(results);
     setLoading(false);
-  }, [filters, query, user, myProfile]);
+  }, [filters, query, user, mySubjects]);
 
   useEffect(() => { fetchEducators(); }, [fetchEducators]);
 

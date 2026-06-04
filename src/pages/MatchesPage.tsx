@@ -74,25 +74,19 @@ export default function MatchesPage() {
 
       if (!all) { setLoading(false); return; }
 
+      // Same Jaccard subject-similarity formula used by EducatorCard
+      const jaccardScore = (a: string[] | undefined, b: string[] | undefined): number => {
+        if (!a?.length || !b?.length) return 0;
+        const setA = new Set(a.map(s => s.toLowerCase()));
+        const setB = new Set(b.map(s => s.toLowerCase()));
+        const intersection = [...setA].filter(s => setB.has(s)).length;
+        const union = new Set([...setA, ...setB]).size;
+        return Math.round((intersection / union) * 100);
+      };
+
       const scored = all
-        .map(e => {
-          let score = 0;
-          // "Any" in preferred_provinces means the educator is willing to go anywhere
-          const wantsMyProvince    = e.preferred_provinces?.includes('Any') ||
-                                     e.preferred_provinces?.includes(mine.current_province ?? '');
-          const iWantTheirProvince = mine.preferred_provinces?.includes('Any') ||
-                                     mine.preferred_provinces?.includes(e.current_province ?? '');
-          if (wantsMyProvince)     score += 40;
-          if (iWantTheirProvince)  score += 40;
-          const sharedSubjects = (e.subjects || []).filter(
-            (s: string) => (mine.subjects || []).includes(s)
-          ).length;
-          score += sharedSubjects * 10;
-          if (e.phase === mine.phase) score += 10;
-          // Cap at 100 so percentages stay meaningful
-          return { ...e, score: Math.min(score, 100) };
-        })
-        // Matches page: only educators with 85 – 100 % match
+        .map(e => ({ ...e, score: jaccardScore(mine.subjects, e.subjects) }))
+        // Matches page: only educators with 85 – 100 % subject match
         .filter(e => e.score >= 85)
         .sort((a, b) => b.score - a.score);
 
