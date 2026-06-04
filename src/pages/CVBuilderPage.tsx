@@ -347,14 +347,23 @@ export default function CVBuilderPage() {
     setShowBuilder(true);
   };
 
-  /* ── After CV generated — refresh meta & return to banner ── */
-  const handleCVGenerated = async () => {
-    const m = await refreshMeta();
-    if (m.last_cv_data) {
-      setCvType(null);
-      setStep(0);
-      setShowBuilder(false);
-    }
+  /* ── After CV generated — update state directly, no refetch ── */
+  // CVStepReview calls onGenerated(pdfUrl) right after updateUserMeta.
+  // Supabase metadata propagation has a delay, so fetching getUser() here
+  // would return stale data. Instead, set freshMeta from the data we already
+  // have in memory — matching the Base44 pattern.
+  const handleCVGenerated = (pdfUrl: string) => {
+    const now = new Date().toISOString();
+    setFreshMeta(prev => ({
+      ...prev,
+      last_cv_pdf_url: pdfUrl,
+      last_cv_data: data,
+      last_cv_generated_at: now,
+      cv_count: ((prev.cv_count as number) ?? 0) + 1,
+    }));
+    setCvType(null);
+    setStep(0);
+    setShowBuilder(false);
   };
 
   /* ── Last CV state ────────────────────────────────────────── */
