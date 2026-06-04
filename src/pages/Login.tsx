@@ -4,14 +4,117 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, MailCheck, Fingerprint } from 'lucide-react';
+import { Eye, EyeOff, Loader2, MailCheck, Fingerprint, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 type LoginMethod = 'password' | 'biometric' | 'biometric-confirmed';
 type Step = 'form' | 'email-otp';
 
-const BIO_CRED_ID_KEY = 'biometricCredentialId'; // saved during fingerprint registration
+// Keys for storing biometric data and refresh token
+const BIO_CRED_ID_KEY = 'crosssa_biometric_credential_id';
+const BIO_REFRESH_KEY = 'crosssa_biometric_refresh';
 
+// ─────────────────────────────────────────────────────────────
+//  Biometric session restoration (mirrors Skootlink logic)
+// ─────────────────────────────────────────────────────────────
+async function base64ToBuffer(base64: string) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+class BiometricError extends Error {
+  code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.code = code;
+  }
+}
+
+async function triggerBiometricLogin() {
+  if (!window.PublicKeyCredential) {
+    throw new BiometricError('unsupported', 'Your browser does not support biometric login.');
+  }
+
+  const credentialId = localStorage.getItem(BIO_CRED_ID_KEY);
+  if (!credentialId) {
+    throw new BiometricError('no-credential', 'No fingerprint registered on this device.');
+  }
+
+  // 1. Perform WebAuthn assertion
+  try {
+    await navigator.credentials.get({
+      publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        allowCredentials: [
+          { id: await base64ToBuffer(credentialId), type: 'public-key' },
+        ],
+        userVerification: 'required',
+        timeout: 60000,
+      },
+    });
+  } catch (err: any) {
+    if (err.name === 'NotAllowedError' || err.name === 'InvalidStateError') {
+      throw new BiometricError('no-credential', 'no-passkey-on-domain');
+    }
+    throw new BiometricError('fingerprint-failed', 'Fingerprint not recognised. Try again.');
+  }
+
+  // 2. Try to refresh the session via Supabase JS client
+  try {
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    if (!refreshError && refreshData?.session) {
+      // Save the new refresh token for future biometric logins
+      localStorage.setItem(BIO_REFRESH_KEY, refreshData.session.refresh_token);
+      return refreshData.session;
+    }
+  } catch {
+    // Fall through to next method
+  }
+
+  // 3. Try using a stored refresh token directly with Supabase REST API
+  const storedRefreshToken = localStorage.getItem(BIO_REFRESH_KEY);
+  if (storedRefreshToken) {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: anonKey },
+        body: JSON.stringify({ refresh_token: storedRefreshToken }),
+      });
+      if (response.ok) {
+        const tokens = await response.json();
+        if (tokens.access_token && tokens.refresh_token) {
+          const { data: sessionData, error: setError } = await supabase.auth.setSession({
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+          });
+          if (!setError && sessionData?.session) {
+            // Update stored refresh token (Supabase rotates it)
+            localStorage.setItem(BIO_REFRESH_KEY, sessionData.session.refresh_token);
+            return sessionData.session;
+          }
+        }
+      } else {
+        const errorText = await response.text();
+        if (errorText.includes('refresh_token_not_found')) {
+          localStorage.removeItem(BIO_REFRESH_KEY);
+        }
+      }
+    } catch {
+      // All paths exhausted
+    }
+  }
+
+  // 4. No working session found – require password once
+  throw new BiometricError('session-expired', 'Your biometric session expired. Sign in with your password once.');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Main Login Component
+// ─────────────────────────────────────────────────────────────
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState(() => localStorage.getItem('crosssa_last_email') || '');
@@ -20,6 +123,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
+  const [bannerReason, setBannerReason] = useState<string | null>(null);
 
   const [step, setStep] = useState<Step>('form');
   const [emailOtp, setEmailOtp] = useState('');
@@ -34,57 +138,40 @@ export default function Login() {
     setLoginMethod(method);
   }, []);
 
+  // Helper: save refresh token after any successful sign-in
+  const saveRefreshToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.refresh_token) {
+      localStorage.setItem(BIO_REFRESH_KEY, session.refresh_token);
+    }
+  };
+
   // ─────────────────────────────────────────────────────────────
-  // 1. Biometric login – verify fingerprint, then check existing session
+  //  Biometric login – full Skootlink-style restoration
   // ─────────────────────────────────────────────────────────────
   const handleBiometricLogin = async () => {
     setError('');
+    setBannerReason(null);
     setBiometricLoading(true);
     try {
-      if (!window.PublicKeyCredential) {
-        throw new Error('Biometric authentication is not supported on this device.');
-      }
-
-      // Prepare WebAuthn challenge
-      const challenge = new Uint8Array(32);
-      crypto.getRandomValues(challenge);
-
-      const storedId = localStorage.getItem(BIO_CRED_ID_KEY);
-      if (!storedId) {
-        // No fingerprint registered yet → ask for password first
-        setLoginMethod('biometric-confirmed');
-        return;
-      }
-
-      const allowCredentials = [{
-        type: 'public-key' as const,
-        id: Uint8Array.from(atob(storedId), c => c.charCodeAt(0)),
-        transports: ['internal'] as AuthenticatorTransport[],
-      }];
-
-      await navigator.credentials.get({
-        publicKey: {
-          challenge,
-          rpId: window.location.hostname,
-          allowCredentials,
-          userVerification: 'required',
-          timeout: 60000,
-        },
-      });
-
-      // ✅ Biometric succeeded – now check for existing Supabase session
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (session) {
-        // User already has a valid session → go straight in
-        navigate('/home');
-      } else {
-        // No session – need one-time password to create it
-        setLoginMethod('biometric-confirmed');
-      }
+      const session = await triggerBiometricLogin();
+      // Optional: add blacklist / account status checks here
+      navigate('/home');
     } catch (err: any) {
-      if (err.name !== 'NotAllowedError') {
-        setError(err.message || 'Biometric verification failed. Please try again.');
+      if (err.code === 'session-expired') {
+        setBannerReason('session-expired');
+        setLoginMethod('password');
+      } else if (err.code === 'no-credential') {
+        if (err.message === 'no-passkey-on-domain') {
+          localStorage.removeItem(BIO_CRED_ID_KEY);
+          localStorage.setItem('loginMethod', 'password');
+          setBannerReason('no-passkey');
+        } else {
+          setBannerReason('session-expired');
+        }
+        setLoginMethod('password');
+      } else {
+        setError(err.message || 'Biometric verification failed. Try again.');
       }
     } finally {
       setBiometricLoading(false);
@@ -92,7 +179,7 @@ export default function Login() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 2. One‑time password entry (creates the session for future biometric)
+  //  One‑time password entry (first biometric use)
   // ─────────────────────────────────────────────────────────────
   const handleBiometricConfirmedLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,9 +188,8 @@ export default function Login() {
     try {
       const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
       if (signInErr) throw signInErr;
-      // Session is now stored automatically by Supabase
+      await saveRefreshToken();
       localStorage.setItem('crosssa_last_email', email);
-      // Optional: remember biometric preference
       localStorage.setItem('loginMethod', 'biometric');
       navigate('/home');
     } catch (err: any) {
@@ -114,7 +200,7 @@ export default function Login() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 3. Standard password login
+  //  Standard password login
   // ─────────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,6 +217,7 @@ export default function Login() {
         setError(signInErr.message);
       }
     } else {
+      await saveRefreshToken();
       localStorage.setItem('crosssa_last_email', email);
       localStorage.setItem('loginMethod', 'biometric'); // enable biometric for next time
       navigate('/home');
@@ -139,7 +226,7 @@ export default function Login() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 4. Email OTP (unconfirmed email)
+  //  Email OTP verification (unconfirmed email)
   // ─────────────────────────────────────────────────────────────
   const handleVerifyEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,6 +235,7 @@ export default function Login() {
     if (error) {
       setError(error.message);
     } else {
+      await saveRefreshToken();
       localStorage.setItem('crosssa_last_email', email);
       localStorage.setItem('loginMethod', 'biometric');
       toast.success('Email verified! Welcome back.');
@@ -165,7 +253,7 @@ export default function Login() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 5. Google OAuth
+  //  Google OAuth – session will be saved by onAuthStateChange
   // ─────────────────────────────────────────────────────────────
   const handleGoogle = async () => {
     setGoogleLoading(true);
@@ -188,7 +276,7 @@ export default function Login() {
   );
 
   // ─────────────────────────────────────────────────────────────
-  // 6. Screens
+  //  Screens
   // ─────────────────────────────────────────────────────────────
   if (step === 'email-otp') {
     return (
@@ -258,6 +346,16 @@ export default function Login() {
           <span className="text-xs text-muted-foreground">or</span>
           <div className="flex-1 h-px bg-border" />
         </div>
+
+        {bannerReason && (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {bannerReason === 'session-expired' && 'Your biometric session expired. Sign in with your password once — biometric will work automatically from then on.'}
+              {bannerReason === 'no-passkey' && 'Your fingerprint isn\'t registered on this browser or device. Sign in with your password, then go to Settings → Security to enable biometric.'}
+            </p>
+          </div>
+        )}
 
         {error && (
           <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm">{error}</div>
