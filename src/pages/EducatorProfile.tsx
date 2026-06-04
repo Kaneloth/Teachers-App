@@ -5,6 +5,8 @@ import { MapPin, BookOpen, Navigation, ShieldCheck, MessageCircle, ArrowLeft, Fl
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { toast } from 'sonner';
+import SubscriptionModal from '@/components/SubscriptionModal';
+import { canStartNewChat } from '@/utils/chatLimit';
 
 interface Educator {
   id: string;
@@ -50,20 +52,12 @@ export default function EducatorProfile() {
   const [educator, setEducator] = useState<Educator | null>(null);
   const [loading, setLoading] = useState(true);
   const [messaging, setMessaging] = useState(false);
+  const [showSubModal, setShowSubModal] = useState(false);
 
   useEffect(() => {
     if (!id) return;
-    supabase.from('educators').select('*').eq('id', id).single().then(async ({ data }) => {
-      if (data?.user_id) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('is_verified')
-          .eq('id', data.user_id)
-          .single();
-        setEducator({ ...data, is_sace_verified: profile?.is_verified ?? data.is_sace_verified ?? false });
-      } else {
-        setEducator(data);
-      }
+    supabase.from('educators').select('*').eq('id', id).single().then(({ data }) => {
+      setEducator(data);
       setLoading(false);
     });
   }, [id]);
@@ -72,21 +66,36 @@ export default function EducatorProfile() {
     if (!user || !educator) return;
     setMessaging(true);
     try {
+      const targetId = educator.user_id ?? '';
+
+      /* ── Gate: check subscription + chat limit before doing anything ── */
+      const allowed = await canStartNewChat(user.id, targetId);
+      if (!allowed) {
+        toast.error('You've reached your 5 free chat limit. Upgrade to Pro for unlimited messaging.');
+        setShowSubModal(true);
+        return;
+      }
+
+      /* ── Open / create the conversation ────────────────────────── */
       const { data: existing } = await supabase
         .from('messages')
         .select('id')
-        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${educator.user_id}),and(sender_id.eq.${educator.user_id},receiver_id.eq.${user.id})`)
+        .or(
+          `and(sender_id.eq.${user.id},receiver_id.eq.${targetId}),` +
+          `and(sender_id.eq.${targetId},receiver_id.eq.${user.id})`
+        )
         .limit(1);
 
       if (!existing?.length) {
         await supabase.from('messages').insert([{
           sender_id: user.id,
-          receiver_id: educator.user_id,
-          content: `Hi ${educator.full_name}, I found your profile on EduCross and would like to connect!`,
+          receiver_id: targetId,
+          content: `Hi ${educator.full_name}, I found your profile on Crosssa and would like to connect!`,
         }]);
         toast.success(`Message sent to ${educator.full_name}`);
       }
-      navigate(`/chat/${educator.user_id}`);
+
+      navigate(`/chat/${targetId}`);
     } catch {
       toast.error('Failed to start conversation');
     } finally {
@@ -129,7 +138,7 @@ export default function EducatorProfile() {
         </button>
       </div>
 
-      {/* Avatar + name (centered) */}
+      {/* Avatar + name */}
       <div className="flex flex-col items-center gap-2 pt-3 pb-5 px-4">
         <div className="w-20 h-20 rounded-full bg-primary/15 flex items-center justify-center border-2 border-primary/20 overflow-hidden">
           {educator.avatar_url
@@ -154,28 +163,22 @@ export default function EducatorProfile() {
 
       {/* Section cards */}
       <div className="flex-1 px-4 space-y-3 pb-28">
-        {/* Current Position */}
         <SectionCard label="Current Position">
           <InfoRow icon={MapPin} label="Province" value={educator.current_province} />
           <InfoRow icon={MapPin} label="Town" value={educator.town} />
           <InfoRow icon={Briefcase} label="School" value={educator.current_school} />
         </SectionCard>
 
-        {/* Transfer Preferences */}
         <SectionCard label="Transfer Preferences">
           <InfoRow icon={Navigation} label="Preferred" value={preferredLabel} />
         </SectionCard>
 
-        {/* Teaching Details */}
         <SectionCard label="Teaching Details">
           <InfoRow icon={BookOpen} label="Phase" value={educator.phase} />
           {educator.subjects?.length ? (
             <div className="flex flex-wrap gap-1.5 pl-6">
               {educator.subjects.map(s => (
-                <span
-                  key={s}
-                  className="text-[11px] bg-muted text-muted-foreground border border-border rounded-full px-2.5 py-0.5"
-                >
+                <span key={s} className="text-[11px] bg-muted text-muted-foreground border border-border rounded-full px-2.5 py-0.5">
                   {s}
                 </span>
               ))}
@@ -184,7 +187,6 @@ export default function EducatorProfile() {
           <InfoRow icon={Briefcase} label="Experience" value={educator.years_experience ? `${educator.years_experience} years` : null} />
         </SectionCard>
 
-        {/* About */}
         <SectionCard label="About">
           <p className="text-sm text-muted-foreground leading-relaxed">
             {educator.bio || 'About me'}
@@ -201,10 +203,12 @@ export default function EducatorProfile() {
             className="w-full h-12 rounded-2xl text-base font-semibold gap-2"
           >
             <MessageCircle className="w-5 h-5" />
-            {messaging ? 'Opening chat...' : 'Send Message'}
+            {messaging ? 'Checking…' : 'Send Message'}
           </Button>
         </div>
       )}
+
+      <SubscriptionModal open={showSubModal} onClose={() => setShowSubModal(false)} />
     </div>
   );
 }

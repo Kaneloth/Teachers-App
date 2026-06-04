@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
 import SubscriptionModal from '@/components/SubscriptionModal';
+import { canStartNewChat } from '@/utils/chatLimit';
 
 interface Message {
   id: string;
@@ -29,7 +30,10 @@ function formatDateSeparator(date: Date) {
   return format(date, 'd MMM yyyy');
 }
 
-/* ── localStorage helpers for "Delete for me" ────────────────────────────── */
+/* ── localStorage helpers for "Delete for me" ──────────────────────────────
+   Stores hidden message IDs per user so they don't reappear when the user
+   navigates away and comes back. No database schema change required.
+   ───────────────────────────────────────────────────────────────────────── */
 const hiddenKey = (userId: string) => `educross_hidden_msgs_${userId}`;
 
 function getHidden(userId: string): Set<string> {
@@ -55,14 +59,18 @@ function removeHidden(userId: string, msgId: string) {
 export default function ChatRoom() {
   const { partnerId } = useParams<{ partnerId: string }>();
   const navigate = useNavigate();
-  const { user, refreshProfile } = useAuth(); // add refreshProfile if available
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [partner, setPartner] = useState<PartnerInfo | null>(null);
   const [sending, setSending] = useState(false);
   const [selectedMsg, setSelectedMsg] = useState<Message | null>(null);
-  const [blocked, setBlocked] = useState(false);    // true if cannot send any message
+
+  /* ── Chat-limit gate ────────────────────────────────────────── */
+  const [blocked, setBlocked] = useState(false);           // cannot send to this partner
+  const [checkingAccess, setCheckingAccess] = useState(true); // still running the check
   const [showSubModal, setShowSubModal] = useState(false);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
@@ -151,84 +159,39 @@ export default function ChatRoom() {
     return () => { supabase.removeChannel(channel); };
   }, [user, partnerId]);
 
-  /* ── Helper: check if user is subscribed (pro) ───────────────── */
-  const isSubscribed = async (): Promise<boolean> => {
-    if (!user) return false;
-    // 1. Check user_metadata (fastest)
-    const metaPlan = user.user_metadata?.subscription_plan;
-    const metaEnd = user.user_metadata?.subscription_end;
-    if (metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date()) {
-      return true;
-    }
-    // 2. Check profiles table
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('subscription_plan, subscription_end')
-      .eq('id', user.id)
-      .single();
-    if (error) return false;
-    return !!(
-      profile?.subscription_plan &&
-      profile.subscription_plan !== 'free' &&
-      profile.subscription_end &&
-      new Date(profile.subscription_end) > new Date()
-    );
-  };
-
-  /* ── Count distinct partners this user has ever messaged ────── */
-  const countDistinctPartners = async (): Promise<number> => {
-    if (!user) return 0;
-    const { data, error } = await supabase
-      .from('messages')
-      .select('sender_id, receiver_id')
-      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
-    if (error) return 0;
-    const partners = new Set(
-      (data || []).map(m => (m.sender_id === user.id ? m.receiver_id : m.sender_id))
-    );
-    return partners.size;
-  };
-
-  /* ── Check if the user can send a message to this partner ───── */
-  const checkAccess = async () => {
-    if (!user || !partnerId) return;
-    const subscribed = await isSubscribed();
-    if (subscribed) {
-      setBlocked(false);
+  /* ── Access check (runs on mount, on user/partner change, every 10s) ── */
+  const checkAccess = useCallback(async () => {
+    if (!user || !partnerId) {
+      setCheckingAccess(false);
       return;
     }
-    // Free user: count existing partners
-    const partnerCount = await countDistinctPartners();
-    // Already messaging this partner? (i.e., at least one message exchanged)
-    const { data: existingMessages } = await supabase
-      .from('messages')
-      .select('id')
-      .or(
-        `and(sender_id.eq.${user.id},receiver_id.eq.${partnerId}),` +
-        `and(sender_id.eq.${partnerId},receiver_id.eq.${user.id})`
-      )
-      .limit(1);
-    const alreadyChatting = existingMessages && existingMessages.length > 0;
-    if (!alreadyChatting && partnerCount >= 5) {
-      setBlocked(true);
-    } else {
-      setBlocked(false);
-    }
-  };
+    setCheckingAccess(true);
+    try {
+      // Also check user_metadata quickly before hitting the DB
+      const metaPlan = user.user_metadata?.subscription_plan as string | undefined;
+      const metaEnd  = user.user_metadata?.subscription_end  as string | undefined;
+      const isProMeta = metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date();
+      if (isProMeta) {
+        setBlocked(false);
+        return;
+      }
 
-  // Run check on mount and whenever user, partnerId, or subscription might change
+      // Full check: subscription + sent-partner count
+      const allowed = await canStartNewChat(user.id, partnerId);
+      setBlocked(!allowed);
+    } catch {
+      // On error, do not block — fail open so existing chats still work
+      setBlocked(false);
+    } finally {
+      setCheckingAccess(false);
+    }
+  }, [user, partnerId]);
+
   useEffect(() => {
     checkAccess();
-  }, [user, partnerId]);
-
-  // Also listen for subscription changes (e.g., after upgrade)
-  // You can hook into your refreshProfile from AuthContext or simply re-run check periodically
-  useEffect(() => {
-    const interval = setInterval(() => {
-      checkAccess();
-    }, 10000); // re-check every 10 seconds (in case subscription was upgraded elsewhere)
+    const interval = setInterval(checkAccess, 10_000);
     return () => clearInterval(interval);
-  }, [user, partnerId]);
+  }, [checkAccess]);
 
   /* ── Load partner info ──────────────────────────────────────── */
   useEffect(() => {
@@ -307,7 +270,7 @@ export default function ChatRoom() {
   /* ── Send ───────────────────────────────────────────────────── */
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim() || !user || !partnerId || blocked) return;
+    if (!text.trim() || !user || !partnerId || blocked || checkingAccess) return;
     setSending(true);
     const optimistic: Message = {
       id: `temp-${Date.now()}`,
@@ -446,20 +409,25 @@ export default function ChatRoom() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input bar or upgrade wall */}
-      {blocked ? (
+      {/* Input bar / upgrade wall */}
+      {(blocked || checkingAccess) ? (
         <div className="flex items-center gap-3 px-4 py-3 border-t border-border bg-background">
           <div className="flex items-center gap-2.5 flex-1 bg-muted/60 rounded-full px-4 py-2.5">
             <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="text-sm text-muted-foreground">
-              You've reached your 5 free chat limit.{' '}
-              <button
-                onClick={() => setShowSubModal(true)}
-                className="text-primary font-medium underline underline-offset-2"
-              >
-                Upgrade to Pro
-              </button>{' '}
-              to message more educators.
+              {checkingAccess
+                ? 'Checking account…'
+                : <>
+                    You've reached your 5 free chat limit.{' '}
+                    <button
+                      onClick={() => setShowSubModal(true)}
+                      className="text-primary font-medium underline underline-offset-2"
+                    >
+                      Upgrade to Pro
+                    </button>
+                    {' '}to message more educators.
+                  </>
+              }
             </span>
           </div>
         </div>
@@ -472,6 +440,7 @@ export default function ChatRoom() {
             value={text}
             onChange={e => setText(e.target.value)}
             placeholder="Type a message..."
+            disabled={sending}
             className="rounded-full flex-1 bg-muted/40 border-border"
           />
           <Button
