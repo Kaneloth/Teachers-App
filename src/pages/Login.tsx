@@ -36,14 +36,12 @@ export default function Login() {
 
   /* ── Helpers ──────────────────────────────────────────────── */
 
-  /** Save token pair after any successful Supabase sign-in */
+  /** Save the refresh token after any successful Supabase sign-in.
+   *  Refresh tokens are valid for ~60 days, so biometric works long-term. */
   const persistBiometricSession = async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) {
-      localStorage.setItem(BIO_SESSION_KEY, JSON.stringify({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-      }));
+    if (session?.refresh_token) {
+      localStorage.setItem(BIO_SESSION_KEY, session.refresh_token);
     }
   };
 
@@ -74,12 +72,13 @@ export default function Login() {
         },
       });
 
-      /* Biometric passed — restore the saved session token and go straight in */
-      const saved = localStorage.getItem(BIO_SESSION_KEY);
-      if (saved) {
-        const { access_token, refresh_token } = JSON.parse(saved);
-        const { error: setErr } = await supabase.auth.setSession({ access_token, refresh_token });
-        if (!setErr) {
+      /* Biometric passed — use the saved refresh token to get a live session */
+      const savedRefreshToken = localStorage.getItem(BIO_SESSION_KEY);
+      if (savedRefreshToken) {
+        const { data, error: refreshErr } = await supabase.auth.refreshSession({ refresh_token: savedRefreshToken });
+        if (!refreshErr && data.session) {
+          /* Update the stored refresh token (Supabase rotates it on each refresh) */
+          localStorage.setItem(BIO_SESSION_KEY, data.session.refresh_token);
           navigate('/home');
           return;
         }
