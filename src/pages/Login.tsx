@@ -11,7 +11,7 @@ type Step = 'form' | 'email-otp';
 
 export default function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => localStorage.getItem('crosssa_last_email') || '');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -26,6 +26,15 @@ export default function Login() {
     () => localStorage.getItem('loginMethod') === 'biometric'
   );
   const [biometricLoading, setBiometricLoading] = useState(false);
+  const [sessionExpiredBanner, setSessionExpiredBanner] = useState(false);
+
+  const switchToPassword = (showExpiredBanner = false) => {
+    setUseBiometric(false);
+    setSessionExpiredBanner(showExpiredBanner);
+    /* Pre-fill email from last login */
+    const saved = localStorage.getItem('crosssa_last_email');
+    if (saved) setEmail(saved);
+  };
 
   const handleBiometricLogin = async () => {
     setBiometricLoading(true);
@@ -33,7 +42,7 @@ export default function Login() {
       const credIdB64 = localStorage.getItem('biometricCredentialId');
       if (!credIdB64) {
         toast.error('No biometric credential found. Please sign in with your password.');
-        setUseBiometric(false);
+        switchToPassword();
         return;
       }
       const challenge = new Uint8Array(32);
@@ -52,8 +61,8 @@ export default function Login() {
       if (session) {
         navigate('/home');
       } else {
-        toast.info('Your session has expired. Please sign in with your password.');
-        setUseBiometric(false);
+        /* Session expired — fall back gracefully with pre-filled email */
+        switchToPassword(true);
       }
     } catch (err: any) {
       if (err.name === 'NotAllowedError') {
@@ -81,6 +90,7 @@ export default function Login() {
         toast.error(error.message);
       }
     } else {
+      localStorage.setItem('crosssa_last_email', email);
       navigate('/home');
     }
     setLoading(false);
@@ -229,6 +239,14 @@ export default function Login() {
   // ── Login form ──────────────────────────────────────────────
   return (
     <div className="space-y-6">
+      {/* Session-expired banner — shown after biometric fallback */}
+      {sessionExpiredBanner && (
+        <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800">
+          <span className="mt-0.5 shrink-0">ℹ️</span>
+          <p>Your session has expired. Please sign in with your password.</p>
+        </div>
+      )}
+
       <div className="text-center">
         <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
         <p className="text-sm text-muted-foreground mt-1">Sign in to your Crosssa account</p>
@@ -274,10 +292,23 @@ export default function Login() {
         </Button>
       </form>
 
-      <p className="text-center text-sm text-muted-foreground">
-        Don't have an account?{' '}
-        <Link to="/register" className="text-primary font-semibold hover:underline">Create one</Link>
-      </p>
+      <div className="text-center space-y-2 text-sm text-muted-foreground">
+        {localStorage.getItem('loginMethod') === 'biometric' && (
+          <p>
+            <button
+              onClick={() => { setUseBiometric(true); setSessionExpiredBanner(false); }}
+              className="flex items-center gap-1.5 mx-auto text-primary font-medium hover:underline"
+            >
+              <Fingerprint className="w-4 h-4" />
+              Use biometric instead
+            </button>
+          </p>
+        )}
+        <p>
+          Don't have an account?{' '}
+          <Link to="/register" className="text-primary font-semibold hover:underline">Create one</Link>
+        </p>
+      </div>
     </div>
   );
 }
