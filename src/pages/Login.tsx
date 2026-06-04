@@ -110,9 +110,7 @@ export default function Login() {
       // 2. Fingerprint passed — restore session via stored refresh token
       const restored = await restoreSessionFromToken();
       if (restored) {
-        // Full page reload so AuthContext re-initialises and reads the
-        // new session from localStorage before rendering the home page.
-        window.location.href = '/home';
+        navigate('/home');
         return;
       }
 
@@ -136,8 +134,19 @@ export default function Login() {
     setLoading(true);
     try {
       const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInErr) throw signInErr;
-      await afterLogin();
+      if (signInErr) {
+        const msg = signInErr.message.toLowerCase();
+        if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+          await supabase.auth.resend({ type: 'signup', email });
+          setStep('email-otp');
+          setLoginMethod('password');
+          toast.info('A verification code has been sent to your email.');
+        } else {
+          throw signInErr;
+        }
+      } else {
+        await afterLogin();
+      }
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
     } finally {

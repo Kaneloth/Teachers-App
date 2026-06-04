@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState, useCallback, Rea
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
+const BIO_RT_KEY = 'crosssa_biometric_refresh_token';
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -48,6 +50,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(newSession?.user ?? null);
       setAuthChecked(true);
       setIsLoadingAuth(false);
+      // Keep the biometric token always current — Supabase rotates it on every auto-refresh.
+      // Without this, the saved token goes stale within ~1 hour and biometric always falls
+      // back to asking for a password.
+      if (newSession?.refresh_token) {
+        localStorage.setItem(BIO_RT_KEY, newSession.refresh_token);
+      } else if (_event === 'SIGNED_OUT') {
+        localStorage.removeItem(BIO_RT_KEY);
+      }
     });
 
     return () => subscription.unsubscribe();
