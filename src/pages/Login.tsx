@@ -10,121 +10,40 @@ import { supabase } from '@/lib/supabase';
 type LoginMethod = 'password' | 'biometric' | 'biometric-confirmed';
 type Step = 'form' | 'email-otp';
 
-// ── Biometric session helpers ─────────────────────────────────────────────────
+const BIO_RT_KEY = 'crosssa_biometric_refresh_token';
 
-const BIO_KEY = 'crosssa_biometric_session';
-
-interface TokenPair { access_token: string; refresh_token: string; }
-
-function saveBiometricSession(session: TokenPair) {
-  localStorage.setItem(BIO_KEY, JSON.stringify(session));
+function saveRefreshToken(rt: string) {
+  localStorage.setItem(BIO_RT_KEY, rt);
 }
 
-function loadBiometricSession(): TokenPair | null {
-  try {
-    const raw = localStorage.getItem(BIO_KEY);
-    if (!raw) return null;
-    try {
-      const parsed = JSON.parse(raw);
-      // JSON object with both keys (v5 / v7 format)
-      if (parsed?.access_token && parsed?.refresh_token) return parsed;
-      // JSON object with only refresh_token
-      if (parsed?.refresh_token) return { access_token: '', refresh_token: parsed.refresh_token };
-    } catch {
-      // Bare string — v6 format stored just the refresh_token
-      if (raw.length > 10) return { access_token: '', refresh_token: raw };
-    }
-  } catch { /* ignore */ }
-  return null;
+function loadRefreshToken(): string | null {
+  return localStorage.getItem(BIO_RT_KEY);
 }
 
-function clearBiometricSession() { localStorage.removeItem(BIO_KEY); }
+// After any successful Supabase sign-in, persist the refresh token for biometric use.
+async function persistRefreshToken() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.refresh_token) saveRefreshToken(session.refresh_token);
+}
 
-// ── WebAuthn fingerprint prompt ───────────────────────────────────────────────
+// ── Restore session using the stored refresh token ────────────────────────────
+// Passes the token directly to refreshSession() so Supabase handles the
+// exchange, updates its internal state, and writes the new session to
+// localStorage — no manual setSession() needed.
 
-async function assertBiometric() {
-  if (!window.PublicKeyCredential) throw new Error('Biometric not supported on this device.');
-  const credId = localStorage.getItem('biometricCredentialId');
-  if (!credId) throw new Error('No fingerprint registered. Please set up biometric in Settings.');
+async function restoreSessionFromToken(): Promise<boolean> {
+  const refreshToken = loadRefreshToken();
+  if (!refreshToken) return false;
+
   try {
-    await navigator.credentials.get({
-      publicKey: {
-        challenge: crypto.getRandomValues(new Uint8Array(32)),
-        rpId: window.location.hostname,
-        allowCredentials: [{ id: Uint8Array.from(atob(credId), c => c.charCodeAt(0)), type: 'public-key' }],
-        userVerification: 'required',
-        timeout: 60000,
-      },
-    });
-  } catch (err: any) {
-    throw err; // re-throw so caller can check err.name === 'NotAllowedError'
+    const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+    if (error || !data.session) return false;
+    // Save the rotated refresh token so next biometric login also works
+    saveRefreshToken(data.session.refresh_token);
+    return true;
+  } catch {
+    return false;
   }
-}
-
-// ── Three-path session restore ────────────────────────────────────────────────
-// Called AFTER fingerprint verification passes.
-// Returns the restored session or throws 'session-expired'.
-
-async function restoreSession(): Promise<void> {
-  // ── Path 1: SDK already has a live or refreshable session ───────────────
-  // refreshSession() uses the SDK's own up-to-date refresh_token (auto-rotated
-  // by the SDK in the background, so this is always the freshest token).
-  try {
-    const { data: r1, error: e1 } = await supabase.auth.refreshSession();
-    if (!e1 && r1?.session) {
-      saveBiometricSession(r1.session);
-      return; // ✓ done
-    }
-  } catch { /* fall to path 2 */ }
-
-  // ── Path 2: setSession() with our backup tokens ──────────────────────────
-  // setSession() automatically calls the refresh endpoint when the access_token
-  // is expired, so even a stale access_token + valid refresh_token works.
-  const stored = loadBiometricSession();
-  if (stored?.refresh_token) {
-    try {
-      const { data: s2, error: e2 } = await supabase.auth.setSession({
-        access_token:  stored.access_token  || stored.refresh_token, // setSession needs both
-        refresh_token: stored.refresh_token,
-      });
-      if (!e2 && s2?.session) {
-        saveBiometricSession(s2.session);
-        return; // ✓ done
-      }
-    } catch { /* fall to path 3 */ }
-
-    // ── Path 3: raw REST exchange (no SDK in the way) ─────────────────────
-    // Belt-and-suspenders: call Supabase's token endpoint directly.
-    try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-      const anonKey     = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-      if (supabaseUrl && anonKey) {
-        const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json', apikey: anonKey },
-          body:    JSON.stringify({ refresh_token: stored.refresh_token }),
-        });
-        if (res.ok) {
-          const tokens = await res.json();
-          if (tokens.access_token && tokens.refresh_token) {
-            const { data: s3, error: e3 } = await supabase.auth.setSession(tokens);
-            if (!e3 && s3?.session) {
-              saveBiometricSession(s3.session);
-              return; // ✓ done
-            }
-          }
-        } else {
-          const txt = await res.text().catch(() => '');
-          if (txt.includes('refresh_token_not_found')) clearBiometricSession();
-        }
-      }
-    } catch { /* all paths exhausted */ }
-  }
-
-  // Truly expired — user must enter password once to re-link
-  const err: any = new Error('session-expired');
-  err.code = 'session-expired';
-  throw err;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -151,20 +70,17 @@ export default function Login() {
     setLoginMethod(method);
   }, []);
 
-  // When the biometric screen mounts, snapshot the current SDK session so our
-  // backup is always the freshest possible token before the user even scans.
+  // On biometric screen mount, snapshot the current refresh token so it is
+  // always the freshest one available before the user taps the fingerprint.
   useEffect(() => {
     if (loginMethod !== 'biometric') return;
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) saveBiometricSession(session);
-    });
+    persistRefreshToken();
   }, [loginMethod]);
 
   // ── After any successful login ────────────────────────────────────────────
 
   const afterLogin = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) saveBiometricSession(session);
+    await persistRefreshToken();
     if (email) localStorage.setItem('crosssa_last_email', email);
     navigate('/home');
   };
@@ -175,21 +91,34 @@ export default function Login() {
     setError('');
     setBiometricLoading(true);
     try {
-      // Step 1: check if there is ALREADY a live session (no scan needed)
-      const { data: { session: live } } = await supabase.auth.getSession();
-      if (live) { navigate('/home'); return; }
+      if (!window.PublicKeyCredential) throw new Error('Biometric not supported on this device.');
 
-      // Step 2: verify fingerprint
-      await assertBiometric();
+      const credId = localStorage.getItem('biometricCredentialId');
+      if (!credId) throw new Error('No fingerprint registered. Please set up biometric in Settings.');
 
-      // Step 3: restore session via three-path fallback
-      await restoreSession();
-      navigate('/home');
+      // 1. Verify fingerprint
+      await navigator.credentials.get({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          rpId: window.location.hostname,
+          allowCredentials: [{ id: Uint8Array.from(atob(credId), c => c.charCodeAt(0)), type: 'public-key' }],
+          userVerification: 'required',
+          timeout: 60000,
+        },
+      });
+
+      // 2. Fingerprint passed — restore session via stored refresh token
+      const restored = await restoreSessionFromToken();
+      if (restored) {
+        navigate('/home');
+        return;
+      }
+
+      // 3. No stored token yet or token fully expired — need password once
+      setLoginMethod('biometric-confirmed');
     } catch (err: any) {
       if (err.name === 'NotAllowedError') {
-        /* user cancelled — stay on screen, no message */
-      } else if (err?.code === 'session-expired') {
-        setLoginMethod('biometric-confirmed');
+        /* user cancelled — stay on screen quietly */
       } else {
         setError(err.message || 'Biometric verification failed. Try again.');
       }
@@ -198,7 +127,7 @@ export default function Login() {
     }
   };
 
-  // One-time password entry when all three paths are exhausted (>60 days inactive)
+  // One-time password entry after token fully expires (>60 days inactive)
   const handleBiometricConfirmedLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -374,7 +303,7 @@ export default function Login() {
     );
   }
 
-  // ── Biometric-confirmed (one-time re-link, only after 60+ days inactive) ─
+  // ── Biometric-confirmed (one-time re-link after >60 days inactive) ────────
 
   if (loginMethod === 'biometric-confirmed') {
     return (
@@ -382,7 +311,7 @@ export default function Login() {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-foreground">One-time sign-in</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Your saved session has fully expired. Sign in once to restore biometric access.
+            Your saved session has fully expired. Sign in once to restore biometric access — you won't need to do this again.
           </p>
         </div>
         <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/10 text-primary text-sm">
