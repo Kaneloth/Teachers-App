@@ -90,12 +90,12 @@ export default function Register() {
             <Input
               id="emailOtp" value={emailOtp}
               onChange={e => setEmailOtp(e.target.value.replace(/\D/g, ''))}
-              placeholder="12345678"
+              placeholder="123456"
               className="rounded-xl text-center text-2xl tracking-[0.4em] font-mono"
-              maxLength={8} inputMode="numeric" autoComplete="one-time-code" autoFocus required
+              maxLength={6} inputMode="numeric" autoComplete="one-time-code" autoFocus required
             />
           </div>
-          <Button type="submit" disabled={loading || emailOtp.length < 8} className="w-full h-11 rounded-xl font-semibold">
+          <Button type="submit" disabled={loading || emailOtp.length < 6} className="w-full h-11 rounded-xl font-semibold">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Continue'}
           </Button>
         </form>
