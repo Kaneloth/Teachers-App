@@ -156,7 +156,7 @@ export default function ChatRoom() {
     return () => { supabase.removeChannel(channel); };
   }, [user, partnerId]);
 
-  /* ── Free-tier 2-chat limit check ──────────────────────────── */
+  /* ── Free-tier 5-chat limit check ──────────────────────────── */
   useEffect(() => {
     if (!user || !partnerId) return;
 
@@ -179,15 +179,20 @@ export default function ChatRoom() {
         new Date(profile.subscription_end) > new Date();
       if (isPro) return; // Pro via profiles — no limit
 
-      // Free user: count distinct outgoing partners
-      const { data: sent } = await supabase
+      // Free user: count ALL unique conversation partners (both sent & received)
+      const { data: allMsgs } = await supabase
         .from('messages')
-        .select('receiver_id')
-        .eq('sender_id', user.id);
+        .select('sender_id, receiver_id')
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
 
-      const distinctPartners = new Set((sent || []).map(m => m.receiver_id));
-      // Block only when the limit is reached AND this partner is someone new
-      if (distinctPartners.size >= 5 && !distinctPartners.has(partnerId)) setChatLimitReached(true);
+      const distinctPartners = new Set(
+        (allMsgs || []).map(m => m.sender_id === user.id ? m.receiver_id : m.sender_id)
+      );
+
+      // Block when limit reached AND this is a partner they haven't chatted with yet
+      if (distinctPartners.size >= 5 && !distinctPartners.has(partnerId)) {
+        setChatLimitReached(true);
+      }
     };
 
     check();

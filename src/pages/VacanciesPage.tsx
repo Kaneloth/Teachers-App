@@ -225,15 +225,15 @@ function VacancyCard({
   );
 }
 
-/* ── localStorage helpers for free-tier apply tracking ─────────── */
+/* ── Apply tracking helpers (localStorage cache + user_metadata backup) ── */
 const appliedKey = (userId: string) => `crosssa_applied_vacancies_${userId}`;
 
-function getAppliedIds(userId: string): Set<string> {
+function getLocalAppliedIds(userId: string): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(appliedKey(userId)) || '[]')); }
   catch { return new Set(); }
 }
 
-function saveAppliedIds(userId: string, ids: Set<string>) {
+function saveLocalAppliedIds(userId: string, ids: Set<string>) {
   localStorage.setItem(appliedKey(userId), JSON.stringify([...ids]));
 }
 
@@ -257,18 +257,29 @@ export default function VacanciesPage() {
   const subEnd = profileEnd ? new Date(profileEnd) : metaEnd ? new Date(metaEnd) : null;
   const isPro = plan !== 'free' && subEnd !== null && subEnd > new Date();
 
-  /* ── Free-tier apply tracking ─────────────────────────────────── */
+  /* ── Free-tier apply tracking (localStorage + user_metadata server backup) ── */
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
+  const [showSubModal, setShowSubModal] = useState(false);
+
   useEffect(() => {
-    if (user) setAppliedIds(getAppliedIds(user.id));
+    if (!user) return;
+    // Merge local cache with server-stored IDs from user_metadata
+    const local = getLocalAppliedIds(user.id);
+    const serverIds: string[] = user.user_metadata?.free_applied_ids ?? [];
+    const merged = new Set([...local, ...serverIds]);
+    // Sync merged set back to localStorage so it stays fresh
+    saveLocalAppliedIds(user.id, merged);
+    setAppliedIds(merged);
   }, [user]);
 
-  const handleApply = (vacancyId: string, url: string) => {
+  const handleApply = async (vacancyId: string, url: string) => {
     if (!user) return;
     const updated = new Set(appliedIds);
     updated.add(vacancyId);
     setAppliedIds(updated);
-    saveAppliedIds(user.id, updated);
+    // Save to localStorage (immediate) + user_metadata (persistent across devices)
+    saveLocalAppliedIds(user.id, updated);
+    supabase.auth.updateUser({ data: { free_applied_ids: [...updated] } });
     window.open(url, '_blank', 'noopener,noreferrer');
     const remaining = FREE_APPLY_LIMIT - updated.size;
     if (remaining > 0) {
@@ -280,8 +291,6 @@ export default function VacanciesPage() {
       setShowSubModal(true);
     }
   };
-
-  const [showSubModal, setShowSubModal] = useState(false);
 
   const [vacancies, setVacancies] = useState<Vacancy[]>([]);
   const [loading, setLoading] = useState(true);
