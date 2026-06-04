@@ -11,13 +11,15 @@ import CVStepExperience from '@/components/cv/CVStepExperience';
 import CVStepSkills from '@/components/cv/CVStepSkills';
 import CVStepReferences from '@/components/cv/CVStepReferences';
 import type { RefEntry } from '@/components/cv/CVStepReferences';
+import CVStepExtras from '@/components/cv/CVStepExtras';
+import type { CustomSection } from '@/components/cv/CVStepExtras';
 import CVStepTemplate from '@/components/cv/CVStepTemplate';
 import CVStepReview from '@/components/cv/CVStepReview';
 import LastCVBanner from '@/components/cv/LastCVBanner';
 
 export type CVType = 'educator' | 'general';
 
-const STEPS = ['Personal', 'Education', 'Experience', 'Skills', 'References', 'Template', 'Review'];
+const STEPS = ['Personal', 'Education', 'Experience', 'Skills', 'References', 'Extras', 'Template', 'Review'];
 
 interface CVData {
   cvType: CVType;
@@ -26,6 +28,7 @@ interface CVData {
   experience: { school: string; role: string; from: string; to: string; description: string }[];
   skills: { subjects: string[]; soft_skills: string[]; languages: string[] };
   references: RefEntry[];
+  custom_sections: CustomSection[];
   template: string;
 }
 
@@ -40,6 +43,7 @@ function defaultData(cvType: CVType): CVData {
       { name: '', title: '', organisation: '', phone: '', email: '', relationship: '' },
       { name: '', title: '', organisation: '', phone: '', email: '', relationship: '' },
     ],
+    custom_sections: [],
     template: 'classic',
   };
 }
@@ -397,8 +401,9 @@ export default function CVBuilderPage() {
                   {step === 2 && <CVStepExperience cvType={cvType} data={data.experience} onChange={experience => setData(d => ({ ...d, experience }))} />}
                   {step === 3 && <CVStepSkills cvType={cvType} data={data.skills} onChange={skills => setData(d => ({ ...d, skills }))} />}
                   {step === 4 && <CVStepReferences cvType={cvType} data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
-                  {step === 5 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} />}
-                  {step === 6 && <CVStepReview data={data} onGenerated={() => {}} />}
+                  {step === 5 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} />}
+                  {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} />}
+                  {step === 7 && <CVStepReview data={data} onGenerated={() => {}} />}
                 </motion.div>
               </AnimatePresence>
             </div>

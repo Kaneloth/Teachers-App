@@ -1,8 +1,17 @@
+interface CustomSection {
+  title: string;
+  type: 'text' | 'bullets' | 'table';
+  content?: string;
+  columns?: string[];
+  rows?: string[][];
+}
+
 interface CVData {
   personal: { full_name?: string; email?: string; phone?: string; address?: string; bio?: string; photo_url?: string };
   education: { institution: string; qualification: string; year: string }[];
   experience: { school: string; role: string; from: string; to: string; description: string }[];
   skills: { subjects?: string[]; soft_skills?: string[]; languages?: string[] };
+  custom_sections?: CustomSection[];
   template: string;
 }
 
@@ -34,6 +43,45 @@ function renderDescription(desc: string | undefined, color: string, fontSize = '
     <ul style={{ margin: '3px 0 0', padding: '0 0 0 14px', color, fontSize, lineHeight: '1.6' }}>
       {lines.map((line, i) => <li key={i} style={{ marginBottom: '1px' }}>{line}</li>)}
     </ul>
+  );
+}
+
+/** Renders all custom sections (text / bullets / table) at the bottom of a template. */
+function renderCustomSections(sections: CustomSection[] | undefined, color: string, borderColor?: string): React.ReactNode {
+  if (!sections?.length) return null;
+  return (
+    <>
+      {sections.filter(s => s.title).map((s, idx) => {
+        let content: React.ReactNode = null;
+        if (s.type === 'text') {
+          content = <p style={{ color: '#374151', margin: 0, fontSize: '12px', lineHeight: '1.6' }}>{s.content}</p>;
+        } else if (s.type === 'bullets') {
+          const lines = (s.content || '').split('\n').map(l => l.trim()).filter(Boolean);
+          content = lines.length ? (
+            <ul style={{ margin: 0, padding: '0 0 0 14px', color: '#374151', fontSize: '12px', lineHeight: '1.6' }}>
+              {lines.map((line, i) => <li key={i} style={{ marginBottom: '1px' }}>{line}</li>)}
+            </ul>
+          ) : null;
+        } else {
+          const validRows = (s.rows || []).filter(r => r.some(c => c.trim()));
+          content = (s.columns?.length && validRows.length) ? (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+              <thead>
+                <tr>{s.columns.map((col, ci) => <th key={ci} style={{ background: color, color: '#fff', padding: '5px 8px', textAlign: 'left', fontWeight: '700', fontSize: '10px', letterSpacing: '0.5px' }}>{col}</th>)}</tr>
+              </thead>
+              <tbody>
+                {validRows.map((row, ri) => (
+                  <tr key={ri} style={{ background: ri % 2 === 0 ? '#f9fafb' : '#fff' }}>
+                    {row.map((cell, ci) => <td key={ci} style={{ padding: '4px 8px', color: '#374151', borderBottom: '1px solid #e5e7eb', fontSize: '11px' }}>{cell}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null;
+        }
+        return content ? <Section key={idx} title={s.title} color={color} borderColor={borderColor}>{content}</Section> : null;
+      })}
+    </>
   );
 }
 
@@ -82,6 +130,7 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
           </Section>
         ) : null}
         {skills?.languages?.length ? <Section title="Languages" color="#1e2a3a"><SkillRow items={skills.languages} /></Section> : null}
+        {renderCustomSections(data.custom_sections, '#1e2a3a')}
       </div>
     </div>
   );
@@ -139,6 +188,7 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVDa
             </div>
           </Section>
         ) : null}
+        {renderCustomSections(data.custom_sections, '#0d9488')}
       </div>
     </div>
   );
@@ -210,6 +260,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp }: { data
             ) : null}
           </div>
         </div>
+        {renderCustomSections(data.custom_sections, '#1e4d2b', '#2d7a47')}
       </div>
     </div>
   );
@@ -266,6 +317,7 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
             {skills.languages?.length   ? <div><span style={{ fontWeight: '600', fontSize: '12px', color: '#374151' }}>Languages: </span><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.languages.join(' · ')}</span></div>                            : null}
           </MinimalSection>
         ) : null}
+        {renderCustomSections(data.custom_sections, '#111827')}
       </div>
     </div>
   );
