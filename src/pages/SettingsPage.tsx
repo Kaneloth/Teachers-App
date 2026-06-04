@@ -311,15 +311,93 @@ function SubscriptionTab() {
 /* ── Security tab ───────────────────────────────────────────── */
 
 function SecurityTab() {
+  const { user } = useAuth();
   const [pwOpen, setPwOpen] = useState(false);
   const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
   const [saving, setSaving] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(
+    () => localStorage.getItem('crosssa_biometric_enabled') === '1'
+  );
+  const [biometricBusy, setBiometricBusy] = useState(false);
+
+  const handleBiometricRegister = async () => {
+    if (!window.PublicKeyCredential) {
+      toast.error('Biometric authentication is not supported on this device or browser.');
+      return;
+    }
+    setBiometricBusy(true);
+    try {
+      const challenge = new Uint8Array(32);
+      crypto.getRandomValues(challenge);
+      const userIdBytes = new TextEncoder().encode(user?.id || 'crosssa-user');
+
+      const credential = await navigator.credentials.create({
+        publicKey: {
+          challenge,
+          rp: { name: 'Crosssa', id: window.location.hostname },
+          user: {
+            id: userIdBytes,
+            name: user?.email || 'user',
+            displayName: user?.user_metadata?.full_name || user?.email || 'User',
+          },
+          pubKeyCredParams: [
+            { alg: -7,   type: 'public-key' },
+            { alg: -257, type: 'public-key' },
+          ],
+          authenticatorSelection: {
+            authenticatorAttachment: 'platform',
+            userVerification: 'required',
+            residentKey: 'preferred',
+          },
+          timeout: 60000,
+        },
+      });
+
+      if (credential) {
+        const raw = (credential as PublicKeyCredential).rawId;
+        const credId = btoa(String.fromCharCode(...new Uint8Array(raw)));
+        localStorage.setItem('crosssa_biometric_credential_id', credId);
+        localStorage.setItem('crosssa_biometric_enabled', '1');
+        setBiometricEnabled(true);
+        toast.success('Biometric login enabled! Your fingerprint / face ID is now registered.');
+      }
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError') {
+        toast.error('Biometric setup was cancelled or denied. Please try again.');
+      } else if (err.name === 'InvalidStateError') {
+        /* Credential already exists on device — treat as success */
+        localStorage.setItem('crosssa_biometric_enabled', '1');
+        setBiometricEnabled(true);
+        toast.success('Biometric login is already registered on this device.');
+      } else {
+        toast.error('Biometric setup failed: ' + (err.message || err.name));
+      }
+    } finally {
+      setBiometricBusy(false);
+    }
+  };
+
+  const handleBiometricRemove = () => {
+    localStorage.removeItem('crosssa_biometric_credential_id');
+    localStorage.removeItem('crosssa_biometric_enabled');
+    setBiometricEnabled(false);
+    toast.success('Biometric login removed. You will sign in with your password.');
+  };
 
   const handleChangePw = async () => {
     if (newPw.length < 8) { toast.error('Password must be at least 8 characters'); return; }
+    if (newPw !== confirmPw) { toast.error('Passwords do not match'); return; }
     setSaving(true);
     const { error } = await supabase.auth.updateUser({ password: newPw });
-    if (error) { toast.error(error.message); } else { toast.success('Password changed!'); setNewPw(''); setPwOpen(false); }
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Password changed!');
+      setNewPw('');
+      setConfirmPw('');
+      setPwOpen(false);
+    }
     setSaving(false);
   };
 
@@ -339,6 +417,19 @@ function SecurityTab() {
               <Label className="text-sm">New Password</Label>
               <Input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="At least 8 characters" className="rounded-xl" />
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Confirm Password</Label>
+              <Input
+                type="password"
+                value={confirmPw}
+                onChange={e => setConfirmPw(e.target.value)}
+                placeholder="Re-enter new password"
+                className={`rounded-xl ${confirmPw && confirmPw !== newPw ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+              />
+              {confirmPw && confirmPw !== newPw && (
+                <p className="text-xs text-destructive">Passwords do not match</p>
+              )}
+            </div>
             <Button onClick={handleChangePw} disabled={saving} className="w-full rounded-xl">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Update Password'}
             </Button>
@@ -354,11 +445,30 @@ function SecurityTab() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground">Sign-in method</p>
-              <p className="text-xs text-muted-foreground">Currently: Password</p>
+              <p className="text-xs text-muted-foreground">
+                Currently: {biometricEnabled ? 'Biometric' : 'Password'}
+              </p>
             </div>
-            <Button variant="outline" size="sm" className="rounded-xl shrink-0 text-xs" onClick={() => toast.info('Biometric login coming soon')}>
-              Switch to Biometric
-            </Button>
+            {biometricEnabled ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl shrink-0 text-xs border-destructive text-destructive hover:bg-destructive/10"
+                onClick={handleBiometricRemove}
+              >
+                Remove Biometric
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl shrink-0 text-xs"
+                onClick={handleBiometricRegister}
+                disabled={biometricBusy}
+              >
+                {biometricBusy ? <><Loader2 className="w-3 h-3 animate-spin mr-1" />Setting up…</> : 'Enable Biometric'}
+              </Button>
+            )}
           </div>
           <p className="text-xs text-muted-foreground mt-2.5 pl-11">
             Switch to Biometric to use your device fingerprint sensor at login.
