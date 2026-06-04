@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { MapPin, BookOpen, Navigation, ShieldCheck, MessageCircle, ArrowLeft, Flame, Briefcase } from 'lucide-react';
+import { MapPin, BookOpen, Navigation, ShieldCheck, MessageCircle, ArrowLeft, Flame, Briefcase, Lock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { toast } from 'sonner';
@@ -53,6 +53,7 @@ export default function EducatorProfile() {
   const [loading, setLoading] = useState(true);
   const [messaging, setMessaging] = useState(false);
   const [showSubModal, setShowSubModal] = useState(false);
+  const [isPro, setIsPro] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -61,6 +62,29 @@ export default function EducatorProfile() {
       setLoading(false);
     });
   }, [id]);
+
+  useEffect(() => {
+    if (!user) return;
+    const metaPlan = user.user_metadata?.subscription_plan as string | undefined;
+    const metaEnd  = user.user_metadata?.subscription_end  as string | undefined;
+    if (metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date()) {
+      setIsPro(true);
+      return;
+    }
+    supabase
+      .from('profiles')
+      .select('subscription_plan, subscription_end')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        setIsPro(
+          !!data?.subscription_plan &&
+          data.subscription_plan !== 'free' &&
+          !!data.subscription_end &&
+          new Date(data.subscription_end) > new Date()
+        );
+      });
+  }, [user]);
 
   const handleMessage = async () => {
     if (!user || !educator) return;
@@ -163,11 +187,26 @@ export default function EducatorProfile() {
 
       {/* Section cards */}
       <div className="flex-1 px-4 space-y-3 pb-28">
-        <SectionCard label="Current Position">
-          <InfoRow icon={MapPin} label="Province" value={educator.current_province} />
-          <InfoRow icon={MapPin} label="Town" value={educator.town} />
-          <InfoRow icon={Briefcase} label="School" value={educator.current_school} />
-        </SectionCard>
+        {/* Current Position — hidden from free users (own profile always visible) */}
+        {isPro || isOwn ? (
+          <SectionCard label="Current Position">
+            <InfoRow icon={MapPin}    label="Province" value={educator.current_province} />
+            <InfoRow icon={MapPin}    label="Town"     value={educator.town} />
+            <InfoRow icon={Briefcase} label="School"   value={educator.current_school} />
+          </SectionCard>
+        ) : (
+          <div className="bg-card rounded-2xl border border-border px-4 py-3.5">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2.5">
+              Current Position
+            </p>
+            <div className="flex items-center gap-2.5">
+              <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <span className="text-sm text-muted-foreground italic">
+                Send a message to view this educator's current position
+              </span>
+            </div>
+          </div>
+        )}
 
         <SectionCard label="Transfer Preferences">
           <InfoRow icon={Navigation} label="Preferred" value={preferredLabel} />
