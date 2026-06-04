@@ -8,7 +8,6 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import SubscriptionModal from '@/components/SubscriptionModal';
 
-const FREE_PREVIEW_COUNT = 2;
 
 interface Educator {
   id: string;
@@ -105,10 +104,6 @@ export default function MatchesPage() {
     );
   }
 
-  const visibleMatches  = isPro ? matches : matches.slice(0, FREE_PREVIEW_COUNT);
-  const lockedMatches   = isPro ? []       : matches.slice(FREE_PREVIEW_COUNT);
-  const hasLocked       = lockedMatches.length > 0;
-
   return (
     <div className="px-4 py-6 space-y-4 max-w-lg mx-auto">
       <div>
@@ -116,7 +111,25 @@ export default function MatchesPage() {
         <p className="text-sm text-muted-foreground">Educators who match your transfer preferences</p>
       </div>
 
-      {!myProfile ? (
+      {/* ── Free users: full lock screen, no cards shown ─────────── */}
+      {!isPro ? (
+        <div className="flex flex-col items-center justify-center text-center py-16 px-6">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+            <Lock className="w-7 h-7 text-primary" />
+          </div>
+          <h2 className="text-lg font-bold text-foreground mb-2">Unlock Your Matches</h2>
+          <p className="text-sm text-muted-foreground max-w-xs mb-6">
+            Upgrade to Pro to see all educators who are an 85–100% match with your transfer profile and connect with them directly.
+          </p>
+          <Button
+            onClick={() => setShowSubModal(true)}
+            className="gap-2 rounded-2xl px-8 h-11 font-semibold"
+          >
+            <Zap className="w-4 h-4" />
+            Upgrade to Pro
+          </Button>
+        </div>
+      ) : !myProfile ? (
         <div className="text-center py-16 text-muted-foreground">
           <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">Complete your profile to see matches</p>
@@ -127,66 +140,15 @@ export default function MatchesPage() {
           <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">No high matches yet</p>
           <p className="text-sm mt-1 max-w-xs mx-auto">
-            Educators with an 85–100% compatibility with your profile will appear here.
+            Educators with an 85–100% subject compatibility will appear here.
             Browse all educators on the Search page.
           </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {/* ── Visible matches ──────────────────────────────────── */}
-          {visibleMatches.map((ed, i) => (
+          {matches.map((ed, i) => (
             <MatchCard key={ed.id} ed={ed} myProfile={myProfile} index={i} />
           ))}
-
-          {/* ── Locked matches (blurred) + upgrade wall ──────────── */}
-          {hasLocked && (
-            <div className="relative">
-              {/* Blurred preview cards */}
-              <div className="space-y-3 pointer-events-none select-none">
-                {lockedMatches.slice(0, 3).map((ed, i) => (
-                  <div key={ed.id} className="blur-sm opacity-60">
-                    <MatchCard ed={ed} myProfile={myProfile} index={visibleMatches.length + i} />
-                  </div>
-                ))}
-              </div>
-
-              {/* Upgrade overlay */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-t from-background via-background/90 to-transparent rounded-2xl px-6 py-8">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                  <Lock className="w-5 h-5 text-primary" />
-                </div>
-                <p className="text-base font-bold text-foreground text-center">
-                  {lockedMatches.length} more match{lockedMatches.length !== 1 ? 'es' : ''} hidden
-                </p>
-                <p className="text-sm text-muted-foreground text-center mt-1 mb-4">
-                  Upgrade to Pro to see all your transfer matches and connect with the right educators.
-                </p>
-                <Button
-                  onClick={() => setShowSubModal(true)}
-                  className="gap-2 rounded-2xl px-6 h-11 font-semibold"
-                >
-                  <Zap className="w-4 h-4" />
-                  Unlock All Matches
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Free user footer hint (when all matches fit in preview) */}
-          {!isPro && !hasLocked && matches.length > 0 && (
-            <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-2xl px-4 py-3">
-              <Zap className="w-4 h-4 text-primary shrink-0" />
-              <p className="text-xs text-muted-foreground flex-1">
-                Upgrade to Pro for unlimited matches and direct messaging.
-              </p>
-              <button
-                onClick={() => setShowSubModal(true)}
-                className="text-xs font-semibold text-primary shrink-0"
-              >
-                Upgrade
-              </button>
-            </div>
-          )}
         </div>
       )}
 
