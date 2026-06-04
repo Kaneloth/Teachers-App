@@ -56,12 +56,17 @@ export default function Login() {
           timeout: 60000,
         },
       });
-      /* Biometric passed — check for a live Supabase session */
-      const { data: { session } } = await supabase.auth.getSession();
+      /* Biometric passed — get or silently refresh the Supabase session */
+      let { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        /* Access token expired — use the stored refresh token to get a new one */
+        const { data: refreshData } = await supabase.auth.refreshSession();
+        session = refreshData.session;
+      }
       if (session) {
         navigate('/home');
       } else {
-        /* Session expired — fall back gracefully with pre-filled email */
+        /* Refresh token also expired (>60 days) — must re-enter password */
         switchToPassword(true);
       }
     } catch (err: any) {
