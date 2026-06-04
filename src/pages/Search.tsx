@@ -18,6 +18,25 @@ interface Educator {
   preferred_provinces?: string[];
   subjects?: string[];
   phase?: string;
+  user_id?: string;
+}
+
+interface MyProfile {
+  current_province?: string;
+  preferred_provinces?: string[];
+  subjects?: string[];
+  phase?: string;
+}
+
+/** Same scoring formula used by MatchesPage — capped at 100. */
+function computeMatchScore(e: Educator, mine: MyProfile): number {
+  let score = 0;
+  if (mine.current_province && e.preferred_provinces?.includes(mine.current_province)) score += 40;
+  if (e.current_province && mine.preferred_provinces?.includes(e.current_province))    score += 40;
+  const shared = (e.subjects || []).filter(s => (mine.subjects || []).includes(s)).length;
+  score += shared * 10;
+  if (e.phase && e.phase === mine.phase) score += 10;
+  return Math.min(score, 100);
 }
 
 export default function Search() {
@@ -29,51 +48,79 @@ export default function Search() {
   const [refreshing, setRefreshing] = useState(false);
   const [filters, setFilters] = useState<Filters>({ province: '', subject: '', phase: '', activeOnly: false });
   const [mySubjects, setMySubjects] = useState<string[]>([]);
+  const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
 
+  /* ── Fetch current user's educator profile ─────────────────── */
   useEffect(() => {
     if (!user) return;
-    supabase.from('educators').select('subjects').eq('user_id', user.id).limit(1).then(({ data }) => {
-      setMySubjects(data?.[0]?.subjects || []);
-    });
+    supabase
+      .from('educators')
+      .select('subjects, current_province, preferred_provinces, phase')
+      .eq('user_id', user.id)
+      .limit(1)
+      .then(({ data }) => {
+        const p = data?.[0] ?? null;
+        setMySubjects(p?.subjects || []);
+        setMyProfile(p);
+      });
   }, [user]);
 
+  /* ── Fetch educators ────────────────────────────────────────── */
   const fetchEducators = useCallback(async () => {
     setLoading(true);
     let q = supabase.from('educators').select('*');
-    if (filters.province) q = q.eq('current_province', filters.province);
-    if (filters.phase) q = q.eq('phase', filters.phase);
-    if (filters.activeOnly) q = q.eq('is_actively_looking', true);
-    if (filters.subject) q = q.contains('subjects', [filters.subject]);
-    const { data } = await q.limit(50);
-    let results = data || [];
 
-    /* Overlay verified status from profiles table — source of truth for all users */
+    // Always exclude the current user's own card
+    if (user?.id) q = q.neq('user_id', user.id);
+
+    if (filters.province)    q = q.eq('current_province', filters.province);
+    if (filters.phase)       q = q.eq('phase', filters.phase);
+    if (filters.activeOnly)  q = q.eq('is_actively_looking', true);
+    if (filters.subject)     q = q.contains('subjects', [filters.subject]);
+
+    const { data } = await q.limit(50);
+    let results: Educator[] = data || [];
+
+    /* Overlay verified status from profiles table */
     if (results.length > 0) {
-      const userIds = results.map((e: { user_id?: string }) => e.user_id).filter(Boolean);
+      const userIds = results.map(e => e.user_id).filter(Boolean) as string[];
       const { data: profileData } = await supabase
         .from('profiles')
         .select('id, is_verified')
         .in('id', userIds);
       const verifiedIds = new Set(
-        (profileData ?? []).filter((p: { is_verified?: boolean }) => p.is_verified).map((p: { id: string }) => p.id)
+        (profileData ?? [])
+          .filter((p: { is_verified?: boolean }) => p.is_verified)
+          .map((p: { id: string }) => p.id)
       );
-      results = results.map((e: { user_id?: string }) => ({
+      results = results.map(e => ({
         ...e,
         is_sace_verified: verifiedIds.has(e.user_id ?? ''),
       }));
     }
 
+    /* Text search filter */
     if (query.trim()) {
       const lower = query.toLowerCase();
-      results = results.filter((e: { full_name?: string; current_province?: string; subjects?: string[] }) =>
+      results = results.filter(e =>
         e.full_name?.toLowerCase().includes(lower) ||
         e.current_province?.toLowerCase().includes(lower) ||
-        e.subjects?.some((s: string) => s.toLowerCase().includes(lower))
+        e.subjects?.some(s => s.toLowerCase().includes(lower))
       );
     }
+
+    /* Exclude 85–100 % matches — those belong on the Matches page only.
+       If the user has no profile yet we can't compute scores, so show everyone. */
+    if (myProfile) {
+      results = results.filter(e => computeMatchScore(e, myProfile) < 85);
+    } else if (user?.id) {
+      // Still exclude own card client-side as a safety net
+      results = results.filter(e => e.user_id !== user.id);
+    }
+
     setEducators(results);
     setLoading(false);
-  }, [filters, query]);
+  }, [filters, query, user, myProfile]);
 
   useEffect(() => { fetchEducators(); }, [fetchEducators]);
 
