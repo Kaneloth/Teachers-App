@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Bell, Moon, Type, Shield, FileText, Headphones,
-  Lock, ChevronRight, ChevronDown,
+  Lock, ChevronRight, ChevronDown, Star, Zap,
   Search, AlertTriangle, CheckCircle, UserX, Ban, X,
   Save, Loader2, Fingerprint,
 } from 'lucide-react';
@@ -15,8 +15,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import DeleteAccountSection from '@/components/DeleteAccountSection';
 
-const TABS = ['General', 'Security', 'Admin'] as const;
-type Tab = typeof TABS[number];
+const ALL_TABS = ['General', 'Subscription', 'Security', 'Admin'] as const;
+type Tab = typeof ALL_TABS[number];
 
 /* ── shared primitives ─────────────────────────────────────── */
 
@@ -135,6 +135,189 @@ function GeneralTab() {
         <div className="border-t border-border" />
         <SettingLinkRow icon={Headphones} label="Contact Support" onClick={() => toast.info('Opening support…')} />
       </Card>
+    </div>
+  );
+}
+
+/* ── Subscription tab (Pro users only) ─────────────────────── */
+
+const BILLING = [
+  { id: 'monthly', label: 'Monthly',     badge: null as string | null, save: null as string | null,       sub: 'R59/mo',               price: 'R59', perMonth: 59 },
+  { id: 'semi',    label: 'Semi-Annual', badge: 'Popular' as string | null, save: 'Save 20%' as string | null, sub: 'R282 every 6 months',  price: 'R47', perMonth: 47 },
+  { id: 'annual',  label: 'Annual',      badge: null as string | null, save: 'Save 41%' as string | null, sub: 'R420/year',             price: 'R35', perMonth: 35 },
+];
+
+const COMPARISON = [
+  { feature: 'CV builds per month',  free: '1',                  pro: 'Unlimited' },
+  { feature: 'CV watermark',         free: 'Yes',                pro: 'No'        },
+  { feature: 'Active chats',         free: '5',                  pro: 'Unlimited' },
+  { feature: 'Vacancy applications', free: '5',                  pro: 'Unlimited' },
+  { feature: 'Ads',                  free: 'Yes',                pro: 'No'        },
+  { feature: 'Personal details',     free: 'Locked to profile',  pro: 'Locked to profile' },
+];
+
+function SubscriptionTab() {
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<{ subscription_plan: string; subscription_end: string | null } | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
+  const [billing, setBilling] = useState<'monthly' | 'semi' | 'annual'>('semi');
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .select('subscription_plan, subscription_end')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        setProfile(data);
+        if (data?.subscription_plan && data.subscription_plan !== 'free') {
+          setBilling(data.subscription_plan as 'monthly' | 'semi' | 'annual');
+        }
+      });
+  }, [user]);
+
+  const profilePlan = profile?.subscription_plan;
+  const metaPlan = user?.user_metadata?.subscription_plan as string | undefined;
+  const plan = (profilePlan && profilePlan !== 'free') ? profilePlan : (metaPlan || 'free');
+
+  const profileEnd = profile?.subscription_end;
+  const metaEnd = user?.user_metadata?.subscription_end as string | undefined;
+  const subEnd = profileEnd ? new Date(profileEnd) : metaEnd ? new Date(metaEnd) : null;
+
+  const isCancelled = user?.user_metadata?.subscription_cancelled === true;
+  const isActive = plan !== 'free' && subEnd !== null && subEnd > new Date();
+  const activePlanLabel = BILLING.find(b => b.id === plan)?.label ?? plan;
+  const selected = BILLING.find(b => b.id === billing)!;
+
+  const fmtDate = (d: Date) =>
+    d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const getPlanEndDate = (planId: string): string => {
+    const d = new Date();
+    if (planId === 'semi')        d.setMonth(d.getMonth() + 6);
+    else if (planId === 'annual') d.setFullYear(d.getFullYear() + 1);
+    else                          d.setMonth(d.getMonth() + 1);
+    return d.toISOString();
+  };
+
+  const handleSwitch = async () => {
+    if (!user) return;
+    if (billing === plan) { toast.info('That is already your current plan.'); return; }
+    setSubscribing(true);
+    const endDate = getPlanEndDate(billing);
+    await supabase.from('profiles').update({ subscription_plan: billing, subscription_end: endDate }).eq('id', user.id);
+    await supabase.auth.updateUser({ data: { subscription_plan: billing, subscription_end: endDate, subscription_cancelled: false } });
+    setProfile(prev => ({ ...prev, subscription_plan: billing, subscription_end: endDate }));
+    toast.success(`✅ Switched to Pro ${BILLING.find(b => b.id === billing)?.label}!`);
+    setSubscribing(false);
+  };
+
+  const handleCancel = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!window.confirm('Are you sure you want to cancel? You will keep access until your current period ends.')) return;
+    setCancelling(true);
+    const { error } = await supabase.auth.updateUser({ data: { subscription_cancelled: true } });
+    setCancelling(false);
+    if (error) {
+      toast.error('Failed to cancel: ' + error.message);
+    } else {
+      toast.success('Subscription cancelled. You keep access until your current period ends.');
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Current plan banner */}
+      {isActive && (
+        <div className="flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-xl px-4 py-3">
+          <Star className="w-4 h-4 text-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-primary">Pro · {activePlanLabel}</p>
+            {subEnd && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {isCancelled ? 'Access ends' : 'Renews'} {fmtDate(subEnd)}
+              </p>
+            )}
+          </div>
+          <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full text-white ${isCancelled ? 'bg-amber-500' : 'bg-primary'}`}>
+            {isCancelled ? 'Cancelled' : 'Active'}
+          </span>
+        </div>
+      )}
+
+      {/* Switch billing cycle */}
+      <div>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2.5 px-1">
+          {isCancelled ? 'Reactivate — choose billing' : 'Switch billing cycle'}
+        </p>
+        <div className="space-y-2">
+          {BILLING.map(b => (
+            <button key={b.id} onClick={() => setBilling(b.id as 'monthly' | 'semi' | 'annual')}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-all text-left ${billing === b.id ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border bg-card'}`}
+            >
+              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${billing === b.id ? 'border-primary' : 'border-muted-foreground'}`}>
+                {billing === b.id && <div className="w-2 h-2 rounded-full bg-primary" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-sm font-semibold text-foreground">{b.label}</span>
+                  {b.id === plan && !isCancelled && (
+                    <span className="text-[10px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">Current</span>
+                  )}
+                  {b.badge && b.id !== plan && (
+                    <span className="text-[10px] font-bold bg-primary text-white px-1.5 py-0.5 rounded-full">{b.badge}</span>
+                  )}
+                  {b.save && <span className="text-[10px] text-primary font-semibold">{b.save}</span>}
+                </div>
+                <p className="text-xs text-muted-foreground">{b.sub}</p>
+              </div>
+              <span className="text-sm font-bold text-foreground shrink-0">
+                {b.price}<span className="text-xs font-normal text-muted-foreground">/mo</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <Button className="w-full h-12 rounded-2xl text-base font-semibold" onClick={handleSwitch} disabled={subscribing || billing === plan}>
+        {subscribing
+          ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Updating…</>
+          : billing === plan && !isCancelled
+            ? 'Current plan selected'
+            : `Switch to ${selected.label} — R${selected.perMonth}/mo`}
+      </Button>
+
+      <p className="text-center text-xs text-muted-foreground -mt-1">
+        {isActive && !isCancelled && (
+          <a href="#" onClick={handleCancel} className="text-destructive underline underline-offset-2">
+            {cancelling ? 'Cancelling…' : 'Cancel subscription'}
+          </a>
+        )}
+        {(!isActive || isCancelled) && (
+          <span>Your subscription is no longer active.</span>
+        )}
+      </p>
+
+      {/* Plan comparison */}
+      <div>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 px-1">Plan Comparison</p>
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+          <div className="grid grid-cols-3 bg-muted/50 px-4 py-2 border-b border-border">
+            <span className="text-xs font-semibold text-muted-foreground">Feature</span>
+            <span className="text-xs font-semibold text-muted-foreground text-center">Free</span>
+            <span className="text-xs font-semibold text-primary text-center">Pro</span>
+          </div>
+          {COMPARISON.map((row, i) => (
+            <div key={row.feature} className={`grid grid-cols-3 px-4 py-2.5 ${i < COMPARISON.length - 1 ? 'border-b border-border/50' : ''}`}>
+              <span className="text-xs text-foreground">{row.feature}</span>
+              <span className="text-xs text-muted-foreground text-center">{row.free}</span>
+              <span className={`text-xs text-center font-medium ${row.pro === row.free ? 'text-muted-foreground' : 'text-primary'}`}>{row.pro}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -592,7 +775,27 @@ export default function SettingsPage() {
 
   const isAdmin = !!(user?.user_metadata?.is_admin);
 
-  const visibleTabs = isAdmin ? TABS : (TABS.filter(t => t !== 'Admin') as readonly Tab[]);
+  /* Subscription status — dual source */
+  const [subProfile, setSubProfile] = useState<{ subscription_plan: string; subscription_end: string | null } | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('profiles').select('subscription_plan, subscription_end').eq('id', user.id).single()
+      .then(({ data }) => setSubProfile(data));
+  }, [user]);
+  const profilePlan = subProfile?.subscription_plan;
+  const metaPlan = user?.user_metadata?.subscription_plan as string | undefined;
+  const plan = (profilePlan && profilePlan !== 'free') ? profilePlan : (metaPlan || 'free');
+  const profileEnd = subProfile?.subscription_end;
+  const metaEnd = user?.user_metadata?.subscription_end as string | undefined;
+  const subEnd = profileEnd ? new Date(profileEnd) : metaEnd ? new Date(metaEnd) : null;
+  const isPro = plan !== 'free' && subEnd !== null && subEnd > new Date();
+
+  /* Build visible tabs: Subscription only shown when user is Pro */
+  const visibleTabs = ALL_TABS.filter(t => {
+    if (t === 'Admin')        return isAdmin;
+    if (t === 'Subscription') return isPro;
+    return true;
+  });
 
   const raw = searchParams.get('tab') || 'General';
   const tab = (visibleTabs.includes(raw as Tab) ? raw : 'General') as Tab;
@@ -611,7 +814,7 @@ export default function SettingsPage() {
 
       {/* Tab bar */}
       <div className="px-4 pb-4">
-        <div className={`grid bg-muted rounded-2xl p-1`} style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, 1fr)` }}>
+        <div className="grid bg-muted rounded-2xl p-1" style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, 1fr)` }}>
           {visibleTabs.map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`py-2.5 rounded-xl text-sm font-medium transition-all ${tab === t ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
@@ -622,9 +825,10 @@ export default function SettingsPage() {
 
       {/* Tab content */}
       <div className="px-4 pb-8 space-y-3">
-        {tab === 'General' && <GeneralTab />}
-        {tab === 'Security' && <SecurityTab />}
-        {tab === 'Admin' && isAdmin && <AdminTab />}
+        {tab === 'General'      && <GeneralTab />}
+        {tab === 'Subscription' && isPro && <SubscriptionTab />}
+        {tab === 'Security'     && <SecurityTab />}
+        {tab === 'Admin'        && isAdmin && <AdminTab />}
       </div>
     </div>
   );
