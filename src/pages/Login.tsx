@@ -110,7 +110,9 @@ export default function Login() {
       // 2. Fingerprint passed — restore session via stored refresh token
       const restored = await restoreSessionFromToken();
       if (restored) {
-        navigate('/home');
+        // Full page reload so AuthContext re-initialises and reads the
+        // new session from localStorage before rendering the home page.
+        window.location.href = '/home';
         return;
       }
 
