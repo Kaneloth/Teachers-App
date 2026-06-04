@@ -28,14 +28,14 @@ export default function Login() {
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [sessionExpiredBanner, setSessionExpiredBanner] = useState(false);
 
+  // Fallback to password – keep biometric credential (do NOT clear it)
   const switchToPassword = (showExpiredBanner = false) => {
     setUseBiometric(false);
     setSessionExpiredBanner(showExpiredBanner);
     const saved = localStorage.getItem('crosssa_last_email');
     if (saved) setEmail(saved);
-    // Clear the "remember biometric" flag so the next login doesn't try biometric again
-    localStorage.removeItem('loginMethod');
-    localStorage.removeItem('biometricCredentialId');
+    // IMPORTANT: Do NOT remove the biometric credential or loginMethod flag.
+    // They will be reused after the user logs in with password again.
   };
 
   const handleBiometricLogin = async () => {
@@ -62,7 +62,6 @@ export default function Login() {
       let { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
-        // Attempt to refresh using the stored refresh token (Supabase stores it in localStorage)
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError || !refreshData.session) {
           throw new Error('refresh_failed');
@@ -71,7 +70,6 @@ export default function Login() {
       }
 
       if (session) {
-        // Biometric successful – update last email and navigate home
         localStorage.setItem('crosssa_last_email', session.user.email || email);
         navigate('/home');
       } else {
@@ -81,8 +79,8 @@ export default function Login() {
       if (err.name === 'NotAllowedError') {
         toast.error('Biometric authentication was cancelled.');
       } else if (err.message === 'refresh_failed' || err.message === 'no_session') {
-        // Session expired and cannot be refreshed – user must re‑authenticate with password
-        toast.error('Your session has expired. Please sign in with your password to continue using biometric.');
+        // Session expired – fall back to password without deleting the credential
+        toast.error('Your session has expired. Please sign in with your password. Biometric will work again after you log in.');
         switchToPassword(true);
       } else {
         toast.error('Biometric failed: ' + (err.message || 'Unknown error'));
@@ -108,8 +106,8 @@ export default function Login() {
       }
     } else {
       localStorage.setItem('crosssa_last_email', email);
-      // After successful login, we can optionally save a biometric credential here
-      // (you would call a function to create a WebAuthn credential)
+      // After successful login, the biometric credential (if any) remains valid
+      // for the next time the user logs out and back in.
       navigate('/home');
     }
     setLoading(false);
@@ -262,7 +260,7 @@ export default function Login() {
       {sessionExpiredBanner && (
         <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800">
           <span className="mt-0.5 shrink-0">ℹ️</span>
-          <p>Your session has expired. Please sign in with your password. You can re‑enable biometric after successful login.</p>
+          <p>Your session has expired. Please sign in with your password. Biometric will work again after you log in.</p>
         </div>
       )}
 
