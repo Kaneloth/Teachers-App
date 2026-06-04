@@ -141,6 +141,17 @@ export default function CVBuilderPage() {
   const [data, setData] = useState<CVData>(defaultData('educator'));
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
 
+  // Fix: useState(!lastCVData) runs before auth resolves, so showBuilder may be
+  // incorrectly set to true. Correct it once the user object is first available.
+  const [builderInitialized, setBuilderInitialized] = useState(!!user);
+  useEffect(() => {
+    if (!builderInitialized && user) {
+      const savedCV = user.user_metadata?.last_cv_data;
+      if (savedCV) setShowBuilder(false);
+      setBuilderInitialized(true);
+    }
+  }, [user, builderInitialized]);
+
   useEffect(() => {
     if (!user) return;
     supabase
