@@ -29,10 +29,7 @@ function formatDateSeparator(date: Date) {
   return format(date, 'd MMM yyyy');
 }
 
-/* ── localStorage helpers for "Delete for me" ──────────────────────────────
-   Stores hidden message IDs per user so they don't reappear when the user
-   navigates away and comes back. No database schema change required.
-   ───────────────────────────────────────────────────────────────────────── */
+/* ── localStorage helpers for "Delete for me" ────────────────────────────── */
 const hiddenKey = (userId: string) => `educross_hidden_msgs_${userId}`;
 
 function getHidden(userId: string): Set<string> {
@@ -58,13 +55,13 @@ function removeHidden(userId: string, msgId: string) {
 export default function ChatRoom() {
   const { partnerId } = useParams<{ partnerId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth(); // add refreshProfile if available
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [partner, setPartner] = useState<PartnerInfo | null>(null);
   const [sending, setSending] = useState(false);
   const [selectedMsg, setSelectedMsg] = useState<Message | null>(null);
-  const [chatLimitReached, setChatLimitReached] = useState(false);
+  const [blocked, setBlocked] = useState(false);    // true if cannot send any message
   const [showSubModal, setShowSubModal] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -128,8 +125,6 @@ export default function ChatRoom() {
     } else {
       if (user) removeHidden(user.id, msg.id);
       setMessages(prev => prev.filter(m => m.id !== msg.id));
-      // Broadcast the deletion so the other participant's UI updates instantly,
-      // even if they are on the ChatsPage rather than inside this chat room.
       broadcastChannelRef.current?.send({
         type: 'broadcast',
         event: 'message_deleted',
@@ -156,46 +151,83 @@ export default function ChatRoom() {
     return () => { supabase.removeChannel(channel); };
   }, [user, partnerId]);
 
-  /* ── Free-tier 5-chat limit check ──────────────────────────── */
-  useEffect(() => {
+  /* ── Helper: check if user is subscribed (pro) ───────────────── */
+  const isSubscribed = async (): Promise<boolean> => {
+    if (!user) return false;
+    // 1. Check user_metadata (fastest)
+    const metaPlan = user.user_metadata?.subscription_plan;
+    const metaEnd = user.user_metadata?.subscription_end;
+    if (metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date()) {
+      return true;
+    }
+    // 2. Check profiles table
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('subscription_plan, subscription_end')
+      .eq('id', user.id)
+      .single();
+    if (error) return false;
+    return !!(
+      profile?.subscription_plan &&
+      profile.subscription_plan !== 'free' &&
+      profile.subscription_end &&
+      new Date(profile.subscription_end) > new Date()
+    );
+  };
+
+  /* ── Count distinct partners this user has ever messaged ────── */
+  const countDistinctPartners = async (): Promise<number> => {
+    if (!user) return 0;
+    const { data, error } = await supabase
+      .from('messages')
+      .select('sender_id, receiver_id')
+      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
+    if (error) return 0;
+    const partners = new Set(
+      (data || []).map(m => (m.sender_id === user.id ? m.receiver_id : m.sender_id))
+    );
+    return partners.size;
+  };
+
+  /* ── Check if the user can send a message to this partner ───── */
+  const checkAccess = async () => {
     if (!user || !partnerId) return;
+    const subscribed = await isSubscribed();
+    if (subscribed) {
+      setBlocked(false);
+      return;
+    }
+    // Free user: count existing partners
+    const partnerCount = await countDistinctPartners();
+    // Already messaging this partner? (i.e., at least one message exchanged)
+    const { data: existingMessages } = await supabase
+      .from('messages')
+      .select('id')
+      .or(
+        `and(sender_id.eq.${user.id},receiver_id.eq.${partnerId}),` +
+        `and(sender_id.eq.${partnerId},receiver_id.eq.${user.id})`
+      )
+      .limit(1);
+    const alreadyChatting = existingMessages && existingMessages.length > 0;
+    if (!alreadyChatting && partnerCount >= 5) {
+      setBlocked(true);
+    } else {
+      setBlocked(false);
+    }
+  };
 
-    const check = async () => {
-      // Check subscription — dual source (user_metadata + profiles fallback)
-      const metaPlan = user.user_metadata?.subscription_plan as string | undefined;
-      const metaEnd  = user.user_metadata?.subscription_end  as string | undefined;
-      const isProMeta = metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date();
-      if (isProMeta) return; // Pro via metadata — no limit
+  // Run check on mount and whenever user, partnerId, or subscription might change
+  useEffect(() => {
+    checkAccess();
+  }, [user, partnerId]);
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('subscription_plan, subscription_end')
-        .eq('id', user.id)
-        .single();
-      const isPro =
-        profile?.subscription_plan &&
-        profile.subscription_plan !== 'free' &&
-        profile.subscription_end &&
-        new Date(profile.subscription_end) > new Date();
-      if (isPro) return; // Pro via profiles — no limit
-
-      // Free user: count ALL unique conversation partners (both sent & received)
-      const { data: allMsgs } = await supabase
-        .from('messages')
-        .select('sender_id, receiver_id')
-        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
-
-      const distinctPartners = new Set(
-        (allMsgs || []).map(m => m.sender_id === user.id ? m.receiver_id : m.sender_id)
-      );
-
-      // Block when limit reached AND this is a partner they haven't chatted with yet
-      if (distinctPartners.size >= 5 && !distinctPartners.has(partnerId)) {
-        setChatLimitReached(true);
-      }
-    };
-
-    check();
+  // Also listen for subscription changes (e.g., after upgrade)
+  // You can hook into your refreshProfile from AuthContext or simply re-run check periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      checkAccess();
+    }, 10000); // re-check every 10 seconds (in case subscription was upgraded elsewhere)
+    return () => clearInterval(interval);
   }, [user, partnerId]);
 
   /* ── Load partner info ──────────────────────────────────────── */
@@ -223,7 +255,6 @@ export default function ChatRoom() {
         )
         .order('created_at', { ascending: true });
 
-      // Filter out messages the user has hidden ("Delete for me")
       const hidden = getHidden(user.id);
       setMessages((data || []).filter(m => !hidden.has(m.id)));
 
@@ -245,7 +276,6 @@ export default function ChatRoom() {
         payload => {
           const msg = payload.new as Message;
           if (msg.sender_id === partnerId) {
-            // Don't surface a message the user has already hidden
             const hidden = getHidden(user.id);
             if (!hidden.has(msg.id)) {
               setMessages(prev => [...prev, msg]);
@@ -277,7 +307,7 @@ export default function ChatRoom() {
   /* ── Send ───────────────────────────────────────────────────── */
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim() || !user || !partnerId || chatLimitReached) return;
+    if (!text.trim() || !user || !partnerId || blocked) return;
     setSending(true);
     const optimistic: Message = {
       id: `temp-${Date.now()}`,
@@ -351,7 +381,6 @@ export default function ChatRoom() {
               )}
 
               <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-1 relative`}>
-                {/* Context menu — floats below the bubble */}
                 {isSelected && (
                   <div
                     ref={menuRef}
@@ -383,7 +412,6 @@ export default function ChatRoom() {
                   </div>
                 )}
 
-                {/* Bubble */}
                 <div
                   onMouseDown={() => startLongPress(msg)}
                   onMouseUp={cancelLongPress}
@@ -418,8 +446,8 @@ export default function ChatRoom() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input bar / upgrade wall */}
-      {chatLimitReached ? (
+      {/* Input bar or upgrade wall */}
+      {blocked ? (
         <div className="flex items-center gap-3 px-4 py-3 border-t border-border bg-background">
           <div className="flex items-center gap-2.5 flex-1 bg-muted/60 rounded-full px-4 py-2.5">
             <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
