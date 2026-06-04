@@ -295,6 +295,16 @@ export default function CVBuilderPage() {
     );
   }
 
+  /* ── Edit last CV ─────────────────────────────────────────── */
+  const handleEdit = () => {
+    if (!lastCVData) return;
+    const saved = lastCVData as CVData;
+    setData(saved);
+    setCvType(saved.cvType ?? 'educator');
+    setStep(0);
+    setShowBuilder(true);
+  };
+
   /* ── Last CV state ────────────────────────────────────────── */
   if (!showBuilder && lastCVData) {
     return (
@@ -310,6 +320,9 @@ export default function CVBuilderPage() {
           <LastCVBanner
             lastCV={{ pdf_url: lastCVPdfUrl, generated_at: lastCVGeneratedAt, cv_data: lastCVData }}
             onBuildNew={() => { setShowBuilder(true); setCvType(null); }}
+            onEdit={handleEdit}
+            buildsLeft={buildsLeft}
+            isFree={isFree}
           />
         </div>
       </div>
