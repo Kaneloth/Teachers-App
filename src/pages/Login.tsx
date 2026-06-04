@@ -28,22 +28,53 @@ export default function Login() {
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [sessionExpiredBanner, setSessionExpiredBanner] = useState(false);
 
-  // Fallback to password – keep biometric credential (do NOT clear it)
+  // Helper to store the Supabase refresh token for biometric (Base44 pattern)
+  const storeBiometricToken = async (userId: string) => {
+    // Get the current session (which is fresh after login)
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.refresh_token) {
+      localStorage.setItem('crosssa_biometric_token', session.refresh_token);
+      localStorage.setItem('crosssa_biometric_userId', userId);
+      localStorage.setItem('loginMethod', 'biometric');
+    }
+  };
+
+  // Helper to restore session from stored refresh token
+  const restoreSessionFromStoredToken = async (): Promise<boolean> => {
+    const refreshToken = localStorage.getItem('crosssa_biometric_token');
+    if (!refreshToken) return false;
+    try {
+      const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+      if (error || !data.session) return false;
+      // Success – session is restored
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const switchToPassword = (showExpiredBanner = false) => {
     setUseBiometric(false);
     setSessionExpiredBanner(showExpiredBanner);
     const saved = localStorage.getItem('crosssa_last_email');
     if (saved) setEmail(saved);
-    // IMPORTANT: Do NOT remove the biometric credential or loginMethod flag.
-    // They will be reused after the user logs in with password again.
+    // Do NOT clear the biometric token – it might be valid later, but we fall back now
   };
 
   const handleBiometricLogin = async () => {
     setBiometricLoading(true);
     try {
+      const storedUserId = localStorage.getItem('crosssa_biometric_userId');
+      if (!storedUserId) {
+        toast.error('No biometric session found. Please sign in with your password.');
+        switchToPassword();
+        return;
+      }
+
+      // 1. Perform WebAuthn verification
       const credIdB64 = localStorage.getItem('biometricCredentialId');
       if (!credIdB64) {
-        toast.error('No biometric credential found. Please sign in with your password.');
+        toast.error('Biometric credential not found. Please re‑register.');
         switchToPassword();
         return;
       }
@@ -58,30 +89,29 @@ export default function Login() {
           timeout: 60000,
         },
       });
-      // Biometric passed – try to get or refresh the Supabase session
-      let { data: { session } } = await supabase.auth.getSession();
 
-      if (!session) {
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        if (refreshError || !refreshData.session) {
-          throw new Error('refresh_failed');
-        }
-        session = refreshData.session;
+      // 2. Restore the Supabase session using the stored refresh token
+      const success = await restoreSessionFromStoredToken();
+      if (!success) {
+        // Token expired or invalid – need password again
+        toast.error('Your saved session has expired. Please sign in with your password to refresh biometric.');
+        switchToPassword(true);
+        return;
       }
 
-      if (session) {
-        localStorage.setItem('crosssa_last_email', session.user.email || email);
-        navigate('/home');
-      } else {
-        throw new Error('no_session');
+      // 3. Verify the restored user matches the stored user ID (optional but safe)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || user.id !== storedUserId) {
+        toast.error('User mismatch. Please sign in with your password.');
+        switchToPassword(true);
+        return;
       }
+
+      // 4. Success – go home
+      navigate('/home');
     } catch (err: any) {
       if (err.name === 'NotAllowedError') {
         toast.error('Biometric authentication was cancelled.');
-      } else if (err.message === 'refresh_failed' || err.message === 'no_session') {
-        // Session expired – fall back to password without deleting the credential
-        toast.error('Your session has expired. Please sign in with your password. Biometric will work again after you log in.');
-        switchToPassword(true);
       } else {
         toast.error('Biometric failed: ' + (err.message || 'Unknown error'));
       }
@@ -106,8 +136,10 @@ export default function Login() {
       }
     } else {
       localStorage.setItem('crosssa_last_email', email);
-      // After successful login, the biometric credential (if any) remains valid
-      // for the next time the user logs out and back in.
+      // After successful login, store the biometric token for future fast logins
+      if (data.user) {
+        await storeBiometricToken(data.user.id);
+      }
       navigate('/home');
     }
     setLoading(false);
@@ -122,6 +154,9 @@ export default function Login() {
       toast.error(error.message);
     } else {
       toast.success('Email verified! Welcome back.');
+      // After successful verification, also store biometric token
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) await storeBiometricToken(user.id);
       navigate('/home');
     }
     setLoading(false);
@@ -256,11 +291,10 @@ export default function Login() {
   // ── Login form ──────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      {/* Session-expired banner — shown after biometric fallback */}
       {sessionExpiredBanner && (
         <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800">
           <span className="mt-0.5 shrink-0">ℹ️</span>
-          <p>Your session has expired. Please sign in with your password. Biometric will work again after you log in.</p>
+          <p>Your biometric session has expired. Please sign in with your password to reactivate it.</p>
         </div>
       )}
 
