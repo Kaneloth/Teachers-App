@@ -10,8 +10,7 @@ import { supabase } from '@/lib/supabase';
 type LoginMethod = 'password' | 'biometric' | 'biometric-confirmed';
 type Step = 'form' | 'email-otp';
 
-const BIO_REFRESH_KEY = 'crosssa_biometric_refresh';   // stores refresh token
-const BIO_CRED_ID_KEY = 'biometricCredentialId';       // stores credential ID (set elsewhere)
+const BIO_CRED_ID_KEY = 'biometricCredentialId'; // saved during fingerprint registration
 
 export default function Login() {
   const navigate = useNavigate();
@@ -29,30 +28,14 @@ export default function Login() {
   const [loginMethod, setLoginMethod] = useState<LoginMethod>('password');
   const [biometricLoading, setBiometricLoading] = useState(false);
 
-  // ─────────────────────────────────────────────────────────────
-  // 1. Persist refresh token whenever a new session is created
-  //    (covers password login, Google redirect, and refresh)
-  // ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.refresh_token) {
-        localStorage.setItem(BIO_REFRESH_KEY, session.refresh_token);
-        localStorage.setItem('crosssa_last_email', session.user.email || email);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [email]);
-
-  // ─────────────────────────────────────────────────────────────
-  // 2. Restore login method preference from localStorage
-  // ─────────────────────────────────────────────────────────────
+  // Load preferred login method from localStorage
   useEffect(() => {
     const method = localStorage.getItem('loginMethod') as LoginMethod || 'password';
     setLoginMethod(method);
   }, []);
 
   // ─────────────────────────────────────────────────────────────
-  // 3. Core biometric verification + session restoration
+  // 1. Biometric login – verify fingerprint, then check existing session
   // ─────────────────────────────────────────────────────────────
   const handleBiometricLogin = async () => {
     setError('');
@@ -62,18 +45,22 @@ export default function Login() {
         throw new Error('Biometric authentication is not supported on this device.');
       }
 
-      // WebAuthn challenge
+      // Prepare WebAuthn challenge
       const challenge = new Uint8Array(32);
       crypto.getRandomValues(challenge);
 
       const storedId = localStorage.getItem(BIO_CRED_ID_KEY);
-      const allowCredentials = storedId
-        ? [{
-            type: 'public-key' as const,
-            id: Uint8Array.from(atob(storedId), c => c.charCodeAt(0)),
-            transports: ['internal'] as AuthenticatorTransport[],
-          }]
-        : [];
+      if (!storedId) {
+        // No fingerprint registered yet → ask for password first
+        setLoginMethod('biometric-confirmed');
+        return;
+      }
+
+      const allowCredentials = [{
+        type: 'public-key' as const,
+        id: Uint8Array.from(atob(storedId), c => c.charCodeAt(0)),
+        transports: ['internal'] as AuthenticatorTransport[],
+      }];
 
       await navigator.credentials.get({
         publicKey: {
@@ -85,28 +72,16 @@ export default function Login() {
         },
       });
 
-      // Biometric succeeded – now restore Supabase session
-      const savedRefreshToken = localStorage.getItem(BIO_REFRESH_KEY);
-      if (!savedRefreshToken) {
-        // No token stored → first‑time biometric setup: ask for password once
+      // ✅ Biometric succeeded – now check for existing Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session) {
+        // User already has a valid session → go straight in
+        navigate('/home');
+      } else {
+        // No session – need one-time password to create it
         setLoginMethod('biometric-confirmed');
-        return;
       }
-
-      // Try to refresh the session
-      const { data, error: refreshErr } = await supabase.auth.refreshSession({
-        refresh_token: savedRefreshToken,
-      });
-
-      if (refreshErr || !data.session) {
-        // Refresh token is invalid/expired – clear it and ask for password
-        localStorage.removeItem(BIO_REFRESH_KEY);
-        throw new Error('Your biometric session has expired. Please sign in with password once.');
-      }
-
-      // Success: update stored refresh token (Supabase rotates it)
-      localStorage.setItem(BIO_REFRESH_KEY, data.session.refresh_token);
-      navigate('/home');
     } catch (err: any) {
       if (err.name !== 'NotAllowedError') {
         setError(err.message || 'Biometric verification failed. Please try again.');
@@ -117,8 +92,7 @@ export default function Login() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 4. One‑time password entry after first biometric use
-  //    (creates the initial refresh token for future scans)
+  // 2. One‑time password entry (creates the session for future biometric)
   // ─────────────────────────────────────────────────────────────
   const handleBiometricConfirmedLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,8 +101,10 @@ export default function Login() {
     try {
       const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
       if (signInErr) throw signInErr;
-      // Token will be saved automatically by onAuthStateChange
+      // Session is now stored automatically by Supabase
       localStorage.setItem('crosssa_last_email', email);
+      // Optional: remember biometric preference
+      localStorage.setItem('loginMethod', 'biometric');
       navigate('/home');
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
@@ -138,7 +114,7 @@ export default function Login() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 5. Standard password login
+  // 3. Standard password login
   // ─────────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,13 +132,14 @@ export default function Login() {
       }
     } else {
       localStorage.setItem('crosssa_last_email', email);
+      localStorage.setItem('loginMethod', 'biometric'); // enable biometric for next time
       navigate('/home');
     }
     setLoading(false);
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 6. Email OTP verification (unconfirmed email case)
+  // 4. Email OTP (unconfirmed email)
   // ─────────────────────────────────────────────────────────────
   const handleVerifyEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,6 +149,7 @@ export default function Login() {
       setError(error.message);
     } else {
       localStorage.setItem('crosssa_last_email', email);
+      localStorage.setItem('loginMethod', 'biometric');
       toast.success('Email verified! Welcome back.');
       navigate('/home');
     }
@@ -187,7 +165,7 @@ export default function Login() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 7. Google OAuth – session will be persisted by onAuthStateChange
+  // 5. Google OAuth
   // ─────────────────────────────────────────────────────────────
   const handleGoogle = async () => {
     setGoogleLoading(true);
@@ -199,9 +177,7 @@ export default function Login() {
     setGoogleLoading(false);
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // 8. Helper: Google icon SVG
-  // ─────────────────────────────────────────────────────────────
+  // Google SVG icon
   const GoogleSvg = (
     <svg viewBox="0 0 24 24" className="w-4 h-4">
       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -212,7 +188,7 @@ export default function Login() {
   );
 
   // ─────────────────────────────────────────────────────────────
-  // 9. Screens (Email OTP, Biometric, Biometric‑confirmed, Password)
+  // 6. Screens
   // ─────────────────────────────────────────────────────────────
   if (step === 'email-otp') {
     return (
