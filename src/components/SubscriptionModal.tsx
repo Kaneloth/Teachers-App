@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Star, Loader2, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -95,14 +96,18 @@ export default function SubscriptionModal({ open, onClose }: Props) {
     }
   };
 
-  return (
-    /* Backdrop */
+  const modal = (
+    /* Backdrop — rendered via portal so it escapes any framer-motion transform context */
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-0 sm:px-4"
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-0 sm:px-4"
+      style={{ margin: 0 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       {/* Sheet */}
-      <div className="relative w-full sm:max-w-md max-w-[100vw] bg-background rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden">
+      <div
+        className="relative w-full sm:max-w-md bg-background rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden"
+        style={{ maxWidth: '100vw' }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0">
           <div className="flex items-center gap-2">
@@ -208,4 +213,6 @@ export default function SubscriptionModal({ open, onClose }: Props) {
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
