@@ -126,31 +126,40 @@ function StepStepper({ steps, current, onSelect }: { steps: string[]; current: n
 export default function CVBuilderPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const meta = user?.user_metadata ?? {};
-  const lastCVData = meta.last_cv_data;
-  const lastCVPdfUrl = meta.last_cv_pdf_url as string | undefined;
-  const lastCVGeneratedAt = meta.last_cv_generated_at as string | undefined;
-  const cvCount = (meta.cv_count as number) ?? 0;
-  const isFree = !meta.subscription_plan || meta.subscription_plan === 'free';
-  const FREE_LIMIT = 2;
-  const buildsLeft = Math.max(0, FREE_LIMIT - cvCount);
 
-  const [showBuilder, setShowBuilder] = useState(!lastCVData);
+  // Always fetch fresh metadata from the Supabase server on mount.
+  // user?.user_metadata comes from the local session cache and may be stale
+  // after navigating away and returning, causing the banner to disappear.
+  const [freshMeta, setFreshMeta] = useState<Record<string, unknown>>({});
+  const [metaLoaded, setMetaLoaded] = useState(false);
+
+  const refreshMeta = async (): Promise<Record<string, unknown>> => {
+    const { data: { user: u } } = await supabase.auth.getUser();
+    const m = (u?.user_metadata ?? {}) as Record<string, unknown>;
+    setFreshMeta(m);
+    return m;
+  };
+
+  useEffect(() => {
+    refreshMeta().then(m => {
+      setMetaLoaded(true);
+      if (!m.last_cv_data) setShowBuilder(true);
+    });
+  }, []);
+
+  const lastCVData      = freshMeta.last_cv_data;
+  const lastCVPdfUrl    = freshMeta.last_cv_pdf_url as string | undefined;
+  const lastCVGeneratedAt = freshMeta.last_cv_generated_at as string | undefined;
+  const cvCount         = (freshMeta.cv_count as number) ?? 0;
+  const isFree          = !freshMeta.subscription_plan || freshMeta.subscription_plan === 'free';
+  const FREE_LIMIT      = 2;
+  const buildsLeft      = Math.max(0, FREE_LIMIT - cvCount);
+
+  const [showBuilder, setShowBuilder] = useState(false);
   const [cvType, setCvType] = useState<CVType | null>(null);
   const [step, setStep] = useState(0);
   const [data, setData] = useState<CVData>(defaultData('educator'));
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
-
-  // Fix: useState(!lastCVData) runs before auth resolves, so showBuilder may be
-  // incorrectly set to true. Correct it once the user object is first available.
-  const [builderInitialized, setBuilderInitialized] = useState(!!user);
-  useEffect(() => {
-    if (!builderInitialized && user) {
-      const savedCV = user.user_metadata?.last_cv_data;
-      if (savedCV) setShowBuilder(false);
-      setBuilderInitialized(true);
-    }
-  }, [user, builderInitialized]);
 
   useEffect(() => {
     if (!user) return;
@@ -180,6 +189,24 @@ export default function CVBuilderPage() {
       navigate(-1);
     }
   };
+
+  /* ── Meta loading gate ───────────────────────────────────── */
+  if (!metaLoaded) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center gap-2 px-4 pt-4 pb-5">
+          <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
+            <ArrowLeft className="w-5 h-5 text-foreground" />
+          </button>
+          <FileText className="w-5 h-5 text-primary" />
+          <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
+        </div>
+        <div className="flex items-center justify-center py-16">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
 
   /* ── ID verification gate ────────────────────────────────── */
   if (isVerified === null) {
@@ -320,6 +347,16 @@ export default function CVBuilderPage() {
     setShowBuilder(true);
   };
 
+  /* ── After CV generated — refresh meta & return to banner ── */
+  const handleCVGenerated = async () => {
+    const m = await refreshMeta();
+    if (m.last_cv_data) {
+      setCvType(null);
+      setStep(0);
+      setShowBuilder(false);
+    }
+  };
+
   /* ── Last CV state ────────────────────────────────────────── */
   if (!showBuilder && lastCVData) {
     return (
@@ -414,7 +451,7 @@ export default function CVBuilderPage() {
                   {step === 4 && <CVStepReferences cvType={cvType} data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
                   {step === 5 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} />}
                   {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} />}
-                  {step === 7 && <CVStepReview data={data} onGenerated={() => {}} />}
+                  {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} />}
                 </motion.div>
               </AnimatePresence>
             </div>
