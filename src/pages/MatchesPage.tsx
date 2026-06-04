@@ -77,8 +77,11 @@ export default function MatchesPage() {
       const scored = all
         .map(e => {
           let score = 0;
-          const wantsMyProvince    = e.preferred_provinces?.includes(mine.current_province);
-          const iWantTheirProvince = mine.preferred_provinces?.includes(e.current_province);
+          // "Any" in preferred_provinces means the educator is willing to go anywhere
+          const wantsMyProvince    = e.preferred_provinces?.includes('Any') ||
+                                     e.preferred_provinces?.includes(mine.current_province ?? '');
+          const iWantTheirProvince = mine.preferred_provinces?.includes('Any') ||
+                                     mine.preferred_provinces?.includes(e.current_province ?? '');
           if (wantsMyProvince)     score += 40;
           if (iWantTheirProvince)  score += 40;
           const sharedSubjects = (e.subjects || []).filter(

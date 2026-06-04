@@ -31,8 +31,13 @@ interface MyProfile {
 /** Same scoring formula used by MatchesPage — capped at 100. */
 function computeMatchScore(e: Educator, mine: MyProfile): number {
   let score = 0;
-  if (mine.current_province && e.preferred_provinces?.includes(mine.current_province)) score += 40;
-  if (e.current_province && mine.preferred_provinces?.includes(e.current_province))    score += 40;
+  // "Any" in preferred_provinces means willing to go anywhere
+  const wantsMyProvince    = e.preferred_provinces?.includes('Any') ||
+                             (mine.current_province ? e.preferred_provinces?.includes(mine.current_province) : false);
+  const iWantTheirProvince = mine.preferred_provinces?.includes('Any') ||
+                             (e.current_province ? mine.preferred_provinces?.includes(e.current_province) : false);
+  if (wantsMyProvince)    score += 40;
+  if (iWantTheirProvince) score += 40;
   const shared = (e.subjects || []).filter(s => (mine.subjects || []).includes(s)).length;
   score += shared * 10;
   if (e.phase && e.phase === mine.phase) score += 10;
