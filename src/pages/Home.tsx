@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Users, Flame, MapPin, ArrowRight, Search } from 'lucide-react';
+import { Users, Flame, MapPin, ArrowRight, Search, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/AuthContext';
+import { calculateMatch, MyProfile } from '@/components/search/EducatorCard';
 
 interface Educator {
   id: string;
@@ -14,6 +16,8 @@ interface Educator {
   subjects: string[];
   is_actively_looking: boolean;
   avatar_url?: string;
+  user_id?: string;
+  town?: string;
 }
 
 interface Stats {
@@ -23,43 +27,102 @@ interface Stats {
 }
 
 export default function Home() {
+  const { user } = useAuth();
   const [stats, setStats] = useState<Stats>({ educators: 0, active: 0, provinces: 0 });
   const [activeEducators, setActiveEducators] = useState<Educator[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isPro, setIsPro] = useState(false);
+  const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
 
+  /* ── Subscription check + own profile ────────────────────────── */
+  useEffect(() => {
+    if (!user) return;
+
+    const metaPlan = user.user_metadata?.subscription_plan as string | undefined;
+    const metaEnd  = user.user_metadata?.subscription_end  as string | undefined;
+    if (metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date()) {
+      setIsPro(true);
+    } else {
+      supabase
+        .from('profiles')
+        .select('subscription_plan, subscription_end')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          setIsPro(
+            !!data?.subscription_plan &&
+            data.subscription_plan !== 'free' &&
+            !!data.subscription_end &&
+            new Date(data.subscription_end) > new Date()
+          );
+        });
+    }
+
+    supabase
+      .from('educators')
+      .select('phase, current_province, town, subjects')
+      .eq('user_id', user.id)
+      .limit(1)
+      .then(({ data }) => setMyProfile(data?.[0] ?? null));
+  }, [user]);
+
+  /* ── Data fetch ──────────────────────────────────────────────── */
   useEffect(() => {
     const fetchData = async () => {
+      const educatorOnly = 'profile_type.eq.educator,profile_type.is.null';
+
       const [{ count: total }, { count: active }, { data: educators }] = await Promise.all([
-        supabase.from('educators').select('*', { count: 'exact', head: true }),
-        supabase.from('educators').select('*', { count: 'exact', head: true }).eq('is_actively_looking', true),
-        supabase.from('educators').select('*').eq('is_actively_looking', true).limit(10),
+        supabase
+          .from('educators')
+          .select('*', { count: 'exact', head: true })
+          .or(educatorOnly),
+        supabase
+          .from('educators')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_actively_looking', true)
+          .or(educatorOnly),
+        supabase
+          .from('educators')
+          .select('*')
+          .eq('is_actively_looking', true)
+          .or(educatorOnly)
+          .limit(50),
       ]);
 
       const provinceSet = new Set<string>();
       educators?.forEach(e => e.current_province && provinceSet.add(e.current_province));
 
-      setStats({
-        educators: total || 0,
-        active: active || 0,
-        provinces: provinceSet.size,
-      });
+      setStats({ educators: total || 0, active: active || 0, provinces: provinceSet.size });
       setActiveEducators(educators || []);
       setLoading(false);
     };
     fetchData();
   }, []);
 
+  /* ── Computed list: exclude own card + gate 85–100% for free users ── */
+  const visibleEducators = activeEducators
+    .filter(e => e.user_id !== user?.id)
+    .filter(e => {
+      if (isPro || !myProfile) return true;
+      return calculateMatch(myProfile, {
+        phase: e.phase,
+        current_province: e.current_province,
+        town: e.town,
+        subjects: e.subjects,
+      }) < 85;
+    })
+    .slice(0, 10);
+
   return (
     <div className="px-4 max-w-2xl mx-auto">
-      {/* Sub-heading */}
       <p className="text-sm text-muted-foreground pt-6 pb-5">Find your exchange partner</p>
 
       {/* Stats cards */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { icon: Users, value: stats.educators, label: 'Educators', color: 'text-primary', bg: 'bg-primary/10' },
-          { icon: Flame, value: stats.active, label: 'Active', color: 'text-amber-500', bg: 'bg-amber-50' },
-          { icon: MapPin, value: stats.provinces, label: 'Provinces', color: 'text-slate-500', bg: 'bg-slate-100' },
+          { icon: Users,  value: stats.educators, label: 'Educators', color: 'text-primary',   bg: 'bg-primary/10' },
+          { icon: Flame,  value: stats.active,    label: 'Active',    color: 'text-amber-500', bg: 'bg-amber-50'   },
+          { icon: MapPin, value: stats.provinces, label: 'Provinces', color: 'text-slate-500', bg: 'bg-slate-100'  },
         ].map(({ icon: Icon, value, label, color, bg }) => (
           <motion.div
             key={label}
@@ -92,7 +155,7 @@ export default function Home() {
           <div className="flex justify-center py-10">
             <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
           </div>
-        ) : activeEducators.length === 0 ? (
+        ) : visibleEducators.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Flame className="w-10 h-10 mx-auto mb-3 opacity-20" strokeWidth={1.5} />
             <p className="text-sm font-medium">No educators are actively looking yet.</p>
@@ -100,7 +163,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="space-y-2">
-            {activeEducators.map((ed, i) => (
+            {visibleEducators.map((ed, i) => (
               <motion.div
                 key={ed.id}
                 initial={{ opacity: 0, x: -12 }}
@@ -119,9 +182,20 @@ export default function Home() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm text-foreground truncate">{ed.full_name}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {ed.current_province} → {ed.preferred_provinces?.join(', ') || 'Any'}
-                    </p>
+
+                    {/* Current province — gated for free users */}
+                    {isPro ? (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {ed.current_province} → {ed.preferred_provinces?.join(', ') || 'Any'}
+                      </p>
+                    ) : (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Lock className="w-3 h-3 shrink-0" />
+                        <span className="italic truncate">Province hidden</span>
+                        <span className="shrink-0">→ {ed.preferred_provinces?.join(', ') || 'Any'}</span>
+                      </div>
+                    )}
+
                     <p className="text-xs text-muted-foreground truncate">
                       {ed.phase} · {ed.subjects?.slice(0, 2).join(', ')}
                     </p>
@@ -134,7 +208,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* CTA Banner — bottom of page, below the educator list */}
+      {/* CTA Banner */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}

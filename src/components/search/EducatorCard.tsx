@@ -117,23 +117,29 @@ export default function EducatorCard({ educator, myProfile, isPro = false, index
           </div>
         </div>
 
-        {/* Match % ring + chevron — visible to all users */}
+        {/* Match % ring — Pro only; free users see a lock */}
         <div className="flex flex-col items-center gap-1.5 shrink-0">
-          <div className="relative w-9 h-9">
-            <svg className="w-9 h-9 -rotate-90" viewBox="0 0 36 36">
-              <circle cx="18" cy="18" r="15" fill="none" stroke="hsl(var(--border))" strokeWidth="2.5" />
-              <circle
-                cx="18" cy="18" r="15" fill="none"
-                stroke="hsl(var(--primary))"
-                strokeWidth="2.5"
-                strokeDasharray={`${(match / 100) * 94.2} 94.2`}
-                strokeLinecap="round"
-              />
-            </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-primary leading-none">
-              {match}%
-            </span>
-          </div>
+          {isPro ? (
+            <div className="relative w-9 h-9">
+              <svg className="w-9 h-9 -rotate-90" viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="15" fill="none" stroke="hsl(var(--border))" strokeWidth="2.5" />
+                <circle
+                  cx="18" cy="18" r="15" fill="none"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth="2.5"
+                  strokeDasharray={`${(match / 100) * 94.2} 94.2`}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-primary leading-none">
+                {match}%
+              </span>
+            </div>
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-muted border border-border flex items-center justify-center">
+              <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+            </div>
+          )}
           <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
         </div>
       </Link>
