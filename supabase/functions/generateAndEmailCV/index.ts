@@ -28,7 +28,11 @@ serve(async (req) => {
 
     const recipientEmail = body.personal?.email;
     const recipientName  = body.personal?.full_name || 'Educator';
-    const pdfUrl         = body._pdf_url_override;
+    const rawUrl         = body._pdf_url_override;
+    // treat empty string the same as missing
+    const pdfUrl = typeof rawUrl === 'string' && rawUrl.trim().length > 0
+      ? rawUrl.trim()
+      : undefined;
 
     if (!recipientEmail) {
       return new Response(
@@ -83,23 +87,35 @@ serve(async (req) => {
 });
 
 function buildEmailHTML(name: string, pdfUrl?: string): string {
-  const downloadSection = pdfUrl
+  const bodyContent = pdfUrl
     ? `
-      <div style="text-align:center;margin:32px 0;">
+      <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;">
+        Hi ${name}, your CV is ready! 🎉
+      </h1>
+      <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.6;">
+        Your professional educator CV has been successfully generated through the
+        Crosssa CV Builder. Click the button below to download your PDF.
+      </p>
+      <div style="text-align:center;margin:0 0 16px;">
         <a href="${pdfUrl}"
            style="display:inline-block;background:#16a34a;color:#fff;font-size:15px;
                   font-weight:600;text-decoration:none;padding:14px 36px;
                   border-radius:10px;letter-spacing:0.3px;">
           ⬇ Download My CV
         </a>
-        <p style="margin-top:12px;font-size:12px;color:#9ca3af;">
-          Or copy this link into your browser:<br/>
-          <a href="${pdfUrl}" style="color:#16a34a;word-break:break-all;">${pdfUrl}</a>
-        </p>
-      </div>`
-    : `<p style="text-align:center;color:#6b7280;margin:24px 0;">
-         Your CV has been generated. Log in to Crosssa to download it.
-       </p>`;
+      </div>
+      <p style="text-align:center;font-size:12px;color:#9ca3af;margin:0 0 28px;">
+        Or copy this link into your browser:<br/>
+        <a href="${pdfUrl}" style="color:#16a34a;word-break:break-all;">${pdfUrl}</a>
+      </p>`
+    : `
+      <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;">
+        Hi ${name}, your CV has been generated!
+      </h1>
+      <p style="margin:0 0 28px;font-size:14px;color:#374151;line-height:1.6;">
+        Your professional educator CV was successfully created through the Crosssa CV Builder.
+        Log in to Crosssa to download your PDF.
+      </p>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -131,21 +147,8 @@ function buildEmailHTML(name: string, pdfUrl?: string): string {
           <!-- Body -->
           <tr>
             <td style="padding:36px 36px 28px;">
-              <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;">
-                Hi ${name}, your CV is ready! 🎉
-              </h1>
-              <p style="margin:0 0 8px;font-size:14px;color:#374151;line-height:1.6;">
-                Your professional educator CV has been successfully generated through the
-                Crosssa CV Builder. Click the button below to download your PDF.
-              </p>
-              <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.6;">
-                Keep this email — you can re-download your CV at any time using the link below.
-              </p>
-
-              ${downloadSection}
-
-              <hr style="border:none;border-top:1px solid #e5e7eb;margin:28px 0;"/>
-
+              ${bodyContent}
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:4px 0 24px;"/>
               <p style="margin:0 0 6px;font-size:13px;color:#6b7280;">
                 <strong style="color:#374151;">Didn't request this?</strong><br/>
                 You can safely ignore this email — no action is required.
