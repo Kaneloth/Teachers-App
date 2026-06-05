@@ -222,7 +222,7 @@ export default function Onboarding() {
           {step === 0 && (
             <>
               <Field label="Full Name"><Input value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Thabo Pretorius" className="rounded-xl" /></Field>
-              <Field label="SACE Number (optional)"><Input value={form.sace_number} onChange={e => set('sace_number', e.target.value)} placeholder="e.g. 20012345" className="rounded-xl" /></Field>
+              <Field label="SACE Number *"><Input value={form.sace_number} onChange={e => set('sace_number', e.target.value)} placeholder="e.g. 20012345" className="rounded-xl" /></Field>
               <Field label="Bio / Professional Summary">
                 <Textarea value={form.bio} onChange={e => set('bio', e.target.value)} placeholder="Tell other educators about yourself..." rows={3} className="rounded-xl" />
               </Field>
@@ -300,7 +300,16 @@ export default function Onboarding() {
             </Button>
           )}
           {step < EDU_STEPS.length - 1 ? (
-            <Button onClick={() => setStep(p => p + 1)} className="flex-1 rounded-xl gap-2">
+            <Button
+              onClick={() => {
+                if (step === 0 && !form.sace_number.trim()) {
+                  toast.error('SACE number is required to continue.');
+                  return;
+                }
+                setStep(p => p + 1);
+              }}
+              className="flex-1 rounded-xl gap-2"
+            >
               Next <ChevronRight className="w-4 h-4" />
             </Button>
           ) : (

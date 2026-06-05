@@ -566,6 +566,10 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     if (!user) return;
+    if (isEducator && !profile.sace_number.trim()) {
+      toast.error('SACE number is required for educator profiles.');
+      return;
+    }
     setSaving(true);
     try {
       const { id: _id, is_sace_verified: _sv, ...rest } = profile;
@@ -775,8 +779,8 @@ export default function ProfilePage() {
             </div>
           </Field>
           {isEducator && (
-            <Field label="SACE Number">
-              <Input value={profile.sace_number} onChange={e => set('sace_number', e.target.value)} placeholder="e.g. 123456" className="rounded-xl" />
+            <Field label="SACE Number *">
+              <Input value={profile.sace_number} onChange={e => set('sace_number', e.target.value)} placeholder="e.g. 20012345" className="rounded-xl" />
             </Field>
           )}
           <Field label="Bio">
