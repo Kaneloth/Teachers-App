@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal, Lock, Zap } from 'lucide-react';
 
 const PROVINCES = ['Gauteng', 'KwaZulu-Natal', 'Western Cape', 'Eastern Cape', 'Mpumalanga', 'Limpopo', 'North West', 'Free State', 'Northern Cape'];
 const SUBJECTS = [
@@ -18,6 +18,8 @@ const SUBJECTS = [
 ];
 const PHASES = ['Foundation', 'Intermediate', 'Senior', 'FET'];
 
+export { PROVINCES };
+
 export interface Filters {
   province: string;
   subject: string;
@@ -28,9 +30,11 @@ export interface Filters {
 interface Props {
   filters: Filters;
   onFiltersChange: (f: Filters) => void;
+  isPro?: boolean;
+  onProGate?: () => void;
 }
 
-export default function SearchFilters({ filters, onFiltersChange }: Props) {
+export default function SearchFilters({ filters, onFiltersChange, isPro = false, onProGate }: Props) {
   const [open, setOpen] = useState(false);
   const [local, setLocal] = useState<Filters>(filters);
 
@@ -59,13 +63,32 @@ export default function SearchFilters({ filters, onFiltersChange }: Props) {
           <Button variant="ghost" size="sm" onClick={handleReset} className="text-muted-foreground">Reset</Button>
         </SheetHeader>
         <div className="space-y-6 pb-6">
+
+          {/* Province — Pro only */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Province</Label>
-            <Select value={local.province} onValueChange={v => setLocal(p => ({ ...p, province: v }))}>
-              <SelectTrigger><SelectValue placeholder="All provinces" /></SelectTrigger>
-              <SelectContent>{PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-            </Select>
+            <div className="flex items-center gap-1.5">
+              <Label className="text-sm font-medium">Province</Label>
+              {!isPro && <Lock className="w-3 h-3 text-muted-foreground" />}
+            </div>
+            {isPro ? (
+              <Select value={local.province} onValueChange={v => setLocal(p => ({ ...p, province: v }))}>
+                <SelectTrigger><SelectValue placeholder="All provinces" /></SelectTrigger>
+                <SelectContent>{PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+              </Select>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setOpen(false); onProGate?.(); }}
+                className="w-full flex items-center justify-between px-3 h-10 rounded-md border border-border bg-muted/40 text-sm text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <span>All provinces</span>
+                <div className="flex items-center gap-1.5 text-primary text-xs font-semibold">
+                  <Zap className="w-3 h-3" /> Pro
+                </div>
+              </button>
+            )}
           </div>
+
           <div className="space-y-2">
             <Label className="text-sm font-medium">Subject (CAPS)</Label>
             <Select value={local.subject} onValueChange={v => setLocal(p => ({ ...p, subject: v }))}>

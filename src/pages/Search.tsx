@@ -5,7 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import EducatorCard, { calculateMatch, MyProfile } from '@/components/search/EducatorCard';
-import SearchFilters, { Filters } from '@/components/search/SearchFilters';
+import SearchFilters, { Filters, PROVINCES } from '@/components/search/SearchFilters';
+import SubscriptionModal from '@/components/SubscriptionModal';
 
 interface Educator {
   id: string;
@@ -31,12 +32,12 @@ export default function Search() {
   const [filters, setFilters] = useState<Filters>({ province: '', subject: '', phase: '', activeOnly: false });
   const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
   const [isPro, setIsPro] = useState(false);
+  const [showSubModal, setShowSubModal] = useState(false);
 
   /* ── Fetch current user's profile + subscription status ─────── */
   useEffect(() => {
     if (!user) return;
 
-    // Subscription: check user_metadata first, then profiles table
     const metaPlan = user.user_metadata?.subscription_plan as string | undefined;
     const metaEnd  = user.user_metadata?.subscription_end  as string | undefined;
     if (metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date()) {
@@ -57,7 +58,6 @@ export default function Search() {
         });
     }
 
-    // Educator profile for scoring
     supabase
       .from('educators')
       .select('phase, current_province, town, subjects')
@@ -68,18 +68,29 @@ export default function Search() {
       });
   }, [user]);
 
+  /* ── Province-name detection in search bar ───────────────────── */
+  const handleQueryChange = (value: string) => {
+    if (!isPro) {
+      const lower = value.toLowerCase().trim();
+      const matchesProvince = PROVINCES.some(p => p.toLowerCase().startsWith(lower) && lower.length >= 3)
+        || PROVINCES.some(p => p.toLowerCase() === lower);
+      if (matchesProvince) {
+        setShowSubModal(true);
+        return;
+      }
+    }
+    setQuery(value);
+  };
+
   /* ── Fetch educators ────────────────────────────────────────── */
   const fetchEducators = useCallback(async () => {
     setLoading(true);
     let q = supabase.from('educators').select('*');
 
-    // Always exclude the current user's own card
     if (user?.id) q = q.neq('user_id', user.id);
-
-    // Only show educator profiles (exclude general users + treat legacy null rows as educators)
     q = q.or('profile_type.eq.educator,profile_type.is.null');
 
-    if (filters.province)   q = q.eq('current_province', filters.province);
+    if (isPro && filters.province) q = q.eq('current_province', filters.province);
     if (filters.phase)      q = q.eq('phase', filters.phase);
     if (filters.activeOnly) q = q.eq('is_actively_looking', true);
     if (filters.subject)    q = q.contains('subjects', [filters.subject]);
@@ -129,7 +140,7 @@ export default function Search() {
 
     setEducators(results);
     setLoading(false);
-  }, [filters, query, user, myProfile]);
+  }, [filters, query, user, myProfile, isPro]);
 
   useEffect(() => { fetchEducators(); }, [fetchEducators]);
 
@@ -161,12 +172,17 @@ export default function Search() {
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={e => handleQueryChange(e.target.value)}
             placeholder="Search educators..."
             className="pl-9 rounded-xl bg-muted/40 border-border"
           />
         </div>
-        <SearchFilters filters={filters} onFiltersChange={setFilters} />
+        <SearchFilters
+          filters={filters}
+          onFiltersChange={setFilters}
+          isPro={isPro}
+          onProGate={() => setShowSubModal(true)}
+        />
       </div>
 
       {/* Results */}
@@ -198,6 +214,8 @@ export default function Search() {
           </div>
         </>
       )}
+
+      <SubscriptionModal open={showSubModal} onClose={() => setShowSubModal(false)} />
     </div>
   );
 }
