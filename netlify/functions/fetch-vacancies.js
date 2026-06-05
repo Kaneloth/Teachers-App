@@ -1,18 +1,19 @@
 /**
- * fetch-vacancies.js  —  v4
+ * fetch-vacancies.js  —  v5
  *
- * Sources (in priority order):
+ * Sources:
  *   1. Adzuna SA API  — proper REST API, free tier, direct apply links.
  *                       Requires ADZUNA_APP_ID + ADZUNA_APP_KEY env vars.
  *                       Sign up free at https://developer.adzuna.com
- *   2. Careers24      — scrapes multiple listing pages, filters for
- *                       education posts. No API key needed. Results vary.
+ *   2. Careers24      — scrapes multiple category listing pages.
+ *                       No API key needed. Now covers all job categories.
  *
- * Why the previous sources failed:
- *   - Indeed:   Cloudflare bot detection — returns a "Security Check" page
- *   - DPSA:     Their URL changed — returns 404
- *   - Careers24 category URLs: category filter is client-side JS only;
- *               server returns all jobs regardless of category slug.
+ * v5 changes vs v4:
+ *   - Expanded to fetch ALL job categories (not just education).
+ *   - Added detectCategory() to auto-tag each job with a job_category.
+ *   - Adzuna now runs 4 broad search queries covering all sectors.
+ *   - Careers24 now fetches from 10 category pages (education + others).
+ *   - Education filter removed from Careers24 — all valid jobs are kept.
  *
  * Trigger: POST /.netlify/functions/fetch-vacancies
  * Auth:    Header  x-admin-secret: <ADMIN_SECRET>
@@ -34,8 +35,6 @@ const CORS_HEADERS = {
 /* ─── Supabase upsert ───────────────────────────────────────────────────── */
 async function supabaseUpsert(rows) {
   if (!rows.length) return;
-  // ?on_conflict=reference is required — without it Supabase does a plain
-  // INSERT and the unique constraint on `reference` throws a 409.
   const res = await fetch(`${process.env.VITE_SUPABASE_URL}/rest/v1/vacancies?on_conflict=reference`, {
     method: 'POST',
     headers: {
@@ -49,7 +48,7 @@ async function supabaseUpsert(rows) {
   if (!res.ok) throw new Error(`Supabase upsert failed (${res.status}): ${await res.text()}`);
 }
 
-/* ─── HTTP helper (8 s, browser-like headers) ───────────────────────────── */
+/* ─── HTTP helper ────────────────────────────────────────────────────────── */
 async function fetchUrl(url, opts = {}) {
   const res = await fetch(url, {
     headers: {
@@ -64,7 +63,7 @@ async function fetchUrl(url, opts = {}) {
   return res.text();
 }
 
-/* ─── Helpers ───────────────────────────────────────────────────────────── */
+/* ─── Text helpers ───────────────────────────────────────────────────────── */
 const strip = (s = '') =>
   s.replace(/<[^>]+>/g, ' ')
    .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&nbsp;/g,' ')
@@ -82,6 +81,7 @@ function parseDate(s) {
   return null;
 }
 
+/* ─── Province normalisation ─────────────────────────────────────────────── */
 const PROV = {
   gauteng:'Gauteng','kwazulu-natal':'KwaZulu-Natal',kzn:'KwaZulu-Natal',kwazulu:'KwaZulu-Natal',
   'western cape':'Western Cape','eastern cape':'Eastern Cape',mpumalanga:'Mpumalanga',limpopo:'Limpopo',
@@ -89,45 +89,62 @@ const PROV = {
 };
 const normProv = (s='') => { const l=s.toLowerCase(); for(const[k,v]of Object.entries(PROV)){if(l.includes(k))return v;} return s.trim()||null; };
 
+/* ─── Education metadata helpers ─────────────────────────────────────────── */
 const SUBJECTS = ['Mathematics','Mathematical Literacy','Physical Sciences','Life Sciences','English','Afrikaans','History','Geography','Business Studies','Accounting','Economics','Life Orientation','Computer Applications Technology','Information Technology','Agricultural Sciences','Natural Sciences','Social Sciences','Technology','Visual Arts','Music','Dramatic Arts','Tourism','Hospitality Studies','Engineering Graphics'];
 const getSubjects = (t='') => SUBJECTS.filter(s => t.toLowerCase().includes(s.toLowerCase()));
-
 const getPostType = (title='',dept='') => { const t=(title+' '+dept).toLowerCase(); if(t.includes('district'))return'District'; if(t.includes('circuit'))return'Circuit'; if(t.includes('provincial'))return'Provincial'; if(t.includes('national')||t.includes('dbe'))return'National'; return'School-Based'; };
 const getPhase = (t='') => { const l=t.toLowerCase(); if(l.includes('foundation')||/grade\s*[r123]\b/i.test(t))return'Foundation Phase'; if(l.includes('intermediate')||/grade\s*[456]\b/i.test(t))return'Intermediate Phase'; if(l.includes('senior')||/grade\s*[789]\b/i.test(t))return'Senior Phase'; if(l.includes('fet')||l.includes('further education')||/grade\s*1[012]\b/i.test(t))return'FET Phase'; return null; };
 const getPostLevel = (t='') => { const m=t.match(/post\s*level\s*(\d)/i)||t.match(/\bpl\s*(\d)/i); return m?m[1]:null; };
 
-// Education filter — broad enough to catch lecturer/professor/trainer roles
-const isEdu = (t='') => /educat|teacher|school|principal|tutor|grade|phase|curriculum|sace|persal|lecturer|professor|academic|trainer|learning support|head of department|hod|deputy head|department head/i.test(t);
+/* ─── Job category detection ─────────────────────────────────────────────── */
+const CATEGORY_PATTERNS = [
+  ['Education',    /educat|teacher|school|principal|tutor|\bgrade\s*[r\d]|phase\b|curriculum|sace|persal|lecturer|professor|academic|trainer|learning support|head of department|\bhod\b|deputy head|classroom|teaching/i],
+  ['Technology',   /\bdeveloper\b|software|programmer|full.?stack|front.?end|back.?end|devops|cloud|cyber|network admin|systems admin|web dev|\bIT\b|information technology|\bQA\b|scrum|agile|data engineer|data scientist|machine learning|artificial intelligence|javascript|python|java\b|\.net\b|react\b|angular|node\.?js/i],
+  ['Finance',      /accountant|financial manager|auditor|bookkeeper|\btax\b|payroll|actuari|banking|investment|treasury|credit analyst|CFO|FD \b|accounts payable|accounts receivable|financial controller/i],
+  ['Healthcare',   /\bnurse\b|\bdoctor\b|medical|\bhealth\b|pharmacy|clinical|therapist|physiother|occupational ther|radiograph|dental|matron|\bward\b|hospital|\bparamedic\b|dietitian|social worker|counsell/i],
+  ['Engineering',  /mechanical eng|electrical eng|civil eng|structural eng|industrial eng|chemical eng|process eng|instrumentation|fitter|welder|boilermaker|artisan|\btechnician\b|draughtsman|construction manager|mining eng|\bHVAC\b|project eng/i],
+  ['Retail',       /retail|cashier|\bshop\b|\bstore\b|sales rep|sales consultant|merchandis|inventory control|stock control|buyer\b|procurement|fashion|clothing|apparel|pos system|point of sale/i],
+  ['Admin',        /administrator|receptionist|secretary|office manager|office admin|data entry|coordinator|executive assistant|personal assistant|\bPA\b|filing clerk|switchboard|front desk/i],
+  ['Hospitality',  /hotel|restaurant|\bchef\b|catering|tourism|hospitality|kitchen manager|food and beverage|housekeeping|front office|concierge|lodge|game reserve/i],
+  ['Logistics',    /logistics|supply chain|warehouse|truck driver|transport|delivery driver|courier|distribution|dispatch|fleet|forklift|freight/i],
+];
+
+/**
+ * Returns the best-matching category for a job, or 'Other' if none match.
+ * Checks Education first so teaching posts always win even if they overlap
+ * with a generic pattern (e.g. "school administrator" → Education).
+ */
+function detectCategory(title = '', description = '') {
+  const text = title + ' ' + description;
+  for (const [cat, pattern] of CATEGORY_PATTERNS) {
+    if (pattern.test(text)) return cat;
+  }
+  return 'Other';
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SOURCE 1 — Adzuna SA Job API
-   Free tier at https://developer.adzuna.com  (takes ~2 min to sign up)
-   Returns structured JSON with a direct redirect_url per vacancy.
-   This is the most reliable source — no bot blocking, proper pagination,
-   and the education category filter actually works.
+   4 broad queries cover all major sectors. Education query goes first so
+   educator-specific metadata (phase, subjects) is applied correctly.
    ═══════════════════════════════════════════════════════════════════════════ */
 async function fetchAdzuna(log) {
   const appId  = process.env.ADZUNA_APP_ID;
-  // Accept both ADZUNA_APP_KEY and ADZUNA_API_KEY (Netlify env var name varies)
   const appKey = process.env.ADZUNA_APP_KEY || process.env.ADZUNA_API_KEY;
 
   if (!appId || !appKey) {
-    log.push('Adzuna: skipped — ADZUNA_APP_ID / ADZUNA_APP_KEY not set in Netlify env vars. Sign up free at https://developer.adzuna.com to enable this source.');
+    log.push('Adzuna: skipped — ADZUNA_APP_ID / ADZUNA_APP_KEY not set. Sign up free at https://developer.adzuna.com');
     return [];
   }
 
-  const results = [];
-  // Three separate keyword searches — no category filter (SA education category
-  // tag varies; we rely on the search terms to target education posts).
-  // content_type is NOT a valid Adzuna param — removed.
+  // 4 broad queries that collectively cover all major sectors.
+  // Keep to 4 to stay within the Netlify function timeout even with 1.1 s gaps.
   const queries = [
-    'educator teacher school',
-    'school principal deputy principal',
-    'lecturer professor academic',
+    'educator teacher school principal lecturer',              // Education
+    'software developer engineer IT programmer analyst',       // Technology + Engineering
+    'accountant finance nurse medical admin retail sales',     // Finance + Healthcare + Retail + Admin
+    'manager director coordinator driver logistics hospitality', // Management + Logistics + Hospitality
   ];
 
-  // Send queries sequentially with a 1.1 s gap — Adzuna free tier allows
-  // ~1 request/second; firing them in parallel triggers HTTP 429.
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const settled = [];
   for (let i = 0; i < queries.length; i++) {
@@ -143,22 +160,21 @@ async function fetchAdzuna(log) {
     try {
       const r = await fetch(
         `https://api.adzuna.com/v1/api/jobs/za/search/1?${params}`,
-        {
-          headers: { Accept: 'application/json' },
-          signal: AbortSignal.timeout(10000),
-        }
+        { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10000) }
       );
       if (!r.ok) throw new Error(`Adzuna HTTP ${r.status} for query "${what}"`);
-      settled.push({ status: 'fulfilled', value: await r.json() });
+      settled.push({ status: 'fulfilled', value: await r.json(), query: what });
     } catch (err) {
-      settled.push({ status: 'rejected', reason: err });
+      settled.push({ status: 'rejected', reason: err, query: what });
     }
   }
 
-  const seen = new Set();
+  const seen    = new Set();
+  const results = [];
+
   for (const r of settled) {
     if (r.status !== 'fulfilled') {
-      log.push(`Adzuna query error: ${r.reason?.message}`);
+      log.push(`Adzuna query error ("${r.query}"): ${r.reason?.message}`);
       continue;
     }
     const raw = r.value;
@@ -167,20 +183,20 @@ async function fetchAdzuna(log) {
       continue;
     }
     const jobs = raw?.results || [];
-    log.push(`Adzuna: query returned ${jobs.length} raw results`);
+    log.push(`Adzuna query "${r.query}": ${jobs.length} results`);
+
     for (const job of jobs) {
       const id = job.id;
       if (!id || seen.has(id)) continue;
       seen.add(id);
 
-      const title   = strip(job.title || '');
-      const company = strip(job.company?.display_name || '');
-      // We already searched for education terms — skip the isEdu filter here
-      // so we don't discard valid SA teaching posts with unusual titles.
+      const title    = strip(job.title || '');
+      const company  = strip(job.company?.display_name || '');
       if (!title) continue;
 
       const location = [job.location?.display_name, job.location?.area?.[2]].filter(Boolean).join(', ');
       const combined = title + ' ' + company + ' ' + strip(job.description || '');
+      const cat      = detectCategory(title, strip(job.description || ''));
 
       results.push({
         title:           title.slice(0, 200),
@@ -188,43 +204,52 @@ async function fetchAdzuna(log) {
         school:          company.slice(0, 200),
         province:        normProv(location),
         district:        null,
-        phase:           getPhase(combined),
-        post_type:       getPostType(title, company),
-        subjects:        getSubjects(combined).length ? getSubjects(combined) : null,
-        post_level:      getPostLevel(combined),
+        phase:           cat === 'Education' ? getPhase(combined)    : null,
+        post_type:       cat === 'Education' ? getPostType(title, company) : null,
+        subjects:        cat === 'Education' && getSubjects(combined).length ? getSubjects(combined) : null,
+        post_level:      cat === 'Education' ? getPostLevel(combined) : null,
         description:     strip(job.description || '').slice(0, 600) || null,
         closing_date:    null,
         source:          'Adzuna',
         reference:       `adzuna-${id}`,
-        application_url: job.redirect_url || null,  // ← direct apply link from Adzuna
+        application_url: job.redirect_url || null,
+        job_category:    cat,
       });
     }
   }
 
-  log.push(`Adzuna: ${results.length} education posts fetched`);
+  log.push(`Adzuna: ${results.length} total posts fetched across all categories`);
   return results;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SOURCE 2 — Careers24 (no API key needed)
-   Careers24 serves real HTML and returns 200. Category URL filters are
-   client-side only (server ignores them), so we fetch many pages of general
-   listings and apply our own education filter to keep only relevant posts.
-   URL pattern confirmed: /jobs/adverts/[numeric-id]-[slug]-[location]/
+   Fetches from 10 category pages covering all major sectors.
+   Category filter URLs are client-side only but the slugs still help
+   narrow the page content down to the right job type in practice.
    ═══════════════════════════════════════════════════════════════════════════ */
 async function fetchCareers24(log) {
   const BASE = 'https://www.careers24.com';
   const seen = new Set();
   const rows = [];
 
-  // Fetch 6 listing pages in parallel to maximise the education job pool
   const listingUrls = [
+    // Education
     `${BASE}/jobs/c-education-training-teaching/`,
     `${BASE}/jobs/c-education-training-teaching/?page=2`,
-    `${BASE}/jobs/c-education-training-teaching/?page=3`,
     `${BASE}/jobs/s-educators-and-teachers/`,
-    `${BASE}/jobs/s-educators-and-teachers/?page=2`,
-    `${BASE}/jobs/?keywords=educator+teacher+principal+school&sort=date`,
+    // Technology
+    `${BASE}/jobs/c-it-internet/`,
+    `${BASE}/jobs/c-it-internet/?page=2`,
+    // Finance
+    `${BASE}/jobs/c-finance/`,
+    // Healthcare
+    `${BASE}/jobs/c-medical-health-care/`,
+    // Retail + Admin
+    `${BASE}/jobs/c-retail/`,
+    `${BASE}/jobs/c-administration-office/`,
+    // General (catches everything else — sorted by date)
+    `${BASE}/jobs/?sort=date`,
   ];
 
   const pages = await Promise.allSettled(listingUrls.map(u => fetchUrl(u)));
@@ -234,12 +259,9 @@ async function fetchCareers24(log) {
     if (p.status !== 'fulfilled') continue;
     const html = p.value;
 
-    // Confirmed working pattern from live tests:
-    // href="/jobs/adverts/2365121-financial-manager-haval-kempton-park-gauteng/?jobindex=1"
-    const linkRe = /href="(\/jobs\/adverts\/\d+-[a-z0-9][a-z0-9\-]+\/)(?:\?[^"]*)?"/gi;
+    const linkRe  = /href="(\/jobs\/adverts\/\d+-[a-z0-9][a-z0-9\-]+\/)(?:\?[^"]*)?"/gi;
     const titleRe = /<h2[^>]*>([^<]+)<\/h2>/gi;
 
-    // Walk links and titles in parallel — they appear in the same order
     const links  = [];
     const titles = [];
     let m;
@@ -250,41 +272,38 @@ async function fetchCareers24(log) {
       rawJobs++;
       const title  = titles[i];
       const jobUrl = `${BASE}${links[i]}`;
-      if (seen.has(jobUrl)) continue;
+      if (seen.has(jobUrl) || !title) continue;
       seen.add(jobUrl);
 
-      // Server-side filter: only keep education-related posts
-      if (!isEdu(title)) continue;
-
       const refM = links[i].match(/\/adverts\/(\d+)-/);
-      const ref  = `careers24-${refM ? refM[1] : Buffer.from(title).toString('base64').slice(0,16)}`;
+      const ref  = `careers24-${refM ? refM[1] : Buffer.from(title).toString('base64').slice(0, 16)}`;
 
-      // Extract location from the URL slug (last segment before trailing slash)
       const slugParts = links[i].replace(/\/$/, '').split('-');
       const locSlug   = slugParts.slice(-2).join(' ');
       const province  = normProv(locSlug);
+      const cat       = detectCategory(title, '');
 
-      const combined = title;
       rows.push({
         title:           title.slice(0, 200),
         institution:     null,
         school:          null,
         province,
         district:        null,
-        phase:           getPhase(combined),
-        post_type:       getPostType(title, ''),
-        subjects:        getSubjects(combined).length ? getSubjects(combined) : null,
-        post_level:      getPostLevel(combined),
+        phase:           cat === 'Education' ? getPhase(title)    : null,
+        post_type:       cat === 'Education' ? getPostType(title, '') : null,
+        subjects:        cat === 'Education' && getSubjects(title).length ? getSubjects(title) : null,
+        post_level:      cat === 'Education' ? getPostLevel(title) : null,
         description:     null,
         closing_date:    null,
         source:          'Careers24',
         reference:       ref,
-        application_url: jobUrl,  // ← direct link to this specific vacancy
+        application_url: jobUrl,
+        job_category:    cat,
       });
     }
   }
 
-  log.push(`Careers24: scanned ${rawJobs} total jobs across ${pages.filter(p=>p.status==='fulfilled').length} pages → ${rows.length} education posts kept`);
+  log.push(`Careers24: scanned ${rawJobs} jobs across ${pages.filter(p=>p.status==='fulfilled').length} pages → ${rows.length} posts kept`);
   return rows;
 }
 
@@ -328,7 +347,13 @@ exports.handler = async (event) => {
       }
       log.push(`Upserted ${allRows.length} rows total`);
     } else {
-      log.push('No posts found. If Adzuna keys are not set, only Careers24 is used — it may return 0 if no education posts appear in the current batch.');
+      log.push('No posts found. Check that ADZUNA_APP_ID / ADZUNA_APP_KEY are set in Netlify env vars.');
+    }
+
+    // Summary by category
+    const catSummary = {};
+    for (const row of allRows) {
+      catSummary[row.job_category] = (catSummary[row.job_category] || 0) + 1;
     }
 
     return {
@@ -338,6 +363,7 @@ exports.handler = async (event) => {
         ok: true,
         total: allRows.length,
         sources: { adzuna: adzuna.length, careers24: careers24.length },
+        categories: catSummary,
         log,
       }),
     };

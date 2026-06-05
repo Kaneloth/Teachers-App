@@ -3,7 +3,6 @@ import {
   Briefcase, MapPin, Calendar, ExternalLink, Search,
   ArrowLeft, Clock, RefreshCw, Loader2, Building2, ChevronDown, ChevronUp,
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -32,6 +31,7 @@ interface Vacancy {
   reference?: string;
   application_url?: string;
   posted_by_school?: boolean;
+  job_category?: string;
   created_at: string;
 }
 
@@ -40,7 +40,16 @@ const PROVINCES = [
   'Mpumalanga', 'Limpopo', 'North West', 'Free State', 'Northern Cape',
 ];
 
-const TYPES = ['School-Based', 'Circuit', 'District', 'Provincial', 'National'];
+const CATEGORIES = [
+  'All', 'Education', 'Technology', 'Finance', 'Healthcare',
+  'Engineering', 'Retail', 'Admin', 'Hospitality', 'Logistics', 'Other',
+];
+
+const CATEGORY_ICONS: Record<string, string> = {
+  All: '🌍', Education: '🎓', Technology: '💻', Finance: '💰',
+  Healthcare: '🏥', Engineering: '⚙️', Retail: '🛍️',
+  Admin: '🗂️', Hospitality: '🏨', Logistics: '🚚', Other: '📋',
+};
 
 const SOURCE_BADGE: Record<string, string> = {
   Adzuna:    'bg-green-50 text-green-700 border-green-200',
@@ -106,12 +115,12 @@ function VacancyCard({
           <DaysLeftBadge closing_date={v.closing_date} />
         </div>
 
-        {/* School + post level */}
-        {(v.school || v.post_level) && (
+        {/* Company / school */}
+        {(v.school || v.institution || v.post_level) && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Building2 className="w-3 h-3 shrink-0" />
             <span className="truncate">
-              {[v.school, v.post_level ? `Post Level ${v.post_level}` : null].filter(Boolean).join(' · ')}
+              {[v.school || v.institution, v.post_level ? `Post Level ${v.post_level}` : null].filter(Boolean).join(' · ')}
             </span>
           </div>
         )}
@@ -132,28 +141,31 @@ function VacancyCard({
           </div>
         )}
 
-        {/* Subjects + post_type + phase tags */}
-        {(v.subjects?.length || v.post_type || v.phase) && (
-          <div className="flex flex-wrap gap-1.5 pt-0.5">
-            {v.subjects?.map(s => (
-              <span key={s} className="text-[10px] bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 border border-border">
-                {s}
-              </span>
-            ))}
-            {v.post_type && (
-              <span className="text-[10px] text-primary bg-primary/10 border border-primary/20 rounded-full px-2.5 py-0.5 font-medium">
-                {v.post_type}
-              </span>
-            )}
-            {v.phase && (
-              <span className="text-[10px] text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2.5 py-0.5 font-medium">
-                {v.phase}
-              </span>
-            )}
-          </div>
-        )}
+        {/* Tags: category · subjects · post_type · phase */}
+        <div className="flex flex-wrap gap-1.5 pt-0.5">
+          {v.job_category && v.job_category !== 'Education' && (
+            <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 rounded-full px-2.5 py-0.5 font-medium">
+              {CATEGORY_ICONS[v.job_category] || ''} {v.job_category}
+            </span>
+          )}
+          {v.subjects?.map(s => (
+            <span key={s} className="text-[10px] bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 border border-border">
+              {s}
+            </span>
+          ))}
+          {v.post_type && (
+            <span className="text-[10px] text-primary bg-primary/10 border border-primary/20 rounded-full px-2.5 py-0.5 font-medium">
+              {v.post_type}
+            </span>
+          )}
+          {v.phase && (
+            <span className="text-[10px] text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2.5 py-0.5 font-medium">
+              {v.phase}
+            </span>
+          )}
+        </div>
 
-        {/* Expandable description (snippet / DPSA Ctrl+F tip) */}
+        {/* Expandable description */}
         {v.description && (
           <div className="pt-0.5">
             <button
@@ -171,15 +183,11 @@ function VacancyCard({
           </div>
         )}
 
-        {/* Footer: source · ref · apply button */}
+        {/* Footer: source · apply button */}
         <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60">
           <span className="text-[10px] text-muted-foreground truncate">
             {v.reference ? `Ref: ${v.reference} · ` : ''}
-            {v.posted_by_school
-              ? 'School Post'
-              : v.source
-                ? `via ${v.source}`
-                : ''}
+            {v.posted_by_school ? 'School Post' : v.source ? `via ${v.source}` : ''}
           </span>
           {v.application_url ? (
             isPro ? (
@@ -189,14 +197,12 @@ function VacancyCard({
                 </Button>
               </a>
             ) : isApplied ? (
-              /* Already used one of their 5 slots on this post — re-clicking is fine */
               <a href={v.application_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
                 <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg gap-1 text-primary border-primary/40">
                   Applied <ExternalLink className="w-3 h-3" />
                 </Button>
               </a>
             ) : appliedCount < FREE_APPLY_LIMIT ? (
-              /* Still has free slots */
               <Button
                 variant="outline"
                 size="sm"
@@ -206,7 +212,6 @@ function VacancyCard({
                 Apply <ExternalLink className="w-3 h-3" />
               </Button>
             ) : (
-              /* Limit reached */
               <Button
                 variant="outline"
                 size="sm"
@@ -225,24 +230,21 @@ function VacancyCard({
   );
 }
 
-/* ── Apply tracking helpers (localStorage cache + user_metadata backup) ── */
+/* ── Apply tracking helpers ─────────────────────────────────────────────── */
 const appliedKey = (userId: string) => `crosssa_applied_vacancies_${userId}`;
-
 function getLocalAppliedIds(userId: string): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(appliedKey(userId)) || '[]')); }
   catch { return new Set(); }
 }
-
 function saveLocalAppliedIds(userId: string, ids: Set<string>) {
   localStorage.setItem(appliedKey(userId), JSON.stringify([...ids]));
 }
 
 export default function VacanciesPage() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const isAdmin = user?.user_metadata?.role === 'admin';
+  const navigate  = useNavigate();
+  const { user }  = useAuth();
 
-  /* Subscription check — dual source (profiles + user_metadata fallback) */
+  /* ── Subscription check ─────────────────────────────────────────────── */
   const [subProfile, setSubProfile] = useState<{ subscription_plan: string; subscription_end: string | null } | null>(null);
   useEffect(() => {
     if (!user) return;
@@ -250,24 +252,37 @@ export default function VacanciesPage() {
       .then(({ data }) => setSubProfile(data));
   }, [user]);
   const profilePlan = subProfile?.subscription_plan;
-  const metaPlan = user?.user_metadata?.subscription_plan as string | undefined;
-  const plan = (profilePlan && profilePlan !== 'free') ? profilePlan : (metaPlan || 'free');
-  const profileEnd = subProfile?.subscription_end;
-  const metaEnd = user?.user_metadata?.subscription_end as string | undefined;
-  const subEnd = profileEnd ? new Date(profileEnd) : metaEnd ? new Date(metaEnd) : null;
-  const isPro = plan !== 'free' && subEnd !== null && subEnd > new Date();
+  const metaPlan    = user?.user_metadata?.subscription_plan as string | undefined;
+  const plan        = (profilePlan && profilePlan !== 'free') ? profilePlan : (metaPlan || 'free');
+  const profileEnd  = subProfile?.subscription_end;
+  const metaEnd     = user?.user_metadata?.subscription_end as string | undefined;
+  const subEnd      = profileEnd ? new Date(profileEnd) : metaEnd ? new Date(metaEnd) : null;
+  const isPro       = plan !== 'free' && subEnd !== null && subEnd > new Date();
 
-  /* ── Free-tier apply tracking (localStorage + user_metadata server backup) ── */
-  const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
+  /* ── Educator profile type (determines default category) ────────────── */
+  const [isEducator, setIsEducator] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('educators')
+      .select('profile_type')
+      .eq('user_id', user.id)
+      .limit(1)
+      .then(({ data }) => {
+        const pt = data?.[0]?.profile_type;
+        setIsEducator(!pt || pt === 'educator');
+      });
+  }, [user]);
+
+  /* ── Free-tier apply tracking ───────────────────────────────────────── */
+  const [appliedIds, setAppliedIds]   = useState<Set<string>>(new Set());
   const [showSubModal, setShowSubModal] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    // Merge local cache with server-stored IDs from user_metadata
-    const local = getLocalAppliedIds(user.id);
+    const local     = getLocalAppliedIds(user.id);
     const serverIds: string[] = user.user_metadata?.free_applied_ids ?? [];
-    const merged = new Set([...local, ...serverIds]);
-    // Sync merged set back to localStorage so it stays fresh
+    const merged    = new Set([...local, ...serverIds]);
     saveLocalAppliedIds(user.id, merged);
     setAppliedIds(merged);
   }, [user]);
@@ -277,28 +292,34 @@ export default function VacanciesPage() {
     const updated = new Set(appliedIds);
     updated.add(vacancyId);
     setAppliedIds(updated);
-    // Save to localStorage (immediate) + user_metadata (persistent across devices)
     saveLocalAppliedIds(user.id, updated);
     supabase.auth.updateUser({ data: { free_applied_ids: [...updated] } });
     window.open(url, '_blank', 'noopener,noreferrer');
     const remaining = FREE_APPLY_LIMIT - updated.size;
     if (remaining > 0) {
-      toast.success(`Application opened`, {
+      toast.success('Application opened', {
         description: `${remaining} free application${remaining !== 1 ? 's' : ''} remaining.`,
       });
     } else {
-      toast.info(`Last free application used — upgrade to Pro for unlimited applications.`);
+      toast.info('Last free application used — upgrade to Pro for unlimited applications.');
       setShowSubModal(true);
     }
   };
 
-  const [vacancies, setVacancies] = useState<Vacancy[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [query, setQuery] = useState('');
-  const [province, setProvince] = useState('');
-  const [type, setType] = useState('');
+  /* ── Data + filters ─────────────────────────────────────────────────── */
+  const [vacancies,   setVacancies]   = useState<Vacancy[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [refreshing,  setRefreshing]  = useState(false);
+  const [query,       setQuery]       = useState('');
+  const [province,    setProvince]    = useState('');
+  const [category,    setCategory]    = useState(''); // '' = All
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  /* Set default category once we know whether user is an educator */
+  useEffect(() => {
+    if (isEducator === null) return; // still loading
+    setCategory(isEducator ? 'Education' : '');
+  }, [isEducator]);
 
   const load = async () => {
     setLoading(true);
@@ -306,7 +327,7 @@ export default function VacanciesPage() {
       .from('vacancies')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(200);
+      .limit(300);
     setVacancies(data || []);
     if (data?.length) setLastUpdated(new Date(data[0].created_at));
     setLoading(false);
@@ -320,27 +341,32 @@ export default function VacanciesPage() {
       const adminSecret = import.meta.env.VITE_ADMIN_SECRET;
       if (!adminSecret) throw new Error('VITE_ADMIN_SECRET not set');
 
-      const res = await fetch('/.netlify/functions/fetch-vacancies', {
+      const res  = await fetch('/.netlify/functions/fetch-vacancies', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-secret': adminSecret,
-        },
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': adminSecret },
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || 'Unknown error');
 
       const { adzuna = 0, careers24 = 0 } = json.sources ?? {};
-      const total = json.total ?? (adzuna + careers24);
+      const total    = json.total ?? (adzuna + careers24);
+      const catSummary: Record<string, number> = json.categories ?? {};
       const logLines: string[] = json.log ?? [];
 
       if (total > 0) {
         const parts = [];
         if (adzuna)    parts.push(`${adzuna} Adzuna`);
         if (careers24) parts.push(`${careers24} Careers24`);
-        toast.success(`${total} posts imported — ${parts.join(' · ')}`, { duration: 6000 });
+        const catStr = Object.entries(catSummary)
+          .sort(([,a],[,b]) => b - a)
+          .slice(0, 4)
+          .map(([k,v]) => `${v} ${k}`)
+          .join(' · ');
+        toast.success(`${total} posts imported — ${parts.join(' · ')}`, {
+          description: catStr || undefined,
+          duration: 6000,
+        });
       } else {
-        // Show the first meaningful log line so the user can see the actual reason
         const detail = logLines.find(l => l.includes('error') || l.includes('skipped') || l.includes('results')) || logLines[0] || 'No details available';
         toast.info(`0 posts found — ${detail}`, { duration: 10000 });
       }
@@ -353,18 +379,27 @@ export default function VacanciesPage() {
 
   const filtered = vacancies.filter(v => {
     if (province && v.province !== province) return false;
-    if (type && v.post_type !== type) return false;
+    if (category) {
+      const vCat = v.job_category || 'Education';
+      if (vCat !== category) return false;
+    }
     if (query.trim()) {
       const lower = query.toLowerCase();
       if (
         !v.title?.toLowerCase().includes(lower) &&
         !v.school?.toLowerCase().includes(lower) &&
+        !v.institution?.toLowerCase().includes(lower) &&
         !v.district?.toLowerCase().includes(lower) &&
-        !v.subjects?.some(s => s.toLowerCase().includes(lower))
+        !v.subjects?.some(s => s.toLowerCase().includes(lower)) &&
+        !v.job_category?.toLowerCase().includes(lower)
       ) return false;
     }
     return true;
   });
+
+  const subtitle = category
+    ? `${category} jobs across South Africa`
+    : 'All jobs across South Africa';
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -392,7 +427,7 @@ export default function VacanciesPage() {
           </Button>
         </div>
         <div className="flex items-center justify-between mt-0.5 pl-1">
-          <p className="text-sm text-muted-foreground">Teaching posts across South Africa</p>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
           {lastUpdated && (
             <div className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
               <Clock className="w-3 h-3" />
@@ -402,21 +437,41 @@ export default function VacanciesPage() {
         </div>
       </div>
 
-      {/* Search */}
+      {/* Category chips — horizontal scroll */}
+      <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+        {CATEGORIES.map(cat => {
+          const active = (cat === 'All' && !category) || category === cat;
+          return (
+            <button
+              key={cat}
+              onClick={() => setCategory(cat === 'All' ? '' : cat)}
+              className={`shrink-0 flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap ${
+                active
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-card text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+              }`}
+            >
+              <span>{CATEGORY_ICONS[cat]}</span>
+              {cat}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Search + province filter */}
       <div className="px-4 pb-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search by title, school, district or subject…"
+            placeholder="Search by title, company, district…"
             className="pl-9 rounded-xl bg-muted/30 border-border"
           />
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="px-4 pb-3 grid grid-cols-2 gap-2">
+      <div className="px-4 pb-3">
         <Select value={province} onValueChange={v => setProvince(v === 'all' ? '' : v)}>
           <SelectTrigger className="rounded-xl bg-card text-sm">
             <SelectValue placeholder="All Provinces" />
@@ -424,16 +479,6 @@ export default function VacanciesPage() {
           <SelectContent>
             <SelectItem value="all">All Provinces</SelectItem>
             {PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-          </SelectContent>
-        </Select>
-
-        <Select value={type} onValueChange={v => setType(v === 'all' ? '' : v)}>
-          <SelectTrigger className="rounded-xl bg-card text-sm">
-            <SelectValue placeholder="All Types" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            {TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -476,7 +521,7 @@ export default function VacanciesPage() {
             <div className="text-center py-16 text-muted-foreground px-8">
               <Briefcase className="w-10 h-10 mx-auto mb-3 opacity-30" />
               <p className="font-medium">No posts match your filters</p>
-              <p className="text-sm mt-1">Try adjusting your search or filters</p>
+              <p className="text-sm mt-1">Try a different category or clear the search</p>
             </div>
           ) : (
             <div className="px-4 pb-6 space-y-3">
