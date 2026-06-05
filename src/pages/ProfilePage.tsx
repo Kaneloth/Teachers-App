@@ -5,6 +5,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import {
   Loader2, Camera, Flame, Save, ArrowLeft, RefreshCw, X, Plus,
@@ -451,12 +455,14 @@ export default function ProfilePage() {
     available_from: '', is_actively_looking: false, years_experience: '', avatar_url: '',
     profile_type: 'educator',
   });
-  const [loading,     setLoading]     = useState(true);
-  const [saving,      setSaving]      = useState(false);
-  const [uploading,   setUploading]   = useState(false);
-  const [refreshing,  setRefreshing]  = useState(false);
-  const [avatarSheet, setAvatarSheet] = useState(false);
-  const [userCode,    setUserCode]    = useState<string>('');
+  const [loading,           setLoading]           = useState(true);
+  const [saving,            setSaving]            = useState(false);
+  const [uploading,         setUploading]         = useState(false);
+  const [refreshing,        setRefreshing]        = useState(false);
+  const [avatarSheet,       setAvatarSheet]       = useState(false);
+  const [userCode,          setUserCode]          = useState<string>('');
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [lastSaved,         setLastSaved]         = useState<Date | null>(null);
 
   const [subjectToAdd,  setSubjectToAdd]  = useState('');
   const [provinceToAdd, setProvinceToAdd] = useState('');
@@ -477,9 +483,9 @@ export default function ProfilePage() {
     if (!user) return;
     // Fetch fresh user metadata from the server (bypasses the stale cached JWT)
     const { data: freshUser } = await supabase.auth.getUser();
-    if (freshUser?.user?.user_metadata?.user_code) {
-      setUserCode(freshUser.user.user_metadata.user_code as string);
-    }
+    const meta = freshUser?.user?.user_metadata ?? {};
+    if (meta.user_code) setUserCode(meta.user_code as string);
+    if (meta.profile_last_saved) setLastSaved(new Date(meta.profile_last_saved as string));
     const { data, error } = await supabase.from('educators').select('*').eq('user_id', user.id).maybeSingle();
     if (error) { toast.error('Failed to load profile'); }
     else if (data) {
@@ -564,17 +570,33 @@ export default function ProfilePage() {
     else                   { setTownOther(false); setCustomTownText(''); set('town', v); }
   };
 
-  const handleSave = async () => {
+  // 30-day cooldown helpers
+  const daysSinceSave = lastSaved
+    ? Math.floor((Date.now() - lastSaved.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const canSave      = daysSinceSave === null || daysSinceSave >= 30;
+  const daysLeft     = canSave ? 0 : 30 - daysSinceSave!;
+
+  const handleSave = () => {
     if (!user) return;
     if (isEducator && !profile.sace_number.trim()) {
       toast.error('SACE number is required for educator profiles.');
       return;
     }
+    if (!canSave) {
+      toast.error(`Profiles can only be updated once every 30 days. ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining.`);
+      return;
+    }
+    setShowConfirmDialog(true);
+  };
+
+  const doSave = async () => {
+    setShowConfirmDialog(false);
+    if (!user) return;
     setSaving(true);
     try {
       const { id: _id, is_sace_verified: _sv, ...rest } = profile;
       const yearsExp = profile.years_experience ? parseInt(profile.years_experience, 10) : null;
-      // Resolve the __other__ sentinel before saving
       const resolvedTown = rest.town === '__other__' ? customTownText.trim() : rest.town;
       const payload = {
         ...rest,
@@ -591,6 +613,9 @@ export default function ProfilePage() {
         if (error) throw error;
         if (data) set('id', data.id);
       }
+      const now = new Date();
+      await supabase.auth.updateUser({ data: { profile_last_saved: now.toISOString() } });
+      setLastSaved(now);
       toast.success('Profile saved!');
     } catch (e: unknown) {
       toast.error((e as { message?: string }).message ?? 'Failed to save profile');
@@ -942,11 +967,40 @@ export default function ProfilePage() {
       </div>
 
       {/* Save button */}
-      <div className="px-4 pt-2 pb-6">
-        <Button onClick={handleSave} disabled={saving} className="w-full h-12 rounded-2xl text-base font-semibold gap-2">
-          {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5" /> Save Profile</>}
+      <div className="px-4 pt-2 pb-6 space-y-2">
+        <Button
+          onClick={handleSave}
+          disabled={saving || !canSave}
+          className="w-full h-12 rounded-2xl text-base font-semibold gap-2"
+        >
+          {saving
+            ? <Loader2 className="w-5 h-5 animate-spin" />
+            : <><Save className="w-5 h-5" /> Save Profile</>}
         </Button>
+        {!canSave && (
+          <p className="text-xs text-center text-muted-foreground">
+            Profile updates are limited to once every 30 days.{' '}
+            <span className="font-medium text-foreground">{daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining.</span>
+          </p>
+        )}
       </div>
+
+      {/* Confirm-before-save dialog */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Double-check your details</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please make sure all your information is correct before saving.
+              You will only be able to update your profile again in 30 days.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back and check</AlertDialogCancel>
+            <AlertDialogAction onClick={doSave}>Yes, save profile</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
