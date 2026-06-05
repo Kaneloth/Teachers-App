@@ -16,6 +16,15 @@ const SUBJECTS = ['Mathematics','Mathematical Literacy','Physical Sciences','Lif
 
 const STEPS = ['Personal', 'School', 'Teaching', 'Transfer'];
 
+/** Generates a unique Crosssa reference code: CR-DDDDLLL (4 digits + 3 uppercase letters) */
+function generateUserCode(): string {
+  const digits  = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+  const letters = Array.from({ length: 3 }, () =>
+    String.fromCharCode(65 + Math.floor(Math.random() * 26))
+  ).join('');
+  return `CR-${digits}${letters}`;
+}
+
 export default function Onboarding() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -37,18 +46,31 @@ export default function Onboarding() {
   });
 
   const set = (field: string, value: unknown) => setForm(p => ({ ...p, [field]: value }));
-  const toggleSubject = (s: string) => set('subjects', form.subjects.includes(s) ? form.subjects.filter(x => x !== s) : [...form.subjects, s]);
+  const toggleSubject  = (s: string) => set('subjects',            form.subjects.includes(s)            ? form.subjects.filter(x => x !== s)            : [...form.subjects, s]);
   const toggleProvince = (p: string) => set('preferred_provinces', form.preferred_provinces.includes(p) ? form.preferred_provinces.filter(x => x !== p) : [...form.preferred_provinces, p]);
 
   const handleFinish = async () => {
     setLoading(true);
     try {
+      // 1 — Insert educator profile
       const { error } = await supabase.from('educators').insert([{
         ...form,
         user_id: user?.id,
         years_experience: form.years_experience ? parseInt(form.years_experience, 10) : null,
       }]);
       if (error) throw error;
+
+      // 2 — Generate and persist the user code
+      const userCode = generateUserCode();
+      await supabase.auth.updateUser({ data: { user_code: userCode } });
+
+      // 3 — Send welcome email with the user code (fire-and-forget)
+      const email     = user?.email ?? '';
+      const fullName  = form.full_name || user?.user_metadata?.full_name || '';
+      supabase.functions
+        .invoke('sendWelcomeEmail', { body: { email, full_name: fullName, user_code: userCode } })
+        .catch(() => { /* non-blocking */ });
+
       toast.success('Profile created! Welcome to Crosssa!');
       navigate('/home');
     } catch (e: unknown) {

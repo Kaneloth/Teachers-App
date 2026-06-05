@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import {
   Loader2, Camera, Flame, Save, ArrowLeft, RefreshCw, X, Plus,
   Phone, Mail, Users, CreditCard, BookOpen, Upload, ImagePlus,
-  CheckCircle2, AlertCircle, XCircle, ShieldCheck, ShieldCheck as ShieldVerified,
+  CheckCircle2, AlertCircle, XCircle, ShieldCheck, ShieldCheck as ShieldVerified, Copy,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -201,7 +201,7 @@ function IdentityVerificationSection() {
   const clearFront = () => { setPassportFront(null); setPassportVerifyState('idle'); setPassportVerifyMsg(''); };
   const clearBack  = () => { setPassportBack(null);  setPassportVerifyState('idle'); setPassportVerifyMsg(''); };
 
-  /* Persist verification result to user metadata AND profiles table */
+  /* Persist verification result to user metadata AND educators table */
   const saveVerifiedMeta = async (docTypeVal: DocType, docNumber: string, verified: boolean) => {
     const { error: metaError } = await supabase.auth.updateUser({
       data: {
@@ -216,19 +216,14 @@ function IdentityVerificationSection() {
       return;
     }
     if (user?.id) {
-      /* profiles is the source of truth — works for all users, not just educators */
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({ id: user.id, is_verified: verified }, { onConflict: 'id' });
-      if (profileError) {
-        console.error('[saveVerifiedMeta] profiles upsert failed:', profileError.message);
-        toast.error('Verification saved to account but badge could not be updated: ' + profileError.message);
-      }
-      /* Also sync to educators row if one exists, so search results stay in sync */
-      await supabase
+      /* Use upsert so the row is created if the educator profile doesn't exist yet */
+      const { error: dbError } = await supabase
         .from('educators')
-        .update({ is_sace_verified: verified })
-        .eq('user_id', user.id);
+        .upsert({ user_id: user.id, is_sace_verified: verified }, { onConflict: 'user_id' });
+      if (dbError) {
+        console.error('[saveVerifiedMeta] educators upsert failed:', dbError.message);
+        toast.error('Verification saved to account but profile badge could not be updated: ' + dbError.message);
+      }
     }
   };
 
@@ -613,10 +608,29 @@ export default function ProfilePage() {
           </div>
         </button>
         <p className="text-xs text-muted-foreground">Tap to change photo</p>
-        {user?.user_metadata?.doc_verified && (
+        {profile.is_sace_verified && (
           <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-full px-2.5 py-1">
             <ShieldCheck className="w-3.5 h-3.5 text-primary" />
             <span className="text-xs font-semibold text-primary">Verified</span>
+          </div>
+        )}
+        {user?.user_metadata?.user_code && (
+          <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2 mt-1">
+            <div className="text-center">
+              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">Reference Code</p>
+              <p className="text-sm font-bold text-primary font-mono tracking-widest">{user.user_metadata.user_code}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(user.user_metadata.user_code as string);
+                toast.success('Code copied!');
+              }}
+              className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors"
+              title="Copy code"
+            >
+              <Copy className="w-3.5 h-3.5 text-primary" />
+            </button>
           </div>
         )}
       </div>
