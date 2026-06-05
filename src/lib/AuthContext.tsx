@@ -45,16 +45,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     checkUserAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      console.log('[auth-event]', event, 'hasRT:', !!newSession?.refresh_token, 'rt-tail:', newSession?.refresh_token?.slice(-8));
+
       setSession(newSession);
       setUser(newSession?.user ?? null);
       setAuthChecked(true);
       setIsLoadingAuth(false);
 
-      // Keep the biometric token always in sync with Supabase's latest rotated token.
-      // We do NOT remove it on SIGNED_OUT because we use scope:'local' logout, which
-      // keeps the token valid server-side so biometric can restore the session afterward.
-      if (newSession?.refresh_token) {
+      // Only save the RT on events that produce a genuinely fresh token.
+      // INITIAL_SESSION can fire with a stale cached session and clobber a fresher
+      // RT that restoreSessionFromToken just wrote.
+      if (
+        newSession?.refresh_token &&
+        (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')
+      ) {
         localStorage.setItem(BIO_RT_KEY, newSession.refresh_token);
       }
     });
@@ -63,10 +68,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [checkUserAuth]);
 
   const logout = async () => {
-    // 'local' scope clears the session on this device only.
-    // The refresh token remains valid server-side so biometric login can
-    // restore the session after logout without the user re-entering their password.
+    // Snapshot the freshest RT BEFORE signing out, so biometric restore is guaranteed to have a valid token.
+    const { data: { session: live } } = await supabase.auth.getSession();
+    const rtBefore = live?.refresh_token ?? localStorage.getItem(BIO_RT_KEY);
+    console.log('[logout] rt-before:', rtBefore?.slice(-8), 'bio-key-before:', localStorage.getItem(BIO_RT_KEY)?.slice(-8));
+
+    if (rtBefore) localStorage.setItem(BIO_RT_KEY, rtBefore);
+
     await supabase.auth.signOut({ scope: 'local' });
+
+    console.log('[logout] bio-key-after:', localStorage.getItem(BIO_RT_KEY)?.slice(-8));
     setUser(null);
     setSession(null);
   };

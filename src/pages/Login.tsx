@@ -33,15 +33,20 @@ async function persistRefreshToken() {
 
 async function restoreSessionFromToken(): Promise<boolean> {
   const refreshToken = loadRefreshToken();
+  console.log('[bio-restore] rt-tail:', refreshToken?.slice(-8) ?? 'NONE');
   if (!refreshToken) return false;
 
   try {
     const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
-    if (error || !data.session) return false;
-    // Save the rotated refresh token so next biometric login also works
+    if (error || !data.session) {
+      console.warn('[bio-restore] FAILED', { code: (error as any)?.code, status: (error as any)?.status, message: error?.message });
+      return false;
+    }
+    console.log('[bio-restore] OK new-rt-tail:', data.session.refresh_token?.slice(-8));
     saveRefreshToken(data.session.refresh_token);
     return true;
-  } catch {
+  } catch (e) {
+    console.error('[bio-restore] THREW', e);
     return false;
   }
 }
@@ -75,6 +80,17 @@ export default function Login() {
   useEffect(() => {
     if (loginMethod !== 'biometric') return;
     persistRefreshToken();
+  }, [loginMethod]);
+
+  // Auto-trigger biometric prompt as soon as the biometric screen appears —
+  // no tap required, just like a banking app.
+  useEffect(() => {
+    if (loginMethod !== 'biometric') return;
+    const credId = localStorage.getItem('biometricCredentialId');
+    if (!credId) return;
+    const t = setTimeout(() => handleBiometricLogin(), 400);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loginMethod]);
 
   // ── After any successful login ────────────────────────────────────────────
@@ -116,8 +132,10 @@ export default function Login() {
         return;
       }
 
-      // 3. No stored token yet or token fully expired — need password once
+      // Refresh token rejected (revoked or already-used) — fall back to one-time password.
+      setError(''); // clear any prior toast
       setLoginMethod('biometric-confirmed');
+      return;
     } catch (err: any) {
       if (err.name === 'NotAllowedError') {
         /* user cancelled — stay on screen quietly */
@@ -386,14 +404,21 @@ export default function Login() {
         </Button>
       </form>
       <div className="text-center space-y-2 text-sm text-muted-foreground">
-        {localStorage.getItem('loginMethod') === 'biometric' && (
+        {localStorage.getItem('loginMethod') === 'biometric' ? (
           <p>
             <button onClick={() => setLoginMethod('biometric')} className="flex items-center gap-1.5 mx-auto text-primary font-medium hover:underline">
               <Fingerprint className="w-4 h-4" />
               Use biometric instead
             </button>
           </p>
-        )}
+        ) : window.PublicKeyCredential ? (
+          <p>
+            <Link to="/settings?tab=Security" className="flex items-center gap-1.5 mx-auto w-fit text-primary font-medium hover:underline">
+              <Fingerprint className="w-4 h-4" />
+              Set up biometric login
+            </Link>
+          </p>
+        ) : null}
         <p>Don't have an account?{' '}
           <Link to="/register" className="text-primary font-semibold hover:underline">Create one</Link>
         </p>
