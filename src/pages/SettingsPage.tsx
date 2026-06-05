@@ -369,6 +369,13 @@ function SecurityTab() {
       if (credential) {
         const raw = (credential as PublicKeyCredential).rawId;
         localStorage.setItem('biometricCredentialId', btoa(String.fromCharCode(...new Uint8Array(raw))));
+        // Snapshot both tokens right now so biometric restore works on the very
+        // first attempt after enrollment (before TOKEN_REFRESHED ever fires).
+        const { data: { session: snap } } = await supabase.auth.getSession();
+        if (snap?.access_token && snap?.refresh_token) {
+          localStorage.setItem('crosssa_biometric_access_token', snap.access_token);
+          localStorage.setItem('crosssa_biometric_refresh_token', snap.refresh_token);
+        }
         return true;
       }
       return false;

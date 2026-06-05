@@ -3,6 +3,12 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
 const BIO_RT_KEY = 'crosssa_biometric_refresh_token';
+const BIO_AT_KEY = 'crosssa_biometric_access_token';
+
+function saveBioSession(at: string, rt: string) {
+  localStorage.setItem(BIO_AT_KEY, at);
+  localStorage.setItem(BIO_RT_KEY, rt);
+}
 
 interface AuthContextType {
   user: User | null;
@@ -57,10 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // INITIAL_SESSION can fire with a stale cached session and clobber a fresher
       // RT that restoreSessionFromToken just wrote.
       if (
+        newSession?.access_token &&
         newSession?.refresh_token &&
         (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')
       ) {
-        localStorage.setItem(BIO_RT_KEY, newSession.refresh_token);
+        saveBioSession(newSession.access_token, newSession.refresh_token);
       }
     });
 
@@ -70,10 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     // Snapshot the freshest RT BEFORE signing out, so biometric restore is guaranteed to have a valid token.
     const { data: { session: live } } = await supabase.auth.getSession();
+    const atBefore = live?.access_token ?? localStorage.getItem(BIO_AT_KEY);
     const rtBefore = live?.refresh_token ?? localStorage.getItem(BIO_RT_KEY);
     console.log('[logout] rt-before:', rtBefore?.slice(-8), 'bio-key-before:', localStorage.getItem(BIO_RT_KEY)?.slice(-8));
 
-    if (rtBefore) localStorage.setItem(BIO_RT_KEY, rtBefore);
+    if (atBefore && rtBefore) saveBioSession(atBefore, rtBefore);
 
     await supabase.auth.signOut({ scope: 'local' });
 

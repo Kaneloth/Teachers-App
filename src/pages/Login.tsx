@@ -11,39 +11,49 @@ type LoginMethod = 'password' | 'biometric' | 'biometric-confirmed';
 type Step = 'form' | 'email-otp';
 
 const BIO_RT_KEY = 'crosssa_biometric_refresh_token';
+const BIO_AT_KEY = 'crosssa_biometric_access_token';
 
-function saveRefreshToken(rt: string) {
+function saveBioSession(at: string, rt: string) {
+  localStorage.setItem(BIO_AT_KEY, at);
   localStorage.setItem(BIO_RT_KEY, rt);
 }
 
-function loadRefreshToken(): string | null {
-  return localStorage.getItem(BIO_RT_KEY);
+function loadBioSession(): { accessToken: string; refreshToken: string } | null {
+  const at = localStorage.getItem(BIO_AT_KEY);
+  const rt = localStorage.getItem(BIO_RT_KEY);
+  if (!at || !rt) return null;
+  return { accessToken: at, refreshToken: rt };
 }
 
-// After any successful Supabase sign-in, persist the refresh token for biometric use.
-async function persistRefreshToken() {
+// After any successful Supabase sign-in, persist both tokens for biometric use.
+async function persistBioSession() {
   const { data: { session } } = await supabase.auth.getSession();
-  if (session?.refresh_token) saveRefreshToken(session.refresh_token);
+  if (session?.access_token && session?.refresh_token) {
+    saveBioSession(session.access_token, session.refresh_token);
+  }
 }
 
-// ── Restore session using the stored refresh token ────────────────────────────
-// Passes the token directly to refreshSession() so Supabase handles the
-// exchange, updates its internal state, and writes the new session to
-// localStorage — no manual setSession() needed.
+// ── Restore session using stored tokens ───────────────────────────────────────
+// Uses setSession({ access_token, refresh_token }) which works regardless of
+// client state: if the AT is still live it restores immediately; if it has
+// expired Supabase transparently exchanges the RT for a fresh session.
 
 async function restoreSessionFromToken(): Promise<boolean> {
-  const refreshToken = loadRefreshToken();
-  console.log('[bio-restore] rt-tail:', refreshToken?.slice(-8) ?? 'NONE');
-  if (!refreshToken) return false;
+  const bio = loadBioSession();
+  console.log('[bio-restore] at-tail:', bio?.accessToken.slice(-8) ?? 'NONE', 'rt-tail:', bio?.refreshToken.slice(-8) ?? 'NONE');
+  if (!bio) return false;
 
   try {
-    const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+    const { data, error } = await supabase.auth.setSession({
+      access_token: bio.accessToken,
+      refresh_token: bio.refreshToken,
+    });
     if (error || !data.session) {
       console.warn('[bio-restore] FAILED', { code: (error as any)?.code, status: (error as any)?.status, message: error?.message });
       return false;
     }
     console.log('[bio-restore] OK new-rt-tail:', data.session.refresh_token?.slice(-8));
-    saveRefreshToken(data.session.refresh_token);
+    saveBioSession(data.session.access_token, data.session.refresh_token);
     return true;
   } catch (e) {
     console.error('[bio-restore] THREW', e);
@@ -75,11 +85,11 @@ export default function Login() {
     setLoginMethod(method);
   }, []);
 
-  // On biometric screen mount, snapshot the current refresh token so it is
+  // On biometric screen mount, snapshot the current session so it is
   // always the freshest one available before the user taps the fingerprint.
   useEffect(() => {
     if (loginMethod !== 'biometric') return;
-    persistRefreshToken();
+    persistBioSession();
   }, [loginMethod]);
 
   // Auto-trigger biometric prompt as soon as the biometric screen appears —
@@ -96,7 +106,7 @@ export default function Login() {
   // ── After any successful login ────────────────────────────────────────────
 
   const afterLogin = async () => {
-    await persistRefreshToken();
+    await persistBioSession();
     if (email) localStorage.setItem('crosssa_last_email', email);
     navigate('/home');
   };
