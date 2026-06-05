@@ -30,10 +30,34 @@ export default function Search() {
   const [refreshing, setRefreshing] = useState(false);
   const [filters, setFilters] = useState<Filters>({ province: '', subject: '', phase: '', activeOnly: false });
   const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
+  const [isPro, setIsPro] = useState(false);
 
-  /* ── Fetch current user's full profile for scoring ──────────── */
+  /* ── Fetch current user's profile + subscription status ─────── */
   useEffect(() => {
     if (!user) return;
+
+    // Subscription: check user_metadata first, then profiles table
+    const metaPlan = user.user_metadata?.subscription_plan as string | undefined;
+    const metaEnd  = user.user_metadata?.subscription_end  as string | undefined;
+    if (metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date()) {
+      setIsPro(true);
+    } else {
+      supabase
+        .from('profiles')
+        .select('subscription_plan, subscription_end')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          setIsPro(
+            !!data?.subscription_plan &&
+            data.subscription_plan !== 'free' &&
+            !!data.subscription_end &&
+            new Date(data.subscription_end) > new Date()
+          );
+        });
+    }
+
+    // Educator profile for scoring
     supabase
       .from('educators')
       .select('phase, current_province, town, subjects')
@@ -51,6 +75,9 @@ export default function Search() {
 
     // Always exclude the current user's own card
     if (user?.id) q = q.neq('user_id', user.id);
+
+    // Only show educator profiles (exclude general users + treat legacy null rows as educators)
+    q = q.or('profile_type.eq.educator,profile_type.is.null');
 
     if (filters.province)   q = q.eq('current_province', filters.province);
     if (filters.phase)      q = q.eq('phase', filters.phase);
@@ -163,7 +190,13 @@ export default function Search() {
           </p>
           <div className="space-y-2 px-4 pb-6">
             {educators.map((ed, i) => (
-              <EducatorCard key={ed.id} educator={ed} myProfile={myProfile ?? undefined} index={i} />
+              <EducatorCard
+                key={ed.id}
+                educator={ed}
+                myProfile={myProfile ?? undefined}
+                isPro={isPro}
+                index={i}
+              />
             ))}
           </div>
         </>

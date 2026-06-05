@@ -71,7 +71,8 @@ export default function MatchesPage() {
       const { data: all } = await supabase
         .from('educators')
         .select('*')
-        .neq('user_id', user.id);
+        .neq('user_id', user.id)
+        .or('profile_type.eq.educator,profile_type.is.null');
 
       if (!all) { setLoading(false); return; }
 

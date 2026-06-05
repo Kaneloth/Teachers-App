@@ -10,6 +10,7 @@ import {
   Loader2, Camera, Flame, Save, ArrowLeft, RefreshCw, X, Plus,
   Phone, Mail, Users, CreditCard, BookOpen, Upload, ImagePlus,
   CheckCircle2, AlertCircle, XCircle, ShieldCheck, ShieldCheck as ShieldVerified, Copy,
+  GraduationCap, User,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -67,6 +68,7 @@ interface Profile {
   is_sace_verified?: boolean;
   years_experience: string;
   avatar_url: string;
+  profile_type: 'educator' | 'general';
 }
 
 /* ── Shared primitives ───────────────────────────────────────── */
@@ -447,6 +449,7 @@ export default function ProfilePage() {
     current_school: '', current_province: '', town: '',
     phase: '', subjects: [], preferred_provinces: [], preferred_districts: [],
     available_from: '', is_actively_looking: false, years_experience: '', avatar_url: '',
+    profile_type: 'educator',
   });
   const [loading,     setLoading]     = useState(true);
   const [saving,      setSaving]      = useState(false);
@@ -496,6 +499,7 @@ export default function ProfilePage() {
         available_from:       data.available_from       ?? '',
         avatar_url:           data.avatar_url           ?? '',
         town:                 townIsCustom ? '__other__' : savedTown,
+        profile_type:        (data.profile_type as 'educator' | 'general') ?? 'educator',
       });
     } else {
       setProfile(p => ({ ...p, email: user?.email ?? '' }));
@@ -593,7 +597,8 @@ export default function ProfilePage() {
     return <div className="flex justify-center py-20"><div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
   }
 
-  const initial = profile.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U';
+  const initial     = profile.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U';
+  const isEducator  = profile.profile_type !== 'general';
 
   return (
     <div className="max-w-2xl mx-auto pb-28">
@@ -700,8 +705,34 @@ export default function ProfilePage() {
       )}
 
       <div className="px-4 space-y-3">
-        {/* Actively Looking */}
-        <div className="bg-card rounded-2xl border border-border flex items-center gap-3 px-4 py-3.5">
+        {/* Profile Type */}
+        <div className="bg-card rounded-2xl border border-border p-4">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Profile Type</p>
+          <div className="grid grid-cols-2 bg-muted rounded-xl p-1 gap-1">
+            <button
+              type="button"
+              onClick={() => set('profile_type', 'educator')}
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${isEducator ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <GraduationCap className="w-4 h-4" /> Educator
+            </button>
+            <button
+              type="button"
+              onClick={() => set('profile_type', 'general')}
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${!isEducator ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <User className="w-4 h-4" /> General
+            </button>
+          </div>
+          {!isEducator && (
+            <p className="text-xs text-muted-foreground mt-2.5 px-1">
+              As a general user you won't appear in search or match results. Switch to Educator to be discoverable.
+            </p>
+          )}
+        </div>
+
+        {/* Actively Looking — educators only */}
+        {isEducator && <div className="bg-card rounded-2xl border border-border flex items-center gap-3 px-4 py-3.5">
           <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
             <Flame className="w-4 h-4 text-amber-500" />
           </div>
@@ -710,7 +741,7 @@ export default function ProfilePage() {
             <p className="text-xs text-muted-foreground">Appear first in search results</p>
           </div>
           <Switch checked={profile.is_actively_looking} onCheckedChange={v => set('is_actively_looking', v)} />
-        </div>
+        </div>}
 
         {/* Personal Information */}
         <SectionCard label="Personal Information">
@@ -743,9 +774,11 @@ export default function ProfilePage() {
               </Select>
             </div>
           </Field>
-          <Field label="SACE Number">
-            <Input value={profile.sace_number} onChange={e => set('sace_number', e.target.value)} placeholder="e.g. 123456" className="rounded-xl" />
-          </Field>
+          {isEducator && (
+            <Field label="SACE Number">
+              <Input value={profile.sace_number} onChange={e => set('sace_number', e.target.value)} placeholder="e.g. 123456" className="rounded-xl" />
+            </Field>
+          )}
           <Field label="Bio">
             <Textarea value={profile.bio} onChange={e => set('bio', e.target.value)} placeholder="Tell others about yourself..." rows={3} className="rounded-xl resize-none" />
           </Field>
@@ -754,8 +787,8 @@ export default function ProfilePage() {
         {/* Identity Verification */}
         <IdentityVerificationSection />
 
-        {/* Current Position */}
-        <SectionCard label="Current Position">
+        {/* Current Position — educators only */}
+        {isEducator && <SectionCard label="Current Position">
           <Field label="Province">
             <Select value={profile.current_province} onValueChange={v => set('current_province', v)}>
               <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select province" /></SelectTrigger>
@@ -795,10 +828,10 @@ export default function ProfilePage() {
           <Field label="School">
             <Input value={profile.current_school} onChange={e => set('current_school', e.target.value)} placeholder="e.g. Pretoria High School" className="rounded-xl" />
           </Field>
-        </SectionCard>
+        </SectionCard>}
 
-        {/* Teaching Details */}
-        <SectionCard label="Teaching Details">
+        {/* Teaching Details — educators only */}
+        {isEducator && <SectionCard label="Teaching Details">
           <Field label="Phase">
             <Select value={profile.phase} onValueChange={v => set('phase', v)}>
               <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select phase" /></SelectTrigger>
@@ -827,10 +860,10 @@ export default function ProfilePage() {
               <Button type="button" size="icon" variant="outline" onClick={addSubject} className="rounded-xl shrink-0 h-10 w-10"><Plus className="w-4 h-4" /></Button>
             </div>
           </Field>
-        </SectionCard>
+        </SectionCard>}
 
-        {/* Transfer Preferences */}
-        <SectionCard label="Transfer Preferences">
+        {/* Transfer Preferences — educators only */}
+        {isEducator && <SectionCard label="Transfer Preferences">
           <Field label="Preferred Provinces">
             {profile.preferred_provinces.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -901,7 +934,7 @@ export default function ProfilePage() {
           <Field label="Available From">
             <Input type="date" value={profile.available_from} onChange={e => set('available_from', e.target.value)} className="rounded-xl" />
           </Field>
-        </SectionCard>
+        </SectionCard>}
       </div>
 
       {/* Save button */}
