@@ -442,6 +442,7 @@ export default function ProfilePage() {
   const [uploading,   setUploading]   = useState(false);
   const [refreshing,  setRefreshing]  = useState(false);
   const [avatarSheet, setAvatarSheet] = useState(false);
+  const [userCode,    setUserCode]    = useState<string>('');
 
   const [subjectToAdd,  setSubjectToAdd]  = useState('');
   const [provinceToAdd, setProvinceToAdd] = useState('');
@@ -460,6 +461,11 @@ export default function ProfilePage() {
 
   const loadProfile = async () => {
     if (!user) return;
+    // Fetch fresh user metadata from the server (bypasses the stale cached JWT)
+    const { data: freshUser } = await supabase.auth.getUser();
+    if (freshUser?.user?.user_metadata?.user_code) {
+      setUserCode(freshUser.user.user_metadata.user_code as string);
+    }
     const { data, error } = await supabase.from('educators').select('*').eq('user_id', user.id).maybeSingle();
     if (error) { toast.error('Failed to load profile'); }
     else if (data) {
@@ -614,18 +620,15 @@ export default function ProfilePage() {
             <span className="text-xs font-semibold text-primary">Verified</span>
           </div>
         )}
-        {user?.user_metadata?.user_code && (
+        {userCode && (
           <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2 mt-1">
             <div className="text-center">
               <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">Reference Code</p>
-              <p className="text-sm font-bold text-primary font-mono tracking-widest">{user.user_metadata.user_code}</p>
+              <p className="text-sm font-bold text-primary font-mono tracking-widest">{userCode}</p>
             </div>
             <button
               type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(user.user_metadata.user_code as string);
-                toast.success('Code copied!');
-              }}
+              onClick={() => { navigator.clipboard.writeText(userCode); toast.success('Code copied!'); }}
               className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors"
               title="Copy code"
             >
