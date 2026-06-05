@@ -101,7 +101,7 @@ export default function SearchFilters({ filters, onFiltersChange, isPro = false,
               <SelectTrigger><SelectValue placeholder="All subjects" /></SelectTrigger>
 			  <SelectContent className="max-h-48 overflow-y-auto">{SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
-			<Button type="button" size="icon" variant="outline" onClick={addSubject} className="rounded-xl shrink-0 h-10 w-10"><Plus className="w-4 h-4" /></Button>
+			
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-medium">Phase</Label>
