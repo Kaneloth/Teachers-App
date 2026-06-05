@@ -123,7 +123,7 @@ export default function MatchesPage() {
           </div>
           <h2 className="text-lg font-bold text-foreground mb-2">Unlock Your Matches</h2>
           <p className="text-sm text-muted-foreground max-w-xs mb-6">
-            Upgrade to Pro to see all educators who are an 85–100% match with your transfer profile and connect with them directly.
+            Upgrade to Pro to see your strongest transfer matches, view their full profiles, and connect directly — giving you the best chance of finding the right exchange partner, faster.
           </p>
           <Button
             onClick={() => setShowSubModal(true)}
@@ -144,8 +144,7 @@ export default function MatchesPage() {
           <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">No high matches yet</p>
           <p className="text-sm mt-1 max-w-xs mx-auto">
-            Educators with an 85–100% subject compatibility will appear here.
-            Browse all educators on the Search page.
+            Your closest transfer matches will appear here as more educators join. In the meantime, browse the Search page to find educators near you.
           </p>
         </div>
       ) : (
