@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ArrowLeft, FileText, GraduationCap, Briefcase, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, FileText, GraduationCap, Briefcase, ShieldAlert, ShieldCheck, Save, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +21,9 @@ import LastCVBanner from '@/components/cv/LastCVBanner';
 export type CVType = 'educator' | 'general';
 
 const STEPS = ['Personal', 'Education', 'Experience', 'Skills', 'References', 'Extras', 'Template', 'Review'];
+
+const DRAFT_KEY   = 'crosssa_cv_draft';   // in-progress build
+const LAST_CV_KEY = 'crosssa_last_cv';    // most recently generated CV (for banner)
 
 interface CVData {
   cvType: CVType;
@@ -127,39 +131,79 @@ export default function CVBuilderPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Always fetch fresh metadata from the Supabase server on mount.
-  // user?.user_metadata comes from the local session cache and may be stale
-  // after navigating away and returning, causing the banner to disappear.
-  const [freshMeta, setFreshMeta] = useState<Record<string, unknown>>({});
-  const [metaLoaded, setMetaLoaded] = useState(false);
+  // ── Read localStorage synchronously so state is correct on first render ──
+  // This avoids the Supabase metadata propagation delay that caused the banner
+  // to disappear on return visits, and also enables draft saving/restore.
+  const [initialState] = useState(() => {
+    const lastMeta: Record<string, unknown> = (() => {
+      try { return JSON.parse(localStorage.getItem(LAST_CV_KEY) ?? '{}'); } catch { return {}; }
+    })();
+    const draft: { cvType: CVType; data: CVData; step: number; savedAt: string } | null = (() => {
+      try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return null;
+        const d = JSON.parse(raw);
+        return d?.cvType && d?.data ? d : null;
+      } catch { return null; }
+    })();
+    return {
+      lastMeta,
+      draft,
+      // Draft takes precedence over lastCV; if neither, open builder
+      showBuilder: draft ? true : !lastMeta.last_cv_data,
+    };
+  });
 
-  const refreshMeta = async (): Promise<Record<string, unknown>> => {
-    const { data: { user: u } } = await supabase.auth.getUser();
-    const m = (u?.user_metadata ?? {}) as Record<string, unknown>;
-    setFreshMeta(m);
-    return m;
-  };
+  const [freshMeta, setFreshMeta]   = useState(initialState.lastMeta);
+  const lastCVData                  = freshMeta.last_cv_data;
+  const lastCVPdfUrl                = freshMeta.last_cv_pdf_url as string | undefined;
+  const lastCVGeneratedAt           = freshMeta.last_cv_generated_at as string | undefined;
+  const cvCount                     = (freshMeta.cv_count as number) ?? 0;
+  const isFree                      = !freshMeta.subscription_plan || freshMeta.subscription_plan === 'free';
+  const FREE_LIMIT                  = 2;
+  const buildsLeft                  = Math.max(0, FREE_LIMIT - cvCount);
 
+  const [showBuilder, setShowBuilder] = useState(initialState.showBuilder);
+  const [cvType, setCvType]           = useState<CVType | null>(initialState.draft?.cvType ?? null);
+  const [step, setStep]               = useState(initialState.draft?.step ?? 0);
+  const [data, setData]               = useState<CVData>(initialState.draft?.data ?? defaultData('educator'));
+  const [isVerified, setIsVerified]   = useState<boolean | null>(null);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(initialState.draft?.savedAt ?? null);
+
+  // ── Toast once if a draft was restored on mount ──────────────────────────
   useEffect(() => {
-    refreshMeta().then(m => {
-      setMetaLoaded(true);
-      if (!m.last_cv_data) setShowBuilder(true);
-    });
+    if (initialState.draft) {
+      const d = new Date(initialState.draft.savedAt);
+      const fmt = d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' }) +
+                  ' at ' + d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      toast.info(`Draft restored from ${fmt} — keep going where you left off.`, { duration: 4000 });
+    }
   }, []);
 
-  const lastCVData      = freshMeta.last_cv_data;
-  const lastCVPdfUrl    = freshMeta.last_cv_pdf_url as string | undefined;
-  const lastCVGeneratedAt = freshMeta.last_cv_generated_at as string | undefined;
-  const cvCount         = (freshMeta.cv_count as number) ?? 0;
-  const isFree          = !freshMeta.subscription_plan || freshMeta.subscription_plan === 'free';
-  const FREE_LIMIT      = 2;
-  const buildsLeft      = Math.max(0, FREE_LIMIT - cvCount);
+  // ── Auto-save draft to localStorage whenever builder data changes ─────────
+  useEffect(() => {
+    if (!cvType) return;
+    const savedAt = new Date().toISOString();
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType, data, step, savedAt }));
+      setDraftSavedAt(savedAt);
+    } catch {}
+  }, [data, step, cvType]);
 
-  const [showBuilder, setShowBuilder] = useState(false);
-  const [cvType, setCvType] = useState<CVType | null>(null);
-  const [step, setStep] = useState(0);
-  const [data, setData] = useState<CVData>(defaultData('educator'));
-  const [isVerified, setIsVerified] = useState<boolean | null>(null);
+  // ── Background Supabase sync (handles cross-device / fresh installs) ──────
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user: u } }) => {
+      const m = (u?.user_metadata ?? {}) as Record<string, unknown>;
+      if (m.last_cv_data) {
+        try { localStorage.setItem(LAST_CV_KEY, JSON.stringify(m)); } catch {}
+        setFreshMeta(m);
+        // Only switch to banner if no draft is open and localStorage had no lastCV
+        if (!initialState.draft && !initialState.lastMeta.last_cv_data) {
+          setShowBuilder(false);
+        }
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -189,24 +233,6 @@ export default function CVBuilderPage() {
       navigate(-1);
     }
   };
-
-  /* ── Meta loading gate ───────────────────────────────────── */
-  if (!metaLoaded) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center gap-2 px-4 pt-4 pb-5">
-          <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
-            <ArrowLeft className="w-5 h-5 text-foreground" />
-          </button>
-          <FileText className="w-5 h-5 text-primary" />
-          <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
-        </div>
-        <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
-      </div>
-    );
-  }
 
   /* ── ID verification gate ────────────────────────────────── */
   if (isVerified === null) {
@@ -337,30 +363,33 @@ export default function CVBuilderPage() {
     );
   }
 
-  /* ── Edit last CV ─────────────────────────────────────────── */
+  /* ── Edit last CV — loads lastCV as new draft ───────────── */
   const handleEdit = () => {
     if (!lastCVData) return;
     const saved = lastCVData as CVData;
+    const savedAt = new Date().toISOString();
     setData(saved);
     setCvType(saved.cvType ?? 'educator');
     setStep(0);
     setShowBuilder(true);
+    setDraftSavedAt(savedAt);
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: saved.cvType ?? 'educator', data: saved, step: 0, savedAt })); } catch {}
   };
 
-  /* ── After CV generated — update state directly, no refetch ── */
-  // CVStepReview calls onGenerated(pdfUrl) right after updateUserMeta.
-  // Supabase metadata propagation has a delay, so fetching getUser() here
-  // would return stale data. Instead, set freshMeta from the data we already
-  // have in memory — matching the Base44 pattern.
+  /* ── After CV generated — persist to localStorage, clear draft ── */
   const handleCVGenerated = (pdfUrl: string) => {
     const now = new Date().toISOString();
-    setFreshMeta(prev => ({
-      ...prev,
+    const newMeta = {
+      ...freshMeta,
       last_cv_pdf_url: pdfUrl,
       last_cv_data: data,
       last_cv_generated_at: now,
-      cv_count: ((prev.cv_count as number) ?? 0) + 1,
-    }));
+      cv_count: ((freshMeta.cv_count as number) ?? 0) + 1,
+    };
+    try { localStorage.setItem(LAST_CV_KEY, JSON.stringify(newMeta)); } catch {}
+    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    setFreshMeta(newMeta);
+    setDraftSavedAt(null);
     setCvType(null);
     setStep(0);
     setShowBuilder(false);
@@ -439,9 +468,16 @@ export default function CVBuilderPage() {
             transition={{ duration: 0.2 }}
           >
             {/* Numbered stepper */}
-            <div className="px-4 pb-4">
+            <div className="px-4 pb-2">
               <StepStepper steps={STEPS} current={step} onSelect={setStep} />
             </div>
+            {/* Draft auto-save indicator */}
+            {draftSavedAt && (
+              <p className="flex items-center gap-1 px-4 pb-3 text-xs text-muted-foreground">
+                <Clock className="w-3 h-3 shrink-0" />
+                Draft saved at {new Date(draftSavedAt).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
 
             {/* Step content */}
             <div className="px-4">
@@ -466,7 +502,7 @@ export default function CVBuilderPage() {
             </div>
 
             {/* Nav buttons */}
-            <div className="flex gap-3 px-4 pt-4 pb-6">
+            <div className="flex gap-3 px-4 pt-4 pb-2">
               {step > 0 && (
                 <Button variant="outline" onClick={prev} className="flex-1 rounded-xl gap-2">
                   <ChevronLeft className="w-4 h-4" /> Back
@@ -477,6 +513,16 @@ export default function CVBuilderPage() {
                   Next <ChevronRight className="w-4 h-4" />
                 </Button>
               )}
+            </div>
+            {/* Save & Exit — draft is already auto-saved, just navigate away */}
+            <div className="px-4 pb-6 pt-1">
+              <Button
+                variant="ghost"
+                onClick={() => navigate(-1)}
+                className="w-full rounded-xl gap-2 text-muted-foreground text-sm"
+              >
+                <Save className="w-4 h-4" /> Save & Exit — continue later
+              </Button>
             </div>
           </motion.div>
         )}
