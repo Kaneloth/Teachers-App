@@ -36,13 +36,14 @@ export default function CVStepReview({ data, onGenerated }: Props) {
     try {
       const pdfBlob = await exportElementAsPDF(exportRef.current, `CV_${(personal.full_name || 'Educator').replace(/\s+/g, '_')}.pdf`);
 
-      const path = `cvs/${user?.id ?? 'anon'}-${Date.now()}.pdf`;
+      // Path must start with the user's ID to satisfy the avatars bucket RLS policy
+      const path = `${user?.id ?? 'anon'}/cv-${Date.now()}.pdf`;
       const { error: uploadError } = await supabase.storage.from('avatars').upload(path, pdfBlob, { contentType: 'application/pdf', upsert: true });
-      let uploadedUrl = '';
-      if (!uploadError) {
-        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-        uploadedUrl = urlData.publicUrl;
-      }
+      if (uploadError) throw new Error('CV upload failed: ' + uploadError.message);
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      const uploadedUrl = urlData.publicUrl;
+      if (!uploadedUrl) throw new Error('Could not get CV download URL after upload.');
 
       await supabase.functions.invoke('generateAndEmailCV', { body: { ...data, _pdf_url_override: uploadedUrl } });
 
