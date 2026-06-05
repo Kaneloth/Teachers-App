@@ -806,7 +806,7 @@ export default function ProfilePage() {
                   <SelectTrigger className="rounded-xl">
                     <SelectValue placeholder="Select district" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-48 overflow-y-auto">
                     {(DISTRICTS_BY_PROVINCE[profile.current_province] ?? []).map(d => (
                       <SelectItem key={d} value={d}>{d}</SelectItem>
                     ))}
@@ -859,7 +859,7 @@ export default function ProfilePage() {
             <div className="flex gap-2">
               <Select value={subjectToAdd} onValueChange={setSubjectToAdd}>
                 <SelectTrigger className="rounded-xl flex-1"><SelectValue placeholder="Add subject" /></SelectTrigger>
-                <SelectContent>{SUBJECTS.filter(s => !profile.subjects.includes(s)).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                <SelectContent className="max-h-48 overflow-y-auto">{SUBJECTS.filter(s => !profile.subjects.includes(s)).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
               </Select>
               <Button type="button" size="icon" variant="outline" onClick={addSubject} className="rounded-xl shrink-0 h-10 w-10"><Plus className="w-4 h-4" /></Button>
             </div>
