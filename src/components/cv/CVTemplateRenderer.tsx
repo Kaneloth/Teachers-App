@@ -7,7 +7,7 @@ interface CustomSection {
 }
 
 interface CVData {
-  personal: { full_name?: string; email?: string; phone?: string; address?: string; bio?: string; photo_url?: string };
+  personal: { full_name?: string; email?: string; phone?: string; address?: string; bio?: string; photo_url?: string; id_number?: string };
   education: { institution: string; qualification: string; year: string }[];
   experience: { school: string; role: string; from: string; to: string; description: string }[];
   skills: { subjects?: string[]; soft_skills?: string[]; languages?: string[] };
@@ -96,9 +96,10 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
           <div>
             <div style={{ fontSize: '26px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase' }}>{personal.full_name || 'Your Name'}</div>
             <div style={{ marginTop: '6px', fontSize: '11px', color: '#a0aec0', display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-              {personal.email   && <span>✉ {personal.email}</span>}
-              {personal.phone   && <span>✆ {personal.phone}</span>}
-              {personal.address && <span>⌂ {personal.address}</span>}
+              {personal.email      && <span>✉ {personal.email}</span>}
+              {personal.phone      && <span>✆ {personal.phone}</span>}
+              {personal.address    && <span>⌂ {personal.address}</span>}
+              {personal.id_number  && <span>ID: {personal.id_number}</span>}
             </div>
           </div>
         </div>
@@ -154,9 +155,10 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVDa
           <div style={{ textAlign: 'center', fontSize: '15px', fontWeight: '700', marginBottom: '4px' }}>{personal.full_name || 'Your Name'}</div>
           <div style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.75)', marginBottom: '20px' }}>Educator</div>
           <SidebarSection title="Contact">
-            {personal.email   && <SidebarItem label="Email"    value={personal.email} />}
-            {personal.phone   && <SidebarItem label="Phone"    value={personal.phone} />}
-            {personal.address && <SidebarItem label="Location" value={personal.address} />}
+            {personal.email     && <SidebarItem label="Email"    value={personal.email} />}
+            {personal.phone     && <SidebarItem label="Phone"    value={personal.phone} />}
+            {personal.address   && <SidebarItem label="Location" value={personal.address} />}
+            {personal.id_number && <SidebarItem label="ID"       value={personal.id_number} />}
           </SidebarSection>
           {skills?.subjects?.length  ? <SidebarSection title="Subjects">{skills.subjects.map((s, i)  => <div key={i} style={{ fontSize: '11px', marginBottom: '3px', color: 'rgba(255,255,255,0.9)' }}>• {s}</div>)}</SidebarSection>  : null}
           {skills?.languages?.length ? <SidebarSection title="Languages">{skills.languages.map((l, i) => <div key={i} style={{ fontSize: '11px', marginBottom: '3px', color: 'rgba(255,255,255,0.9)' }}>• {l}</div>)}</SidebarSection> : null}
@@ -212,9 +214,10 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp }: { data
             <div style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '1.5px', textTransform: 'uppercase' }}>{personal.full_name || 'Your Name'}</div>
             <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', marginTop: '4px', letterSpacing: '3px', textTransform: 'uppercase' }}>Educator</div>
             <div style={{ marginTop: '12px', display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '11px', color: 'rgba(255,255,255,0.85)' }}>
-              {personal.email   && <span>✉ {personal.email}</span>}
-              {personal.phone   && <span>✆ {personal.phone}</span>}
-              {personal.address && <span>⌂ {personal.address}</span>}
+              {personal.email     && <span>✉ {personal.email}</span>}
+              {personal.phone     && <span>✆ {personal.phone}</span>}
+              {personal.address   && <span>⌂ {personal.address}</span>}
+              {personal.id_number && <span>ID: {personal.id_number}</span>}
             </div>
           </div>
         </div>
@@ -288,9 +291,10 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
             <div>
               <div style={{ fontSize: '30px', fontWeight: '300', letterSpacing: '3px', textTransform: 'uppercase', color: '#111827' }}>{personal.full_name || 'Your Name'}</div>
               <div style={{ marginTop: '8px', fontSize: '11px', color: '#6b7280', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                {personal.email   && <span>{personal.email}</span>}
-                {personal.phone   && <span>{personal.phone}</span>}
-                {personal.address && <span>{personal.address}</span>}
+                {personal.email     && <span>{personal.email}</span>}
+                {personal.phone     && <span>{personal.phone}</span>}
+                {personal.address   && <span>{personal.address}</span>}
+                {personal.id_number && <span>ID: {personal.id_number}</span>}
               </div>
             </div>
           </div>
