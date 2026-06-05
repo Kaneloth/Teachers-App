@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Users, MapPin, BookOpen, ShieldCheck, Lock, Zap } from 'lucide-react';
+import { Users, MapPin, BookOpen, ShieldCheck, Lock, Zap, ArrowLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -26,6 +26,7 @@ interface Educator {
 
 export default function MatchesPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [myProfile, setMyProfile] = useState<Educator | null>(null);
   const [matches, setMatches] = useState<Educator[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,9 +104,14 @@ export default function MatchesPage() {
 
   return (
     <div className="px-4 py-6 space-y-4 max-w-lg mx-auto">
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Transfer Matches</h1>
-        <p className="text-sm text-muted-foreground">Educators who match your transfer preferences</p>
+      <div className="flex items-center gap-2">
+        <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors shrink-0">
+          <ArrowLeft className="w-5 h-5 text-foreground" />
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Transfer Matches</h1>
+          <p className="text-sm text-muted-foreground">Educators who match your transfer preferences</p>
+        </div>
       </div>
 
       {/* ── Free users: full lock screen, no cards shown ─────────── */}

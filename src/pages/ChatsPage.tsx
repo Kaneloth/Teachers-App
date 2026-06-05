@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, RefreshCw, CheckCheck, Trash2 } from 'lucide-react';
+import { MessageCircle, RefreshCw, CheckCheck, Trash2, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { format, isThisYear, isToday } from 'date-fns';
@@ -173,10 +173,13 @@ export default function ChatsPage() {
     <div className="max-w-2xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 pt-4 pb-4">
+        <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
+          <ArrowLeft className="w-5 h-5 text-foreground" />
+        </button>
+        <h1 className="text-xl font-bold text-foreground flex-1">Messages</h1>
         <button onClick={handleRefresh} className="p-1 rounded-full hover:bg-muted transition-colors">
           <RefreshCw className={`w-4 h-4 text-primary ${refreshing ? 'animate-spin' : ''}`} />
         </button>
-        <h1 className="text-xl font-bold text-foreground">Messages</h1>
       </div>
 
       {loading ? (
