@@ -1,5 +1,5 @@
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useEffect, useState, useRef } from 'react';
 import { Lock, Camera, X, Loader2, ImageIcon } from 'lucide-react';
@@ -26,31 +26,30 @@ interface Props {
 
 export default function CVStepPersonal({ data, onChange, cvType }: Props) {
   const { user } = useAuth();
-  const [uploading,  setUploading]  = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [idVerified, setIdVerified] = useState(false);
-  const [idLabel,    setIdLabel]    = useState('ID / Passport Number');
-  const fileRef   = useRef<HTMLInputElement>(null);
+  const [idLabel, setIdLabel] = useState('ID / Passport Number');
+  const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function loadProfile() {
       if (!user) return;
 
-      // Fetch fresh user metadata from server (bypasses stale JWT cache)
-      const { data: authData } = await supabase.auth.getUser();
-      const meta = authData?.user?.user_metadata ?? {};
-      const verified  = !!meta.doc_verified;
-      const docType   = (meta.doc_type as string) || 'id';
-      const idNum     = docType === 'passport'
-        ? (meta.passport_number as string) || ''
-        : (meta.id_number       as string) || '';
-
-      setIdVerified(verified);
-      setIdLabel(docType === 'passport' ? 'Passport Number' : 'SA ID Number');
+      /* Always fetch fresh metadata so we get the latest doc verification state */
+      const { data: { user: freshUser } } = await supabase.auth.getUser();
+      const meta = freshUser?.user_metadata ?? {};
+      const docVerified = meta.doc_verified === true;
+      const docType = meta.doc_type as string | undefined;
+      const storedId = docType === 'passport'
+        ? (meta.passport_number as string | undefined)
+        : (meta.id_number as string | undefined);
+      setIdVerified(docVerified);
+      setIdLabel(docType === 'passport' ? 'Passport Number' : 'ID Number');
 
       const { data: educators } = await supabase
         .from('educators')
-        .select('full_name, phone, bio, current_school, current_province, town, address')
+        .select('full_name, phone, bio, current_school, current_province, town')
         .eq('user_id', user.id)
         .limit(1);
       const profile = educators?.[0];
@@ -58,25 +57,23 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
       if (cvType === 'educator') {
         onChange({
           full_name: profile?.full_name || user.user_metadata?.full_name || '',
-          email:     user.email || '',
-          phone:     profile?.phone || '',
-          address:   profile?.address || (profile?.current_school
+          email: user.email || '',
+          phone: profile?.phone || '',
+          address: profile?.current_school
             ? `${profile.current_school}${profile.current_province ? ', ' + profile.current_province : ''}`
-            : ''),
-          bio:       profile?.bio || data.bio || '',
-          photo_url: data.photo_url,
-          id_number: idNum,
+            : '',
+          bio: profile?.bio || data.bio || '',
+          id_number: storedId || '',
         });
       } else {
-        const location = profile?.address || [profile?.town, profile?.current_province].filter(Boolean).join(', ');
+        const location = [profile?.town, profile?.current_province].filter(Boolean).join(', ');
         onChange({
           full_name: profile?.full_name || user.user_metadata?.full_name || '',
-          email:     user.email || '',
-          phone:     profile?.phone || '',
-          address:   location,
-          bio:       profile?.bio || data.bio || '',
-          photo_url: data.photo_url,
-          id_number: idNum,
+          email: user.email || '',
+          phone: profile?.phone || '',
+          address: location,
+          bio: profile?.bio || data.bio || '',
+          id_number: storedId || '',
         });
       }
     }
@@ -92,11 +89,14 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
     if (!user) { toast.error('You must be signed in to upload a photo.'); return; }
     setUploading(true);
 
+    /* Derive extension from MIME type so camera-captured images (which
+       often arrive as "image" with no dot-extension in their filename)
+       still get a valid path like ".jpg" instead of ".image". */
     const mimeToExt: Record<string, string> = {
       'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
       'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif',
     };
-    const ext  = mimeToExt[file.type] ?? (file.name.includes('.') ? file.name.split('.').pop() : 'jpg');
+    const ext = mimeToExt[file.type] ?? (file.name.includes('.') ? file.name.split('.').pop() : 'jpg');
     const path = `${user.id}/cv-photo-${Date.now()}.${ext}`;
 
     const { error } = await supabase.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true });
@@ -107,10 +107,13 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
       set('photo_url', urlData.publicUrl);
       toast.success('Photo added!');
     }
+
+    /* Reset the input so the same file can be re-selected if needed */
     e.target.value = '';
     setUploading(false);
   };
 
+  const addressLabel = cvType === 'educator' ? 'Current School / Province' : 'Location';
   const summaryPlaceholder = cvType === 'educator'
     ? 'A brief overview of your teaching career and goals...'
     : 'A brief overview of your professional background and goals...';
@@ -149,48 +152,49 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
               <ImageIcon className="w-3 h-3" /> Gallery
             </button>
           </div>
-          <input ref={fileRef}   type="file" accept="image/*"              className="hidden" onChange={handlePhotoUpload} />
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
           <input ref={cameraRef} type="file" accept="image/*" capture="user" className="hidden" onChange={handlePhotoUpload} />
         </div>
       </div>
 
       {/* Locked fields */}
-      <LockedField label="Full Name"      value={data.full_name} />
-      <LockedField label="Email Address"  value={data.email} />
-      <LockedField label="Phone Number"   value={data.phone} />
+      <LockedField label="Full Name" value={data.full_name} />
+      <LockedField label="Email Address" value={data.email} />
+      <LockedField label="Phone Number" value={data.phone} />
 
-      {/* ID / Passport — locked if verified, editable if not */}
-      {idVerified ? (
-        <div className="space-y-1.5">
-          <LockedField label={idLabel} value={data.id_number || ''} />
-          <p className="text-xs text-muted-foreground pl-1">{idLabel} is locked after verification.</p>
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          <Label className="text-sm font-medium">{idLabel} <span className="text-muted-foreground font-normal">(optional)</span></Label>
-          <Input
-            value={data.id_number || ''}
-            onChange={e => set('id_number', e.target.value)}
-            placeholder={idLabel === 'Passport Number' ? 'A12345678' : '8001015009087'}
-            className="rounded-xl font-mono tracking-wider"
-          />
-          <p className="text-xs text-muted-foreground pl-1">Enter your ID or passport number to include it on your CV.</p>
-        </div>
-      )}
-
-      {/* Residential Address — editable */}
+      {/* Address — editable so users can tailor it per CV */}
       <div className="space-y-1.5">
-        <Label className="text-sm font-medium">Residential Address <span className="text-muted-foreground font-normal">(optional)</span></Label>
+        <Label className="text-sm font-medium">{addressLabel}</Label>
         <Input
           value={data.address}
           onChange={e => set('address', e.target.value)}
-          placeholder="e.g. 12 Main Street, Pretoria, Gauteng"
+          placeholder={cvType === 'educator' ? 'e.g. Greenfield High, Western Cape' : 'e.g. Cape Town, Western Cape'}
           className="rounded-xl"
         />
-        <p className="text-xs text-muted-foreground pl-1">You can edit this for each CV.</p>
       </div>
 
-      {/* Professional Summary — always editable */}
+      {/* ID / Passport — locked if verified via profile, editable otherwise */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium">{idLabel}</Label>
+        {idVerified ? (
+          <div className="flex items-center gap-2 h-9 px-3 rounded-xl border border-border bg-muted/50 text-sm text-foreground">
+            <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <span className="truncate">{data.id_number || <span className="text-muted-foreground italic">Verified on profile</span>}</span>
+          </div>
+        ) : (
+          <Input
+            value={data.id_number ?? ''}
+            onChange={e => set('id_number', e.target.value)}
+            placeholder="Enter your ID or passport number"
+            className="rounded-xl"
+          />
+        )}
+        {idVerified && (
+          <p className="text-xs text-muted-foreground">Verified — locked to your profile for security.</p>
+        )}
+      </div>
+
+      {/* Professional Summary — editable on both types */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium">Professional Summary</Label>
         <Textarea
