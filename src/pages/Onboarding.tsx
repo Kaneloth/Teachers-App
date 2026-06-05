@@ -67,10 +67,12 @@ export default function Onboarding() {
     setLoading(true);
     try {
       const { error } = await supabase.from('educators').insert([{
-        user_id:      user?.id,
-        full_name:    genForm.full_name,
-        bio:          genForm.bio,
-        profile_type: 'general',
+        user_id:             user?.id,
+        full_name:           genForm.full_name,
+        bio:                 genForm.bio,
+        profile_type:        'general',
+        is_actively_looking: false,
+        preferred_provinces: [],
       }]);
       if (error) throw error;
 
