@@ -6,58 +6,24 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Loader2, MailCheck, Fingerprint } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/AuthContext';
 
 type LoginMethod = 'password' | 'biometric' | 'biometric-confirmed';
 type Step = 'form' | 'email-otp';
 
-const BIO_RT_KEY = 'crosssa_biometric_refresh_token';
+// ── Backup token helpers ──────────────────────────────────────────────────────
+// Used only as a secondary fallback when the Supabase session has truly
+// expired (60+ days inactive). The primary path is AuthContext.unlockApp()
+// which reads the still-live session from Supabase's own localStorage.
+
 const BIO_AT_KEY = 'crosssa_biometric_access_token';
+const BIO_RT_KEY = 'crosssa_biometric_refresh_token';
 
-function saveBioSession(at: string, rt: string) {
-  localStorage.setItem(BIO_AT_KEY, at);
-  localStorage.setItem(BIO_RT_KEY, rt);
-}
-
-function loadBioSession(): { accessToken: string; refreshToken: string } | null {
-  const at = localStorage.getItem(BIO_AT_KEY);
-  const rt = localStorage.getItem(BIO_RT_KEY);
-  if (!at || !rt) return null;
-  return { accessToken: at, refreshToken: rt };
-}
-
-// After any successful Supabase sign-in, persist both tokens for biometric use.
 async function persistBioSession() {
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.access_token && session?.refresh_token) {
-    saveBioSession(session.access_token, session.refresh_token);
-  }
-}
-
-// ── Restore session using stored tokens ───────────────────────────────────────
-// Uses setSession({ access_token, refresh_token }) which works regardless of
-// client state: if the AT is still live it restores immediately; if it has
-// expired Supabase transparently exchanges the RT for a fresh session.
-
-async function restoreSessionFromToken(): Promise<boolean> {
-  const bio = loadBioSession();
-  console.log('[bio-restore] at-tail:', bio?.accessToken.slice(-8) ?? 'NONE', 'rt-tail:', bio?.refreshToken.slice(-8) ?? 'NONE');
-  if (!bio) return false;
-
-  try {
-    const { data, error } = await supabase.auth.setSession({
-      access_token: bio.accessToken,
-      refresh_token: bio.refreshToken,
-    });
-    if (error || !data.session) {
-      console.warn('[bio-restore] FAILED', { code: (error as any)?.code, status: (error as any)?.status, message: error?.message });
-      return false;
-    }
-    console.log('[bio-restore] OK new-rt-tail:', data.session.refresh_token?.slice(-8));
-    saveBioSession(data.session.access_token, data.session.refresh_token);
-    return true;
-  } catch (e) {
-    console.error('[bio-restore] THREW', e);
-    return false;
+    localStorage.setItem(BIO_AT_KEY, session.access_token);
+    localStorage.setItem(BIO_RT_KEY, session.refresh_token);
   }
 }
 
@@ -65,6 +31,7 @@ async function restoreSessionFromToken(): Promise<boolean> {
 
 export default function Login() {
   const navigate = useNavigate();
+  const { unlockApp } = useAuth();
 
   const [email, setEmail]       = useState(() => localStorage.getItem('crosssa_last_email') || '');
   const [password, setPassword] = useState('');
@@ -85,15 +52,7 @@ export default function Login() {
     setLoginMethod(method);
   }, []);
 
-  // On biometric screen mount, snapshot the current session so it is
-  // always the freshest one available before the user taps the fingerprint.
-  useEffect(() => {
-    if (loginMethod !== 'biometric') return;
-    persistBioSession();
-  }, [loginMethod]);
-
-  // Auto-trigger biometric prompt as soon as the biometric screen appears —
-  // no tap required, just like a banking app.
+  // Auto-trigger biometric prompt as soon as the biometric screen appears.
   useEffect(() => {
     if (loginMethod !== 'biometric') return;
     const credId = localStorage.getItem('biometricCredentialId');
@@ -106,12 +65,19 @@ export default function Login() {
   // ── After any successful login ────────────────────────────────────────────
 
   const afterLogin = async () => {
+    // Persist fresh tokens as a backup for when the session eventually expires.
     await persistBioSession();
     if (email) localStorage.setItem('crosssa_last_email', email);
     navigate('/home');
   };
 
   // ── Biometric login ───────────────────────────────────────────────────────
+  // Flow:
+  //   1. Verify the WebAuthn credential (proves user is physically on device).
+  //   2. Call unlockApp() — reads the Supabase session that was kept alive
+  //      in localStorage during the lock-screen "logout". No token exchange needed.
+  //   3. If the session has genuinely expired (60+ days), fall back to
+  //      biometric-confirmed (enter password once to re-establish the session).
 
   const handleBiometricLogin = async () => {
     setError('');
@@ -122,7 +88,7 @@ export default function Login() {
       const credId = localStorage.getItem('biometricCredentialId');
       if (!credId) throw new Error('No fingerprint registered. Please set up biometric in Settings.');
 
-      // 1. Verify fingerprint
+      // Step 1: Verify fingerprint / Face ID via WebAuthn.
       await navigator.credentials.get({
         publicKey: {
           challenge: crypto.getRandomValues(new Uint8Array(32)),
@@ -133,19 +99,16 @@ export default function Login() {
         },
       });
 
-      // 2. Fingerprint passed — restore session via stored refresh token
-      const restored = await restoreSessionFromToken();
-      if (restored) {
-        // Full page reload so AuthContext re-initialises and reads the
-        // new session from localStorage before rendering the home page.
-        window.location.href = '/home';
+      // Step 2: Fingerprint passed — unlock the app using the kept-alive session.
+      const unlocked = await unlockApp();
+      if (unlocked) {
+        navigate('/home');
         return;
       }
 
-      // Refresh token rejected (revoked or already-used) — fall back to one-time password.
-      setError(''); // clear any prior toast
+      // Step 3: Session expired (60+ days) — need password once to re-link.
+      setError('');
       setLoginMethod('biometric-confirmed');
-      return;
     } catch (err: any) {
       if (err.name === 'NotAllowedError') {
         /* user cancelled — stay on screen quietly */
@@ -157,7 +120,7 @@ export default function Login() {
     }
   };
 
-  // One-time password entry after token fully expires (>60 days inactive)
+  // One-time password entry after session fully expires (60+ days inactive).
   const handleBiometricConfirmedLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -333,7 +296,7 @@ export default function Login() {
     );
   }
 
-  // ── Biometric-confirmed (one-time re-link after >60 days inactive) ────────
+  // ── Biometric-confirmed (one-time re-link after 60+ days inactive) ─────────
 
   if (loginMethod === 'biometric-confirmed') {
     return (
