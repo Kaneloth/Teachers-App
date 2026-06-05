@@ -52,16 +52,6 @@ export default function Login() {
     setLoginMethod(method);
   }, []);
 
-  // Auto-trigger biometric prompt as soon as the biometric screen appears.
-  useEffect(() => {
-    if (loginMethod !== 'biometric') return;
-    const credId = localStorage.getItem('biometricCredentialId');
-    if (!credId) return;
-    const t = setTimeout(() => handleBiometricLogin(), 400);
-    return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loginMethod]);
-
   // ── After any successful login ────────────────────────────────────────────
 
   const afterLogin = async () => {
