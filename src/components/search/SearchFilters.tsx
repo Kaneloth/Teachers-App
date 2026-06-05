@@ -93,7 +93,7 @@ export default function SearchFilters({ filters, onFiltersChange, isPro = false,
             <Label className="text-sm font-medium">Subject (CAPS)</Label>
             <Select value={local.subject} onValueChange={v => setLocal(p => ({ ...p, subject: v }))}>
               <SelectTrigger><SelectValue placeholder="All subjects" /></SelectTrigger>
-              <SelectContent>{SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+			  <SelectContent className="max-h-48 overflow-y-auto">{SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
