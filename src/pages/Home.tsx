@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Users, Flame, MapPin, ArrowRight, Search, Lock } from 'lucide-react';
+import { Users, Flame, MapPin, ArrowRight, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -172,7 +172,7 @@ export default function Home() {
               >
                 <Link
                   to={`/educator/${ed.id}`}
-                  className="flex items-center gap-3 bg-card rounded-2xl border border-border px-4 py-3 hover:shadow-sm transition-all"
+                  className="flex items-center gap-3 bg-card rounded-2xl border border-border px-4 py-3 hover:shadow-sm transition-all group"
                 >
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
                     {ed.avatar_url
@@ -183,24 +183,36 @@ export default function Home() {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm text-foreground truncate">{ed.full_name}</p>
 
-                    {/* Current province — gated for free users */}
-                    {isPro ? (
+                    {/* Current province — Pro only; free users see nothing */}
+                    {isPro && (
                       <p className="text-xs text-muted-foreground truncate">
+                        <MapPin className="w-3 h-3 inline mr-0.5" />
                         {ed.current_province} → {ed.preferred_provinces?.join(', ') || 'Any'}
                       </p>
-                    ) : (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Lock className="w-3 h-3 shrink-0" />
-                        <span className="italic truncate">Province hidden</span>
-                        <span className="shrink-0">→ {ed.preferred_provinces?.join(', ') || 'Any'}</span>
-                      </div>
                     )}
 
                     <p className="text-xs text-muted-foreground truncate">
                       {ed.phase} · {ed.subjects?.slice(0, 2).join(', ')}
                     </p>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+
+                  {/* Match % ring — visible to all users */}
+                  <div className="flex flex-col items-center gap-1 shrink-0">
+                    {(() => {
+                      const match = myProfile ? calculateMatch(myProfile, { phase: ed.phase, current_province: ed.current_province, town: ed.town, subjects: ed.subjects }) : 0;
+                      return (
+                        <div className="relative w-9 h-9">
+                          <svg className="w-9 h-9 -rotate-90" viewBox="0 0 36 36">
+                            <circle cx="18" cy="18" r="15" fill="none" stroke="hsl(var(--border))" strokeWidth="2.5" />
+                            <circle cx="18" cy="18" r="15" fill="none" stroke="hsl(var(--primary))" strokeWidth="2.5"
+                              strokeDasharray={`${(match / 100) * 94.2} 94.2`} strokeLinecap="round" />
+                          </svg>
+                          <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-primary leading-none">{match}%</span>
+                        </div>
+                      );
+                    })()}
+                    <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
                 </Link>
               </motion.div>
             ))}

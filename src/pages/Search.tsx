@@ -115,9 +115,8 @@ export default function Search() {
       );
     }
 
-    /* Exclude 85–100 % matches — those belong on the Matches page only.
-       Falls back to simple own-card exclusion if profile not loaded yet. */
-    if (myProfile) {
+    /* Exclude 85–100 % matches for free users — those belong on the Matches page only. */
+    if (!isPro && myProfile) {
       results = results.filter(e =>
         calculateMatch(myProfile, {
           phase: e.phase,
@@ -126,8 +125,6 @@ export default function Search() {
           subjects: e.subjects,
         }) < 85
       );
-    } else if (user?.id) {
-      results = results.filter(e => e.user_id !== user.id);
     }
 
     setEducators(results);
