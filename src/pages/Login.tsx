@@ -77,17 +77,6 @@ export default function Login() {
     persistRefreshToken();
   }, [loginMethod]);
 
-  // Auto-trigger biometric prompt as soon as the biometric screen appears —
-  // no tap required, just like a banking app.
-  useEffect(() => {
-    if (loginMethod !== 'biometric') return;
-    const credId = localStorage.getItem('biometricCredentialId');
-    if (!credId) return;
-    const t = setTimeout(() => handleBiometricLogin(), 400);
-    return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loginMethod]);
-
   // ── After any successful login ────────────────────────────────────────────
 
   const afterLogin = async () => {
@@ -397,21 +386,14 @@ export default function Login() {
         </Button>
       </form>
       <div className="text-center space-y-2 text-sm text-muted-foreground">
-        {localStorage.getItem('loginMethod') === 'biometric' ? (
+        {localStorage.getItem('loginMethod') === 'biometric' && (
           <p>
             <button onClick={() => setLoginMethod('biometric')} className="flex items-center gap-1.5 mx-auto text-primary font-medium hover:underline">
               <Fingerprint className="w-4 h-4" />
               Use biometric instead
             </button>
           </p>
-        ) : window.PublicKeyCredential ? (
-          <p>
-            <Link to="/settings?tab=Security" className="flex items-center gap-1.5 mx-auto w-fit text-primary font-medium hover:underline">
-              <Fingerprint className="w-4 h-4" />
-              Set up biometric login
-            </Link>
-          </p>
-        ) : null}
+        )}
         <p>Don't have an account?{' '}
           <Link to="/register" className="text-primary font-semibold hover:underline">Create one</Link>
         </p>
