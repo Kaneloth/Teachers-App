@@ -121,7 +121,7 @@ export default function Onboarding() {
   /* ── Type selector screen ──────────────────────────────────── */
   if (!profileType) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#f0fdfa] via-white to-[#f0fdf4] flex items-center justify-center px-4 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/5 flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-foreground">Welcome to Crosssa</h1>
@@ -171,7 +171,7 @@ export default function Onboarding() {
   /* ── General user: single-step setup ──────────────────────── */
   if (profileType === 'general') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#f0fdfa] via-white to-[#f0fdf4] flex items-center justify-center px-4 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/5 flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-foreground">Set Up Your Profile</h1>
@@ -206,7 +206,7 @@ export default function Onboarding() {
 
   /* ── Educator: multi-step setup ────────────────────────────── */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f0fdfa] via-white to-[#f0fdf4] flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/5 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-foreground">Set Up Your Educator Profile</h1>
