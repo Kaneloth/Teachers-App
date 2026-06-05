@@ -114,6 +114,18 @@ export default function AppLayout() {
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     if (!isTabRoute) return;
+
+    // Don't hijack touches that start inside a horizontally-scrollable element
+    // (e.g. the category chips row in VacanciesPage).
+    let el = e.target as HTMLElement | null;
+    while (el && el !== e.currentTarget) {
+      const overflowX = window.getComputedStyle(el).overflowX;
+      if ((overflowX === 'auto' || overflowX === 'scroll') && el.scrollWidth > el.clientWidth) {
+        return;
+      }
+      el = el.parentElement;
+    }
+
     touchRef.current = {
       startX: e.touches[0].clientX,
       startY: e.touches[0].clientY,
