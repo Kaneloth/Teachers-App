@@ -188,7 +188,7 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVDa
             <Section title="Professional Skills" color="#0d9488">
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {skills.soft_skills.map((s, i) => (
-                  <span key={i} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#f0fdf4', color: '#0d9488', border: '1px solid #99f6e4', borderRadius: '4px', padding: '3px 9px', fontSize: '11px', lineHeight: '1' }}>{s}</span>
+                  <span key={i} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: '#f0fdf4', color: '#0d9488', border: '1px solid #99f6e4', borderRadius: '4px', padding: '4px 10px', fontSize: '11px', lineHeight: 'normal' }}>{s}</span>
                 ))}
               </div>
             </Section>
@@ -256,7 +256,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp }: { data
                 <Section title="Skills" color="#1e4d2b" borderColor="#2d7a47">
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                     {skills.soft_skills.map((s, i) => (
-                      <span key={i} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#f0fdf4', color: '#1e4d2b', border: '1px solid #bbf7d0', borderRadius: '3px', padding: '3px 8px', fontSize: '11px', lineHeight: '1' }}>{s}</span>
+                      <span key={i} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: '#f0fdf4', color: '#1e4d2b', border: '1px solid #bbf7d0', borderRadius: '3px', padding: '4px 10px', fontSize: '11px', lineHeight: 'normal' }}>{s}</span>
                     ))}
                   </div>
                 </Section>
@@ -435,7 +435,7 @@ function SkillRow({ label, items }: { label?: string; items: string[] }) {
       {label && <span style={{ fontWeight: '600', fontSize: '12px', color: '#374151' }}>{label}: </span>}
       <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '4px', verticalAlign: 'middle' }}>
         {items.map((s, i) => (
-          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#f3f4f6', color: '#374151', borderRadius: '3px', padding: '3px 8px', fontSize: '11px', border: '1px solid #e5e7eb', lineHeight: '1' }}>{s}</span>
+          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: '#f3f4f6', color: '#374151', borderRadius: '3px', padding: '4px 10px', fontSize: '11px', border: '1px solid #e5e7eb', lineHeight: 'normal' }}>{s}</span>
         ))}
       </div>
     </div>
