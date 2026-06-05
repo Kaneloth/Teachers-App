@@ -163,7 +163,7 @@ export default function Search() {
           </button>
           <h1 className="text-lg font-bold text-foreground">Find Educators</h1>
         </div>
-        <p className="text-sm text-muted-foreground pl-1">Search by name, province, or subject</p>
+        <p className="text-sm text-muted-foreground pl-1">Search by name or subject · <span className="text-primary font-medium">Pro</span> unlocks province filtering</p>
       </div>
 
       {/* Search bar + filters */}
