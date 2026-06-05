@@ -45,7 +45,7 @@ serve(async (req) => {
       );
     }
 
-    const FROM_EMAIL = Deno.env.get('FROM_EMAIL') ?? 'noreply@crosssa.co.za';
+    const FROM_EMAIL = Deno.env.get('FROM_EMAIL') ?? 'noreply@skootlink.co.za';
     const FROM_NAME  = 'Crosssa CV Builder';
 
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
