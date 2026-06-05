@@ -323,14 +323,16 @@ function IdentityVerificationSection() {
         </div>
       )}
 
-      {/* Doc type toggle */}
+      {/* Doc type toggle — locked once verified */}
       <div className="grid grid-cols-2 bg-muted rounded-xl p-1 gap-1">
-        <button type="button" onClick={() => switchDocType('id')}
-          className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${docType === 'id' ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}>
+        <button type="button" onClick={() => !meta.doc_verified && switchDocType('id')}
+          disabled={!!meta.doc_verified}
+          className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${docType === 'id' ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'} ${meta.doc_verified ? 'cursor-not-allowed opacity-60' : ''}`}>
           <CreditCard className="w-4 h-4" /> SA ID
         </button>
-        <button type="button" onClick={() => switchDocType('passport')}
-          className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${docType === 'passport' ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}>
+        <button type="button" onClick={() => !meta.doc_verified && switchDocType('passport')}
+          disabled={!!meta.doc_verified}
+          className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${docType === 'passport' ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'} ${meta.doc_verified ? 'cursor-not-allowed opacity-60' : ''}`}>
           <BookOpen className="w-4 h-4" /> Passport
         </button>
       </div>
@@ -341,15 +343,19 @@ function IdentityVerificationSection() {
           <Field label="SA ID Number">
             <Input
               value={idNumber}
-              onChange={e => handleIdChange(e.target.value)}
+              onChange={e => !meta.doc_verified && handleIdChange(e.target.value)}
+              readOnly={!!meta.doc_verified}
               placeholder="8001015009087"
               className={`rounded-xl font-mono tracking-wider
+                ${meta.doc_verified             ? 'bg-muted cursor-not-allowed'                    : ''}
                 ${idVerifyState === 'verified'   ? 'border-green-500 focus-visible:ring-green-500' : ''}
                 ${idVerifyState === 'unverified' ? 'border-amber-500 focus-visible:ring-amber-500' : ''}
                 ${idVerifyState === 'error'      ? 'border-red-500   focus-visible:ring-red-500'   : ''}`}
               inputMode="numeric" maxLength={13}
             />
-            <p className="text-xs text-muted-foreground pl-1">13-digit South African ID number</p>
+            <p className="text-xs text-muted-foreground pl-1">
+              {meta.doc_verified ? 'ID number is locked after verification.' : '13-digit South African ID number'}
+            </p>
           </Field>
           <VerifyBadge state={idVerifyState} message={idVerifyMsg} />
           <Button
@@ -367,7 +373,7 @@ function IdentityVerificationSection() {
               : idVerifyState === 'unverified' ? <><AlertCircle  className="w-4 h-4" /> Verification Inconclusive</>
               :                                  <><ShieldCheck  className="w-4 h-4" /> Verify ID Number (Optional)</>}
           </Button>
-          {idBtnDone && (
+          {idBtnDone && !meta.doc_verified && (
             <button type="button" onClick={() => { setIdVerifyState('idle'); setIdVerifyMsg(''); }}
               className="w-full text-xs text-muted-foreground underline text-center">
               Try again with a different number
@@ -382,13 +388,18 @@ function IdentityVerificationSection() {
           <Field label="Passport Number">
             <Input
               value={passportNumber}
-              onChange={e => handlePassportNumChange(e.target.value)}
+              onChange={e => !meta.doc_verified && handlePassportNumChange(e.target.value)}
+              readOnly={!!meta.doc_verified}
               placeholder="A12345678"
               className={`rounded-xl font-mono tracking-wider
+                ${meta.doc_verified                    ? 'bg-muted cursor-not-allowed'                    : ''}
                 ${passportVerifyState === 'verified'   ? 'border-green-500 focus-visible:ring-green-500' : ''}
                 ${passportVerifyState === 'unverified' ? 'border-amber-500 focus-visible:ring-amber-500' : ''}
                 ${passportVerifyState === 'error'      ? 'border-red-500   focus-visible:ring-red-500'   : ''}`}
             />
+            {meta.doc_verified && (
+              <p className="text-xs text-muted-foreground pl-1">Passport number is locked after verification.</p>
+            )}
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <ImageUploadTile label="Passport — Front" file={passportFront}
@@ -415,7 +426,7 @@ function IdentityVerificationSection() {
               : passportVerifyState === 'unverified' ? <><AlertCircle  className="w-4 h-4" /> Verification Inconclusive</>
               :                                        <><ShieldCheck  className="w-4 h-4" /> Verify Passport Documents (Optional)</>}
           </Button>
-          {passportBtnDone && (
+          {passportBtnDone && !meta.doc_verified && (
             <button type="button" onClick={() => { setPassportVerifyState('idle'); setPassportVerifyMsg(''); setPassportFront(null); setPassportBack(null); }}
               className="w-full text-xs text-muted-foreground underline text-center">
               Try again with different documents
