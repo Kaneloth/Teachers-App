@@ -27,6 +27,7 @@ interface Props {
 export default function CVStepPersonal({ data, onChange, cvType }: Props) {
   const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
+  const [idVerified, setIdVerified] = useState(false);
   const [idLabel, setIdLabel] = useState('ID / Passport Number');
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -38,7 +39,12 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
       /* Always fetch fresh metadata so we get the latest doc verification state */
       const { data: { user: freshUser } } = await supabase.auth.getUser();
       const meta = freshUser?.user_metadata ?? {};
+      const docVerified = meta.doc_verified === true;
       const docType = meta.doc_type as string | undefined;
+      const storedId = docType === 'passport'
+        ? (meta.passport_number as string | undefined)
+        : (meta.id_number as string | undefined);
+      setIdVerified(docVerified);
       setIdLabel(docType === 'passport' ? 'Passport Number' : 'ID Number');
 
       const { data: educators } = await supabase
@@ -57,7 +63,7 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
             ? `${profile.current_school}${profile.current_province ? ', ' + profile.current_province : ''}`
             : '',
           bio: profile?.bio || data.bio || '',
-          id_number: data.id_number ?? '',
+          id_number: storedId || '',
         });
       } else {
         const location = [profile?.town, profile?.current_province].filter(Boolean).join(', ');
@@ -67,7 +73,7 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
           phone: profile?.phone || '',
           address: location,
           bio: profile?.bio || data.bio || '',
-          id_number: data.id_number ?? '',
+          id_number: storedId || '',
         });
       }
     }
@@ -167,18 +173,25 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
         />
       </div>
 
-      {/* ID / Passport — optional, user chooses to include */}
+      {/* ID / Passport — locked if verified via profile, editable otherwise */}
       <div className="space-y-1.5">
-        <Label className="text-sm font-medium">
-          {idLabel} <span className="text-muted-foreground font-normal">(optional)</span>
-        </Label>
-        <Input
-          value={data.id_number ?? ''}
-          onChange={e => set('id_number', e.target.value)}
-          placeholder="Leave blank to omit from your CV"
-          className="rounded-xl"
-        />
-        <p className="text-xs text-muted-foreground">Only include this if you want it printed on your CV.</p>
+        <Label className="text-sm font-medium">{idLabel}</Label>
+        {idVerified ? (
+          <div className="flex items-center gap-2 h-9 px-3 rounded-xl border border-border bg-muted/50 text-sm text-foreground">
+            <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <span className="truncate">{data.id_number || <span className="text-muted-foreground italic">Verified on profile</span>}</span>
+          </div>
+        ) : (
+          <Input
+            value={data.id_number ?? ''}
+            onChange={e => set('id_number', e.target.value)}
+            placeholder="Enter your ID or passport number"
+            className="rounded-xl"
+          />
+        )}
+        {idVerified && (
+          <p className="text-xs text-muted-foreground">Verified — locked to your profile for security.</p>
+        )}
       </div>
 
       {/* Professional Summary — editable on both types */}
