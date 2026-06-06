@@ -5,22 +5,16 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { SlidersHorizontal, Lock, Zap } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
 
 const PROVINCES = ['Gauteng', 'KwaZulu-Natal', 'Western Cape', 'Eastern Cape', 'Mpumalanga', 'Limpopo', 'North West', 'Free State', 'Northern Cape'];
 const SUBJECTS = [
-  'Accounting','Afrikaans FAL','Afrikaans HL','Agricultural Sciences',
-  'Agricultural Management Practices','Agricultural Technology','Business Studies',
-  'Computer Applications Technology','Consumer Studies','Dance Studies','Design',
-  'Dramatic Arts','Economics','Engineering Graphics and Design','English FAL','English HL',
-  'Geography','History','Hospitality Studies','Information Technology',
-  'isiNdebele FAL','isiNdebele HL','isiXhosa FAL','isiXhosa HL','isiZulu FAL','isiZulu HL',
-  'Life Orientation','Life Sciences','Mathematical Literacy','Mathematics','Music',
-  'Natural Sciences','Physical Sciences','Religion Studies',
-  'Sepedi FAL','Sepedi HL','Sesotho FAL','Sesotho HL','Setswana FAL','Setswana HL',
-  'Sign Language HL','Siswati FAL','Siswati HL','Social Sciences','Technology',
-  'Tshivenda FAL','Tshivenda HL','Tourism','Visual Arts',
-  'Xitsonga FAL','Xitsonga HL','Other',
+  'Mathematics', 'Mathematical Literacy', 'Physical Sciences', 'Life Sciences',
+  'English HL', 'English FAL', 'Afrikaans HL', 'Afrikaans FAL',
+  'isiZulu HL', 'isiZulu FAL', 'isiXhosa HL', 'History', 'Geography',
+  'Business Studies', 'Accounting', 'Economics', 'Life Orientation',
+  'Computer Applications Technology', 'Information Technology',
+  'Agricultural Sciences', 'Natural Sciences', 'Social Sciences',
 ];
 const PHASES = ['Foundation', 'Intermediate', 'Senior', 'FET'];
 
@@ -70,38 +64,21 @@ export default function SearchFilters({ filters, onFiltersChange, isPro = false,
         </SheetHeader>
         <div className="space-y-6 pb-6">
 
-          {/* Province — Pro only */}
+          {/* Province — available to all users */}
           <div className="space-y-2">
-            <div className="flex items-center gap-1.5">
-              <Label className="text-sm font-medium">Province</Label>
-              {!isPro && <Lock className="w-3 h-3 text-muted-foreground" />}
-            </div>
-            {isPro ? (
-              <Select value={local.province} onValueChange={v => setLocal(p => ({ ...p, province: v }))}>
-                <SelectTrigger><SelectValue placeholder="All provinces" /></SelectTrigger>
-                <SelectContent>{PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-              </Select>
-            ) : (
-              <button
-                type="button"
-                onClick={() => { setOpen(false); onProGate?.(); }}
-                className="w-full flex items-center justify-between px-3 h-10 rounded-md border border-border bg-muted/40 text-sm text-muted-foreground hover:bg-muted transition-colors"
-              >
-                <span>All provinces</span>
-                <div className="flex items-center gap-1.5 text-primary text-xs font-semibold">
-                  <Zap className="w-3 h-3" /> Pro
-                </div>
-              </button>
-            )}
+            <Label className="text-sm font-medium">Province</Label>
+            <Select value={local.province} onValueChange={v => setLocal(p => ({ ...p, province: v }))}>
+              <SelectTrigger><SelectValue placeholder="All provinces" /></SelectTrigger>
+              <SelectContent>{PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
             <Label className="text-sm font-medium">Subject (CAPS)</Label>
             <Select value={local.subject} onValueChange={v => setLocal(p => ({ ...p, subject: v }))}>
               <SelectTrigger><SelectValue placeholder="All subjects" /></SelectTrigger>
-			  <SelectContent className="max-h-48 overflow-y-auto">{SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              <SelectContent>{SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
-			
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-medium">Phase</Label>
