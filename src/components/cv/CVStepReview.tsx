@@ -95,9 +95,16 @@ export default function CVStepReview({ data, onGenerated }: Props) {
       </div>
 
       {view === 'preview' ? (
-        <div className="rounded-xl overflow-hidden border border-border">
-          <div className="overflow-x-auto">
-            <div style={{ minWidth: '320px' }}><CVTemplateRenderer data={data} /></div>
+        <div className="rounded-xl overflow-hidden border border-border bg-white shadow-sm">
+          {/*
+           * Render the CV at its true A4 width (794 px) then zoom the whole
+           * thing down to ~45% so it fits a phone screen without any clipping.
+           * `zoom` (unlike transform:scale) collapses layout space, so the
+           * container height adjusts to the scaled content automatically and
+           * the page can scroll normally to reveal references or extra pages.
+           */}
+          <div style={{ zoom: 0.45 }}>
+            <CVTemplateRenderer data={data} forExport />
           </div>
         </div>
       ) : (
