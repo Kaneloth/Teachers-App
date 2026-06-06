@@ -9,12 +9,18 @@ import { SlidersHorizontal } from 'lucide-react';
 
 const PROVINCES = ['Gauteng', 'KwaZulu-Natal', 'Western Cape', 'Eastern Cape', 'Mpumalanga', 'Limpopo', 'North West', 'Free State', 'Northern Cape'];
 const SUBJECTS = [
-  'Mathematics', 'Mathematical Literacy', 'Physical Sciences', 'Life Sciences',
-  'English HL', 'English FAL', 'Afrikaans HL', 'Afrikaans FAL',
-  'isiZulu HL', 'isiZulu FAL', 'isiXhosa HL', 'History', 'Geography',
-  'Business Studies', 'Accounting', 'Economics', 'Life Orientation',
-  'Computer Applications Technology', 'Information Technology',
-  'Agricultural Sciences', 'Natural Sciences', 'Social Sciences',
+  'Accounting','Afrikaans FAL','Afrikaans HL','Agricultural Sciences',
+  'Agricultural Management Practices','Agricultural Technology','Business Studies',
+  'Computer Applications Technology','Consumer Studies','Dance Studies','Design',
+  'Dramatic Arts','Economics','Engineering Graphics and Design','English FAL','English HL',
+  'Geography','History','Hospitality Studies','Information Technology',
+  'isiNdebele FAL','isiNdebele HL','isiXhosa FAL','isiXhosa HL','isiZulu FAL','isiZulu HL',
+  'Life Orientation','Life Sciences','Mathematical Literacy','Mathematics','Music',
+  'Natural Sciences','Physical Sciences','Religion Studies',
+  'Sepedi FAL','Sepedi HL','Sesotho FAL','Sesotho HL','Setswana FAL','Setswana HL',
+  'Sign Language HL','Siswati FAL','Siswati HL','Social Sciences','Technology',
+  'Tshivenda FAL','Tshivenda HL','Tourism','Visual Arts',
+  'Xitsonga FAL','Xitsonga HL','Other',
 ];
 const PHASES = ['Foundation', 'Intermediate', 'Senior', 'FET'];
 
@@ -77,7 +83,7 @@ export default function SearchFilters({ filters, onFiltersChange, isPro = false,
             <Label className="text-sm font-medium">Subject (CAPS)</Label>
             <Select value={local.subject} onValueChange={v => setLocal(p => ({ ...p, subject: v }))}>
               <SelectTrigger><SelectValue placeholder="All subjects" /></SelectTrigger>
-              <SelectContent>{SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              <SelectContent className="max-h-48 overflow-y-auto">{SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
