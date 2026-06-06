@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,14 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false);
   const [profileType, setProfileType] = useState<ProfileType | null>(null);
 
+  // If this user already completed onboarding (has a user_code) — e.g. an
+  // existing user who logged in via Google — skip straight to /home.
+  useEffect(() => {
+    if (user?.user_metadata?.user_code) {
+      navigate('/home', { replace: true });
+    }
+  }, [user, navigate]);
+
   /* Educator multi-step state */
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
@@ -58,6 +66,28 @@ export default function Onboarding() {
 
   const set    = (field: string, value: unknown) => setForm(p => ({ ...p, [field]: value }));
   const setGen = (field: string, value: string)  => setGenForm(p => ({ ...p, [field]: value }));
+
+  /* ── Skip for now ─────────────────────────────────────────────
+     Even when skipping, every new user gets a user code and welcome
+     email so they are properly registered in the system.          */
+  const handleSkip = async () => {
+    if (!user) { navigate('/home'); return; }
+    // Only assign if not already done (guard against double-tap).
+    if (!user.user_metadata?.user_code) {
+      const userCode = generateUserCode();
+      await supabase.auth.updateUser({ data: { user_code: userCode } });
+      supabase.functions
+        .invoke('sendWelcomeEmail', {
+          body: {
+            email:     user.email ?? '',
+            full_name: user.user_metadata?.full_name || '',
+            user_code: userCode,
+          },
+        })
+        .catch(() => {});
+    }
+    navigate('/home');
+  };
 
   const toggleSubject  = (s: string) => set('subjects',            form.subjects.includes(s)            ? form.subjects.filter(x => x !== s)            : [...form.subjects, s]);
   const toggleProvince = (p: string) => set('preferred_provinces', form.preferred_provinces.includes(p) ? form.preferred_provinces.filter(x => x !== p) : [...form.preferred_provinces, p]);
@@ -163,7 +193,7 @@ export default function Onboarding() {
           </div>
 
           <p className="text-center text-xs text-muted-foreground mt-6">
-            <button onClick={() => navigate('/home')} className="hover:underline">Skip for now</button>
+            <button onClick={handleSkip} className="hover:underline">Skip for now</button>
           </p>
         </div>
       </div>
@@ -199,7 +229,7 @@ export default function Onboarding() {
           </div>
 
           <p className="text-center text-xs text-muted-foreground mt-4">
-            <button onClick={() => navigate('/home')} className="hover:underline">Skip for now</button>
+            <button onClick={handleSkip} className="hover:underline">Skip for now</button>
           </p>
         </div>
       </div>
@@ -320,7 +350,7 @@ export default function Onboarding() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-4">
-          <button onClick={() => navigate('/home')} className="hover:underline">Skip for now</button>
+          <button onClick={handleSkip} className="hover:underline">Skip for now</button>
         </p>
       </div>
     </div>

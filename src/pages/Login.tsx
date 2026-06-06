@@ -11,7 +11,11 @@ import { useAuth } from '@/lib/AuthContext';
 type LoginMethod = 'password' | 'biometric' | 'biometric-confirmed';
 type Step = 'form' | 'email-otp';
 
-// Backup token helpers (optional, for fallback when session expires)
+// ── Backup token helpers ──────────────────────────────────────────────────────
+// Used only as a secondary fallback when the Supabase session has truly
+// expired (60+ days inactive). The primary path is AuthContext.unlockApp()
+// which reads the still-live session from Supabase's own localStorage.
+
 const BIO_AT_KEY = 'crosssa_biometric_access_token';
 const BIO_RT_KEY = 'crosssa_biometric_refresh_token';
 
@@ -22,6 +26,8 @@ async function persistBioSession() {
     localStorage.setItem(BIO_RT_KEY, session.refresh_token);
   }
 }
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Login() {
   const navigate = useNavigate();
@@ -46,22 +52,33 @@ export default function Login() {
     setLoginMethod(method);
   }, []);
 
+  // ── After any successful login ────────────────────────────────────────────
+
   const afterLogin = async () => {
+    // Persist fresh tokens as a backup for when the session eventually expires.
     await persistBioSession();
     if (email) localStorage.setItem('crosssa_last_email', email);
     navigate('/home');
   };
 
-  // ── Biometric login (lock screen pattern) ─────────────────────────────────
+  // ── Biometric login ───────────────────────────────────────────────────────
+  // Flow:
+  //   1. Verify the WebAuthn credential (proves user is physically on device).
+  //   2. Call unlockApp() — reads the Supabase session that was kept alive
+  //      in localStorage during the lock-screen "logout". No token exchange needed.
+  //   3. If the session has genuinely expired (60+ days), fall back to
+  //      biometric-confirmed (enter password once to re-establish the session).
+
   const handleBiometricLogin = async () => {
     setError('');
     setBiometricLoading(true);
     try {
-      if (!window.PublicKeyCredential) throw new Error('Biometric not supported.');
+      if (!window.PublicKeyCredential) throw new Error('Biometric not supported on this device.');
 
       const credId = localStorage.getItem('biometricCredentialId');
       if (!credId) throw new Error('No fingerprint registered. Please set up biometric in Settings.');
 
+      // Step 1: Verify fingerprint / Face ID via WebAuthn.
       await navigator.credentials.get({
         publicKey: {
           challenge: crypto.getRandomValues(new Uint8Array(32)),
@@ -72,19 +89,28 @@ export default function Login() {
         },
       });
 
+      // Step 2: Fingerprint passed — unlock the app using the kept-alive session.
       const unlocked = await unlockApp();
       if (unlocked) {
         navigate('/home');
         return;
       }
+
+      // Step 3: Session expired (60+ days) — need password once to re-link.
+      setError('');
       setLoginMethod('biometric-confirmed');
     } catch (err: any) {
-      if (err.name !== 'NotAllowedError') setError(err.message || 'Biometric verification failed.');
+      if (err.name === 'NotAllowedError') {
+        /* user cancelled — stay on screen quietly */
+      } else {
+        setError(err.message || 'Biometric verification failed. Try again.');
+      }
     } finally {
       setBiometricLoading(false);
     }
   };
 
+  // One-time password entry after session fully expires (60+ days inactive).
   const handleBiometricConfirmedLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -101,6 +127,7 @@ export default function Login() {
   };
 
   // ── Password login ────────────────────────────────────────────────────────
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -121,26 +148,8 @@ export default function Login() {
     setLoading(false);
   };
 
-  // ── Google OAuth (works with Supabase) ───────────────────────────────────
-  // Requires: Google OAuth client configured in Supabase dashboard
-  // (Authentication → Providers → Google → set Client ID & Secret)
-  const handleGoogle = async () => {
-    setGoogleLoading(true);
-    const redirectUrl = `${window.location.origin}/home`;
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: redirectUrl },
-      });
-      if (error) throw error;
-      // The page will redirect to Google; no further action here.
-    } catch (err: any) {
-      toast.error(err.message || 'Google sign-in failed');
-      setGoogleLoading(false);
-    }
-  };
+  // ── Email OTP ─────────────────────────────────────────────────────────────
 
-  // ── Email OTP (unconfirmed email) ────────────────────────────────────────
   const handleVerifyEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -162,7 +171,20 @@ export default function Login() {
     setResendLoading(false);
   };
 
-  // ── Shared UI elements ────────────────────────────────────────────────────
+  const handleGoogle = async () => {
+    setGoogleLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      // Always land on /onboarding — it detects existing users and skips
+      // to /home automatically, so both new and returning users are handled.
+      options: { redirectTo: `${window.location.origin}/onboarding` },
+    });
+    if (error) toast.error(error.message);
+    setGoogleLoading(false);
+  };
+
+  // ── Shared UI ─────────────────────────────────────────────────────────────
+
   const GoogleSvg = (
     <svg viewBox="0 0 24 24" className="w-4 h-4">
       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -185,6 +207,7 @@ export default function Login() {
   );
 
   // ── Email OTP screen ──────────────────────────────────────────────────────
+
   if (step === 'email-otp') {
     return (
       <div className="space-y-6">
@@ -194,7 +217,7 @@ export default function Login() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">Verify your email</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            We sent a 6-digit code to <strong>{email}</strong>.<br />Enter it below to sign in.
+            We sent an 8-digit code to <strong>{email}</strong>.<br />Enter it below to sign in.
           </p>
         </div>
         {error && <ErrorBox msg={error} />}
@@ -226,6 +249,7 @@ export default function Login() {
   }
 
   // ── Biometric screen ──────────────────────────────────────────────────────
+
   if (loginMethod === 'biometric') {
     return (
       <div className="space-y-6">
@@ -264,7 +288,8 @@ export default function Login() {
     );
   }
 
-  // ── Biometric-confirmed (one-time password after full expiry) ────────────
+  // ── Biometric-confirmed (one-time re-link after 60+ days inactive) ─────────
+
   if (loginMethod === 'biometric-confirmed') {
     return (
       <div className="space-y-6">
@@ -274,11 +299,6 @@ export default function Login() {
             Your saved session has fully expired. Sign in once to restore biometric access — you won't need to do this again.
           </p>
         </div>
-        <Button variant="outline" onClick={handleGoogle} disabled={googleLoading} className="w-full h-11 rounded-xl gap-3">
-          {googleLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : GoogleSvg}
-          Continue with Google
-        </Button>
-        <Divider />
         <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/10 text-primary text-sm">
           <Fingerprint className="w-4 h-4 shrink-0" />
           Fingerprint verified — enter your password once and you're done.
@@ -311,7 +331,8 @@ export default function Login() {
     );
   }
 
-  // ── Standard password login form (default) ───────────────────────────────
+  // ── Standard password form ────────────────────────────────────────────────
+
   return (
     <div className="space-y-6">
       <div className="text-center">
