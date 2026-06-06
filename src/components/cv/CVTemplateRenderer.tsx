@@ -50,14 +50,13 @@ export default function CVTemplateRenderer({ data, forExport = false }: Props) {
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 
+// All descriptions become bullet lists – no bubble styling
 function renderDescription(desc: string | undefined, color: string, fontSize = '12px'): React.ReactNode {
   if (!desc) return null;
   const lines = desc.split('\n').map(l => l.trim()).filter(Boolean);
-  if (lines.length <= 1) {
-    return <div style={{ color, fontSize, marginTop: '4px' }}>{desc}</div>;
-  }
+  if (lines.length === 0) return null;
   return (
-    <ul style={{ margin: '4px 0 0', padding: '0 0 0 18px', color, fontSize, lineHeight: '1.55' }}>
+    <ul style={{ margin: '4px 0 0', paddingLeft: '18px', color, fontSize, lineHeight: '1.55', listStyleType: 'disc' }}>
       {lines.map((line, i) => <li key={i} style={{ marginBottom: '3px' }}>{line}</li>)}
     </ul>
   );
@@ -83,7 +82,7 @@ function renderCustomSections(sections: CustomSection[] | undefined, color: stri
           content = (s.columns?.length && validRows.length) ? (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
               <thead>
-                <tr>{s.columns.map((col, ci) => <th key={ci} style={{ background: color, color: '#fff', padding: '6px 10px', textAlign: 'left', fontWeight: '700', fontSize: '10px', letterSpacing: '0.5px' }}>{col}</th>)}</tr>
+                <tr>{s.columns.map((col, ci) => <th key={ci} style={{ background: color, color: '#fff', padding: '6px 10px', textAlign: 'left', fontWeight: '700', fontSize: '10px', letterSpacing: '0.5px' }}>{col}</th>)}</td>
               </thead>
               <tbody>
                 {validRows.map((row, ri) => (
@@ -127,7 +126,7 @@ function renderReferencesPage(refs: RefEntry[] | undefined, color: string, borde
   );
 }
 
-/* ── Template components (fixed spacing & no overlap) ────────────────────── */
+/* ── Templates (all using bullet list descriptions) ──────────────────────── */
 
 function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVData; wrapperStyle: React.CSSProperties; validEdu: CVData['education']; validExp: CVData['experience'] }) {
   const { personal, skills } = data;
@@ -164,7 +163,7 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
                 <div key={i} style={{ marginBottom: '16px' }}>
                   <div style={{ fontWeight: '600', color: '#111827' }}>{e.role}</div>
                   <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.school}{(e.from || e.to) ? ` · ${e.from || ''} – ${e.to || ''}` : ''}</div>
-                  <div style={{ marginTop: '4px' }}>{renderDescription(e.description, '#374151')}</div>
+                  {renderDescription(e.description, '#374151')}
                 </div>
               ))}
             </Section>
@@ -214,7 +213,7 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVDa
                 <div key={i} style={{ marginBottom: '16px', borderLeft: '2px solid #0d9488', paddingLeft: '12px' }}>
                   <div style={{ fontWeight: '600', color: '#111827' }}>{e.role}</div>
                   <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.school}{(e.from || e.to) ? ` · ${e.from || ''} – ${e.to || ''}` : ''}</div>
-                  <div style={{ marginTop: '4px' }}>{renderDescription(e.description, '#374151')}</div>
+                  {renderDescription(e.description, '#374151')}
                 </div>
               ))}
             </Section>
@@ -275,7 +274,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp }: { data
                       <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.role}</div>
                       <div style={{ color: '#2d7a47', fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
                       {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
-                      <div style={{ marginTop: '4px' }}>{renderDescription(e.description, '#374151')}</div>
+                      {renderDescription(e.description, '#374151')}
                     </div>
                   ))}
                 </Section>
@@ -350,7 +349,7 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: '600', color: '#111827', fontSize: '13px' }}>{e.role}</div>
                     <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.school}</div>
-                    <div style={{ marginTop: '4px' }}>{renderDescription(e.description, '#4b5563')}</div>
+                    {renderDescription(e.description, '#4b5563')}
                   </div>
                 </div>
               ))}
@@ -437,7 +436,7 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
                   <div style={{ fontWeight: '700', color: '#111827' }}>{e.role}</div>
                   <div style={{ color: sideColor, fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
                   {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
-                  <div style={{ marginTop: '4px' }}>{renderDescription(e.description, '#374151')}</div>
+                  {renderDescription(e.description, '#374151')}
                 </div>
               ))}
             </Section>
@@ -494,7 +493,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVData
                     <div style={{ fontWeight: '700', color: '#111827' }}>{e.role}</div>
                     <div style={{ color: accent, fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
                     {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
-                    <div style={{ marginTop: '4px' }}>{renderDescription(e.description, '#374151')}</div>
+                    {renderDescription(e.description, '#374151')}
                   </div>
                 ))}
               </Section>
@@ -573,7 +572,7 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp }: { data: C
                       <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.role}</div>
                       <div style={{ color: light, fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
                       {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
-                      <div style={{ marginTop: '4px' }}>{renderDescription(e.description, '#374151')}</div>
+                      {renderDescription(e.description, '#374151')}
                     </div>
                   ))}
                 </Section>
@@ -656,7 +655,7 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: { data: C
                   <div style={{ fontWeight: '700', color: '#111827' }}>{e.role}</div>
                   <div style={{ color: navy, fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
                   {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
-                  <div style={{ marginTop: '4px' }}>{renderDescription(e.description, '#374151')}</div>
+                  {renderDescription(e.description, '#374151')}
                 </div>
               ))}
             </Section>
@@ -679,7 +678,7 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: { data: C
   );
 }
 
-/* ── Shared UI helpers (fixed overlap: increased marginBottom, proper clearance) ── */
+/* ── Shared UI helpers (improved spacing, no bubbles) ────────────────────── */
 
 function Section({ title, color, borderColor, icon, children }: { title: string; color?: string; borderColor?: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
