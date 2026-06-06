@@ -4,24 +4,6 @@
 [functions."fetch-vacancies"]
   timeout = 26
 
-# Sitemap plugin – generates sitemap.xml with additional routes
-[[plugins]]
-  package = "@netlify/plugin-sitemap"
-
-[plugins.inputs]
-  buildDir = "dist"
-  additionalUrls = [
-    "/",
-    "/home",
-    "/search",
-    "/chats",
-    "/profile",
-    "/cv-builder",
-    "/vacancies",
-    "/login",
-    "/register"
-  ]
-
 # SPA catch-all — must come LAST so Netlify functions still resolve first.
 # Without this every direct URL hit (e.g. /profile, /vacancies) returns 404.
 [[redirects]]
