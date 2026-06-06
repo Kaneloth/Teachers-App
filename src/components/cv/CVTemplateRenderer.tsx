@@ -1,5 +1,3 @@
-import { Briefcase, GraduationCap, User, Mail, Phone, MapPin, Award, BookOpen, Languages } from 'lucide-react';
-
 interface CustomSection {
   title: string;
   type: 'text' | 'bullets' | 'table';
@@ -29,26 +27,26 @@ interface CVData {
 
 interface Props { data: CVData; forExport?: boolean }
 
-/* ── Shared bubble style (used by every chip across all templates) ────────── */
+/* ── Shared chip styles ───────────────────────────────────────────────────── */
 const BUBBLE_BASE: React.CSSProperties = {
-  display: 'display-flex',
-  alignItems: 'top',
+  display: 'inline-flex',
+  alignItems: 'center',
   justifyContent: 'center',
   textAlign: 'center',
   borderRadius: '4px',
-  padding: '8px 14px',
+  padding: '6px 12px',
   fontSize: '11px',
-  lineHeight: 1.2,
-  minHeight: '28px',
+  lineHeight: 1.3,
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
+  verticalAlign: 'middle',
 };
 
 const BUBBLE_WRAP: React.CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
   columnGap: '8px',
-  rowGap: '10px',
+  rowGap: '8px',
 };
 
 export default function CVTemplateRenderer({ data, forExport = false }: Props) {
@@ -70,19 +68,21 @@ export default function CVTemplateRenderer({ data, forExport = false }: Props) {
   return <ClassicTemplate data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} />;
 }
 
-/* ── Helper: bullet-list description (no bubble) ─────────────────────────── */
+/* ── Helpers ─────────────────────────────────────────────────────────────── */
+
 function renderDescription(desc: string | undefined, color: string, fontSize = '12px'): React.ReactNode {
   if (!desc) return null;
   const lines = desc.split('\n').map(l => l.trim()).filter(Boolean);
-  if (lines.length === 0) return null;
+  if (lines.length <= 1) {
+    return <div style={{ color, fontSize, marginTop: '3px' }}>{desc}</div>;
+  }
   return (
-    <ul style={{ margin: '4px 0 0', paddingLeft: '18px', color, fontSize, lineHeight: '1.55', listStyleType: 'disc' }}>
-      {lines.map((line, i) => <li key={i} style={{ marginBottom: '3px' }}>{line}</li>)}
+    <ul style={{ margin: '3px 0 0', padding: '0 0 0 14px', color, fontSize, lineHeight: '1.6' }}>
+      {lines.map((line, i) => <li key={i} style={{ marginBottom: '1px' }}>{line}</li>)}
     </ul>
   );
 }
 
-/* ── Custom sections renderer (with fixed table generation) ───────────────── */
 function renderCustomSections(sections: CustomSection[] | undefined, color: string, borderColor?: string): React.ReactNode {
   if (!sections?.length) return null;
   return (
@@ -94,34 +94,26 @@ function renderCustomSections(sections: CustomSection[] | undefined, color: stri
         } else if (s.type === 'bullets') {
           const lines = (s.content || '').split('\n').map(l => l.trim()).filter(Boolean);
           content = lines.length ? (
-            <ul style={{ margin: 0, padding: '0 0 0 18px', color: '#374151', fontSize: '12px', lineHeight: '1.55' }}>
-              {lines.map((line, i) => <li key={i} style={{ marginBottom: '3px' }}>{line}</li>)}
+            <ul style={{ margin: 0, padding: '0 0 0 14px', color: '#374151', fontSize: '12px', lineHeight: '1.6' }}>
+              {lines.map((line, i) => <li key={i} style={{ marginBottom: '1px' }}>{line}</li>)}
             </ul>
           ) : null;
-        } else if (s.type === 'table') {
-          const cols = s.columns || [];
-          const rows = s.rows || [];
-          if (!cols.length || !rows.length) return null;
-          content = (
+        } else {
+          const validRows = (s.rows || []).filter(r => r.some(c => c.trim()));
+          content = (s.columns?.length && validRows.length) ? (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
               <thead>
-                <tr>
-                  {cols.map((col, ci) => (
-                    <th key={ci} style={{ background: color, color: '#fff', padding: '6px 10px', textAlign: 'left', fontWeight: '700', fontSize: '10px', letterSpacing: '0.5px' }}>{col}</th>
-                  ))}
-                </tr>
+                <tr>{s.columns.map((col, ci) => <th key={ci} style={{ background: color, color: '#fff', padding: '5px 8px', textAlign: 'left', fontWeight: '700', fontSize: '10px', letterSpacing: '0.5px' }}>{col}</th>)}</tr>
               </thead>
               <tbody>
-                {rows.map((row, ri) => (
+                {validRows.map((row, ri) => (
                   <tr key={ri} style={{ background: ri % 2 === 0 ? '#f9fafb' : '#fff' }}>
-                    {row.map((cell, ci) => (
-                      <td key={ci} style={{ padding: '6px 10px', color: '#374151', borderBottom: '1px solid #e5e7eb', fontSize: '11px' }}>{cell}</td>
-                    ))}
+                    {row.map((cell, ci) => <td key={ci} style={{ padding: '4px 8px', color: '#374151', borderBottom: '1px solid #e5e7eb', fontSize: '11px' }}>{cell}</td>)}
                   </tr>
                 ))}
               </tbody>
             </table>
-          );
+          ) : null;
         }
         return content ? <Section key={idx} title={s.title} color={color} borderColor={borderColor}>{content}</Section> : null;
       })}
@@ -129,7 +121,13 @@ function renderCustomSections(sections: CustomSection[] | undefined, color: stri
   );
 }
 
-function renderReferencesPage(refs: RefEntry[] | undefined, color: string, borderColor?: string, padding = '28px 36px'): React.ReactNode {
+/** References always appear on a separate last page (pageBreakBefore: always). */
+function renderReferencesPage(
+  refs: RefEntry[] | undefined,
+  color: string,
+  borderColor?: string,
+  padding = '28px 36px'
+): React.ReactNode {
   const validRefs = (refs || []).filter(r => r.name);
   if (!validRefs.length) return null;
   return (
@@ -155,7 +153,7 @@ function renderReferencesPage(refs: RefEntry[] | undefined, color: string, borde
   );
 }
 
-/* ── The eight templates ──────────────────────────────────────────────────── */
+/* ── Template components ─────────────────────────────────────────────────── */
 
 function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVData; wrapperStyle: React.CSSProperties; validEdu: CVData['education']; validExp: CVData['experience'] }) {
   const { personal, skills } = data;
@@ -165,21 +163,21 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
         <div style={{ background: '#1e2a3a', color: '#fff', padding: '28px 36px 22px', display: 'flex', alignItems: 'center', gap: '20px' }}>
           {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '72px', height: '72px', borderRadius: '8px', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.3)', flexShrink: 0 }} />}
           <div>
-            <div style={{ fontSize: '28px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase' }}>{personal.full_name || 'Your Name'}</div>
+            <div style={{ fontSize: '26px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase' }}>{personal.full_name || 'Your Name'}</div>
             <div style={{ marginTop: '6px', fontSize: '11px', color: '#a0aec0', display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-              {personal.email     && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Mail size={12} /> {personal.email}</span>}
-              {personal.phone     && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Phone size={12} /> {personal.phone}</span>}
-              {personal.address   && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><MapPin size={12} /> {personal.address}</span>}
-              {personal.id_number && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><User size={12} /> ID: {personal.id_number}</span>}
+              {personal.email     && <span>✉ {personal.email}</span>}
+              {personal.phone     && <span>✆ {personal.phone}</span>}
+              {personal.address   && <span>⌂ {personal.address}</span>}
+              {personal.id_number && <span>ID: {personal.id_number}</span>}
             </div>
           </div>
         </div>
         <div style={{ padding: '24px 36px', lineHeight: '1.6' }}>
           {personal.bio && <Section title="Professional Summary" color="#1e2a3a"><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
           {validEdu.length > 0 && (
-            <Section title="Education" color="#1e2a3a" icon={<GraduationCap size={15} />}>
+            <Section title="Education" color="#1e2a3a">
               {validEdu.map((e, i) => (
-                <div key={i} style={{ marginBottom: '12px' }}>
+                <div key={i} style={{ marginBottom: '10px' }}>
                   <div style={{ fontWeight: '600', color: '#111827' }}>{e.qualification}</div>
                   <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
                 </div>
@@ -187,9 +185,9 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
             </Section>
           )}
           {validExp.length > 0 && (
-            <Section title="Teaching Experience" color="#1e2a3a" icon={<Briefcase size={15} />}>
+            <Section title="Teaching Experience" color="#1e2a3a">
               {validExp.map((e, i) => (
-                <div key={i} style={{ marginBottom: '16px' }}>
+                <div key={i} style={{ marginBottom: '12px' }}>
                   <div style={{ fontWeight: '600', color: '#111827' }}>{e.role}</div>
                   <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.school}{(e.from || e.to) ? ` · ${e.from || ''} – ${e.to || ''}` : ''}</div>
                   {renderDescription(e.description, '#374151')}
@@ -198,12 +196,12 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
             </Section>
           )}
           {(skills?.subjects?.length || skills?.soft_skills?.length) ? (
-            <Section title="Skills & Subjects" color="#1e2a3a" icon={<Award size={15} />}>
+            <Section title="Skills & Subjects" color="#1e2a3a">
               {skills.subjects?.length    ? <SkillRow label="Subjects" items={skills.subjects}    /> : null}
               {skills.soft_skills?.length ? <SkillRow label="Skills"   items={skills.soft_skills} /> : null}
             </Section>
           ) : null}
-          {skills?.languages?.length ? <Section title="Languages" color="#1e2a3a" icon={<Languages size={15} />}><SkillRow items={skills.languages} /></Section> : null}
+          {skills?.languages?.length ? <Section title="Languages" color="#1e2a3a"><SkillRow items={skills.languages} /></Section> : null}
           {renderCustomSections(data.custom_sections, '#1e2a3a')}
         </div>
       </div>
@@ -226,10 +224,10 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVDa
           <div style={{ textAlign: 'center', fontSize: '15px', fontWeight: '700', marginBottom: '4px' }}>{personal.full_name || 'Your Name'}</div>
           <div style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.75)', marginBottom: '20px' }}>Educator</div>
           <SidebarSection title="Contact">
-            {personal.email     && <SidebarItem icon={<Mail size={12} />} value={personal.email} />}
-            {personal.phone     && <SidebarItem icon={<Phone size={12} />} value={personal.phone} />}
-            {personal.address   && <SidebarItem icon={<MapPin size={12} />} value={personal.address} />}
-            {personal.id_number && <SidebarItem icon={<User size={12} />} value={`ID: ${personal.id_number}`} />}
+            {personal.email     && <SidebarItem label="Email"    value={personal.email} />}
+            {personal.phone     && <SidebarItem label="Phone"    value={personal.phone} />}
+            {personal.address   && <SidebarItem label="Location" value={personal.address} />}
+            {personal.id_number && <SidebarItem label="ID"       value={personal.id_number} />}
           </SidebarSection>
           {skills?.subjects?.length  ? <SidebarSection title="Subjects">{skills.subjects.map((s, i)  => <div key={i} style={{ fontSize: '11px', marginBottom: '3px', color: 'rgba(255,255,255,0.9)' }}>• {s}</div>)}</SidebarSection>  : null}
           {skills?.languages?.length ? <SidebarSection title="Languages">{skills.languages.map((l, i) => <div key={i} style={{ fontSize: '11px', marginBottom: '3px', color: 'rgba(255,255,255,0.9)' }}>• {l}</div>)}</SidebarSection> : null}
@@ -237,9 +235,9 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVDa
         <div style={main}>
           {personal.bio && <Section title="About Me" color="#0d9488"><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
           {validExp.length > 0 && (
-            <Section title="Teaching Experience" color="#0d9488" icon={<Briefcase size={15} />}>
+            <Section title="Teaching Experience" color="#0d9488">
               {validExp.map((e, i) => (
-                <div key={i} style={{ marginBottom: '16px', borderLeft: '2px solid #0d9488', paddingLeft: '12px' }}>
+                <div key={i} style={{ marginBottom: '12px', borderLeft: '2px solid #0d9488', paddingLeft: '10px' }}>
                   <div style={{ fontWeight: '600', color: '#111827' }}>{e.role}</div>
                   <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.school}{(e.from || e.to) ? ` · ${e.from || ''} – ${e.to || ''}` : ''}</div>
                   {renderDescription(e.description, '#374151')}
@@ -248,9 +246,9 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVDa
             </Section>
           )}
           {validEdu.length > 0 && (
-            <Section title="Education" color="#0d9488" icon={<GraduationCap size={15} />}>
+            <Section title="Education" color="#0d9488">
               {validEdu.map((e, i) => (
-                <div key={i} style={{ marginBottom: '12px' }}>
+                <div key={i} style={{ marginBottom: '10px' }}>
                   <div style={{ fontWeight: '600', color: '#111827' }}>{e.qualification}</div>
                   <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
                 </div>
@@ -258,10 +256,10 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVDa
             </Section>
           )}
           {skills?.soft_skills?.length ? (
-            <Section title="Professional Skills" color="#0d9488" icon={<Award size={15} />}>
-              <div style={BUBBLE_WRAP}>
+            <Section title="Professional Skills" color="#0d9488">
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {skills.soft_skills.map((s, i) => (
-                  <span key={i} style={{ ...BUBBLE_BASE, background: '#f0fdf4', color: '#0d9488', border: '1px solid #99f6e4' }}>{s}</span>
+                  <span key={i} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#f0fdf4', color: '#0d9488', border: '1px solid #99f6e4', borderRadius: '4px', padding: '3px 9px', fontSize: '11px', lineHeight: '1' }}>{s}</span>
                 ))}
               </div>
             </Section>
@@ -285,10 +283,10 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp }: { data
             <div style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '1.5px', textTransform: 'uppercase' }}>{personal.full_name || 'Your Name'}</div>
             <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', marginTop: '4px', letterSpacing: '3px', textTransform: 'uppercase' }}>Educator</div>
             <div style={{ marginTop: '12px', display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '11px', color: 'rgba(255,255,255,0.85)' }}>
-              {personal.email     && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Mail size={12} /> {personal.email}</span>}
-              {personal.phone     && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Phone size={12} /> {personal.phone}</span>}
-              {personal.address   && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><MapPin size={12} /> {personal.address}</span>}
-              {personal.id_number && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><User size={12} /> ID: {personal.id_number}</span>}
+              {personal.email     && <span>✉ {personal.email}</span>}
+              {personal.phone     && <span>✆ {personal.phone}</span>}
+              {personal.address   && <span>⌂ {personal.address}</span>}
+              {personal.id_number && <span>ID: {personal.id_number}</span>}
             </div>
           </div>
         </div>
@@ -297,9 +295,9 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp }: { data
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 32px' }}>
             <div>
               {validExp.length > 0 && (
-                <Section title="Teaching Experience" color="#1e4d2b" borderColor="#2d7a47" icon={<Briefcase size={15} />}>
+                <Section title="Teaching Experience" color="#1e4d2b" borderColor="#2d7a47">
                   {validExp.map((e, i) => (
-                    <div key={i} style={{ marginBottom: '16px' }}>
+                    <div key={i} style={{ marginBottom: '12px' }}>
                       <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.role}</div>
                       <div style={{ color: '#2d7a47', fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
                       {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
@@ -311,9 +309,9 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp }: { data
             </div>
             <div>
               {validEdu.length > 0 && (
-                <Section title="Education" color="#1e4d2b" borderColor="#2d7a47" icon={<GraduationCap size={15} />}>
+                <Section title="Education" color="#1e4d2b" borderColor="#2d7a47">
                   {validEdu.map((e, i) => (
-                    <div key={i} style={{ marginBottom: '12px' }}>
+                    <div key={i} style={{ marginBottom: '10px' }}>
                       <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.qualification}</div>
                       <div style={{ color: '#2d7a47', fontSize: '12px' }}>{e.institution}</div>
                       {e.year && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.year}</div>}
@@ -322,22 +320,22 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp }: { data
                 </Section>
               )}
               {skills?.subjects?.length ? (
-                <Section title="Subjects Taught" color="#1e4d2b" borderColor="#2d7a47" icon={<BookOpen size={15} />}>
-                  {skills.subjects.map((s, i) => <div key={i} style={{ fontSize: '12px', color: '#374151', marginBottom: '3px' }}>• {s}</div>)}
+                <Section title="Subjects Taught" color="#1e4d2b" borderColor="#2d7a47">
+                  {skills.subjects.map((s, i) => <div key={i} style={{ fontSize: '12px', color: '#374151', marginBottom: '2px' }}>• {s}</div>)}
                 </Section>
               ) : null}
               {skills?.soft_skills?.length ? (
-                <Section title="Skills" color="#1e4d2b" borderColor="#2d7a47" icon={<Award size={15} />}>
-                  <div style={BUBBLE_WRAP}>
+                <Section title="Skills" color="#1e4d2b" borderColor="#2d7a47">
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                     {skills.soft_skills.map((s, i) => (
-                      <span key={i} style={{ ...BUBBLE_BASE, background: '#f0fdf4', color: '#1e4d2b', border: '1px solid #bbf7d0' }}>{s}</span>
+                      <span key={i} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#f0fdf4', color: '#1e4d2b', border: '1px solid #bbf7d0', borderRadius: '3px', padding: '3px 8px', fontSize: '11px', lineHeight: '1' }}>{s}</span>
                     ))}
                   </div>
                 </Section>
               ) : null}
               {skills?.languages?.length ? (
-                <Section title="Languages" color="#1e4d2b" borderColor="#2d7a47" icon={<Languages size={15} />}>
-                  {skills.languages.map((l, i) => <div key={i} style={{ fontSize: '12px', color: '#374151', marginBottom: '3px' }}>• {l}</div>)}
+                <Section title="Languages" color="#1e4d2b" borderColor="#2d7a47">
+                  {skills.languages.map((l, i) => <div key={i} style={{ fontSize: '12px', color: '#374151', marginBottom: '2px' }}>• {l}</div>)}
                 </Section>
               ) : null}
             </div>
@@ -362,10 +360,10 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
             <div>
               <div style={{ fontSize: '30px', fontWeight: '300', letterSpacing: '3px', textTransform: 'uppercase', color: '#111827' }}>{personal.full_name || 'Your Name'}</div>
               <div style={{ marginTop: '8px', fontSize: '11px', color: '#6b7280', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                {personal.email     && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Mail size={12} /> {personal.email}</span>}
-                {personal.phone     && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Phone size={12} /> {personal.phone}</span>}
-                {personal.address   && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><MapPin size={12} /> {personal.address}</span>}
-                {personal.id_number && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><User size={12} /> ID: {personal.id_number}</span>}
+                {personal.email     && <span>{personal.email}</span>}
+                {personal.phone     && <span>{personal.phone}</span>}
+                {personal.address   && <span>{personal.address}</span>}
+                {personal.id_number && <span>ID: {personal.id_number}</span>}
               </div>
             </div>
           </div>
@@ -373,7 +371,7 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
           {validExp.length > 0 && (
             <MinimalSection title="Experience">
               {validExp.map((e, i) => (
-                <div key={i} style={{ display: 'flex', gap: '16px', marginBottom: '14px' }}>
+                <div key={i} style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
                   <div style={{ width: '90px', fontSize: '11px', color: '#9ca3af', paddingTop: '2px' }}>{e.from && e.to ? `${e.from} – ${e.to}` : e.from || e.to || ''}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: '600', color: '#111827', fontSize: '13px' }}>{e.role}</div>
@@ -387,7 +385,7 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
           {validEdu.length > 0 && (
             <MinimalSection title="Education">
               {validEdu.map((e, i) => (
-                <div key={i} style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
+                <div key={i} style={{ display: 'flex', gap: '16px', marginBottom: '10px' }}>
                   <div style={{ width: '90px', fontSize: '11px', color: '#9ca3af', paddingTop: '2px' }}>{e.year || ''}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: '600', color: '#111827', fontSize: '13px' }}>{e.qualification}</div>
@@ -399,8 +397,8 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
           )}
           {(skills?.subjects?.length || skills?.soft_skills?.length || skills?.languages?.length) ? (
             <MinimalSection title="Skills & Languages">
-              {skills.subjects?.length    ? <div style={{ marginBottom: '5px' }}><span style={{ fontWeight: '600', fontSize: '12px', color: '#374151' }}>Subjects: </span><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.subjects.join(' · ')}</span></div>    : null}
-              {skills.soft_skills?.length ? <div style={{ marginBottom: '5px' }}><span style={{ fontWeight: '600', fontSize: '12px', color: '#374151' }}>Skills: </span><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.soft_skills.join(' · ')}</span></div> : null}
+              {skills.subjects?.length    ? <div style={{ marginBottom: '4px' }}><span style={{ fontWeight: '600', fontSize: '12px', color: '#374151' }}>Subjects: </span><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.subjects.join(' · ')}</span></div>    : null}
+              {skills.soft_skills?.length ? <div style={{ marginBottom: '4px' }}><span style={{ fontWeight: '600', fontSize: '12px', color: '#374151' }}>Skills: </span><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.soft_skills.join(' · ')}</span></div> : null}
               {skills.languages?.length   ? <div><span style={{ fontWeight: '600', fontSize: '12px', color: '#374151' }}>Languages: </span><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.languages.join(' · ')}</span></div>                            : null}
             </MinimalSection>
           ) : null}
@@ -447,10 +445,10 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
           <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: '700', marginBottom: '3px' }}>{personal.full_name || 'Your Name'}</div>
           <div style={{ textAlign: 'center', fontSize: '10px', color: 'rgba(255,255,255,0.65)', marginBottom: '20px' }}>Educator</div>
           <SidebarSection title="Contact">
-            {personal.email     && <SidebarItem icon={<Mail size={12} />} value={personal.email} />}
-            {personal.phone     && <SidebarItem icon={<Phone size={12} />} value={personal.phone} />}
-            {personal.address   && <SidebarItem icon={<MapPin size={12} />} value={personal.address} />}
-            {personal.id_number && <SidebarItem icon={<User size={12} />} value={`ID: ${personal.id_number}`} />}
+            {personal.email     && <SidebarItem label="Email"    value={personal.email} />}
+            {personal.phone     && <SidebarItem label="Phone"    value={personal.phone} />}
+            {personal.address   && <SidebarItem label="Location" value={personal.address} />}
+            {personal.id_number && <SidebarItem label="ID"       value={personal.id_number} />}
           </SidebarSection>
           {skills?.subjects?.length  ? <SidebarSection title="Subjects">{skills.subjects.map((s, i)  => <div key={i} style={{ fontSize: '11px', marginBottom: '3px', color: 'rgba(255,255,255,0.9)' }}>• {s}</div>)}</SidebarSection>  : null}
           {skills?.languages?.length ? <SidebarSection title="Languages">{skills.languages.map((l, i) => <div key={i} style={{ fontSize: '11px', marginBottom: '3px', color: 'rgba(255,255,255,0.9)' }}>• {l}</div>)}</SidebarSection> : null}
@@ -459,9 +457,9 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
         <div style={main}>
           {personal.bio && <Section title="About Me" color={sideColor}><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
           {validExp.length > 0 && (
-            <Section title="Work History" color={sideColor} icon={<Briefcase size={15} />}>
+            <Section title="Work History" color={sideColor}>
               {validExp.map((e, i) => (
-                <div key={i} style={{ marginBottom: '16px' }}>
+                <div key={i} style={{ marginBottom: '12px' }}>
                   <div style={{ fontWeight: '700', color: '#111827' }}>{e.role}</div>
                   <div style={{ color: sideColor, fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
                   {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
@@ -471,9 +469,9 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
             </Section>
           )}
           {validEdu.length > 0 && (
-            <Section title="Education" color={sideColor} icon={<GraduationCap size={15} />}>
+            <Section title="Education" color={sideColor}>
               {validEdu.map((e, i) => (
-                <div key={i} style={{ marginBottom: '12px' }}>
+                <div key={i} style={{ marginBottom: '10px' }}>
                   <div style={{ fontWeight: '600', color: '#111827' }}>{e.qualification}</div>
                   <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
                 </div>
@@ -506,19 +504,19 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVData
           </div>
           <div style={{ height: '2px', background: 'rgba(255,255,255,0.3)', margin: '16px 0 12px' }} />
           <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', fontSize: '11px', color: 'rgba(255,255,255,0.85)' }}>
-            {personal.email     && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Mail size={12} /> {personal.email}</span>}
-            {personal.phone     && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Phone size={12} /> {personal.phone}</span>}
-            {personal.address   && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><MapPin size={12} /> {personal.address}</span>}
-            {personal.id_number && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><User size={12} /> ID: {personal.id_number}</span>}
+            {personal.email     && <span>✉ {personal.email}</span>}
+            {personal.phone     && <span>✆ {personal.phone}</span>}
+            {personal.address   && <span>⌂ {personal.address}</span>}
+            {personal.id_number && <span>ID: {personal.id_number}</span>}
           </div>
         </div>
         <div style={{ display: 'flex', padding: '24px 32px', gap: '28px', lineHeight: '1.6' }}>
           <div style={{ flex: 1 }}>
             {personal.bio && <Section title="Summary" color={accent}><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
             {validExp.length > 0 && (
-              <Section title="Experience" color={accent} icon={<Briefcase size={15} />}>
+              <Section title="Experience" color={accent}>
                 {validExp.map((e, i) => (
-                  <div key={i} style={{ marginBottom: '16px' }}>
+                  <div key={i} style={{ marginBottom: '12px' }}>
                     <div style={{ fontWeight: '700', color: '#111827' }}>{e.role}</div>
                     <div style={{ color: accent, fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
                     {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
@@ -531,9 +529,9 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVData
           </div>
           <div style={{ width: '180px', flexShrink: 0 }}>
             {validEdu.length > 0 && (
-              <Section title="Education" color={accent} icon={<GraduationCap size={15} />}>
+              <Section title="Education" color={accent}>
                 {validEdu.map((e, i) => (
-                  <div key={i} style={{ marginBottom: '12px' }}>
+                  <div key={i} style={{ marginBottom: '10px' }}>
                     <div style={{ fontWeight: '600', color: '#111827', fontSize: '12px' }}>{e.qualification}</div>
                     <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
                   </div>
@@ -541,22 +539,20 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVData
               </Section>
             )}
             {skills?.subjects?.length ? (
-              <Section title="Subjects" color={accent} icon={<BookOpen size={15} />}>
-                {skills.subjects.map((s, i) => <div key={i} style={{ fontSize: '11px', color: '#374151', marginBottom: '3px' }}>• {s}</div>)}
+              <Section title="Subjects" color={accent}>
+                {skills.subjects.map((s, i) => <div key={i} style={{ fontSize: '11px', color: '#374151', marginBottom: '2px' }}>• {s}</div>)}
               </Section>
             ) : null}
             {skills?.soft_skills?.length ? (
-              <Section title="Skills" color={accent} icon={<Award size={15} />}>
-                <div style={BUBBLE_WRAP}>
-                  {skills.soft_skills.map((s, i) => (
-                    <span key={i} style={{ ...BUBBLE_BASE, padding: '6px 10px', background: '#fce4ec', color: accent, border: '1px solid #f48fb1' }}>{s}</span>
-                  ))}
-                </div>
+              <Section title="Skills" color={accent}>
+                {skills.soft_skills.map((s, i) => (
+                  <div key={i} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#fce4ec', color: accent, border: '1px solid #f48fb1', borderRadius: '3px', padding: '2px 7px', fontSize: '10px', margin: '0 3px 3px 0' }}>{s}</div>
+                ))}
               </Section>
             ) : null}
             {skills?.languages?.length ? (
-              <Section title="Languages" color={accent} icon={<Languages size={15} />}>
-                {skills.languages.map((l, i) => <div key={i} style={{ fontSize: '11px', color: '#374151', marginBottom: '3px' }}>• {l}</div>)}
+              <Section title="Languages" color={accent}>
+                {skills.languages.map((l, i) => <div key={i} style={{ fontSize: '11px', color: '#374151', marginBottom: '2px' }}>• {l}</div>)}
               </Section>
             ) : null}
           </div>
@@ -586,10 +582,10 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp }: { data: C
           </div>
           <div style={{ height: '1px', background: 'rgba(255,255,255,0.25)', margin: '18px 0 14px' }} />
           <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap', fontSize: '11px', color: 'rgba(255,255,255,0.85)' }}>
-            {personal.email     && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Mail size={12} /> {personal.email}</span>}
-            {personal.phone     && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Phone size={12} /> {personal.phone}</span>}
-            {personal.address   && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><MapPin size={12} /> {personal.address}</span>}
-            {personal.id_number && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><User size={12} /> ID: {personal.id_number}</span>}
+            {personal.email     && <span>✉  {personal.email}</span>}
+            {personal.phone     && <span>✆  {personal.phone}</span>}
+            {personal.address   && <span>⌂  {personal.address}</span>}
+            {personal.id_number && <span>☰  ID: {personal.id_number}</span>}
           </div>
         </div>
         <div style={{ padding: '28px 44px', lineHeight: '1.65' }}>
@@ -597,9 +593,9 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp }: { data: C
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 36px' }}>
             <div>
               {validExp.length > 0 && (
-                <Section title="Teaching Experience" color={accent} icon={<Briefcase size={15} />}>
+                <Section title="Teaching Experience" color={accent}>
                   {validExp.map((e, i) => (
-                    <div key={i} style={{ marginBottom: '16px' }}>
+                    <div key={i} style={{ marginBottom: '12px' }}>
                       <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.role}</div>
                       <div style={{ color: light, fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
                       {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
@@ -612,9 +608,9 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp }: { data: C
             </div>
             <div>
               {validEdu.length > 0 && (
-                <Section title="Education" color={accent} icon={<GraduationCap size={15} />}>
+                <Section title="Education" color={accent}>
                   {validEdu.map((e, i) => (
-                    <div key={i} style={{ marginBottom: '12px' }}>
+                    <div key={i} style={{ marginBottom: '10px' }}>
                       <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.qualification}</div>
                       <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
                     </div>
@@ -622,22 +618,22 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp }: { data: C
                 </Section>
               )}
               {skills?.subjects?.length ? (
-                <Section title="Subjects" color={accent} icon={<BookOpen size={15} />}>
-                  {skills.subjects.map((s, i) => <div key={i} style={{ fontSize: '12px', color: '#374151', marginBottom: '3px' }}>• {s}</div>)}
+                <Section title="Subjects" color={accent}>
+                  {skills.subjects.map((s, i) => <div key={i} style={{ fontSize: '12px', color: '#374151', marginBottom: '2px' }}>• {s}</div>)}
                 </Section>
               ) : null}
               {skills?.soft_skills?.length ? (
-                <Section title="Skills" color={accent} icon={<Award size={15} />}>
-                  <div style={BUBBLE_WRAP}>
+                <Section title="Skills" color={accent}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                     {skills.soft_skills.map((s, i) => (
-                      <span key={i} style={{ ...BUBBLE_BASE, background: '#fdf2f2', color: accent, border: `1px solid ${light}40` }}>{s}</span>
+                      <span key={i} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#fdf2f2', color: accent, border: `1px solid ${light}40`, borderRadius: '3px', padding: '3px 8px', fontSize: '11px', lineHeight: '1' }}>{s}</span>
                     ))}
                   </div>
                 </Section>
               ) : null}
               {skills?.languages?.length ? (
-                <Section title="Languages" color={accent} icon={<Languages size={15} />}>
-                  {skills.languages.map((l, i) => <div key={i} style={{ fontSize: '12px', color: '#374151', marginBottom: '3px' }}>• {l}</div>)}
+                <Section title="Languages" color={accent}>
+                  {skills.languages.map((l, i) => <div key={i} style={{ fontSize: '12px', color: '#374151', marginBottom: '2px' }}>• {l}</div>)}
                 </Section>
               ) : null}
             </div>
@@ -664,10 +660,10 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: { data: C
           <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: '700', marginBottom: '3px', lineHeight: '1.3' }}>{personal.full_name || 'Your Name'}</div>
           <div style={{ textAlign: 'center', fontSize: '10px', color: 'rgba(255,255,255,0.55)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '22px' }}>Educator</div>
           <SidebarSection title="Contact">
-            {personal.email     && <SidebarItem icon={<Mail size={12} />} value={personal.email} />}
-            {personal.phone     && <SidebarItem icon={<Phone size={12} />} value={personal.phone} />}
-            {personal.address   && <SidebarItem icon={<MapPin size={12} />} value={personal.address} />}
-            {personal.id_number && <SidebarItem icon={<User size={12} />} value={`ID: ${personal.id_number}`} />}
+            {personal.email     && <SidebarItem label="Email"    value={personal.email} />}
+            {personal.phone     && <SidebarItem label="Phone"    value={personal.phone} />}
+            {personal.address   && <SidebarItem label="Location" value={personal.address} />}
+            {personal.id_number && <SidebarItem label="ID"       value={personal.id_number} />}
           </SidebarSection>
           {skills?.subjects?.length  ? <SidebarSection title="Subjects">{skills.subjects.map((s, i)  => <div key={i} style={{ fontSize: '11px', marginBottom: '3px', color: 'rgba(255,255,255,0.85)' }}>• {s}</div>)}</SidebarSection>  : null}
           {skills?.soft_skills?.length ? <SidebarSection title="Skills">{skills.soft_skills.map((s, i) => <div key={i} style={{ fontSize: '11px', marginBottom: '3px', color: 'rgba(255,255,255,0.85)' }}>• {s}</div>)}</SidebarSection> : null}
@@ -680,9 +676,9 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: { data: C
           </div>
           {personal.bio && <Section title="Professional Summary" color={navy}><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
           {validExp.length > 0 && (
-            <Section title="Work Experience" color={navy} icon={<Briefcase size={15} />}>
+            <Section title="Work Experience" color={navy}>
               {validExp.map((e, i) => (
-                <div key={i} style={{ marginBottom: '16px' }}>
+                <div key={i} style={{ marginBottom: '13px' }}>
                   <div style={{ fontWeight: '700', color: '#111827' }}>{e.role}</div>
                   <div style={{ color: navy, fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
                   {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
@@ -692,9 +688,9 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: { data: C
             </Section>
           )}
           {validEdu.length > 0 && (
-            <Section title="Education" color={navy} icon={<GraduationCap size={15} />}>
+            <Section title="Education" color={navy}>
               {validEdu.map((e, i) => (
-                <div key={i} style={{ marginBottom: '12px' }}>
+                <div key={i} style={{ marginBottom: '10px' }}>
                   <div style={{ fontWeight: '600', color: '#111827' }}>{e.qualification}</div>
                   <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
                 </div>
@@ -709,39 +705,22 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: { data: C
   );
 }
 
-/* ── Shared UI helpers ─────────────────────────────────────────────────────── */
+/* ── Shared UI helpers ───────────────────────────────────────────────────── */
 
+/** Section title with rule line; spacing matches across all templates. */
 function Section({ title, color, borderColor, icon, children }: { title: string; color?: string; borderColor?: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: '32px', overflow: 'visible' }}>
+    <div style={{ marginBottom: '20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', lineHeight: 1 }}>
         {icon && (
-          <span style={{
-            color: color || '#111',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '15px',
-            width: '15px',
-            flexShrink: 0,
-          }}>
+          <span style={{ color: color || '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '16px', height: '16px', flexShrink: 0 }}>
             {icon}
           </span>
         )}
-        <span style={{
-          fontSize: '15px',
-          fontWeight: 800,
-          textTransform: 'uppercase',
-          letterSpacing: '1.5px',
-          color: color || '#111',
-          display: 'inline-flex',
-          alignItems: 'center',
-          height: '15px',
-          lineHeight: 1,
-        }}>
+        <span style={{ fontSize: '11.5px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px', color: color || '#111', whiteSpace: 'nowrap', lineHeight: 1, display: 'inline-block', verticalAlign: 'middle' }}>
           {title}
         </span>
-        <div style={{ flex: 1, height: '1px', background: borderColor || color || '#e5e7eb', marginLeft: '6px' }} />
+        <div style={{ flex: 1, height: '1px', background: borderColor || color || '#e5e7eb', marginLeft: '4px' }} />
       </div>
       {children}
     </div>
@@ -750,8 +729,8 @@ function Section({ title, color, borderColor, icon, children }: { title: string;
 
 function MinimalSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: '32px', overflow: 'visible' }}>
-      <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#6b7280', marginBottom: '12px' }}>{title}</div>
+    <div style={{ marginBottom: '20px' }}>
+      <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#9ca3af', marginBottom: '10px' }}>{title}</div>
       {children}
     </div>
   );
@@ -759,27 +738,27 @@ function MinimalSection({ title, children }: { title: string; children: React.Re
 
 function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: '20px', overflow: 'visible' }}>
-      <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: 'rgba(255,255,255,0.55)', marginBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '5px' }}>{title}</div>
+    <div style={{ marginBottom: '16px' }}>
+      <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: 'rgba(255,255,255,0.5)', marginBottom: '7px', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '4px' }}>{title}</div>
       {children}
     </div>
   );
 }
 
-function SidebarItem({ icon, value }: { icon?: React.ReactNode; value: string }) {
+function SidebarItem({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'rgba(255,255,255,0.9)', wordBreak: 'break-word' }}>
-      {icon && <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>{icon}</span>}
-      <span>{value}</span>
+    <div style={{ marginBottom: '6px' }}>
+      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>{label}</div>
+      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.9)', wordBreak: 'break-word' }}>{value}</div>
     </div>
   );
 }
 
 function SkillRow({ label, items }: { label?: string; items: string[] }) {
   return (
-    <div style={{ marginBottom: '16px' }}>
+    <div style={{ marginBottom: '8px' }}>
       {label && (
-        <div style={{ fontWeight: '700', fontSize: '12px', color: '#374151', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
+        <div style={{ fontWeight: '700', fontSize: '11px', color: '#374151', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
       )}
       <div style={BUBBLE_WRAP}>
         {items.map((s, i) => (
