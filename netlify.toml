@@ -4,6 +4,13 @@
 [functions."fetch-vacancies"]
   timeout = 26
 
+# Ensure the sitemap is served correctly (before the catch-all rule)
+[[redirects]]
+  from   = "/sitemap.xml"
+  to     = "/sitemap.xml"
+  status = 200
+  force  = true
+
 # SPA catch-all — must come LAST so Netlify functions still resolve first.
 # Without this every direct URL hit (e.g. /profile, /vacancies) returns 404.
 [[redirects]]
