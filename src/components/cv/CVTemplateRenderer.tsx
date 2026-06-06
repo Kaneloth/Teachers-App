@@ -38,7 +38,7 @@ const BUBBLE_BASE: React.CSSProperties = {
   borderRadius: '4px',
   padding: '7px 14px',
   fontSize: '11px',
-  lineHeight: 1.2,
+  lineHeight: 1.0,
   minHeight: '28px',
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
