@@ -688,9 +688,9 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: { data: C
 /** Section title with rule line; spacing matches across all templates. */
 function Section({ title, color, borderColor, children }: { title: string; color?: string; borderColor?: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: '18px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-        <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: color || '#111', whiteSpace: 'nowrap' }}>{title}</span>
+    <div style={{ marginBottom: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+        <span style={{ fontSize: '11.5px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px', color: color || '#111', whiteSpace: 'nowrap' }}>{title}</span>
         <div style={{ flex: 1, height: '1px', background: borderColor || color || '#e5e7eb', marginLeft: '4px' }} />
       </div>
       {children}
@@ -727,11 +727,13 @@ function SidebarItem({ label, value }: { label: string; value: string }) {
 
 function SkillRow({ label, items }: { label?: string; items: string[] }) {
   return (
-    <div style={{ marginBottom: '6px' }}>
-      {label && <span style={{ fontWeight: '600', fontSize: '12px', color: '#374151' }}>{label}: </span>}
-      <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '4px', verticalAlign: 'middle' }}>
+    <div style={{ marginBottom: '8px' }}>
+      {label && (
+        <div style={{ fontWeight: '700', fontSize: '11px', color: '#374151', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
+      )}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
         {items.map((s, i) => (
-          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#f3f4f6', color: '#374151', borderRadius: '3px', padding: '3px 8px', fontSize: '11px', border: '1px solid #e5e7eb', lineHeight: '1' }}>{s}</span>
+          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: '#f3f4f6', color: '#374151', borderRadius: '3px', padding: '4px 10px', fontSize: '11px', border: '1px solid #e5e7eb', lineHeight: '1.2', whiteSpace: 'nowrap' }}>{s}</span>
         ))}
       </div>
     </div>
