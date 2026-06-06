@@ -336,6 +336,9 @@ function SecurityTab() {
   );
   const [enrolling, setEnrolling] = useState(false);
 
+  // Google-only users have no 'email' identity — they never set a password.
+  const isGoogleOnly = !user?.identities?.some(id => id.provider === 'email');
+
   const enrollBiometric = async (): Promise<boolean> => {
     if (!window.PublicKeyCredential) {
       toast.error('Biometric authentication is not supported on this device or browser.');
@@ -405,7 +408,9 @@ function SecurityTab() {
   };
 
   const handleChangePw = async () => {
-    if (!currentPw || !newPw || !confirmPw) { toast.error('Please fill in all fields.'); return; }
+    // Google-only users have no current password — only validate new fields.
+    if (!isGoogleOnly && !currentPw) { toast.error('Please enter your current password.'); return; }
+    if (!newPw || !confirmPw) { toast.error('Please fill in all fields.'); return; }
     if (newPw !== confirmPw) { toast.error('New passwords do not match.'); return; }
     if (newPw.length < 8) { toast.error('Password must be at least 8 characters.'); return; }
     setSaving(true);
@@ -413,7 +418,7 @@ function SecurityTab() {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success('Password changed!');
+      toast.success(isGoogleOnly ? 'Password created! You can now log in with email & password.' : 'Password changed!');
       setCurrentPw(''); setNewPw(''); setConfirmPw('');
       setPwOpen(false);
     }
@@ -422,21 +427,31 @@ function SecurityTab() {
 
   return (
     <div className="space-y-3">
-      {/* Change Password */}
+      {/* Change / Create Password */}
       <Card>
         <button onClick={() => setPwOpen(o => !o)} className="w-full flex items-center gap-3 px-4 py-3.5">
           <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
             <Lock className="w-4 h-4 text-primary" />
           </div>
-          <p className="flex-1 text-sm font-medium text-foreground text-left">Change Password</p>
+          <div className="flex-1 text-left">
+            <p className="text-sm font-medium text-foreground">
+              {isGoogleOnly ? 'Create Password' : 'Change Password'}
+            </p>
+            {isGoogleOnly && (
+              <p className="text-xs text-muted-foreground">Add a password so you can also log in with email</p>
+            )}
+          </div>
           <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${pwOpen ? 'rotate-180' : ''}`} />
         </button>
         {pwOpen && (
           <div className="border-t border-border px-4 pb-4 pt-3 space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-sm">Current Password</Label>
-              <Input type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} placeholder="Your current password" className="rounded-xl" />
-            </div>
+            {/* Current password only shown for email/password users */}
+            {!isGoogleOnly && (
+              <div className="space-y-1.5">
+                <Label className="text-sm">Current Password</Label>
+                <Input type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} placeholder="Your current password" className="rounded-xl" />
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label className="text-sm">New Password</Label>
               <Input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="At least 8 characters" className="rounded-xl" />
@@ -455,7 +470,9 @@ function SecurityTab() {
               )}
             </div>
             <Button onClick={handleChangePw} disabled={saving} className="w-full rounded-xl">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Update Password'}
+              {saving
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : isGoogleOnly ? 'Create Password' : 'Update Password'}
             </Button>
           </div>
         )}
