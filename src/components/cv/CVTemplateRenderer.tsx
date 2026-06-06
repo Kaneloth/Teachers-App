@@ -48,9 +48,7 @@ export default function CVTemplateRenderer({ data, forExport = false }: Props) {
   return <ClassicTemplate data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} />;
 }
 
-/* ── Helpers ─────────────────────────────────────────────────────────────── */
-
-// All descriptions become bullet lists – no bubble styling
+/* ── Helper: bullet-list description (no bubble) ─────────────────────────── */
 function renderDescription(desc: string | undefined, color: string, fontSize = '12px'): React.ReactNode {
   if (!desc) return null;
   const lines = desc.split('\n').map(l => l.trim()).filter(Boolean);
@@ -62,6 +60,7 @@ function renderDescription(desc: string | undefined, color: string, fontSize = '
   );
 }
 
+/* ── Custom sections renderer (with fixed table generation) ───────────────── */
 function renderCustomSections(sections: CustomSection[] | undefined, color: string, borderColor?: string): React.ReactNode {
   if (!sections?.length) return null;
   return (
@@ -77,22 +76,30 @@ function renderCustomSections(sections: CustomSection[] | undefined, color: stri
               {lines.map((line, i) => <li key={i} style={{ marginBottom: '3px' }}>{line}</li>)}
             </ul>
           ) : null;
-        } else {
-          const validRows = (s.rows || []).filter(r => r.some(c => c.trim()));
-          content = (s.columns?.length && validRows.length) ? (
+        } else if (s.type === 'table') {
+          const cols = s.columns || [];
+          const rows = s.rows || [];
+          if (!cols.length || !rows.length) return null;
+          content = (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
               <thead>
-                <tr>{s.columns.map((col, ci) => <th key={ci} style={{ background: color, color: '#fff', padding: '6px 10px', textAlign: 'left', fontWeight: '700', fontSize: '10px', letterSpacing: '0.5px' }}>{col}</th>)}</td>
+                <tr>
+                  {cols.map((col, ci) => (
+                    <th key={ci} style={{ background: color, color: '#fff', padding: '6px 10px', textAlign: 'left', fontWeight: '700', fontSize: '10px', letterSpacing: '0.5px' }}>{col}</th>
+                  ))}
+                </tr>
               </thead>
               <tbody>
-                {validRows.map((row, ri) => (
+                {rows.map((row, ri) => (
                   <tr key={ri} style={{ background: ri % 2 === 0 ? '#f9fafb' : '#fff' }}>
-                    {row.map((cell, ci) => <td key={ci} style={{ padding: '6px 10px', color: '#374151', borderBottom: '1px solid #e5e7eb', fontSize: '11px' }}>{cell}</td>)}
+                    {row.map((cell, ci) => (
+                      <td key={ci} style={{ padding: '6px 10px', color: '#374151', borderBottom: '1px solid #e5e7eb', fontSize: '11px' }}>{cell}</td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
             </table>
-          ) : null;
+          );
         }
         return content ? <Section key={idx} title={s.title} color={color} borderColor={borderColor}>{content}</Section> : null;
       })}
@@ -126,7 +133,7 @@ function renderReferencesPage(refs: RefEntry[] | undefined, color: string, borde
   );
 }
 
-/* ── Templates (all using bullet list descriptions) ──────────────────────── */
+/* ── The eight templates (unchanged, using renderDescription) ────────────── */
 
 function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVData; wrapperStyle: React.CSSProperties; validEdu: CVData['education']; validExp: CVData['experience'] }) {
   const { personal, skills } = data;
@@ -678,7 +685,7 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: { data: C
   );
 }
 
-/* ── Shared UI helpers (improved spacing, no bubbles) ────────────────────── */
+/* ── Shared UI helpers ─────────────────────────────────────────────────────── */
 
 function Section({ title, color, borderColor, icon, children }: { title: string; color?: string; borderColor?: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
