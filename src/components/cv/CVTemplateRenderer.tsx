@@ -127,7 +127,7 @@ function renderReferencesPage(refs: RefEntry[] | undefined, color: string, borde
   );
 }
 
-/* ── Template components (fixed heading alignment + bubble spacing) ───────── */
+/* ── Template components (fixed spacing & no overlap) ────────────────────── */
 
 function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVData; wrapperStyle: React.CSSProperties; validEdu: CVData['education']; validExp: CVData['experience'] }) {
   const { personal, skills } = data;
@@ -164,7 +164,7 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVD
                 <div key={i} style={{ marginBottom: '16px' }}>
                   <div style={{ fontWeight: '600', color: '#111827' }}>{e.role}</div>
                   <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.school}{(e.from || e.to) ? ` · ${e.from || ''} – ${e.to || ''}` : ''}</div>
-                  <div style={{ marginTop: '4px', paddingLeft: '0px' }}>{renderDescription(e.description, '#374151')}</div>
+                  <div style={{ marginTop: '4px' }}>{renderDescription(e.description, '#374151')}</div>
                 </div>
               ))}
             </Section>
@@ -222,7 +222,7 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp }: { data: CVDa
           {validEdu.length > 0 && (
             <Section title="Education" color="#0d9488" icon={<GraduationCap size={14} />}>
               {validEdu.map((e, i) => (
-                <div key={i} style={{ marginBottom: '10px' }}>
+                <div key={i} style={{ marginBottom: '12px' }}>
                   <div style={{ fontWeight: '600', color: '#111827' }}>{e.qualification}</div>
                   <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
                 </div>
@@ -679,11 +679,11 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: { data: C
   );
 }
 
-/* ── Shared UI helpers (improved heading alignment + bubble spacing) ─────── */
+/* ── Shared UI helpers (fixed overlap: increased marginBottom, proper clearance) ── */
 
 function Section({ title, color, borderColor, icon, children }: { title: string; color?: string; borderColor?: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: '28px' }}>
+    <div style={{ marginBottom: '32px', overflow: 'visible' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
         {icon && <span style={{ color: color || '#111', lineHeight: 1, display: 'inline-flex', alignItems: 'center' }}>{icon}</span>}
         <span style={{ fontSize: '15px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px', color: color || '#111', lineHeight: 1 }}>{title}</span>
@@ -696,7 +696,7 @@ function Section({ title, color, borderColor, icon, children }: { title: string;
 
 function MinimalSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: '28px' }}>
+    <div style={{ marginBottom: '32px', overflow: 'visible' }}>
       <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#6b7280', marginBottom: '12px' }}>{title}</div>
       {children}
     </div>
@@ -705,7 +705,7 @@ function MinimalSection({ title, children }: { title: string; children: React.Re
 
 function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: '20px' }}>
+    <div style={{ marginBottom: '20px', overflow: 'visible' }}>
       <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: 'rgba(255,255,255,0.55)', marginBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '5px' }}>{title}</div>
       {children}
     </div>
@@ -723,13 +723,13 @@ function SidebarItem({ icon, value }: { icon?: React.ReactNode; value: string })
 
 function SkillRow({ label, items }: { label?: string; items: string[] }) {
   return (
-    <div style={{ marginBottom: '12px' }}>
+    <div style={{ marginBottom: '16px' }}>
       {label && (
         <div style={{ fontWeight: '700', fontSize: '12px', color: '#374151', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
       )}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
         {items.map((s, i) => (
-          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: '#f3f4f6', color: '#374151', borderRadius: '3px', padding: '5px 12px', fontSize: '11px', border: '1px solid #e5e7eb', lineHeight: 1.2, whiteSpace: 'nowrap' }}>{s}</span>
+          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: '#f3f4f6', color: '#374151', borderRadius: '4px', padding: '5px 12px', fontSize: '11px', border: '1px solid #e5e7eb', lineHeight: 1.2, whiteSpace: 'nowrap' }}>{s}</span>
         ))}
       </div>
     </div>
