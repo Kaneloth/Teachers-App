@@ -31,14 +31,14 @@ interface Props { data: CVData; forExport?: boolean }
 
 /* ── Shared bubble style (used by every chip across all templates) ────────── */
 const BUBBLE_BASE: React.CSSProperties = {
-  display: 'inline-flex',
+  display: 'display-flex',
   alignItems: 'center',
   justifyContent: 'center',
   textAlign: 'center',
   borderRadius: '4px',
-  padding: '7px 14px',
+  padding: '8px 14px',
   fontSize: '11px',
-  lineHeight: 1.0,
+  lineHeight: 1.2,
   minHeight: '28px',
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
