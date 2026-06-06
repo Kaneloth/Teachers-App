@@ -1,14 +1,12 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Send, Check, CheckCheck, Copy, Trash, Trash2, Lock } from 'lucide-react';
+import { ArrowLeft, Send, Check, CheckCheck, Copy, Trash, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
-import SubscriptionModal from '@/components/SubscriptionModal';
-import { canStartNewChat } from '@/utils/chatLimit';
 
 interface Message {
   id: string;
@@ -65,11 +63,6 @@ export default function ChatRoom() {
   const [partner, setPartner] = useState<PartnerInfo | null>(null);
   const [sending, setSending] = useState(false);
   const [selectedMsg, setSelectedMsg] = useState<Message | null>(null);
-
-  /* ── Chat-limit gate ────────────────────────────────────────── */
-  const [blocked, setBlocked] = useState(false);           // cannot send to this partner
-  const [checkingAccess, setCheckingAccess] = useState(true); // still running the check
-  const [showSubModal, setShowSubModal] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -159,40 +152,6 @@ export default function ChatRoom() {
     return () => { supabase.removeChannel(channel); };
   }, [user, partnerId]);
 
-  /* ── Access check (runs on mount, on user/partner change, every 10s) ── */
-  const checkAccess = useCallback(async () => {
-    if (!user || !partnerId) {
-      setCheckingAccess(false);
-      return;
-    }
-    setCheckingAccess(true);
-    try {
-      // Also check user_metadata quickly before hitting the DB
-      const metaPlan = user.user_metadata?.subscription_plan as string | undefined;
-      const metaEnd  = user.user_metadata?.subscription_end  as string | undefined;
-      const isProMeta = metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date();
-      if (isProMeta) {
-        setBlocked(false);
-        return;
-      }
-
-      // Full check: subscription + sent-partner count
-      const allowed = await canStartNewChat(user.id, partnerId);
-      setBlocked(!allowed);
-    } catch {
-      // On error, do not block — fail open so existing chats still work
-      setBlocked(false);
-    } finally {
-      setCheckingAccess(false);
-    }
-  }, [user, partnerId]);
-
-  useEffect(() => {
-    checkAccess();
-    const interval = setInterval(checkAccess, 10_000);
-    return () => clearInterval(interval);
-  }, [checkAccess]);
-
   /* ── Load partner info ──────────────────────────────────────── */
   useEffect(() => {
     if (!partnerId) return;
@@ -270,7 +229,7 @@ export default function ChatRoom() {
   /* ── Send ───────────────────────────────────────────────────── */
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim() || !user || !partnerId || blocked || checkingAccess) return;
+    if (!text.trim() || !user || !partnerId) return;
     setSending(true);
     const optimistic: Message = {
       id: `temp-${Date.now()}`,
@@ -388,7 +347,7 @@ export default function ChatRoom() {
                       : 'bg-card border border-border text-foreground rounded-bl-[4px]'
                   } ${isSelected ? 'opacity-75' : ''}`}
                 >
-                  <p className="leading-snug break-words">{msg.content}</p>
+                  <p className="leading-snug break-words text-center">{msg.content}</p>
                   <div className="flex items-center gap-1 mt-1 justify-end">
                     <span className={`text-[10px] ${isMe ? 'text-white/70' : 'text-muted-foreground'}`}>
                       {format(msgDate, 'HH:mm')}
@@ -409,52 +368,27 @@ export default function ChatRoom() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input bar / upgrade wall */}
-      {(blocked || checkingAccess) ? (
-        <div className="flex items-center gap-3 px-4 py-3 border-t border-border bg-background">
-          <div className="flex items-center gap-2.5 flex-1 bg-muted/60 rounded-full px-4 py-2.5">
-            <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
-            <span className="text-sm text-muted-foreground">
-              {checkingAccess
-                ? 'Checking account…'
-                : <>
-                    You've reached your 5 free chat limit.{' '}
-                    <button
-                      onClick={() => setShowSubModal(true)}
-                      className="text-primary font-medium underline underline-offset-2"
-                    >
-                      Upgrade to Pro
-                    </button>
-                    {' '}to message more educators.
-                  </>
-              }
-            </span>
-          </div>
-        </div>
-      ) : (
-        <form
-          onSubmit={handleSend}
-          className="flex items-center gap-2 px-4 py-3 border-t border-border bg-background"
+      {/* Input bar — open to all users */}
+      <form
+        onSubmit={handleSend}
+        className="flex items-center gap-2 px-4 py-3 border-t border-border bg-background"
+      >
+        <Input
+          value={text}
+          onChange={e => setText(e.target.value)}
+          placeholder="Type a message..."
+          disabled={sending}
+          className="rounded-full flex-1 bg-muted/40 border-border"
+        />
+        <Button
+          type="submit"
+          size="icon"
+          disabled={sending || !text.trim()}
+          className="rounded-full shrink-0 w-10 h-10"
         >
-          <Input
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder="Type a message..."
-            disabled={sending}
-            className="rounded-full flex-1 bg-muted/40 border-border"
-          />
-          <Button
-            type="submit"
-            size="icon"
-            disabled={sending || !text.trim()}
-            className="rounded-full shrink-0 w-10 h-10"
-          >
-            <Send className="w-4 h-4" />
-          </Button>
-        </form>
-      )}
-
-      <SubscriptionModal open={showSubModal} onClose={() => setShowSubModal(false)} />
+          <Send className="w-4 h-4" />
+        </Button>
+      </form>
     </div>
   );
 }

@@ -5,9 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import EducatorCard, { calculateMatch, MyProfile } from '@/components/search/EducatorCard';
-import SearchFilters, { Filters, PROVINCES } from '@/components/search/SearchFilters';
-import SubscriptionModal from '@/components/SubscriptionModal';
-
+import SearchFilters, { Filters } from '@/components/search/SearchFilters';
 interface Educator {
   id: string;
   full_name: string;
@@ -32,7 +30,6 @@ export default function Search() {
   const [filters, setFilters] = useState<Filters>({ province: '', subject: '', phase: '', activeOnly: false });
   const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
   const [isPro, setIsPro] = useState(false);
-  const [showSubModal, setShowSubModal] = useState(false);
 
   /* ── Fetch current user's profile + subscription status ─────── */
   useEffect(() => {
@@ -68,17 +65,8 @@ export default function Search() {
       });
   }, [user]);
 
-  /* ── Province-name detection in search bar ───────────────────── */
+  /* ── Search bar query update ─────────────────────────────────── */
   const handleQueryChange = (value: string) => {
-    if (!isPro) {
-      const lower = value.toLowerCase().trim();
-      const matchesProvince = PROVINCES.some(p => p.toLowerCase().startsWith(lower) && lower.length >= 3)
-        || PROVINCES.some(p => p.toLowerCase() === lower);
-      if (matchesProvince) {
-        setShowSubModal(true);
-        return;
-      }
-    }
     setQuery(value);
   };
 
@@ -90,7 +78,7 @@ export default function Search() {
     if (user?.id) q = q.neq('user_id', user.id);
     q = q.or('profile_type.eq.educator,profile_type.is.null');
 
-    if (isPro && filters.province) q = q.eq('current_province', filters.province);
+    if (filters.province) q = q.eq('current_province', filters.province);
     if (filters.phase)      q = q.eq('phase', filters.phase);
     if (filters.activeOnly) q = q.eq('is_actively_looking', true);
     if (filters.subject)    q = q.contains('subjects', [filters.subject]);
@@ -126,7 +114,8 @@ export default function Search() {
       );
     }
 
-    /* Exclude 85–100 % matches for free users — those belong on the Matches page only. */
+    /* Free users only see matches ≤75% — top matches are a Pro benefit.
+       Rings/percentages are hidden on the card itself (see EducatorCard). */
     if (!isPro && myProfile) {
       results = results.filter(e =>
         calculateMatch(myProfile, {
@@ -134,7 +123,7 @@ export default function Search() {
           current_province: e.current_province,
           town: e.town,
           subjects: e.subjects,
-        }) < 85
+        }) <= 75
       );
     }
 
@@ -163,7 +152,7 @@ export default function Search() {
           </button>
           <h1 className="text-lg font-bold text-foreground">Find Educators</h1>
         </div>
-        <p className="text-sm text-muted-foreground pl-1">Search by name or subject · <span className="text-primary font-medium">Pro</span> unlocks province filtering</p>
+        <p className="text-sm text-muted-foreground pl-1">Search and filter educators · <span className="text-primary font-medium">Pro</span> unlocks match percentages</p>
       </div>
 
       {/* Search bar + filters */}
@@ -181,7 +170,6 @@ export default function Search() {
           filters={filters}
           onFiltersChange={setFilters}
           isPro={isPro}
-          onProGate={() => setShowSubModal(true)}
         />
       </div>
 
@@ -215,7 +203,6 @@ export default function Search() {
         </>
       )}
 
-      <SubscriptionModal open={showSubModal} onClose={() => setShowSubModal(false)} />
     </div>
   );
 }
