@@ -94,7 +94,11 @@ export default function CVStepSkills({ data, onChange, cvType }: Props) {
   };
 
   const btnClass = (active: boolean) =>
-    `text-xs px-3 py-1.5 rounded-full border transition-colors ${active ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:border-primary'}`;
+    `text-xs px-3 py-1.5 rounded-full border transition-colors text-center flex items-center justify-center ${
+      active
+        ? 'bg-primary text-primary-foreground border-primary'
+        : 'bg-background text-muted-foreground border-border hover:border-primary'
+    }`;
 
   if (cvType === 'educator') {
     return (
@@ -154,7 +158,7 @@ export default function CVStepSkills({ data, onChange, cvType }: Props) {
         {(data.subjects || []).length > 0 && (
           <div className="flex flex-wrap gap-2 mb-3">
             {(data.subjects || []).map(s => (
-              <span key={s} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium">
+              <span key={s} className="flex items-center justify-center gap-1 text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium">
                 {s}
                 <button onClick={() => removeSkill(s)} className="ml-0.5 hover:text-destructive transition-colors"><X className="w-3 h-3" /></button>
               </span>
