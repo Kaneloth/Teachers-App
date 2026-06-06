@@ -152,7 +152,7 @@ export default function Search() {
           </button>
           <h1 className="text-lg font-bold text-foreground">Find Educators</h1>
         </div>
-        <p className="text-sm text-muted-foreground pl-1">Search and filter educators · <span className="text-primary font-medium">Pro</span> unlocks match percentages</p>
+        <p className="text-sm text-muted-foreground pl-1">Search and filter educators · <span className="text-primary font-medium">Pro</span> unlocks your highest quality matches (up to 100%)</p>
       </div>
 
       {/* Search bar + filters */}
