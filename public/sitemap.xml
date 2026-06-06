@@ -1,16 +1,82 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset
-      xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
             http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-<!-- created with Free Online Sitemap Generator www.xml-sitemaps.com -->
 
+  <!-- Homepage -->
+  <url>
+    <loc>https://crosssa.co.za/</loc>
+    <lastmod>2026-06-06T16:47:51+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
 
-<url>
-  <loc>https://crosssa.co.za/</loc>
-  <lastmod>2026-06-06T16:47:51+00:00</lastmod>
-</url>
+  <!-- Main App Pages -->
+  <url>
+    <loc>https://crosssa.co.za/home</loc>
+    <lastmod>2026-06-06T16:47:51+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
 
+  <url>
+    <loc>https://crosssa.co.za/search</loc>
+    <lastmod>2026-06-06T16:47:51+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://crosssa.co.za/chats</loc>
+    <lastmod>2026-06-06T16:47:51+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://crosssa.co.za/profile</loc>
+    <lastmod>2026-06-06T16:47:51+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- CV Builder Page -->
+  <url>
+    <loc>https://crosssa.co.za/cv-builder</loc>
+    <lastmod>2026-06-06T16:47:51+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Vacancies Page -->
+  <url>
+    <loc>https://crosssa.co.za/vacancies</loc>
+    <lastmod>2026-06-06T16:47:51+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Authentication Pages -->
+  <url>
+    <loc>https://crosssa.co.za/login</loc>
+    <lastmod>2026-06-06T16:47:51+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <url>
+    <loc>https://crosssa.co.za/register</loc>
+    <lastmod>2026-06-06T16:47:51+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <url>
+    <loc>https://crosssa.co.za/forgot-password</loc>
+    <lastmod>2026-06-06T16:47:51+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
 
 </urlset>
