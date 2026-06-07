@@ -750,7 +750,7 @@ function Section({ title, color, borderColor, icon, children }: { title: string;
     {title}
   </span>
   <div style={{ flex: 1, height: '1px', background: borderColor || color || '#e5e7eb', marginLeft: '6px' }} />
-</div>>
+</div>
       {children}
     </div>
   );
