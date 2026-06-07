@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { calculateMatch, MyProfile } from '@/components/search/EducatorCard';
+import GeneralHomePage from '@/pages/GeneralHomePage';
 
 interface Educator {
   id: string;
@@ -33,10 +34,14 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [isPro, setIsPro] = useState(false);
   const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
+  const [profileType, setProfileType] = useState<'educator' | 'general' | null>(null);
 
-  /* ── Subscription check + own profile ────────────────────────── */
+  /* ── Subscription check + own profile + user type ────────────── */
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setProfileType('educator'); // unauthenticated → show educator dashboard
+      return;
+    }
 
     const metaPlan = user.user_metadata?.subscription_plan as string | undefined;
     const metaEnd  = user.user_metadata?.subscription_end  as string | undefined;
@@ -60,10 +65,14 @@ export default function Home() {
 
     supabase
       .from('educators')
-      .select('phase, current_province, town, subjects')
+      .select('phase, current_province, town, subjects, profile_type')
       .eq('user_id', user.id)
       .limit(1)
-      .then(({ data }) => setMyProfile(data?.[0] ?? null));
+      .then(({ data }) => {
+        const row = data?.[0] ?? null;
+        setMyProfile(row);
+        setProfileType((row?.profile_type as 'educator' | 'general') ?? 'educator');
+      });
   }, [user]);
 
   /* ── Data fetch ──────────────────────────────────────────────── */
@@ -112,6 +121,17 @@ export default function Home() {
       }) < 85;
     })
     .slice(0, 10);
+
+  /* ── Route to correct dashboard ─────────────────────────────── */
+  if (profileType === null) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (profileType === 'general') return <GeneralHomePage />;
 
   return (
     <div className="px-4 max-w-2xl mx-auto">

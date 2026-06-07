@@ -14,7 +14,7 @@ import ChatsPage from '@/pages/ChatsPage';
 import VacanciesPage from '@/pages/VacanciesPage';
 import CVBuilderPage from '@/pages/CVBuilderPage';
 
-const TABS = [
+const EDUCATOR_TABS = [
   { path: '/home',       component: HomePage,      icon: Home,          label: 'Home'      },
   { path: '/search',     component: SearchPage,    icon: Search,        label: 'Search'    },
   { path: '/matches',    component: MatchesPage,   icon: Users,         label: 'Matches'   },
@@ -23,9 +23,13 @@ const TABS = [
   { path: '/cv-builder', component: CVBuilderPage, icon: FileText,      label: 'CV'        },
 ];
 
-const TAB_PATHS = TABS.map(t => t.path);
+const GENERAL_TABS = [
+  { path: '/home',       component: HomePage,      icon: Home,     label: 'Home' },
+  { path: '/vacancies',  component: VacanciesPage, icon: Briefcase, label: 'Jobs' },
+  { path: '/cv-builder', component: CVBuilderPage, icon: FileText,  label: 'CV'   },
+];
+
 const THRESHOLD = 0.3;
-const N = TAB_PATHS.length;
 
 // ─── Navigation progress bar ──────────────────────────────────────────────────
 function useNavigationProgress(pathname: string) {
@@ -78,6 +82,25 @@ export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  // ── Profile type — determines which tab set to show ───────────
+  const [profileType, setProfileType] = useState<'educator' | 'general'>('educator');
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('educators')
+      .select('profile_type')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.profile_type === 'general') setProfileType('general');
+      });
+  }, [user]);
+
+  const TABS      = profileType === 'general' ? GENERAL_TABS : EDUCATOR_TABS;
+  const TAB_PATHS = TABS.map(t => t.path);
+  const N         = TABS.length;
 
   // Unread message count via Supabase realtime
   const [unreadCount, setUnreadCount] = useState(0);
@@ -157,7 +180,7 @@ export default function AppLayout() {
     if (pct < 0 && tabIndex === N - 1) pct *= 0.15;
 
     setDragPercent(pct);
-  }, [tabIndex]);
+  }, [tabIndex, N]);
 
   const onTouchEnd = useCallback(() => {
     const t = touchRef.current;
@@ -171,7 +194,7 @@ export default function AppLayout() {
     }
 
     setDragPercent(0);
-  }, [dragPercent, tabIndex, navigate]);
+  }, [dragPercent, tabIndex, navigate, N, TAB_PATHS]);
 
   // Reset drag when route changes
   useEffect(() => { setDragPercent(0); }, [location.pathname]);
