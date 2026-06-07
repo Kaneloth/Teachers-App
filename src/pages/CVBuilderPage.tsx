@@ -27,7 +27,11 @@ const LAST_CV_KEY = 'crosssa_last_cv';    // most recently generated CV (for ban
 
 interface CVData {
   cvType: CVType;
-  personal: { full_name: string; email: string; phone: string; address: string; bio: string; photo_url?: string };
+  personal: {
+    full_name: string; email: string; phone: string; address: string; bio: string;
+    photo_url?: string; id_number?: string;
+    gender?: string; population_group?: string; citizenship?: string; drivers_licence?: string[];
+  };
   education: { institution: string; qualification: string; year: string }[];
   experience: { school: string; role: string; from: string; to: string; description: string }[];
   skills: { subjects: string[]; soft_skills: string[]; languages: string[] };
@@ -39,7 +43,7 @@ interface CVData {
 function defaultData(cvType: CVType): CVData {
   return {
     cvType,
-    personal: { full_name: '', email: '', phone: '', address: '', bio: '' },
+    personal: { full_name: '', email: '', phone: '', address: '', bio: '', id_number: '', gender: '', population_group: '', citizenship: '', drivers_licence: [] },
     education: [{ institution: '', qualification: '', year: '' }],
     experience: [{ school: '', role: '', from: '', to: '', description: '' }],
     skills: { subjects: [], soft_skills: [], languages: [] },
