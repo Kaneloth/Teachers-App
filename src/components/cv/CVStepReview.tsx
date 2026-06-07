@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Mail, FileText, CheckCircle2, RefreshCw, Eye, List } from 'lucide-react';
+import { Download, FileText, CheckCircle2, RefreshCw, Eye, List } from 'lucide-react';
 import CVTemplateRenderer from './CVTemplateRenderer';
 import { exportElementAsPDF } from '@/utils/cvExport';
 import { supabase } from '@/lib/supabase';
@@ -28,39 +28,48 @@ export default function CVStepReview({ data, onGenerated }: Props) {
   const exportRef = useRef<HTMLDivElement>(null);
 
   const { personal, education, experience, skills } = data;
+  const fileName = `CV_${(personal.full_name || 'Educator').replace(/\s+/g, '_')}.pdf`;
 
   const handleGenerate = async () => {
-    if (!personal.email) { toast.error('Please add your email address in the Personal step.'); return; }
     if (!exportRef.current) return;
     setSending(true);
     try {
-      const pdfBlob = await exportElementAsPDF(exportRef.current, `CV_${(personal.full_name || 'Educator').replace(/\s+/g, '_')}.pdf`);
+      const pdfBlob = await exportElementAsPDF(exportRef.current, fileName);
 
-      // Path must start with the user's ID to satisfy the avatars bucket RLS policy
+      // ── Trigger device download ──────────────────────────────────────────
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const anchor = document.createElement('a');
+      anchor.href = blobUrl;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(blobUrl);
+
+      // ── Upload to Supabase so LastCVBanner can offer "Download PDF" ──────
       const path = `${user?.id ?? 'anon'}/cv-${Date.now()}.pdf`;
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(path, pdfBlob, { contentType: 'application/pdf', upsert: true });
-      if (uploadError) throw new Error('CV upload failed: ' + uploadError.message);
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, pdfBlob, { contentType: 'application/pdf', upsert: true });
 
-      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-      const uploadedUrl = urlData.publicUrl;
-      if (!uploadedUrl) throw new Error('Could not get CV download URL after upload.');
-
-      await supabase.functions.invoke('generateAndEmailCV', { body: { ...data, _pdf_url_override: uploadedUrl } });
-
-      if (uploadedUrl) {
-        setPdfUrl(uploadedUrl);
-        const newCount = ((user?.user_metadata?.cv_count as number) ?? 0) + 1;
-        await updateUserMeta({
-          last_cv_pdf_url: uploadedUrl,
-          last_cv_data: data,
-          last_cv_generated_at: new Date().toISOString(),
-          cv_count: newCount,
-        });
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+        const uploadedUrl = urlData.publicUrl;
+        if (uploadedUrl) {
+          setPdfUrl(uploadedUrl);
+          const newCount = ((user?.user_metadata?.cv_count as number) ?? 0) + 1;
+          await updateUserMeta({
+            last_cv_pdf_url: uploadedUrl,
+            last_cv_data: data,
+            last_cv_generated_at: new Date().toISOString(),
+            cv_count: newCount,
+          });
+          if (onGenerated) onGenerated(uploadedUrl);
+        }
       }
 
       setSent(true);
-      toast.success('CV emailed to ' + personal.email);
-      if (onGenerated && uploadedUrl) onGenerated(uploadedUrl);
+      toast.success('CV downloaded to your device!');
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Failed to generate CV');
     } finally {
@@ -71,14 +80,26 @@ export default function CVStepReview({ data, onGenerated }: Props) {
   if (sent) {
     return (
       <div className="text-center py-10">
-        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4"><CheckCircle2 className="w-8 h-8 text-primary" /></div>
-        <h2 className="text-lg font-bold text-foreground mb-2">CV Sent!</h2>
-        <p className="text-sm text-muted-foreground">Your CV PDF has been emailed to <strong>{personal.email}</strong>.</p>
-        {pdfUrl && <a href={pdfUrl} target="_blank" rel="noopener noreferrer"><Button variant="outline" className="mt-4 rounded-xl gap-2"><FileText className="w-4 h-4" /> Download PDF</Button></a>}
-        <p className="text-xs text-muted-foreground mt-2">Check your inbox (and spam folder).</p>
+        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+          <CheckCircle2 className="w-8 h-8 text-primary" />
+        </div>
+        <h2 className="text-lg font-bold text-foreground mb-2">CV Downloaded!</h2>
+        <p className="text-sm text-muted-foreground">Your CV PDF has been saved to your device.</p>
+        {pdfUrl && (
+          <a href={pdfUrl} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" className="mt-4 rounded-xl gap-2">
+              <FileText className="w-4 h-4" /> Open PDF
+            </Button>
+          </a>
+        )}
         <div className="flex gap-2 justify-center mt-4">
-          <Button variant="outline" className="rounded-xl" onClick={() => setSent(false)}>Make Changes</Button>
-          <Button className="rounded-xl gap-2" disabled={sending} onClick={handleGenerate}><RefreshCw className="w-4 h-4" />{sending ? 'Resending...' : 'Resend CV'}</Button>
+          <Button variant="outline" className="rounded-xl" onClick={() => setSent(false)}>
+            Make Changes
+          </Button>
+          <Button className="rounded-xl gap-2" disabled={sending} onClick={handleGenerate}>
+            <RefreshCw className="w-4 h-4" />
+            {sending ? 'Generating...' : 'Download Again'}
+          </Button>
         </div>
       </div>
     );
@@ -88,7 +109,11 @@ export default function CVStepReview({ data, onGenerated }: Props) {
     <div className="space-y-4">
       <div className="flex gap-2 bg-muted p-1 rounded-xl">
         {(['preview', 'summary'] as const).map(v => (
-          <button key={v} onClick={() => setView(v)} className={`flex-1 flex items-center justify-center gap-1.5 text-sm font-medium py-1.5 rounded-lg transition-all ${view === v ? 'bg-card shadow text-foreground' : 'text-muted-foreground'}`}>
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={`flex-1 flex items-center justify-center gap-1.5 text-sm font-medium py-1.5 rounded-lg transition-all ${view === v ? 'bg-card shadow text-foreground' : 'text-muted-foreground'}`}
+          >
             {v === 'preview' ? <><Eye className="w-4 h-4" /> Preview</> : <><List className="w-4 h-4" /> Summary</>}
           </button>
         ))}
@@ -110,9 +135,9 @@ export default function CVStepReview({ data, onGenerated }: Props) {
       ) : (
         <div className="space-y-3">
           <SummaryCard title="Personal Details">
-            <ReviewRow label="Name" value={personal.full_name} />
-            <ReviewRow label="Email" value={personal.email} />
-            <ReviewRow label="Phone" value={personal.phone} />
+            <ReviewRow label="Name"    value={personal.full_name} />
+            <ReviewRow label="Email"   value={personal.email} />
+            <ReviewRow label="Phone"   value={personal.phone} />
             <ReviewRow label="Address" value={personal.address} />
             {personal.bio && <ReviewRow label="Summary" value={personal.bio} />}
           </SummaryCard>
@@ -138,7 +163,9 @@ export default function CVStepReview({ data, onGenerated }: Props) {
                 <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
               ))}
             </div>
-            {skills.languages?.length ? <p className="text-sm text-muted-foreground mt-1">Languages: {skills.languages.join(', ')}</p> : null}
+            {skills.languages?.length ? (
+              <p className="text-sm text-muted-foreground mt-1">Languages: {skills.languages.join(', ')}</p>
+            ) : null}
           </SummaryCard>
           {data.references?.filter(r => r.name).length ? (
             <SummaryCard title="References">
@@ -155,13 +182,18 @@ export default function CVStepReview({ data, onGenerated }: Props) {
         </div>
       )}
 
+      {/* Hidden full-size render used by exportElementAsPDF */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '794px' }}>
         <div ref={exportRef}><CVTemplateRenderer data={data} forExport /></div>
       </div>
 
-      <Button onClick={handleGenerate} disabled={sending} className="w-full h-12 rounded-xl text-base font-semibold gap-2">
-        <Mail className="w-5 h-5" />
-        {sending ? 'Generating & Sending...' : `Email My CV to ${personal.email || '...'}`}
+      <Button
+        onClick={handleGenerate}
+        disabled={sending}
+        className="w-full h-12 rounded-xl text-base font-semibold gap-2"
+      >
+        <Download className="w-5 h-5" />
+        {sending ? 'Generating PDF...' : 'Download PDF'}
       </Button>
     </div>
   );
