@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ArrowLeft, FileText, GraduationCap, Briefcase, ShieldAlert, ShieldCheck, Save, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, FileText, GraduationCap, Briefcase, Save, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -132,8 +132,6 @@ export default function CVBuilderPage() {
   const navigate = useNavigate();
 
   // ── Read localStorage synchronously so state is correct on first render ──
-  // This avoids the Supabase metadata propagation delay that caused the banner
-  // to disappear on return visits, and also enables draft saving/restore.
   const [initialState] = useState(() => {
     const lastMeta: Record<string, unknown> = (() => {
       try { return JSON.parse(localStorage.getItem(LAST_CV_KEY) ?? '{}'); } catch { return {}; }
@@ -149,7 +147,6 @@ export default function CVBuilderPage() {
     return {
       lastMeta,
       draft,
-      // Draft takes precedence over lastCV; if neither, open builder
       showBuilder: draft ? true : !lastMeta.last_cv_data,
     };
   });
@@ -158,16 +155,12 @@ export default function CVBuilderPage() {
   const lastCVData                  = freshMeta.last_cv_data;
   const lastCVPdfUrl                = freshMeta.last_cv_pdf_url as string | undefined;
   const lastCVGeneratedAt           = freshMeta.last_cv_generated_at as string | undefined;
-  const cvCount                     = (freshMeta.cv_count as number) ?? 0;
   const isFree                      = !freshMeta.subscription_plan || freshMeta.subscription_plan === 'free';
-  const FREE_LIMIT                  = 2;
-  const buildsLeft                  = Math.max(0, FREE_LIMIT - cvCount);
 
   const [showBuilder, setShowBuilder] = useState(initialState.showBuilder);
   const [cvType, setCvType]           = useState<CVType | null>(initialState.draft?.cvType ?? null);
   const [step, setStep]               = useState(initialState.draft?.step ?? 0);
   const [data, setData]               = useState<CVData>(initialState.draft?.data ?? defaultData('educator'));
-  const [isVerified, setIsVerified]   = useState<boolean | null>(null);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(initialState.draft?.savedAt ?? null);
 
   // ── Toast once if a draft was restored on mount ──────────────────────────
@@ -197,23 +190,12 @@ export default function CVBuilderPage() {
       if (m.last_cv_data) {
         try { localStorage.setItem(LAST_CV_KEY, JSON.stringify(m)); } catch {}
         setFreshMeta(m);
-        // Only switch to banner if no draft is open and localStorage had no lastCV
         if (!initialState.draft && !initialState.lastMeta.last_cv_data) {
           setShowBuilder(false);
         }
       }
     });
   }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from('profiles')
-      .select('is_verified')
-      .eq('id', user.id)
-      .single()
-      .then(({ data: profile }) => setIsVerified(profile?.is_verified ?? false));
-  }, [user]);
 
   const prev = () => setStep(s => Math.max(0, s - 1));
   const next = () => setStep(s => Math.min(STEPS.length - 1, s + 1));
@@ -233,135 +215,6 @@ export default function CVBuilderPage() {
       navigate(-1);
     }
   };
-
-  /* ── ID verification gate ────────────────────────────────── */
-  if (isVerified === null) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center gap-2 px-4 pt-4 pb-5">
-          <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
-            <ArrowLeft className="w-5 h-5 text-foreground" />
-          </button>
-          <FileText className="w-5 h-5 text-primary" />
-          <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
-        </div>
-        <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!isVerified) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center gap-2 px-4 pt-4 pb-5">
-          <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
-            <ArrowLeft className="w-5 h-5 text-foreground" />
-          </button>
-          <FileText className="w-5 h-5 text-primary" />
-          <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
-        </div>
-        <div className="px-4 pb-8">
-          <div className="bg-card border border-border rounded-2xl p-6 flex flex-col items-center text-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-              <ShieldAlert className="w-8 h-8 text-amber-500" />
-            </div>
-            <div className="space-y-1.5">
-              <h2 className="text-lg font-bold text-foreground">Identity Verification Required</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                You need to verify your identity before you can create a CV. This helps us ensure that
-                all educators on Crosssa are who they say they are.
-              </p>
-            </div>
-            <div className="w-full bg-muted rounded-xl px-4 py-3 text-left space-y-2">
-              <p className="text-xs font-semibold text-foreground">Why is this required?</p>
-              <ul className="text-xs text-muted-foreground space-y-1">
-                <li className="flex items-start gap-2"><ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" /> Builds trust with schools reviewing your CV</li>
-                <li className="flex items-start gap-2"><ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" /> Prevents fraudulent applications</li>
-                <li className="flex items-start gap-2"><ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" /> Keeps the platform safe for all educators</li>
-              </ul>
-            </div>
-            <div className="flex flex-col gap-2 w-full pt-1">
-              <Button onClick={() => navigate('/profile')} className="w-full h-11 rounded-xl font-semibold gap-2">
-                <ShieldCheck className="w-4 h-4" /> Verify My Identity
-              </Button>
-              <Button variant="ghost" onClick={() => navigate(-1)} className="w-full h-10 rounded-xl text-muted-foreground">
-                Go Back
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /* ── Free tier limit gate ────────────────────────────────── */
-  if (showBuilder && isFree && cvCount >= FREE_LIMIT) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center gap-2 px-4 pt-4 pb-5">
-          <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
-            <ArrowLeft className="w-5 h-5 text-foreground" />
-          </button>
-          <FileText className="w-5 h-5 text-primary" />
-          <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
-        </div>
-        <div className="px-4 pb-8">
-          <div className="bg-card border border-border rounded-2xl p-6 flex flex-col items-center text-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <FileText className="w-8 h-8 text-primary" />
-            </div>
-            <div className="space-y-1.5">
-              <h2 className="text-lg font-bold text-foreground">Free Plan Limit Reached</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                You've used all <strong>{FREE_LIMIT} free CV builds</strong> included in your plan.
-                Upgrade to create unlimited CVs and unlock premium templates.
-              </p>
-            </div>
-
-            {/* Usage bar */}
-            <div className="w-full space-y-1.5">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>CVs created</span>
-                <span className="font-semibold text-foreground">{cvCount} / {FREE_LIMIT}</span>
-              </div>
-              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full" style={{ width: '100%' }} />
-              </div>
-            </div>
-
-            {/* What you get */}
-            <div className="w-full bg-muted rounded-xl px-4 py-3 text-left space-y-2">
-              <p className="text-xs font-semibold text-foreground">What you get with a paid plan</p>
-              <ul className="text-xs text-muted-foreground space-y-1.5">
-                {[
-                  'Unlimited CV builds',
-                  'Access to all premium templates',
-                  'Priority application support',
-                  'Verified badge on your profile',
-                ].map(item => (
-                  <li key={item} className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="flex flex-col gap-2 w-full pt-1">
-              <Button onClick={() => navigate('/subscribe')} className="w-full h-11 rounded-xl font-semibold">
-                Upgrade Plan
-              </Button>
-              <Button variant="ghost" onClick={() => { setShowBuilder(false); }} className="w-full h-10 rounded-xl text-muted-foreground">
-                View My Last CV
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   /* ── Edit last CV — loads lastCV as new draft ───────────── */
   const handleEdit = () => {
@@ -411,8 +264,6 @@ export default function CVBuilderPage() {
             lastCV={{ pdf_url: lastCVPdfUrl, generated_at: lastCVGeneratedAt, cv_data: lastCVData }}
             onBuildNew={() => { setShowBuilder(true); setCvType(null); }}
             onEdit={handleEdit}
-            buildsLeft={buildsLeft}
-            isFree={isFree}
           />
         </div>
       </div>
@@ -437,14 +288,9 @@ export default function CVBuilderPage() {
         <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
       </div>
 
-      {/* Subtitle + builds-left badge */}
-      <div className="flex items-center justify-between px-4 pb-4 pt-1 gap-3">
+      {/* Subtitle */}
+      <div className="px-4 pb-4 pt-1">
         <p className="text-sm text-muted-foreground">{subtitle}</p>
-        {cvType && isFree && (
-          <div className={`shrink-0 rounded-xl px-3 py-1 text-xs font-medium whitespace-nowrap ${buildsLeft === 0 ? 'bg-destructive/10 text-destructive' : buildsLeft === 1 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-muted text-muted-foreground'}`}>
-            {buildsLeft === 0 ? 'No builds left' : `${buildsLeft} build${buildsLeft !== 1 ? 's' : ''} left`}
-          </div>
-        )}
       </div>
 
       {/* Type selection or builder */}
@@ -495,8 +341,8 @@ export default function CVBuilderPage() {
                   {step === 3 && <CVStepSkills cvType={cvType} data={data.skills} onChange={skills => setData(d => ({ ...d, skills }))} />}
                   {step === 4 && <CVStepReferences cvType={cvType} data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
                   {step === 5 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} />}
-                  {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} />}
-                  {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} />}
+                  {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} isFree={isFree} />}
+                  {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} isFree={isFree} />}
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -521,7 +367,7 @@ export default function CVBuilderPage() {
                 onClick={() => navigate(-1)}
                 className="w-full rounded-xl gap-2 text-muted-foreground text-sm"
               >
-                <Save className="w-4 h-4" /> Save & Exit — continue later
+                <Save className="w-4 h-4" /> Save &amp; Exit — continue later
               </Button>
             </div>
           </motion.div>

@@ -1,7 +1,10 @@
-import { Check } from 'lucide-react';
+import { Check, Lock } from 'lucide-react';
 import { ReactNode } from 'react';
+import { toast } from 'sonner';
 
 interface Template { id: string; name: string; description: string; category: string; preview: ReactNode }
+
+const FREE_TEMPLATE = 'classic';
 
 const TEMPLATES: Template[] = [
   { id: 'classic',      name: 'Classic',      description: 'Clean, traditional layout. Preferred by government schools.',      category: 'Corporate',   preview: <ClassicPreview /> },
@@ -14,28 +17,72 @@ const TEMPLATES: Template[] = [
   { id: 'corporate',    name: 'Corporate',    description: 'Navy sidebar, white content. Polished and structured.',            category: 'Corporate',   preview: <CorporatePreview /> },
 ];
 
-interface Props { selected: string; onChange: (id: string) => void }
+interface Props { selected: string; onChange: (id: string) => void; isFree?: boolean }
 
-export default function CVStepTemplate({ selected, onChange }: Props) {
+export default function CVStepTemplate({ selected, onChange, isFree = false }: Props) {
+  const handleSelect = (id: string) => {
+    if (isFree && id !== FREE_TEMPLATE) {
+      toast.info('Unlock all 8 templates for a once-off R99 upgrade.', { duration: 3000 });
+      return;
+    }
+    onChange(id);
+  };
+
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">Choose a layout for your CV:</p>
+      {isFree && (
+        <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2">
+          <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+          <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug">
+            Free plan includes the <strong>Classic</strong> template. Pay once (R99) to unlock all 8 templates — no watermark for 1 year.
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3">
-        {TEMPLATES.map(t => (
-          <button key={t.id} onClick={() => onChange(t.id)}
-            className={`text-left rounded-2xl border overflow-hidden transition-all ${selected === t.id ? 'border-primary ring-2 ring-primary shadow-md' : 'border-border bg-card hover:border-primary/50'}`}
-          >
-            <div className="h-32 overflow-hidden bg-white relative">
-              <div style={{ transform: 'scale(0.32)', transformOrigin: 'top left', width: '312%', pointerEvents: 'none' }}>{t.preview}</div>
-              <div className={`absolute top-2 right-2 text-[9px] font-semibold px-1.5 py-0.5 rounded ${t.category === 'Corporate' ? 'bg-slate-100 text-slate-600' : 'bg-teal-50 text-teal-700'}`}>{t.category}</div>
-              {selected === t.id && <div className="absolute top-2 left-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div>}
-            </div>
-            <div className="p-3">
-              <p className="font-semibold text-sm text-foreground">{t.name}</p>
-              <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{t.description}</p>
-            </div>
-          </button>
-        ))}
+        {TEMPLATES.map(t => {
+          const isLocked = isFree && t.id !== FREE_TEMPLATE;
+          const isSelected = selected === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => handleSelect(t.id)}
+              className={`text-left rounded-2xl border overflow-hidden transition-all ${
+                isSelected
+                  ? 'border-primary ring-2 ring-primary shadow-md'
+                  : isLocked
+                  ? 'border-border bg-card opacity-60 cursor-not-allowed'
+                  : 'border-border bg-card hover:border-primary/50'
+              }`}
+            >
+              <div className="h-32 overflow-hidden bg-white relative">
+                <div style={{ transform: 'scale(0.32)', transformOrigin: 'top left', width: '312%', pointerEvents: 'none' }}>
+                  {t.preview}
+                </div>
+                <div className={`absolute top-2 right-2 text-[9px] font-semibold px-1.5 py-0.5 rounded ${t.category === 'Corporate' ? 'bg-slate-100 text-slate-600' : 'bg-teal-50 text-teal-700'}`}>
+                  {t.category}
+                </div>
+                {isSelected && !isLocked && (
+                  <div className="absolute top-2 left-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                    <Check className="w-3 h-3 text-white" />
+                  </div>
+                )}
+                {isLocked && (
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                    <div className="bg-white/90 rounded-lg px-2 py-1 flex items-center gap-1 shadow-sm">
+                      <Lock className="w-3 h-3 text-slate-600" />
+                      <span className="text-[10px] font-semibold text-slate-700">R99 Upgrade</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="p-3">
+                <p className="font-semibold text-sm text-foreground">{t.name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{t.description}</p>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -27,7 +27,7 @@ interface CVData {
   template: string;
 }
 
-interface Props { data: CVData; forExport?: boolean }
+interface Props { data: CVData; forExport?: boolean; watermark?: boolean }
 
 // Unicode emojis – render perfectly in html2canvas
 const ICONS = {
@@ -67,9 +67,27 @@ const BUBBLE_WRAP: React.CSSProperties = {
  * export. `pageBreakBefore: always` is a CSS print directive that html2canvas
  * ignores entirely, so this JS approach is required.
  */
+const A4_PAGE_H = 1123;
 
+function PageBreakSpacer() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(0);
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    let el: HTMLElement = ref.current;
+    let top = 0;
+    while (el.offsetParent) {
+      top += el.offsetTop;
+      el = el.offsetParent as HTMLElement;
+    }
+    top += el.offsetTop;
+    const rem = top % A4_PAGE_H;
+    setHeight(rem === 0 ? 0 : A4_PAGE_H - rem);
+  }, []);
+  return <div ref={ref} style={{ height }} />;
+}
 
-export default function CVTemplateRenderer({ data, forExport = false }: Props) {
+export default function CVTemplateRenderer({ data, forExport = false, watermark = false }: Props) {
   const { template } = data;
   const wrapperStyle: React.CSSProperties = forExport
     ? { width: '794px', minHeight: '1123px', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '13px', background: '#fff' }
@@ -78,14 +96,43 @@ export default function CVTemplateRenderer({ data, forExport = false }: Props) {
   const validEdu = (data.education || []).filter(e => e.institution);
   const validExp = (data.experience || []).filter(e => e.school);
 
-  if (template === 'modern')       return <ModernTemplate       data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} />;
-  if (template === 'professional') return <ProfessionalTemplate data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} />;
-  if (template === 'minimal')      return <MinimalTemplate      data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} />;
-  if (template === 'sidebar')      return <SidebarTemplate      data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} />;
-  if (template === 'bold')         return <BoldTemplate         data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} />;
-  if (template === 'executive')    return <ExecutiveTemplate    data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} />;
-  if (template === 'corporate')    return <CorporateTemplate    data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} />;
-  return <ClassicTemplate data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} />;
+  const tmpl =
+    template === 'modern'       ? <ModernTemplate       data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} /> :
+    template === 'professional' ? <ProfessionalTemplate data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} /> :
+    template === 'minimal'      ? <MinimalTemplate      data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} /> :
+    template === 'sidebar'      ? <SidebarTemplate      data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} /> :
+    template === 'bold'         ? <BoldTemplate         data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} /> :
+    template === 'executive'    ? <ExecutiveTemplate    data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} /> :
+    template === 'corporate'    ? <CorporateTemplate    data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} /> :
+    <ClassicTemplate data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} />;
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {tmpl}
+      {watermark && (
+        <div style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: '1095px',
+          height: '28px',
+          background: 'rgba(241, 245, 249, 0.96)',
+          borderTop: '1px solid #cbd5e1',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '10px',
+          color: '#94a3b8',
+          fontStyle: 'italic',
+          fontFamily: 'Arial, Helvetica, sans-serif',
+          letterSpacing: '0.3px',
+          pointerEvents: 'none',
+        }}>
+          Created FREE at www.crosssa.co.za
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
@@ -261,7 +308,7 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
         </Section>}
         {validExp.length > 0 && <Section title="Teaching Experience" color="#1e2a3a" icon={ICONS.briefcase}>
           {validExp.map((e: any, i: number) => (
-            <div key={i} style={{ marginBottom: '16px' }}>
+            <div key={i} style={{ marginBottom: '16px', borderLeft: '3px solid #1e2a3a', paddingLeft: '12px' }}>
               <div style={{ fontWeight: '600', color: '#111827' }}>{e.role}</div>
               <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.school}{(e.from || e.to) ? ` · ${e.from || ''} – ${e.to || ''}` : ''}</div>
               {renderDescription(e.description, '#374151')}
@@ -275,7 +322,8 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
         {skills?.languages?.length && <Section title="Languages" color="#1e2a3a" icon={ICONS.languages}><SkillRow items={skills.languages} /></Section>}
         {renderCustomSections(data.custom_sections, '#1e2a3a')}
       </div>
-      
+
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, '#1e2a3a', undefined, '28px 36px')}
     </div>
   );
@@ -329,7 +377,8 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           {renderCustomSections(data.custom_sections, '#0d9488')}
         </div>
       </div>
-     
+
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, '#0d9488', undefined, '28px 24px')}
     </div>
   );
@@ -395,7 +444,8 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
         </div>
         {renderCustomSections(data.custom_sections, '#1e4d2b', '#2d7a47')}
       </div>
-      
+
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, '#1e4d2b', '#2d7a47', '28px 40px')}
     </div>
   );
@@ -450,7 +500,8 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
         </MinimalSection>}
         {renderCustomSections(data.custom_sections, '#111827')}
       </div>
-    
+
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, '#111827', undefined, '40px 44px')}
     </div>
   );
@@ -500,7 +551,8 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           {renderCustomSections(data.custom_sections, sideColor)}
         </div>
       </div>
-      
+
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, sideColor, undefined, '28px 24px')}
     </div>
   );
@@ -567,7 +619,8 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           </Section>}
         </div>
       </div>
-     
+
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, accent, undefined, '24px 32px')}
     </div>
   );
@@ -637,7 +690,8 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           </div>
         </div>
       </div>
-    
+
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, accent, undefined, '28px 44px')}
     </div>
   );
@@ -652,8 +706,7 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
       <div style={{ display: 'flex', flex: 1 }}>
         <div style={{ background: navy, color: '#fff', width: '210px', minWidth: '210px', padding: '32px 18px', boxSizing: 'border-box' }}>
           <div style={{ width: '76px', height: '76px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: '26px', fontWeight: '800', color: '#fff' }}>{(personal.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}</div>
-          
-          
+
           <SidebarSection title="Contact">
             {personal.email && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mail} {personal.email}</div>}
             {personal.phone && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.phone} {personal.phone}</div>}
@@ -667,8 +720,8 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
         <div style={{ flex: 1, padding: '32px 28px' }}>
           <div style={{ borderBottom: `3px solid ${navy}`, paddingBottom: '10px', marginBottom: '22px' }}>
             <div style={{ fontSize: '22px', fontWeight: '700', color: navy, letterSpacing: '1px' }}>{personal.full_name || 'Your Name'}</div>
-			<div style={{ textAlign: 'left', fontSize: '10px', color: '#6b7280', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '22px' }}>Educator</div>
-		  </div>
+            <div style={{ textAlign: 'left', fontSize: '10px', color: '#6b7280', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '22px' }}>Educator</div>
+          </div>
           {personal.bio && <Section title="Professional Summary" color={navy}><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
           {validExp.length > 0 && <Section title="Work Experience" color={navy} icon={ICONS.briefcase}>
             {validExp.map((e: any, i: number) => (
@@ -691,7 +744,8 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           {renderCustomSections(data.custom_sections, navy)}
         </div>
       </div>
-     
+
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, navy, undefined, '32px 28px')}
     </div>
   );
