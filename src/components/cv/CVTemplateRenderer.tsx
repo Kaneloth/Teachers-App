@@ -688,7 +688,7 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
         <div style={{ flex: 1, padding: '32px 28px' }}>
           <div style={{ borderBottom: `3px solid ${navy}`, paddingBottom: '10px', marginBottom: '22px' }}>
             <div style={{ fontSize: '22px', fontWeight: '700', color: navy, letterSpacing: '1px' }}>{personal.full_name || 'Your Name'}</div>
-			<div style={{ textAlign: 'center', fontSize: '10px', color: 'rgba(255,255,255,0.55)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '22px' }}>Educator</div>
+			<div style={{ textAlign: 'center', fontSize: '10px', color: '#6b7280', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '22px' }}>Educator</div>
 		  </div>
           {personal.bio && <Section title="Professional Summary" color={navy}><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
           {validExp.length > 0 && <Section title="Work Experience" color={navy} icon={ICONS.briefcase}>
