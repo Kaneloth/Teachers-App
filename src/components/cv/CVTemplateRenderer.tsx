@@ -59,7 +59,6 @@ const BUBBLE_WRAP: React.CSSProperties = {
   flexWrap: 'wrap',
   gap: '8px',
   alignItems: 'center',
-};
 
 export default function CVTemplateRenderer({ data, forExport = false }: Props) {
   const { template } = data;
