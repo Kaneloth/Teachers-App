@@ -2,33 +2,34 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 /**
- * Renders an HTML element to a multi‑page PDF.
- * If a `.references-page` element is found, it is rendered on a separate page.
+ * Exports an element to a multi‑page PDF.
+ * If a `.references-page` element is found, it is placed on a separate page at the end.
  */
 export async function exportElementAsPDF(element: HTMLElement, filename = 'CV.pdf'): Promise<Blob> {
-  // Check for references container
   const referencesDiv = element.querySelector('.references-page') as HTMLElement | null;
 
   if (!referencesDiv) {
-    // Fallback: original method without page separation
+    // No references section – use original single‑canvas method
     return originalExport(element, filename);
   }
 
   try {
-    // Clone the element to avoid modifying the live DOM
-    const cloneRoot = element.cloneNode(true) as HTMLElement;
-    const cloneReferences = cloneRoot.querySelector('.references-page');
-    if (cloneReferences) cloneReferences.remove();
+    // 1. Hide the references section temporarily
+    const originalDisplay = referencesDiv.style.display;
+    referencesDiv.style.display = 'none';
 
-    // Render main content (without references)
-    const mainCanvas = await html2canvas(cloneRoot, {
+    // 2. Render the main content (without references)
+    const mainCanvas = await html2canvas(element, {
       scale: 3,
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
     });
 
-    // Render only the references container
+    // 3. Restore references visibility
+    referencesDiv.style.display = originalDisplay;
+
+    // 4. Render only the references section (it may be tall, so it will be split into multiple pages if needed)
     const refCanvas = await html2canvas(referencesDiv, {
       scale: 3,
       useCORS: true,
@@ -36,11 +37,11 @@ export async function exportElementAsPDF(element: HTMLElement, filename = 'CV.pd
       backgroundColor: '#ffffff',
     });
 
+    // 5. Build PDF
     const pdf = new jsPDF({ unit: 'px', format: 'a4', orientation: 'portrait' });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
 
-    // Helper to add a canvas (possibly multi‑page) to the PDF
     const addCanvasToPDF = (canvas: HTMLCanvasElement) => {
       const imgData = canvas.toDataURL('image/png');
       const canvasRatio = canvas.height / canvas.width;
@@ -59,24 +60,24 @@ export async function exportElementAsPDF(element: HTMLElement, filename = 'CV.pd
       }
     };
 
-    // 1. Main content
+    // Main content
     addCanvasToPDF(mainCanvas);
 
-    // 2. References – always on a new page
+    // References on a new page
     pdf.addPage();
     addCanvasToPDF(refCanvas);
 
     pdf.save(filename);
     return pdf.output('blob');
   } catch (err) {
-    console.error('PDF generation failed:', err);
+    console.error('PDF generation with page separation failed:', err);
     // Fallback to original method
     return originalExport(element, filename);
   }
 }
 
 /**
- * Original export method (no forced page break)
+ * Original export method (single canvas, no forced page break)
  */
 async function originalExport(element: HTMLElement, filename: string): Promise<Blob> {
   const canvas = await html2canvas(element, {
