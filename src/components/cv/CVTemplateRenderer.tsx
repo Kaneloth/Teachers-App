@@ -36,12 +36,13 @@ const BUBBLE_BASE: React.CSSProperties = {
   justifyContent: 'center',
   textAlign: 'center',
   borderRadius: '4px',
-  padding: '7px 14px',
+  padding: '6px 12px',          // enough to prevent overlap
   fontSize: '11px',
-  lineHeight: 1.4,
-  minHeight: '28px',
+  lineHeight: 1.3,              // give room for descenders
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
+  verticalAlign: 'middle',      // crucial for inline alignment
+  margin: 0,
 };
 
 const BUBBLE_WRAP: React.CSSProperties = {
@@ -714,35 +715,42 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: { data: C
 function Section({ title, color, borderColor, icon, children }: { title: string; color?: string; borderColor?: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: '32px', overflow: 'visible' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', lineHeight: 1 }}>
-        {icon && (
-          <span style={{
-            color: color || '#111',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '15px',
-            width: '15px',
-            flexShrink: 0,
-          }}>
-            {icon}
-          </span>
-        )}
-        <span style={{
-          fontSize: '15px',
-          fontWeight: 800,
-          textTransform: 'uppercase',
-          letterSpacing: '1.5px',
-          color: color || '#111',
-          display: 'inline-flex',
-          alignItems: 'center',
-          height: '15px',
-          lineHeight: 1,
-        }}>
-          {title}
-        </span>
-        <div style={{ flex: 1, height: '1px', background: borderColor || color || '#e5e7eb', marginLeft: '6px' }} />
-      </div>
+      <div style={{
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  marginBottom: '16px',
+  lineHeight: 1,
+}}>
+  {icon && (
+    <span style={{
+      color: color || '#111',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '16px',
+      height: '16px',
+      flexShrink: 0,
+      lineHeight: 1,          // match text line-height
+      verticalAlign: 'middle',
+    }}>
+      {icon}
+    </span>
+  )}
+  <span style={{
+    fontSize: '15px',
+    fontWeight: 800,
+    textTransform: 'uppercase',
+    letterSpacing: '1.5px',
+    color: color || '#111',
+    lineHeight: 1,            // same as icon
+    display: 'inline-block',
+    verticalAlign: 'middle',
+  }}>
+    {title}
+  </span>
+  <div style={{ flex: 1, height: '1px', background: borderColor || color || '#e5e7eb', marginLeft: '6px' }} />
+</div>>
       {children}
     </div>
   );
