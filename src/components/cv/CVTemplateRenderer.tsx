@@ -73,7 +73,18 @@ function PageBreakSpacer() {
   const [height, setHeight] = useState(0);
   useLayoutEffect(() => {
     if (!ref.current) return;
-    const used = ref.current.offsetTop % A4_PAGE_H;
+    // Walk the full offsetParent chain to get the true distance from the
+    // document top. Using ref.offsetTop alone only measures to the nearest
+    // position:relative ancestor, which many templates set on their wrapper —
+    // causing the spacer to think it is near page-top and pad a near-full
+    // empty page before references.
+    let top = 0;
+    let el: HTMLElement | null = ref.current;
+    while (el) {
+      top += el.offsetTop;
+      el = el.offsetParent as HTMLElement | null;
+    }
+    const used = top % A4_PAGE_H;
     setHeight(used > 0 ? A4_PAGE_H - used : 0);
   }, []);
   return <div ref={ref} style={{ height, background: '#fff' }} />;
