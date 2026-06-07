@@ -171,7 +171,7 @@ function Section({ title, color, borderColor, icon, children }: { title: string;
             display: 'inline-block',
             verticalAlign: 'middle',
             position: 'relative',
-            top: '-1px', // shift icon up to align with text baseline
+            top: '-2px', // increased from -1px to lift icon further
           }}>
             {icon}
           </span>
