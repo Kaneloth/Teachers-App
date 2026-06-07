@@ -61,6 +61,9 @@ const BUBBLE_WRAP: React.CSSProperties = {
   alignItems: 'center',
 };
 
+// pageBreakBefore_referencespage
+const PageBreak = () => <div style={{ height: '1px', pageBreakBefore: 'always', breakBefore: 'page' }} />;
+
 export default function CVTemplateRenderer({ data, forExport = false }: Props) {
   const { template } = data;
   const wrapperStyle: React.CSSProperties = forExport
