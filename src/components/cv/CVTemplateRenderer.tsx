@@ -673,8 +673,8 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
       <div style={{ display: 'flex', flex: 1 }}>
         <div style={{ background: navy, color: '#fff', width: '210px', minWidth: '210px', padding: '32px 18px', boxSizing: 'border-box' }}>
           <div style={{ width: '76px', height: '76px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: '26px', fontWeight: '800', color: '#fff' }}>{(personal.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}</div>
-          <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: '700', marginBottom: '3px' }}>{personal.full_name || 'Your Name'}</div>
-          <div style={{ textAlign: 'center', fontSize: '10px', color: 'rgba(255,255,255,0.55)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '22px' }}>Educator</div>
+          
+          
           <SidebarSection title="Contact">
             {personal.email && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mail} {personal.email}</div>}
             {personal.phone && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.phone} {personal.phone}</div>}
@@ -688,8 +688,8 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
         <div style={{ flex: 1, padding: '32px 28px' }}>
           <div style={{ borderBottom: `3px solid ${navy}`, paddingBottom: '10px', marginBottom: '22px' }}>
             <div style={{ fontSize: '22px', fontWeight: '700', color: navy, letterSpacing: '1px' }}>{personal.full_name || 'Your Name'}</div>
-            <div style={{ fontSize: '11px', color: '#6b7280', letterSpacing: '2px', textTransform: 'uppercase', marginTop: '3px' }}>Curriculum Vitae</div>
-          </div>
+			<div style={{ textAlign: 'center', fontSize: '10px', color: 'rgba(255,255,255,0.55)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '22px' }}>Educator</div>
+		  </div>
           {personal.bio && <Section title="Professional Summary" color={navy}><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
           {validExp.length > 0 && <Section title="Work Experience" color={navy} icon={ICONS.briefcase}>
             {validExp.map((e: any, i: number) => (
