@@ -22,7 +22,7 @@ export async function exportElementAsPDF(element: HTMLElement, filename = 'CV.pd
       const bubbles = clonedRoot.querySelectorAll('span[style*="border-radius"], .bubble, .skill-chip');
       bubbles.forEach((bubble: HTMLElement) => {
         bubble.style.display = 'inline-block';
-        bubble.style.verticalAlign = 'bottom';
+        bubble.style.verticalAlign = 'top';
         bubble.style.lineHeight = '1.3';
         bubble.style.padding = '6px 12px';
         bubble.style.margin = '0';
@@ -34,7 +34,7 @@ export async function exportElementAsPDF(element: HTMLElement, filename = 'CV.pd
         const spans = header.querySelectorAll('span');
         spans.forEach((span: HTMLElement) => {
           span.style.display = 'inline-block';
-          span.style.verticalAlign = 'bottom';
+          span.style.verticalAlign = 'top';
           span.style.lineHeight = '1';
         });
         // Also fix the divider line (it should stay as flex)
@@ -49,7 +49,7 @@ export async function exportElementAsPDF(element: HTMLElement, filename = 'CV.pd
       const sidebarIcons = clonedRoot.querySelectorAll('.sidebar-icon, [style*="display: inline-flex; align-items: center; gap: 6px"] span:first-child');
       sidebarIcons.forEach((icon: HTMLElement) => {
         icon.style.display = 'inline-block';
-        icon.style.verticalAlign = 'bottom';
+        icon.style.verticalAlign = 'top';
         icon.style.lineHeight = '1';
       });
 
@@ -58,7 +58,7 @@ export async function exportElementAsPDF(element: HTMLElement, filename = 'CV.pd
       allInlineFlex.forEach((el: HTMLElement) => {
         if (el.style.display === 'inline-flex') {
           el.style.display = 'inline-block';
-          el.style.verticalAlign = 'bottom';
+          el.style.verticalAlign = 'top';
         }
       });
     },
