@@ -138,7 +138,7 @@ function renderReferencesPage(refs: RefEntry[] | undefined, color: string, borde
   const validRefs = (refs || []).filter(r => r.name);
   if (!validRefs.length) return null;
   return (
-    <div style={{ padding, background: '#fff', lineHeight: '1.6', minHeight: '200px' }}>
+    <div className="references-page" style={{ padding, background: '#fff', lineHeight: '1.6', minHeight: '200px' }}>
       <Section title="References" color={color} borderColor={borderColor} icon="📌">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px 28px' }}>
           {validRefs.map((r, i) => (
