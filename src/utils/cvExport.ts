@@ -2,7 +2,6 @@ export async function exportElementAsPDF(element: HTMLElement, filename = 'CV.pd
   const html2canvas = (await import('html2canvas')).default;
   const { jsPDF } = await import('jspdf');
 
-  // Get actual dimensions
   const width = element.scrollWidth;
   const height = element.scrollHeight;
 
@@ -14,51 +13,48 @@ export async function exportElementAsPDF(element: HTMLElement, filename = 'CV.pd
     windowWidth: width,
     windowHeight: height,
     onclone: (clonedDoc, element) => {
-      // Locate the root of the CV inside the cloned document
       const clonedRoot = clonedDoc.querySelector('.cv-export-root');
       if (!clonedRoot) return;
 
-      // Fix bubbles / skill chips: use inline-block + bottom alignment
+      // 1. Skill chips / bubbles: use inline-block with baseline to align text properly
       const bubbles = clonedRoot.querySelectorAll('span[style*="border-radius"], .bubble, .skill-chip');
       bubbles.forEach((bubble: HTMLElement) => {
         bubble.style.display = 'inline-block';
-        bubble.style.verticalAlign = 'bottom';
+        bubble.style.verticalAlign = 'baseline';
         bubble.style.lineHeight = '1.3';
         bubble.style.padding = '6px 12px';
-        bubble.style.margin = '0';
       });
 
-      // Fix section headings (icons + text): force inline-block + bottom
+      // 2. Section headings: keep flex but adjust line-height and vertical-align
       const sectionHeaders = clonedRoot.querySelectorAll('[style*="display: flex; align-items: center; gap"]');
       sectionHeaders.forEach((header: HTMLElement) => {
         const spans = header.querySelectorAll('span');
         spans.forEach((span: HTMLElement) => {
-          span.style.display = 'inline-block';
-          span.style.verticalAlign = 'bottom';
           span.style.lineHeight = '1';
+          span.style.verticalAlign = 'baseline';
         });
-        // Also fix the divider line (it should stay as flex)
-        const divider = header.querySelector('div[style*="flex: 1"]');
-        if (divider) {
-          divider.style.display = 'block';
-          divider.style.flex = 'none';
-        }
       });
 
-      // Fix sidebar icons: inline-block + bottom
+      // 3. Sidebar items: restore inline-flex with center alignment (was broken by previous changes)
+      const sidebarItems = clonedRoot.querySelectorAll('.sidebar-item');
+      sidebarItems.forEach((item: HTMLElement) => {
+        item.style.display = 'flex';
+        item.style.alignItems = 'center';
+        item.style.gap = '6px';
+      });
       const sidebarIcons = clonedRoot.querySelectorAll('.sidebar-icon, [style*="display: inline-flex; align-items: center; gap: 6px"] span:first-child');
       sidebarIcons.forEach((icon: HTMLElement) => {
-        icon.style.display = 'inline-block';
-        icon.style.verticalAlign = 'bottom';
-        icon.style.lineHeight = '1';
+        icon.style.display = 'inline-flex';
+        icon.style.alignItems = 'center';
+        icon.style.verticalAlign = 'middle';
       });
 
-      // Ensure any remaining inline-flex elements inside the CV are forced to inline-block
+      // 4. Override any remaining inline-flex that might cause issues
       const allInlineFlex = clonedRoot.querySelectorAll('[style*="display: inline-flex"]');
       allInlineFlex.forEach((el: HTMLElement) => {
-        if (el.style.display === 'inline-flex') {
+        if (el.style.display === 'inline-flex' && !el.classList.contains('sidebar-icon')) {
           el.style.display = 'inline-block';
-          el.style.verticalAlign = 'bottom';
+          el.style.verticalAlign = 'baseline';
         }
       });
     },
