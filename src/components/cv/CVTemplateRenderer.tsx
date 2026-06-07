@@ -42,7 +42,6 @@ const ICONS = {
   languages: '🌐',
 };
 
-// Bubble styles – use inline-block + baseline for reliable PDF export
 const BUBBLE_BASE: React.CSSProperties = {
   display: 'inline-block',
   verticalAlign: 'baseline',
@@ -160,12 +159,30 @@ function renderReferencesPage(refs: RefEntry[] | undefined, color: string, borde
 }
 
 /* ── Shared UI components ───────────────────────────────────────────────── */
+// -------- FIXED SECTION COMPONENT (icon shifted up by 1px) --------
 function Section({ title, color, borderColor, icon, children }: { title: string; color?: string; borderColor?: string; icon?: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: '32px', overflow: 'visible' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', lineHeight: 1 }}>
-        {icon && <span style={{ fontSize: '14px', lineHeight: 1 }}>{icon}</span>}
-        <span style={{ fontSize: '15px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', color: color || '#111', lineHeight: 1 }}>
+        {icon && (
+          <span style={{
+            fontSize: '14px',
+            lineHeight: 1,
+            display: 'inline-block',
+            transform: 'translateY(1px)', // shift icon up slightly to align with text baseline
+          }}>
+            {icon}
+          </span>
+        )}
+        <span style={{
+          fontSize: '15px',
+          fontWeight: 800,
+          textTransform: 'uppercase',
+          letterSpacing: '1.5px',
+          color: color || '#111',
+          lineHeight: 1,
+          display: 'inline-block',
+        }}>
           {title}
         </span>
         <div style={{ flex: 1, height: '1px', background: borderColor || color || '#e5e7eb', marginLeft: '6px' }} />
