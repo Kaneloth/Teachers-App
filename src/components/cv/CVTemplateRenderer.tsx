@@ -38,7 +38,7 @@ const BUBBLE_BASE: React.CSSProperties = {
   borderRadius: '4px',
   padding: '6px 12px',          // enough to prevent overlap
   fontSize: '11px',
-  lineHeight: 1.3,              // give room for descenders
+  lineHeight: 1.4,              // give room for descenders
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
   verticalAlign: 'middle',      // crucial for inline alignment
