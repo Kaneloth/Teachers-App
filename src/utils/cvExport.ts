@@ -18,34 +18,48 @@ export async function exportElementAsPDF(element: HTMLElement, filename = 'CV.pd
       const clonedRoot = clonedDoc.querySelector('.cv-export-root');
       if (!clonedRoot) return;
 
-      // Fix bubbles / skill chips
+      // Fix bubbles / skill chips: use inline-block + bottom alignment
       const bubbles = clonedRoot.querySelectorAll('span[style*="border-radius"], .bubble, .skill-chip');
       bubbles.forEach((bubble: HTMLElement) => {
-        bubble.style.display = 'inline-flex';
-        bubble.style.alignItems = 'center';
-        bubble.style.verticalAlign = 'middle';
+        bubble.style.display = 'inline-block';
+        bubble.style.verticalAlign = 'bottom';
         bubble.style.lineHeight = '1.3';
-        bubble.style.padding = '6px 12px';   // ensure consistent padding
+        bubble.style.padding = '6px 12px';
+        bubble.style.margin = '0';
       });
 
-      // Fix section headings (icons + text)
+      // Fix section headings (icons + text): force inline-block + bottom
       const sectionHeaders = clonedRoot.querySelectorAll('[style*="display: flex; align-items: center; gap"]');
       sectionHeaders.forEach((header: HTMLElement) => {
-        // Force the icon container and text to have same line-height
         const spans = header.querySelectorAll('span');
         spans.forEach((span: HTMLElement) => {
+          span.style.display = 'inline-block';
+          span.style.verticalAlign = 'bottom';
           span.style.lineHeight = '1';
-          span.style.verticalAlign = 'middle';
         });
+        // Also fix the divider line (it should stay as flex)
+        const divider = header.querySelector('div[style*="flex: 1"]');
+        if (divider) {
+          divider.style.display = 'block';
+          divider.style.flex = 'none';
+        }
       });
 
-      // Fix sidebar icons
+      // Fix sidebar icons: inline-block + bottom
       const sidebarIcons = clonedRoot.querySelectorAll('.sidebar-icon, [style*="display: inline-flex; align-items: center; gap: 6px"] span:first-child');
       sidebarIcons.forEach((icon: HTMLElement) => {
-        icon.style.display = 'inline-flex';
-        icon.style.alignItems = 'center';
-        icon.style.verticalAlign = 'middle';
+        icon.style.display = 'inline-block';
+        icon.style.verticalAlign = 'bottom';
         icon.style.lineHeight = '1';
+      });
+
+      // Ensure any remaining inline-flex elements inside the CV are forced to inline-block
+      const allInlineFlex = clonedRoot.querySelectorAll('[style*="display: inline-flex"]');
+      allInlineFlex.forEach((el: HTMLElement) => {
+        if (el.style.display === 'inline-flex') {
+          el.style.display = 'inline-block';
+          el.style.verticalAlign = 'bottom';
+        }
       });
     },
   });
