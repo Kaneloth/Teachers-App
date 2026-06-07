@@ -12,7 +12,6 @@ import { format, differenceInDays, isPast } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { toast } from 'sonner';
-import SubscriptionModal from '@/components/SubscriptionModal';
 
 interface Vacancy {
   id: string;
@@ -82,25 +81,7 @@ function DaysLeftBadge({ closing_date }: { closing_date?: string }) {
   );
 }
 
-const FREE_APPLY_LIMIT = 5;
-
-function VacancyCard({
-  vacancy: v,
-  index: i,
-  isPro,
-  isApplied,
-  appliedCount,
-  onApply,
-  onUpgrade,
-}: {
-  vacancy: Vacancy;
-  index: number;
-  isPro: boolean;
-  isApplied: boolean;
-  appliedCount: number;
-  onApply: (vacancyId: string, url: string) => void;
-  onUpgrade: () => void;
-}) {
+function VacancyCard({ vacancy: v, index: i }: { vacancy: Vacancy; index: number }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <motion.div
@@ -190,37 +171,11 @@ function VacancyCard({
             {v.posted_by_school ? 'School Post' : v.source ? `via ${v.source}` : ''}
           </span>
           {v.application_url ? (
-            isPro ? (
-              <a href={v.application_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg gap-1">
-                  Apply <ExternalLink className="w-3 h-3" />
-                </Button>
-              </a>
-            ) : isApplied ? (
-              <a href={v.application_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg gap-1 text-primary border-primary/40">
-                  Applied <ExternalLink className="w-3 h-3" />
-                </Button>
-              </a>
-            ) : appliedCount < FREE_APPLY_LIMIT ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs rounded-lg gap-1"
-                onClick={() => onApply(v.id, v.application_url!)}
-              >
+            <a href={v.application_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+              <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg gap-1">
                 Apply <ExternalLink className="w-3 h-3" />
               </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs rounded-lg gap-1 text-primary border-primary/40"
-                onClick={onUpgrade}
-              >
-                🔒 Upgrade to Apply
-              </Button>
-            )
+            </a>
           ) : (
             <span className="text-[10px] text-muted-foreground italic shrink-0">No link</span>
           )}
@@ -230,34 +185,9 @@ function VacancyCard({
   );
 }
 
-/* ── Apply tracking helpers ─────────────────────────────────────────────── */
-const appliedKey = (userId: string) => `crosssa_applied_vacancies_${userId}`;
-function getLocalAppliedIds(userId: string): Set<string> {
-  try { return new Set(JSON.parse(localStorage.getItem(appliedKey(userId)) || '[]')); }
-  catch { return new Set(); }
-}
-function saveLocalAppliedIds(userId: string, ids: Set<string>) {
-  localStorage.setItem(appliedKey(userId), JSON.stringify([...ids]));
-}
-
 export default function VacanciesPage() {
-  const navigate  = useNavigate();
+  const navigate = useNavigate();
   const { user }  = useAuth();
-
-  /* ── Subscription check ─────────────────────────────────────────────── */
-  const [subProfile, setSubProfile] = useState<{ subscription_plan: string; subscription_end: string | null } | null>(null);
-  useEffect(() => {
-    if (!user) return;
-    supabase.from('profiles').select('subscription_plan, subscription_end').eq('id', user.id).single()
-      .then(({ data }) => setSubProfile(data));
-  }, [user]);
-  const profilePlan = subProfile?.subscription_plan;
-  const metaPlan    = user?.user_metadata?.subscription_plan as string | undefined;
-  const plan        = (profilePlan && profilePlan !== 'free') ? profilePlan : (metaPlan || 'free');
-  const profileEnd  = subProfile?.subscription_end;
-  const metaEnd     = user?.user_metadata?.subscription_end as string | undefined;
-  const subEnd      = profileEnd ? new Date(profileEnd) : metaEnd ? new Date(metaEnd) : null;
-  const isPro       = plan !== 'free' && subEnd !== null && subEnd > new Date();
 
   /* ── Educator profile type (determines default category) ────────────── */
   const [isEducator, setIsEducator] = useState<boolean | null>(null);
@@ -274,50 +204,18 @@ export default function VacanciesPage() {
       });
   }, [user]);
 
-  /* ── Free-tier apply tracking ───────────────────────────────────────── */
-  const [appliedIds, setAppliedIds]   = useState<Set<string>>(new Set());
-  const [showSubModal, setShowSubModal] = useState(false);
-
-  useEffect(() => {
-    if (!user) return;
-    const local     = getLocalAppliedIds(user.id);
-    const serverIds: string[] = user.user_metadata?.free_applied_ids ?? [];
-    const merged    = new Set([...local, ...serverIds]);
-    saveLocalAppliedIds(user.id, merged);
-    setAppliedIds(merged);
-  }, [user]);
-
-  const handleApply = async (vacancyId: string, url: string) => {
-    if (!user) return;
-    const updated = new Set(appliedIds);
-    updated.add(vacancyId);
-    setAppliedIds(updated);
-    saveLocalAppliedIds(user.id, updated);
-    supabase.auth.updateUser({ data: { free_applied_ids: [...updated] } });
-    window.open(url, '_blank', 'noopener,noreferrer');
-    const remaining = FREE_APPLY_LIMIT - updated.size;
-    if (remaining > 0) {
-      toast.success('Application opened', {
-        description: `${remaining} free application${remaining !== 1 ? 's' : ''} remaining.`,
-      });
-    } else {
-      toast.info('Last free application used — upgrade to Pro for unlimited applications.');
-      setShowSubModal(true);
-    }
-  };
-
   /* ── Data + filters ─────────────────────────────────────────────────── */
   const [vacancies,   setVacancies]   = useState<Vacancy[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [refreshing,  setRefreshing]  = useState(false);
   const [query,       setQuery]       = useState('');
   const [province,    setProvince]    = useState('');
-  const [category,    setCategory]    = useState(''); // '' = All
+  const [category,    setCategory]    = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   /* Set default category once we know whether user is an educator */
   useEffect(() => {
-    if (isEducator === null) return; // still loading
+    if (isEducator === null) return;
     setCategory(isEducator ? 'Education' : '');
   }, [isEducator]);
 
@@ -526,23 +424,12 @@ export default function VacanciesPage() {
           ) : (
             <div className="px-4 pb-6 space-y-3">
               {filtered.map((v, i) => (
-                <VacancyCard
-                  key={v.id}
-                  vacancy={v}
-                  index={i}
-                  isPro={isPro}
-                  isApplied={appliedIds.has(v.id)}
-                  appliedCount={appliedIds.size}
-                  onApply={handleApply}
-                  onUpgrade={() => setShowSubModal(true)}
-                />
+                <VacancyCard key={v.id} vacancy={v} index={i} />
               ))}
             </div>
           )}
         </>
       )}
-
-      <SubscriptionModal open={showSubModal} onClose={() => setShowSubModal(false)} />
     </div>
   );
 }
