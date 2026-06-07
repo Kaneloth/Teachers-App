@@ -20,7 +20,7 @@ import LastCVBanner from '@/components/cv/LastCVBanner';
 
 export type CVType = 'educator' | 'general';
 
-const STEPS = ['Personal', 'Education', 'Experience', 'Skills', 'Extras', 'References', 'Template', 'Review'];
+const STEPS = ['Personal', 'Education', 'Experience', 'Skills', 'References', 'Extras', 'Template', 'Review'];
 
 const DRAFT_KEY   = 'crosssa_cv_draft';   // in-progress build
 const LAST_CV_KEY = 'crosssa_last_cv';    // most recently generated CV (for banner)
@@ -31,8 +31,8 @@ interface CVData {
   education: { institution: string; qualification: string; year: string }[];
   experience: { school: string; role: string; from: string; to: string; description: string }[];
   skills: { subjects: string[]; soft_skills: string[]; languages: string[] };
-  custom_sections: CustomSection[];
   references: RefEntry[];
+  custom_sections: CustomSection[];
   template: string;
 }
 
@@ -493,8 +493,8 @@ export default function CVBuilderPage() {
                   {step === 1 && <CVStepEducation data={data.education} onChange={education => setData(d => ({ ...d, education }))} />}
                   {step === 2 && <CVStepExperience cvType={cvType} data={data.experience} onChange={experience => setData(d => ({ ...d, experience }))} />}
                   {step === 3 && <CVStepSkills cvType={cvType} data={data.skills} onChange={skills => setData(d => ({ ...d, skills }))} />}
+                  {step === 4 && <CVStepReferences cvType={cvType} data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
                   {step === 5 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} />}
-				  {step === 4 && <CVStepReferences cvType={cvType} data={data.references} onChange={references => setData(d => ({ ...d, references }))} /
                   {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} />}
                   {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} />}
                 </motion.div>
