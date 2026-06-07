@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState, useLayoutEffect, useRef } from 'react';
 
 interface CustomSection {
   title: string;
@@ -61,7 +61,23 @@ const BUBBLE_WRAP: React.CSSProperties = {
   alignItems: 'center',
 };
 
-const PageBreak = () => <div style={{ height: '1px', pageBreakBefore: 'always', breakBefore: 'page' }} />;
+/**
+ * Pushes whatever follows it to the start of the next A4 page (1123 px).
+ * Measures real DOM offsetTop after layout — works with html2canvas-based PDF
+ * export. `pageBreakBefore: always` is a CSS print directive that html2canvas
+ * ignores entirely, so this JS approach is required.
+ */
+const A4_PAGE_H = 1123;
+function PageBreakSpacer() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(0);
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    const used = ref.current.offsetTop % A4_PAGE_H;
+    setHeight(used > 0 ? A4_PAGE_H - used : 0);
+  }, []);
+  return <div ref={ref} style={{ height, background: '#fff' }} />;
+}
 
 export default function CVTemplateRenderer({ data, forExport = false }: Props) {
   const { template } = data;
@@ -269,7 +285,7 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
         {skills?.languages?.length && <Section title="Languages" color="#1e2a3a" icon={ICONS.languages}><SkillRow items={skills.languages} /></Section>}
         {renderCustomSections(data.custom_sections, '#1e2a3a')}
       </div>
-      <PageBreak />
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, '#1e2a3a', undefined, '28px 36px')}
     </div>
   );
@@ -323,7 +339,7 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           {renderCustomSections(data.custom_sections, '#0d9488')}
         </div>
       </div>
-      <PageBreak />
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, '#0d9488', undefined, '28px 24px')}
     </div>
   );
@@ -389,7 +405,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
         </div>
         {renderCustomSections(data.custom_sections, '#1e4d2b', '#2d7a47')}
       </div>
-      <PageBreak />
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, '#1e4d2b', '#2d7a47', '28px 40px')}
     </div>
   );
@@ -444,7 +460,7 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
         </MinimalSection>}
         {renderCustomSections(data.custom_sections, '#111827')}
       </div>
-      <PageBreak />
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, '#111827', undefined, '40px 44px')}
     </div>
   );
@@ -494,7 +510,7 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           {renderCustomSections(data.custom_sections, sideColor)}
         </div>
       </div>
-      <PageBreak />
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, sideColor, undefined, '28px 24px')}
     </div>
   );
@@ -561,7 +577,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           </Section>}
         </div>
       </div>
-      <PageBreak />
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, accent, undefined, '24px 32px')}
     </div>
   );
@@ -631,7 +647,7 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           </div>
         </div>
       </div>
-      <PageBreak />
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, accent, undefined, '28px 44px')}
     </div>
   );
@@ -685,7 +701,7 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           {renderCustomSections(data.custom_sections, navy)}
         </div>
       </div>
-      <PageBreak />
+      <PageBreakSpacer />
       {renderReferencesPage(data.references, navy, undefined, '32px 28px')}
     </div>
   );
