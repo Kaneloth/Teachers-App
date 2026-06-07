@@ -41,7 +41,7 @@ const BUBBLE_BASE: React.CSSProperties = {
   lineHeight: 1.4,              // give room for descenders
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
-  verticalAlign: 'middle',      // crucial for inline alignment
+  verticalAlign: 'bottom',      // crucial for inline alignment
   margin: 0,
 };
 
@@ -732,7 +732,7 @@ function Section({ title, color, borderColor, icon, children }: { title: string;
       height: '16px',
       flexShrink: 0,
       lineHeight: 1,          // match text line-height
-      verticalAlign: 'middle',
+      verticalAlign: 'bottom',
     }}>
       {icon}
     </span>
@@ -745,7 +745,7 @@ function Section({ title, color, borderColor, icon, children }: { title: string;
     color: color || '#111',
     lineHeight: 1,            // same as icon
     display: 'inline-block',
-    verticalAlign: 'middle',
+    verticalAlign: 'bottom',
   }}>
     {title}
   </span>
