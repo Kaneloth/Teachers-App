@@ -161,6 +161,22 @@ export default function CVBuilderPage() {
   const [cvType, setCvType]           = useState<CVType | null>(initialState.draft?.cvType ?? null);
   const [step, setStep]               = useState(initialState.draft?.step ?? 0);
   const [data, setData]               = useState<CVData>(initialState.draft?.data ?? defaultData('educator'));
+
+  // ── Auto-select CV type from user profile (skips the type-selector screen) ─
+  useEffect(() => {
+    if (cvType !== null) return; // draft already has a type
+    if (!user) { setCvType('general'); return; }
+    supabase
+      .from('educators')
+      .select('profile_type')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data: row }) => {
+        const t: CVType = row?.profile_type === 'general' ? 'general' : 'educator';
+        setCvType(t);
+        setData(defaultData(t));
+      });
+  }, [user]);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(initialState.draft?.savedAt ?? null);
 
   // ── Toast once if a draft was restored on mount ──────────────────────────
@@ -207,9 +223,7 @@ export default function CVBuilderPage() {
   };
 
   const handleBack = () => {
-    if (cvType !== null) {
-      setCvType(null);
-    } else if (lastCVData) {
+    if (lastCVData) {
       setShowBuilder(false);
     } else {
       navigate(-1);
@@ -262,7 +276,7 @@ export default function CVBuilderPage() {
         <div className="px-4">
           <LastCVBanner
             lastCV={{ pdf_url: lastCVPdfUrl, generated_at: lastCVGeneratedAt, cv_data: lastCVData }}
-            onBuildNew={() => { setShowBuilder(true); setCvType(null); }}
+            onBuildNew={() => { setShowBuilder(true); }}
             onEdit={handleEdit}
           />
         </div>
@@ -293,18 +307,12 @@ export default function CVBuilderPage() {
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
-      {/* Type selection or builder */}
+      {/* Builder (cvType null = auto-resolving from profile, show spinner) */}
       <AnimatePresence mode="wait">
         {cvType === null ? (
-          <motion.div
-            key="type-select"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            <CVTypeSelector onSelect={handleSelectType} />
-          </motion.div>
+          <div className="flex justify-center py-20">
+            <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+          </div>
         ) : (
           <motion.div
             key="builder"

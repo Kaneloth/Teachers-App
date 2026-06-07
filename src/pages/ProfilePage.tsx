@@ -814,7 +814,7 @@ export default function ProfilePage() {
         </SectionCard>
 
         {/* Identity Verification */}
-        <IdentityVerificationSection />
+        {isEducator && <IdentityVerificationSection />}
 
         {/* Current Position — educators only */}
         {isEducator && <SectionCard label="Current Position">
