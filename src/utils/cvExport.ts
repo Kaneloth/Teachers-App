@@ -2,25 +2,51 @@ export async function exportElementAsPDF(element: HTMLElement, filename = 'CV.pd
   const html2canvas = (await import('html2canvas')).default;
   const { jsPDF } = await import('jspdf');
 
-  // Get actual dimensions of the element
+  // Get actual dimensions
   const width = element.scrollWidth;
   const height = element.scrollHeight;
 
   const canvas = await html2canvas(element, {
-    scale: 3,                   // better fidelity
+    scale: 3,
     useCORS: true,
-    logging: true,              // see warnings in console
+    logging: true,
     backgroundColor: '#ffffff',
     windowWidth: width,
     windowHeight: height,
     onclone: (clonedDoc, element) => {
-      // Force cloned element to preserve alignment
-      const clonedRoot = clonedDoc.querySelector('.cv-root'); // add a class to your CV container
-      if (clonedRoot) {
-        // Reset any problematic transforms
-        clonedRoot.style.transform = 'none';
-        clonedRoot.style.willChange = 'auto';
-      }
+      // Locate the root of the CV inside the cloned document
+      const clonedRoot = clonedDoc.querySelector('.cv-export-root');
+      if (!clonedRoot) return;
+
+      // Fix bubbles / skill chips
+      const bubbles = clonedRoot.querySelectorAll('span[style*="border-radius"], .bubble, .skill-chip');
+      bubbles.forEach((bubble: HTMLElement) => {
+        bubble.style.display = 'inline-flex';
+        bubble.style.alignItems = 'center';
+        bubble.style.verticalAlign = 'middle';
+        bubble.style.lineHeight = '1.3';
+        bubble.style.padding = '6px 12px';   // ensure consistent padding
+      });
+
+      // Fix section headings (icons + text)
+      const sectionHeaders = clonedRoot.querySelectorAll('[style*="display: flex; align-items: center; gap"]');
+      sectionHeaders.forEach((header: HTMLElement) => {
+        // Force the icon container and text to have same line-height
+        const spans = header.querySelectorAll('span');
+        spans.forEach((span: HTMLElement) => {
+          span.style.lineHeight = '1';
+          span.style.verticalAlign = 'middle';
+        });
+      });
+
+      // Fix sidebar icons
+      const sidebarIcons = clonedRoot.querySelectorAll('.sidebar-icon, [style*="display: inline-flex; align-items: center; gap: 6px"] span:first-child');
+      sidebarIcons.forEach((icon: HTMLElement) => {
+        icon.style.display = 'inline-flex';
+        icon.style.alignItems = 'center';
+        icon.style.verticalAlign = 'middle';
+        icon.style.lineHeight = '1';
+      });
     },
   });
 
@@ -29,8 +55,6 @@ export async function exportElementAsPDF(element: HTMLElement, filename = 'CV.pd
 
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-
-  // Calculate image dimensions while preserving aspect ratio
   const canvasRatio = canvas.height / canvas.width;
   const imgHeight = pageWidth * canvasRatio;
 

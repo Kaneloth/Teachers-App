@@ -182,9 +182,11 @@ export default function CVStepReview({ data, onGenerated }: Props) {
         </div>
       )}
 
-      {/* Hidden full-size render used by exportElementAsPDF */}
+      {/* Hidden full-size render used by exportElementAsPDF — added cv-export-root class */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '794px' }}>
-        <div ref={exportRef}><CVTemplateRenderer data={data} forExport /></div>
+        <div ref={exportRef} className="cv-export-root">
+          <CVTemplateRenderer data={data} forExport />
+        </div>
       </div>
 
       <Button
