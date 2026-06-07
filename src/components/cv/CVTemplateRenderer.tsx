@@ -776,8 +776,8 @@ function SidebarSection({ title, children }: { title: string; children: React.Re
 
 function SidebarItem({ icon, value }: { icon?: React.ReactNode; value: string }) {
   return (
-    <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'rgba(255,255,255,0.9)', wordBreak: 'break-word' }}>
-      {icon && <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>{icon}</span>}
+    <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'rgba(255,255,255,0.9)', wordBreak: 'break-word', lineHeight: 1.3 }}>
+      {icon && <span style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>{icon}</span>}
       <span>{value}</span>
     </div>
   );
