@@ -16,7 +16,7 @@
     "file-saver": "^2.0.5",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
-    "react-router-dom": "^7.16.0"
+    "react-router-dom": "^7.16.0",
 	"paystack-sdk-node": "^1.0.0"
   },
   "devDependencies": {
