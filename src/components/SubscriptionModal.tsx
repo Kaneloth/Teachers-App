@@ -13,14 +13,14 @@ const BILLING = [
   { id: 'annual',      label: 'Annual',      badge: null,      save: 'Save 51%', sub: 'R348/year',              price: 'R29', perMonth: 29  },
 ] as const;
 
-// Update comparison to match your current free/pro limits
+// Corrected free tier limits (based on your earlier discussions)
 const COMPARISON = [
-  { feature: 'CV builds / month', free: 'Unlimited',        pro: 'Unlimited' },
-  { feature: 'CV watermark',      free: 'Yes',      		pro: 'No'        },
-  { feature: 'Active chats',      free: 'Unlimited',        pro: 'Unlimited' },
-  { feature: 'Job applications',  free: 'Unlimited',        pro: 'Unlimited' },
-  { feature: 'Ads',               free: 'Yes',      		pro: 'No'        },
-  { feature: 'Cover letters',     free: '0',        		pro: 'Unlimited' },
+  { feature: 'CV builds / month', free: 'Unlimited',          pro: 'Unlimited' },
+  { feature: 'CV watermark',      free: 'Yes',       			pro: 'No'        },
+  { feature: 'Active chats',      free: 'Unlimited',          pro: 'Unlimited' },
+  { feature: 'Job applications',  free: 'Unlimited',          pro: 'Unlimited' },
+  { feature: 'Ads',               free: 'Yes',        			pro: 'No'        },
+  { feature: 'Cover letters',     free: '0',          			pro: 'Unlimited' },
 ];
 
 function getPlanEndDate(planId: string): string {
@@ -76,11 +76,8 @@ export default function SubscriptionModal({ open, onClose }: Props) {
     if (!user) return;
     setSubscribing(true);
     try {
-      // Call Paystack initialisation (redirects to Paystack)
       await handleUpgrade(billing);
-      // The page will redirect; no need to update Supabase here – webhook will do it.
-      // But we close modal immediately to avoid double action.
-      onClose();
+      onClose(); // Close modal – page will redirect to Paystack
     } catch (error) {
       toast.error('Payment initiation failed. Please try again.');
       console.error(error);
