@@ -8,8 +8,8 @@ import { useAuth } from '@/lib/AuthContext';
 
 const BILLING = [
   { id: 'monthly',  label: 'Monthly',     badge: null,      save: null,       sub: 'R59/mo',                price: 'R59', perMonth: 59  },
-  { id: 'semi',     label: 'Semi-Annual', badge: 'Popular', save: 'Save 20%', sub: 'R282 every 6 months',   price: 'R47', perMonth: 47  },
-  { id: 'annual',   label: 'Annual',      badge: null,      save: 'Save 41%', sub: 'R420/year',              price: 'R35', perMonth: 35  },
+  { id: 'semi',     label: 'Semi-Annual', badge: 'Popular', save: 'Save 33%', sub: 'R234 every 6 months',   price: 'R39', perMonth: 39  },
+  { id: 'annual',   label: 'Annual',      badge: null,      save: 'Save 51%', sub: 'R348/year',              price: 'R29', perMonth: 29  },
 ] as const;
 
 const COMPARISON = [
