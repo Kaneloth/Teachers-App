@@ -21,10 +21,10 @@ interface RecentJob {
 }
 
 const QUICK_ACTIONS = [
-  { icon: Search,   label: 'Find Jobs',      href: '/vacancies',      bg: 'bg-blue-50',   text: 'text-blue-600'   },
-  { icon: FileText, label: 'CV Builder',     href: '/cv-builder',     bg: 'bg-teal-50',   text: 'text-teal-600'   },
-  { icon: User,     label: 'My Profile',     href: '/profile',        bg: 'bg-slate-50',  text: 'text-slate-600'  },
-  { icon: Mail,     label: 'Cover Letters',  href: '/cover-letters',  bg: 'bg-violet-50', text: 'text-violet-600' },
+  { icon: Search,   label: 'Find Jobs',     href: '/vacancies',     iconBg: 'bg-blue-500/10',   text: 'text-blue-500'   },
+  { icon: FileText, label: 'CV Builder',    href: '/cv-builder',    iconBg: 'bg-teal-500/10',   text: 'text-teal-500'   },
+  { icon: User,     label: 'My Profile',    href: '/profile',       iconBg: 'bg-slate-500/10',  text: 'text-slate-500'  },
+  { icon: Mail,     label: 'Cover Letters', href: '/cover-letters', iconBg: 'bg-violet-500/10', text: 'text-violet-500' },
 ] as const;
 
 export default function GeneralHomePage() {
@@ -86,16 +86,16 @@ export default function GeneralHomePage() {
       {/* ── Quick Actions ─────────────────────────────────────── */}
       <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">Quick Actions</p>
       <div className="grid grid-cols-2 gap-3 mb-7">
-        {QUICK_ACTIONS.map(({ icon: Icon, label, href, bg, text }, i) => {
+        {QUICK_ACTIONS.map(({ icon: Icon, label, href, iconBg, text }, i) => {
           const inner = (
             <>
-              <div className="w-11 h-11 rounded-xl bg-white/80 flex items-center justify-center shadow-sm">
+              <div className={`w-11 h-11 rounded-xl ${iconBg} flex items-center justify-center`}>
                 <Icon className={`w-5 h-5 ${text}`} strokeWidth={1.75} />
               </div>
               <span className={`text-sm font-semibold ${text}`}>{label}</span>
             </>
           );
-          const cls = `flex flex-col items-center gap-2.5 ${bg} rounded-2xl border border-border p-5 hover:shadow-sm transition-all w-full`;
+          const cls = `flex flex-col items-center gap-2.5 bg-card rounded-2xl border border-border p-5 hover:shadow-sm transition-all w-full`;
 
           return (
             <motion.div
@@ -171,8 +171,8 @@ export default function GeneralHomePage() {
         className="bg-card rounded-2xl border border-border p-4"
       >
         <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl bg-teal-50 flex items-center justify-center shrink-0 mt-0.5">
-            <FileText className="w-4 h-4 text-teal-600" strokeWidth={1.75} />
+          <div className="w-9 h-9 rounded-xl bg-teal-500/10 flex items-center justify-center shrink-0 mt-0.5">
+            <FileText className="w-4 h-4 text-teal-500" strokeWidth={1.75} />
           </div>
           <div className="flex-1">
             <p className="font-semibold text-sm text-foreground">
