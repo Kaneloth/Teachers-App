@@ -13,7 +13,11 @@ exports.handler = async (event) => {
       email,
       amount,           // in cents (e.g., 5900 for R59)
       currency: 'ZAR',
-      metadata: { user_id: userId, plan },
+      metadata: {
+        user_id: userId,
+        plan: plan,
+        referrer: 'crosssa'   // 👈 Added for Hookdeck filtering
+      },
     });
     return {
       statusCode: 200,
