@@ -183,16 +183,6 @@ export default function CVBuilderPage() {
   }, [user]);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(initialState.draft?.savedAt ?? null);
 
-  // ── Toast once if a draft was restored on mount ──────────────────────────
-  useEffect(() => {
-    if (initialState.draft) {
-      const d = new Date(initialState.draft.savedAt);
-      const fmt = d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' }) +
-                  ' at ' + d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
-      toast.info(`Draft restored from ${fmt} — keep going where you left off.`, { duration: 4000 });
-    }
-  }, []);
-
   // ── Auto-save draft to localStorage whenever builder data changes ─────────
   useEffect(() => {
     if (!cvType) return;
