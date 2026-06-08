@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Search, FileText, User, Bell, Briefcase,
+  Search, FileText, User, Mail, Briefcase,
   MapPin, Clock, ChevronRight, Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
-import { toast } from 'sonner';
+
 import { formatDistanceToNow } from 'date-fns';
 
 interface RecentJob {
@@ -21,15 +21,14 @@ interface RecentJob {
 }
 
 const QUICK_ACTIONS = [
-  { icon: Search,   label: 'Find Jobs',  href: '/vacancies',  bg: 'bg-blue-50',   text: 'text-blue-600'   },
-  { icon: FileText, label: 'CV Builder', href: '/cv-builder', bg: 'bg-teal-50',   text: 'text-teal-600'   },
-  { icon: User,     label: 'My Profile', href: '/profile',    bg: 'bg-slate-50',  text: 'text-slate-600'  },
-  { icon: Bell,     label: 'Job Alerts', href: null,          bg: 'bg-amber-50',  text: 'text-amber-600'  },
+  { icon: Search,   label: 'Find Jobs',      href: '/vacancies',      bg: 'bg-blue-50',   text: 'text-blue-600'   },
+  { icon: FileText, label: 'CV Builder',     href: '/cv-builder',     bg: 'bg-teal-50',   text: 'text-teal-600'   },
+  { icon: User,     label: 'My Profile',     href: '/profile',        bg: 'bg-slate-50',  text: 'text-slate-600'  },
+  { icon: Mail,     label: 'Cover Letters',  href: '/cover-letters',  bg: 'bg-violet-50', text: 'text-violet-600' },
 ] as const;
 
 export default function GeneralHomePage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
 
   const [displayName, setDisplayName] = useState('');
   const [cvCount,     setCvCount]     = useState(0);
@@ -65,11 +64,6 @@ export default function GeneralHomePage() {
         setLoading(false);
       });
   }, [user]);
-
-  const handleJobAlerts = () => {
-    toast.info('Job Alerts coming soon — browse and save job searches in the meantime.');
-    navigate('/vacancies');
-  };
 
   const firstName = displayName.split(' ')[0];
 
@@ -110,10 +104,7 @@ export default function GeneralHomePage() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.07 }}
             >
-              {href
-                ? <Link to={href} className={cls}>{inner}</Link>
-                : <button onClick={handleJobAlerts} className={cls}>{inner}</button>
-              }
+              <Link to={href} className={cls}>{inner}</Link>
             </motion.div>
           );
         })}
