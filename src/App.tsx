@@ -24,6 +24,8 @@ import VacanciesPage from '@/pages/VacanciesPage';
 import MatchesPage from '@/pages/MatchesPage';
 import ProfilePage from '@/pages/ProfilePage';
 import CVBuilderPage from '@/pages/CVBuilderPage';
+import CareerToolsPage from '@/pages/CareerToolsPage';
+import CoverLettersPage from '@/pages/CoverLettersPage';
 import SettingsPage from '@/pages/SettingsPage';
 import NotFound from '@/pages/not-found';
 
@@ -44,10 +46,10 @@ export default function App() {
 
               {/* Auth routes */}
               <Route element={<AuthLayout />}>
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
+                <Route path="/login"           element={<Login />} />
+                <Route path="/register"        element={<Register />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/reset-password"  element={<ResetPassword />} />
               </Route>
 
               {/* Onboarding (requires auth, no app chrome) */}
@@ -58,16 +60,18 @@ export default function App() {
               {/* Main app (requires auth + app chrome) */}
               <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
                 <Route element={<AppLayout />}>
-                  <Route path="/home" element={<Home />} />
-                  <Route path="/search" element={<Search />} />
-                  <Route path="/educator/:id" element={<EducatorProfile />} />
-                  <Route path="/chats" element={<ChatsPage />} />
+                  <Route path="/home"          element={<Home />} />
+                  <Route path="/search"        element={<Search />} />
+                  <Route path="/educator/:id"  element={<EducatorProfile />} />
+                  <Route path="/chats"         element={<ChatsPage />} />
                   <Route path="/chat/:partnerId" element={<ChatRoom />} />
-                  <Route path="/vacancies" element={<VacanciesPage />} />
-                  <Route path="/matches" element={<MatchesPage />} />
-                  <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="/cv-builder" element={<CVBuilderPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/vacancies"     element={<VacanciesPage />} />
+                  <Route path="/matches"       element={<MatchesPage />} />
+                  <Route path="/profile"       element={<ProfilePage />} />
+                  <Route path="/cv-builder"    element={<CVBuilderPage />} />
+                  <Route path="/career-tools"  element={<CareerToolsPage />} />
+                  <Route path="/cover-letters" element={<CoverLettersPage />} />
+                  <Route path="/settings"      element={<SettingsPage />} />
                 </Route>
               </Route>
 

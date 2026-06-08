@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Search, Users, MessageCircle, Briefcase, FileText } from 'lucide-react';
+import { Home, Search, Users, MessageCircle, Briefcase, FileText, Mail, BookMarked } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AppHeader from './AppHeader';
 import { supabase } from '@/lib/supabase';
@@ -13,20 +13,23 @@ import MatchesPage from '@/pages/MatchesPage';
 import ChatsPage from '@/pages/ChatsPage';
 import VacanciesPage from '@/pages/VacanciesPage';
 import CVBuilderPage from '@/pages/CVBuilderPage';
+import CareerToolsPage from '@/pages/CareerToolsPage';
+import CoverLettersPage from '@/pages/CoverLettersPage';
 
 const EDUCATOR_TABS = [
-  { path: '/home',       component: HomePage,      icon: Home,          label: 'Home'      },
-  { path: '/search',     component: SearchPage,    icon: Search,        label: 'Search'    },
-  { path: '/matches',    component: MatchesPage,   icon: Users,         label: 'Matches'   },
-  { path: '/chats',      component: ChatsPage,     icon: MessageCircle, label: 'Chats'     },
-  { path: '/vacancies',  component: VacanciesPage, icon: Briefcase,     label: 'Vacancies' },
-  { path: '/cv-builder', component: CVBuilderPage, icon: FileText,      label: 'CV'        },
+  { path: '/home',          component: HomePage,        icon: Home,          label: 'Home'         },
+  { path: '/search',        component: SearchPage,      icon: Search,        label: 'Search'       },
+  { path: '/matches',       component: MatchesPage,     icon: Users,         label: 'Matches'      },
+  { path: '/chats',         component: ChatsPage,       icon: MessageCircle, label: 'Chats'        },
+  { path: '/vacancies',     component: VacanciesPage,   icon: Briefcase,     label: 'Vacancies'    },
+  { path: '/career-tools',  component: CareerToolsPage, icon: BookMarked,    label: 'Career Tools' },
 ];
 
 const GENERAL_TABS = [
-  { path: '/home',       component: HomePage,      icon: Home,     label: 'Home' },
-  { path: '/vacancies',  component: VacanciesPage, icon: Briefcase, label: 'Jobs' },
-  { path: '/cv-builder', component: CVBuilderPage, icon: FileText,  label: 'CV'   },
+  { path: '/home',           component: HomePage,         icon: Home,     label: 'Home'    },
+  { path: '/vacancies',      component: VacanciesPage,    icon: Briefcase, label: 'Jobs'   },
+  { path: '/cv-builder',     component: CVBuilderPage,    icon: FileText,  label: 'CV'     },
+  { path: '/cover-letters',  component: CoverLettersPage, icon: Mail,      label: 'Letters'},
 ];
 
 const THRESHOLD = 0.3;
