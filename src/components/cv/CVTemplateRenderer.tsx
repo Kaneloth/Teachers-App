@@ -225,7 +225,7 @@ function Section({ title, color, borderColor, icon, children }: { title: string;
             display: 'inline-block',
             verticalAlign: 'middle',
             position: 'relative',
-            top: '-3px',
+            top: '-1px',
           }}>
             {icon}
           </span>
