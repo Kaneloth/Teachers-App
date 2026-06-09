@@ -46,7 +46,6 @@ const ICONS = {
 // html2canvas renders baseline-aligned inline-blocks shifted upward
 const BUBBLE_BASE: React.CSSProperties = {
   display: 'inline-block',
-  verticalAlign: 'middle',
   borderRadius: '4px',
   padding: '5px 12px',
   fontSize: '11px',
@@ -131,14 +130,15 @@ function renderDescription(desc: string | undefined, color: string, fontSize = '
   return (
     <div style={{ margin: '4px 0 0' }}>
       {lines.map((line, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '2px' }}>
-          <span style={{ color, marginTop: '2px', flexShrink: 0, fontSize }}>•</span>
+        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '2px' }}>
+          <span style={{ color, fontSize, marginRight: '6px', lineHeight: '1.5', flexShrink: 0 }}>•</span>
           <span style={{ fontSize, lineHeight: '1.5', color: '#374151' }}>{line}</span>
         </div>
       ))}
     </div>
   );
 }
+
 
 function renderCustomSections(sections: CustomSection[] | undefined, color: string, borderColor?: string): React.ReactNode {
   if (!sections?.length) return null;
