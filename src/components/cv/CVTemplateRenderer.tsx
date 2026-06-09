@@ -42,9 +42,10 @@ const ICONS = {
   languages: '🌐',
 };
 
+// FIX 1: verticalAlign changed from 'baseline' to 'middle'
 const BUBBLE_BASE: React.CSSProperties = {
   display: 'inline-block',
-  verticalAlign: 'baseline',
+  verticalAlign: 'middle',
   borderRadius: '4px',
   padding: '6px 12px',
   fontSize: '11px',
@@ -54,10 +55,10 @@ const BUBBLE_BASE: React.CSSProperties = {
   margin: '0 4px 4px 0',
 };
 
+// FIX 3: removed gap (html2canvas ignores it) – spacing handled by margin on BUBBLE_BASE
 const BUBBLE_WRAP: React.CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
-  gap: '8px',
   alignItems: 'center',
 };
 
@@ -145,14 +146,20 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
 }
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
+// FIX 2: renderDescription uses flex divs instead of <ul><li> for perfect html2canvas alignment
 function renderDescription(desc: string | undefined, color: string, fontSize = '12px'): React.ReactNode {
   if (!desc) return null;
   const lines = desc.split('\n').map(l => l.trim()).filter(Boolean);
   if (lines.length === 0) return null;
   return (
-    <ul style={{ margin: '4px 0 0', paddingLeft: '18px', color, fontSize, lineHeight: '1.55', listStyleType: 'disc' }}>
-      {lines.map((line, i) => <li key={i} style={{ marginBottom: '3px' }}>{line}</li>)}
-    </ul>
+    <div style={{ margin: '4px 0 0' }}>
+      {lines.map((line, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '2px' }}>
+          <span style={{ color, marginTop: '2px', flexShrink: 0, fontSize }}>•</span>
+          <span style={{ fontSize, lineHeight: '1.5', color: '#374151' }}>{line}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -167,9 +174,14 @@ function renderCustomSections(sections: CustomSection[] | undefined, color: stri
         } else if (s.type === 'bullets') {
           const lines = (s.content || '').split('\n').map(l => l.trim()).filter(Boolean);
           content = lines.length ? (
-            <ul style={{ margin: 0, padding: '0 0 0 18px', color: '#374151', fontSize: '12px', lineHeight: '1.55' }}>
-              {lines.map((line, i) => <li key={i} style={{ marginBottom: '3px' }}>{line}</li>)}
-            </ul>
+            <div style={{ margin: 0 }}>
+              {lines.map((line, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '2px' }}>
+                  <span style={{ color, marginTop: '2px', flexShrink: 0, fontSize: '12px' }}>•</span>
+                  <span style={{ fontSize: '12px', lineHeight: '1.5', color: '#374151' }}>{line}</span>
+                </div>
+              ))}
+            </div>
           ) : null;
         } else if (s.type === 'table') {
           const cols = s.columns || [];
