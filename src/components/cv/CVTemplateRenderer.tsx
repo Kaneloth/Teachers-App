@@ -45,13 +45,12 @@ const ICONS = {
 // ── FIXED: Use verticalAlign 'middle' instead of 'baseline' ──
 // html2canvas renders baseline-aligned inline-blocks shifted upward
 const BUBBLE_BASE: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+  display: 'inline-block',
+  verticalAlign: 'middle',
   borderRadius: '4px',
-  padding: '6px 12px 5px',
+  padding: '5px 12px',
   fontSize: '11px',
-  lineHeight: '1',
+  lineHeight: '14px',
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
   margin: '0 6px 6px 0',
