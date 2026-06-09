@@ -217,12 +217,24 @@ function renderReferencesPage(refs: RefEntry[] | undefined, color: string, borde
 function Section({ title, color, borderColor, icon, children }: { title: string; color?: string; borderColor?: string; icon?: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: '16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-        {icon && (
-          <span style={{ marginRight: '6px', fontSize: '14px', lineHeight: '1' }}>{icon}</span>
-        )}
-        <span style={{ fontWeight: 700, fontSize: '12px', letterSpacing: '1.5px', textTransform: 'uppercase', color: color || '#1e2a3a', lineHeight: '1' }}>{title}</span>
-        <div style={{ flex: 1, height: '1px', background: borderColor || color || '#1e2a3a', marginLeft: '8px', alignSelf: 'center' }} />
+      {/* Use grid: icon (auto), text (auto), line (1fr) */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'auto auto 1fr',
+        alignItems: 'center',
+        gap: '8px',
+        marginBottom: '8px',
+      }}>
+        {icon && <span style={{ fontSize: '14px', lineHeight: 1 }}>{icon}</span>}
+        <span style={{
+          fontWeight: 700,
+          fontSize: '12px',
+          letterSpacing: '1.5px',
+          textTransform: 'uppercase',
+          color: color || '#1e2a3a',
+          lineHeight: 1,
+        }}>{title}</span>
+        <div style={{ height: '1px', background: borderColor || color || '#1e2a3a' }} />
       </div>
       {children}
     </div>
