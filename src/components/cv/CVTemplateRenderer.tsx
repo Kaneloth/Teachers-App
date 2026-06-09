@@ -45,15 +45,16 @@ const ICONS = {
 // ── FIXED: Use verticalAlign 'middle' instead of 'baseline' ──
 // html2canvas renders baseline-aligned inline-blocks shifted upward
 const BUBBLE_BASE: React.CSSProperties = {
-  display: 'inline-block',
-  verticalAlign: 'middle',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   borderRadius: '4px',
-  padding: '6px 12px',
+  padding: '6px 12px 5px',
   fontSize: '11px',
-  lineHeight: '1.3',
+  lineHeight: '1',
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
-  margin: '0 4px 4px 0',
+  margin: '0 6px 6px 0',
 };
 
 // ── FIXED: Removed 'gap' — html2canvas ignores flex gap ──
