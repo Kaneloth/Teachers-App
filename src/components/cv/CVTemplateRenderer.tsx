@@ -47,7 +47,7 @@ const ICONS = {
 const BUBBLE_BASE: React.CSSProperties = {
   display: 'inline-block',
   borderRadius: '4px',
-  padding: '5px 12px',
+  padding: '4px 12px 5px',
   fontSize: '11px',
   lineHeight: '14px',
   whiteSpace: 'nowrap',
@@ -60,7 +60,8 @@ const BUBBLE_BASE: React.CSSProperties = {
 const BUBBLE_WRAP: React.CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
-  alignItems: 'center',
+  alignItems: 'flex-start',
+  marginTop: '4px',
 };
 
 /**
@@ -307,12 +308,11 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           </Section>
         )}
 
-        {(skills?.subjects?.length || skills?.soft_skills?.length) && (
-          <Section title="Skills" color="#1e2a3a" icon={ICONS.award}>
-            {skills.subjects?.length && <SkillRow label="Subjects" items={skills.subjects} />}
-            {skills.soft_skills?.length && <SkillRow label="Soft Skills" items={skills.soft_skills} />}
-          </Section>
-        )}
+{skills?.soft_skills?.length > 0 &&
+  <Section title="Skills" color="#1e2a3a" icon={ICONS.award}>
+    <SkillRow items={skills.soft_skills} />
+  </Section>
+}
 
         {skills?.languages?.length && <SkillRow label="Languages" items={skills.languages} />}
 
