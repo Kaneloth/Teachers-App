@@ -78,7 +78,7 @@ interface Profile {
   profile_type: 'educator' | 'general';
 }
 
-/* ── Shared primitives (unchanged) ───────────────────────────────────────── */
+/* ── Shared primitives ───────────────────────────────────────── */
 function SectionCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="bg-card rounded-2xl border border-border px-4 py-4 space-y-3.5">
@@ -97,9 +97,329 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-// ... (keep all existing helper components: IdentityVerificationSection, ImageUploadTile, VerifyBadge, etc.)
-// To avoid repetition, I'm omitting them here for brevity. They are exactly the same as in your original file.
-// Make sure to keep them in your actual implementation.
+/* ── Identity verification helpers ──────────────────────────── */
+type DocType    = 'id' | 'passport';
+type VerifyState = 'idle' | 'verified' | 'unverified' | 'error';
+
+function validateSAIdFormat(id: string): { valid: boolean; message: string } {
+  if (!/^\d{13}$/.test(id)) return { valid: false, message: 'ID must be exactly 13 digits.' };
+  const month = parseInt(id.slice(2, 4));
+  const day   = parseInt(id.slice(4, 6));
+  if (month < 1 || month > 12) return { valid: false, message: 'Invalid birth month in ID number.' };
+  if (day   < 1 || day   > 31) return { valid: false, message: 'Invalid birth day in ID number.'   };
+  let sum = 0, alt = false;
+  for (let i = id.length - 1; i >= 0; i--) {
+    let n = parseInt(id[i]);
+    if (alt) { n *= 2; if (n > 9) n -= 9; }
+    sum += n; alt = !alt;
+  }
+  if (sum % 10 !== 0) return { valid: false, message: 'ID number checksum is invalid. Please check for typos.' };
+  return { valid: true, message: '' };
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function ImageUploadTile({ label, file, onChange, onClear }: {
+  label: string; file: File | null; onChange: (f: File) => void; onClear: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const preview  = file ? URL.createObjectURL(file) : null;
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-sm font-medium">{label}</Label>
+      {preview ? (
+        <div className="relative rounded-xl overflow-hidden border border-border">
+          <img src={preview} alt={label} className="w-full h-28 object-cover" />
+          <button type="button" onClick={onClear}
+            className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center">
+            <X className="w-3.5 h-3.5 text-white" />
+          </button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => inputRef.current?.click()}
+          className="w-full h-28 rounded-xl border-2 border-dashed border-border bg-muted/30 hover:bg-muted/60 transition-colors flex flex-col items-center justify-center gap-2">
+          <Upload className="w-5 h-5 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Tap to upload photo</span>
+        </button>
+      )}
+      <input ref={inputRef} type="file" accept="image/*" className="hidden"
+        onChange={e => { if (e.target.files?.[0]) onChange(e.target.files[0]); }} />
+    </div>
+  );
+}
+
+function VerifyBadge({ state, message }: { state: VerifyState; message: string }) {
+  if (state === 'idle' || !message) return null;
+  const styles: Record<Exclude<VerifyState, 'idle'>, string> = {
+    verified:   'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400',
+    unverified: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400',
+    error:      'bg-red-50   text-red-700   dark:bg-red-900/20   dark:text-red-400',
+  };
+  const icons: Record<Exclude<VerifyState, 'idle'>, React.ReactElement> = {
+    verified:   <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />,
+    unverified: <AlertCircle  className="w-4 h-4 mt-0.5 shrink-0" />,
+    error:      <XCircle      className="w-4 h-4 mt-0.5 shrink-0" />,
+  };
+  return (
+    <div className={`flex items-start gap-2 rounded-lg px-3 py-2 text-sm ${styles[state as Exclude<VerifyState, 'idle'>]}`}>
+      {icons[state as Exclude<VerifyState, 'idle'>]}
+      <span>{message}</span>
+    </div>
+  );
+}
+
+/* ── Identity Verification section ──────────────────────────── */
+function IdentityVerificationSection() {
+  const { user } = useAuth();
+  const meta = user?.user_metadata ?? {};
+
+  const [docType,        setDocType]        = useState<DocType>((meta.doc_type as DocType) || 'id');
+  const [idNumber,       setIdNumber]       = useState<string>(meta.id_number || '');
+  const [passportNumber, setPassportNumber] = useState<string>(meta.passport_number || '');
+  const [passportFront,  setPassportFront]  = useState<File | null>(null);
+  const [passportBack,   setPassportBack]   = useState<File | null>(null);
+
+  const [idVerifyState,       setIdVerifyState]       = useState<VerifyState>(meta.doc_verified && docType === 'id' ? 'verified' : 'idle');
+  const [idVerifyMsg,         setIdVerifyMsg]         = useState<string>(meta.doc_verified && docType === 'id' ? 'Identity verified with Home Affairs records.' : '');
+  const [passportVerifyState, setPassportVerifyState] = useState<VerifyState>(meta.doc_verified && docType === 'passport' ? 'verified' : 'idle');
+  const [passportVerifyMsg,   setPassportVerifyMsg]   = useState<string>(meta.doc_verified && docType === 'passport' ? 'Passport documents verified.' : '');
+  const [verifyLoading,       setVerifyLoading]       = useState(false);
+
+  const switchDocType = (t: DocType) => {
+    setDocType(t);
+    setIdVerifyState('idle');       setIdVerifyMsg('');
+    setPassportVerifyState('idle'); setPassportVerifyMsg('');
+    setPassportFront(null); setPassportBack(null);
+  };
+
+  const handleIdChange = (val: string) => {
+    setIdNumber(val.replace(/\D/g, ''));
+    setIdVerifyState('idle'); setIdVerifyMsg('');
+  };
+  const handlePassportNumChange = (val: string) => {
+    setPassportNumber(val.toUpperCase());
+    setPassportVerifyState('idle'); setPassportVerifyMsg('');
+  };
+  const clearFront = () => { setPassportFront(null); setPassportVerifyState('idle'); setPassportVerifyMsg(''); };
+  const clearBack  = () => { setPassportBack(null);  setPassportVerifyState('idle'); setPassportVerifyMsg(''); };
+
+  const saveVerifiedMeta = async (docTypeVal: DocType, docNumber: string, verified: boolean) => {
+    const { error: metaError } = await supabase.auth.updateUser({
+      data: {
+        doc_type: docTypeVal,
+        doc_verified: verified,
+        ...(docTypeVal === 'id' ? { id_number: docNumber } : { passport_number: docNumber }),
+      },
+    });
+    if (metaError) {
+      console.error('[saveVerifiedMeta] auth.updateUser failed:', metaError.message);
+      toast.error('Could not save verification status. Please try again.');
+      return;
+    }
+    if (user?.id) {
+      const { error: dbError } = await supabase
+        .from('educators')
+        .upsert({ user_id: user.id, is_sace_verified: verified }, { onConflict: 'user_id' });
+      if (dbError) {
+        console.error('[saveVerifiedMeta] educators upsert failed:', dbError.message);
+        toast.error('Verification saved to account but profile badge could not be updated: ' + dbError.message);
+      }
+    }
+  };
+
+  const handleVerifyId = async () => {
+    const local = validateSAIdFormat(idNumber);
+    if (!local.valid) {
+      setIdVerifyState('error'); setIdVerifyMsg(local.message);
+      toast.error(local.message); return;
+    }
+    setVerifyLoading(true);
+    try {
+      const res  = await fetch('/.netlify/functions/verify-id', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idNumber, documentType: 'sa_id' }),
+      });
+      let data: { verified?: boolean; message?: string } = {};
+      try { data = await res.json(); } catch { /* ignore */ }
+
+      if (data.verified) {
+        setIdVerifyState('verified');
+        setIdVerifyMsg(data.message || 'Identity verified with Home Affairs records.');
+        toast.success('SA ID verified successfully.');
+        await saveVerifiedMeta('id', idNumber, true);
+      } else {
+        setIdVerifyState('unverified');
+        setIdVerifyMsg((data.message || 'ID could not be confirmed.') + ' You may try again later.');
+        toast.warning(data.message || 'ID verification inconclusive.');
+        await saveVerifiedMeta('id', idNumber, false);
+      }
+    } catch {
+      setIdVerifyState('unverified');
+      setIdVerifyMsg('Verification service unreachable. Try again later.');
+      toast.warning('Verification service unreachable.');
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const handleVerifyPassport = async () => {
+    if (!passportNumber.trim()) { toast.error('Please enter your passport number.'); return; }
+    if (!passportFront || !passportBack) { toast.error('Please upload both passport photos.'); return; }
+    setVerifyLoading(true);
+    try {
+      const [frontBase64, backBase64] = await Promise.all([fileToBase64(passportFront), fileToBase64(passportBack)]);
+      const res  = await fetch('/.netlify/functions/verify-passport', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passportNumber, frontBase64, frontType: passportFront.type, backBase64, backType: passportBack.type }),
+      });
+      let data: { verified?: boolean; message?: string } = {};
+      try { data = await res.json(); } catch { /* ignore */ }
+
+      if (data.verified) {
+        setPassportVerifyState('verified');
+        setPassportVerifyMsg(data.message || 'Passport verified successfully.');
+        toast.success('Passport verified successfully.');
+        await saveVerifiedMeta('passport', passportNumber, true);
+        if (user) {
+          const uploads = [
+            supabase.storage.from('documents').upload(`${user.id}/passport-front.${passportFront.name.split('.').pop()}`, passportFront, { upsert: true }),
+            supabase.storage.from('documents').upload(`${user.id}/passport-back.${passportBack.name.split('.').pop()}`, passportBack, { upsert: true }),
+          ];
+          await Promise.all(uploads);
+        }
+      } else {
+        setPassportVerifyState('unverified');
+        setPassportVerifyMsg((data.message || 'Passport could not be confirmed.') + ' Try again later.');
+        toast.warning(data.message || 'Passport verification inconclusive.');
+        await saveVerifiedMeta('passport', passportNumber, false);
+      }
+    } catch {
+      setPassportVerifyState('unverified');
+      setPassportVerifyMsg('Verification service unreachable. Try again later.');
+      toast.warning('Verification service unreachable.');
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const idBtnDone       = idVerifyState       === 'verified' || idVerifyState       === 'unverified';
+  const passportBtnDone = passportVerifyState === 'verified' || passportVerifyState === 'unverified';
+
+  return (
+    <SectionCard label="Identity Verification">
+      {meta.doc_verified && (
+        <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 rounded-xl px-3 py-2.5">
+          <ShieldVerified className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" />
+          <p className="text-sm font-medium text-green-700 dark:text-green-400">
+            Identity verified · {meta.doc_type === 'id' ? 'SA ID' : 'Passport'}
+          </p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 bg-muted rounded-xl p-1 gap-1">
+        <button type="button" onClick={() => !meta.doc_verified && switchDocType('id')}
+          disabled={!!meta.doc_verified}
+          className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${docType === 'id' ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'} ${meta.doc_verified ? 'cursor-not-allowed opacity-60' : ''}`}>
+          <CreditCard className="w-4 h-4" /> SA ID
+        </button>
+        <button type="button" onClick={() => !meta.doc_verified && switchDocType('passport')}
+          disabled={!!meta.doc_verified}
+          className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${docType === 'passport' ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'} ${meta.doc_verified ? 'cursor-not-allowed opacity-60' : ''}`}>
+          <BookOpen className="w-4 h-4" /> Passport
+        </button>
+      </div>
+
+      {docType === 'id' && (
+        <div className="space-y-2">
+          <Field label="SA ID Number">
+            <Input
+              value={idNumber}
+              onChange={e => !meta.doc_verified && handleIdChange(e.target.value)}
+              readOnly={!!meta.doc_verified}
+              placeholder="8001015009087"
+              className="rounded-xl font-mono tracking-wider"
+            />
+            <p className="text-xs text-muted-foreground pl-1">
+              {meta.doc_verified ? 'ID number is locked after verification.' : '13-digit South African ID number'}
+            </p>
+          </Field>
+          <VerifyBadge state={idVerifyState} message={idVerifyMsg} />
+          <Button
+            type="button"
+            variant={idBtnDone ? 'outline' : 'default'}
+            onClick={handleVerifyId}
+            disabled={idNumber.length !== 13 || verifyLoading || idBtnDone}
+            className="w-full h-10 rounded-xl gap-2 font-medium"
+          >
+            {verifyLoading
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : idVerifyState === 'verified'   ? <><CheckCircle2 className="w-4 h-4" /> ID Verified</>
+              : idVerifyState === 'unverified' ? <><AlertCircle  className="w-4 h-4" /> Verification Inconclusive</>
+              :                                  <><ShieldCheck  className="w-4 h-4" /> Verify ID Number (Optional)</>}
+          </Button>
+          {idBtnDone && !meta.doc_verified && (
+            <button type="button" onClick={() => { setIdVerifyState('idle'); setIdVerifyMsg(''); }}
+              className="w-full text-xs text-muted-foreground underline text-center">
+              Try again with a different number
+            </button>
+          )}
+        </div>
+      )}
+
+      {docType === 'passport' && (
+        <div className="space-y-3">
+          <Field label="Passport Number">
+            <Input
+              value={passportNumber}
+              onChange={e => !meta.doc_verified && handlePassportNumChange(e.target.value)}
+              readOnly={!!meta.doc_verified}
+              placeholder="A12345678"
+              className="rounded-xl font-mono tracking-wider"
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <ImageUploadTile label="Passport — Front" file={passportFront}
+              onChange={f => { setPassportFront(f); setPassportVerifyState('idle'); setPassportVerifyMsg(''); }}
+              onClear={clearFront} />
+            <ImageUploadTile label="Passport — Back" file={passportBack}
+              onChange={f => { setPassportBack(f); setPassportVerifyState('idle'); setPassportVerifyMsg(''); }}
+              onClear={clearBack} />
+          </div>
+          <p className="text-xs text-muted-foreground pl-1">Upload clear photos of both sides of your passport.</p>
+          <VerifyBadge state={passportVerifyState} message={passportVerifyMsg} />
+          <Button
+            type="button"
+            variant={passportBtnDone ? 'outline' : 'default'}
+            onClick={handleVerifyPassport}
+            disabled={verifyLoading || passportBtnDone}
+            className="w-full h-10 rounded-xl gap-2 font-medium"
+          >
+            {verifyLoading
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : passportVerifyState === 'verified'   ? <><CheckCircle2 className="w-4 h-4" /> Passport Verified</>
+              : passportVerifyState === 'unverified' ? <><AlertCircle  className="w-4 h-4" /> Verification Inconclusive</>
+              :                                        <><ShieldCheck  className="w-4 h-4" /> Verify Passport Documents (Optional)</>}
+          </Button>
+          {passportBtnDone && !meta.doc_verified && (
+            <button type="button" onClick={() => { setPassportVerifyState('idle'); setPassportVerifyMsg(''); setPassportFront(null); setPassportBack(null); }}
+              className="w-full text-xs text-muted-foreground underline text-center">
+              Try again with different documents
+            </button>
+          )}
+        </div>
+      )}
+    </SectionCard>
+  );
+}
 
 /* ── Main ProfilePage ────────────────────────────────────────── */
 export default function ProfilePage() {
@@ -113,7 +433,6 @@ export default function ProfilePage() {
   const [blocked, setBlocked] = useState(false);
   const [blockCheckDone, setBlockCheckDone] = useState(false);
 
-  // Edit‑mode states (only used when isOwnProfile === true)
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -131,14 +450,10 @@ export default function ProfilePage() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  // ──────────────────────────────────────────────────────────────
-  // 1. Fetch profile (either own or other user)
-  // ──────────────────────────────────────────────────────────────
   const loadProfile = async () => {
     if (!user) return;
     const targetId = routeUserId || user.id;
 
-    // Fetch educator record
     const { data, error } = await supabase
       .from('educators')
       .select('*')
@@ -152,7 +467,6 @@ export default function ProfilePage() {
     }
 
     if (!data && targetId === user.id) {
-      // Own profile but no row yet – initialise empty (editable)
       setProfile({
         user_id: user.id,
         full_name: '',
@@ -179,7 +493,6 @@ export default function ProfilePage() {
     }
 
     if (data) {
-      // Transform town field for edit mode if needed
       let townValue = data.town ?? '';
       let isTownOther = false;
       let customTown = '';
@@ -201,27 +514,24 @@ export default function ProfilePage() {
         setCustomTownText(customTown);
       }
     } else {
-      // No profile found for other user – show 404-like message
       setProfile(null);
     }
     setLoading(false);
   };
 
-  // 2. Block check (only when viewing another user's profile)
   useEffect(() => {
     if (!user || !routeUserId || routeUserId === user.id) {
       setBlockCheckDone(true);
       return;
     }
     const check = async () => {
-      const isBlocked = await isBlocked(user.id, routeUserId);
-      setBlocked(isBlocked);
+      const blockedStatus = await isBlocked(user.id, routeUserId);
+      setBlocked(blockedStatus);
       setBlockCheckDone(true);
     };
     check();
   }, [user, routeUserId]);
 
-  // 3. Load own metadata (user code, last saved) for edit mode
   useEffect(() => {
     if (!isOwnProfile || !user) return;
     const fetchMeta = async () => {
@@ -237,9 +547,6 @@ export default function ProfilePage() {
     loadProfile();
   }, [routeUserId, user]);
 
-  // ──────────────────────────────────────────────────────────────
-  // Helpers for edit mode (only when isOwnProfile)
-  // ──────────────────────────────────────────────────────────────
   const setProfileField = (field: keyof Profile, value: unknown) => {
     if (profile) setProfile({ ...profile, [field]: value });
   };
@@ -269,7 +576,7 @@ export default function ProfilePage() {
       setProfileField('avatar_url', urlData.publicUrl);
       toast.success('Profile photo updated!');
     } catch (err: any) {
-  toast.error(err?.message ?? 'Upload failed');
+      toast.error(err?.message ?? 'Upload failed');
     } finally {
       setUploading(false);
     }
@@ -369,9 +676,6 @@ export default function ProfilePage() {
     }
   };
 
-  // ──────────────────────────────────────────────────────────────
-  // Render states
-  // ──────────────────────────────────────────────────────────────
   if (loading || !blockCheckDone) {
     return (
       <div className="flex justify-center py-20">
@@ -380,7 +684,6 @@ export default function ProfilePage() {
     );
   }
 
-  // Profile not found (other user)
   if (!profile) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
@@ -391,7 +694,6 @@ export default function ProfilePage() {
     );
   }
 
-  // Blocked view (other user is blocked)
   if (!isOwnProfile && blocked) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
@@ -406,11 +708,9 @@ export default function ProfilePage() {
   const initial = profile.full_name?.[0]?.toUpperCase() || profile.email?.[0]?.toUpperCase() || 'U';
   const isEducator = profile.profile_type !== 'general';
 
-  // ── RENDER OWN PROFILE (EDITABLE) ─────────────────────────────────────────
   if (isOwnProfile) {
     return (
       <div className="max-w-2xl mx-auto pb-28">
-        {/* Header with refresh and back button */}
         <div className="flex items-center gap-2 px-4 pt-4 pb-4">
           <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
             <ArrowLeft className="w-5 h-5 text-foreground" />
@@ -421,11 +721,9 @@ export default function ProfilePage() {
           <h1 className="text-lg font-bold text-foreground">My Profile</h1>
         </div>
 
-        {/* Hidden file inputs */}
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleAvatarUpload} />
         <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
 
-        {/* Avatar & badges */}
         <div className="flex flex-col items-center gap-2 pb-5">
           <button type="button" onClick={() => setAvatarSheet(true)} className="relative focus:outline-none">
             <div className="w-24 h-24 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center overflow-hidden">
@@ -462,7 +760,6 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Avatar action sheet (same as original) */}
         {avatarSheet && (
           <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={() => setAvatarSheet(false)}>
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
@@ -507,7 +804,6 @@ export default function ProfilePage() {
         )}
 
         <div className="px-4 space-y-3">
-          {/* Profile Type toggle */}
           <div className="bg-card rounded-2xl border border-border p-4">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Profile Type</p>
             <div className="grid grid-cols-2 bg-muted rounded-xl p-1 gap-1">
@@ -533,7 +829,6 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* Actively Looking (educators only) */}
           {isEducator && (
             <div className="bg-card rounded-2xl border border-border flex items-center gap-3 px-4 py-3.5">
               <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
@@ -547,7 +842,6 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Personal Information */}
           <SectionCard label="Personal Information">
             <Field label="Full Name">
               <Input value={profile.full_name} onChange={e => setProfileField('full_name', e.target.value)} placeholder="Your full name" className="rounded-xl" />
@@ -588,10 +882,8 @@ export default function ProfilePage() {
             </Field>
           </SectionCard>
 
-          {/* Identity Verification (educators only) */}
           {isEducator && <IdentityVerificationSection />}
 
-          {/* Current Position (educators only) */}
           {isEducator && (
             <SectionCard label="Current Position">
               <Field label="Province">
@@ -636,7 +928,6 @@ export default function ProfilePage() {
             </SectionCard>
           )}
 
-          {/* Teaching Details (educators only) */}
           {isEducator && (
             <SectionCard label="Teaching Details">
               <Field label="Phase">
@@ -670,7 +961,6 @@ export default function ProfilePage() {
             </SectionCard>
           )}
 
-          {/* Transfer Preferences (educators only) */}
           {isEducator && (
             <SectionCard label="Transfer Preferences">
               <Field label="Preferred Provinces">
@@ -747,7 +1037,6 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Save button */}
         <div className="px-4 pt-2 pb-6 space-y-2">
           <Button
             onClick={handleSave}
@@ -783,20 +1072,17 @@ export default function ProfilePage() {
     );
   }
 
-  // ── RENDER OTHER USER'S PROFILE (READ-ONLY + BLOCK BUTTON) ────────────────
+  // Other user's profile (read-only + block button)
   return (
     <div className="max-w-2xl mx-auto pb-28">
-      {/* Header */}
       <div className="flex items-center gap-2 px-4 pt-4 pb-4">
         <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
           <ArrowLeft className="w-5 h-5 text-foreground" />
         </button>
         <h1 className="text-lg font-bold text-foreground flex-1">Educator Profile</h1>
-        {/* Block / Unblock button */}
         <BlockButton targetUserId={routeUserId!} onBlockChange={() => setBlocked(false)} />
       </div>
 
-      {/* Avatar */}
       <div className="flex flex-col items-center gap-2 pb-5">
         <div className="w-24 h-24 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center overflow-hidden">
           {profile.avatar_url
@@ -811,7 +1097,6 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* Read‑only fields */}
       <div className="px-4 space-y-3">
         <SectionCard label="Personal Information">
           <Field label="Full Name"><p className="text-sm">{profile.full_name || '—'}</p></Field>
