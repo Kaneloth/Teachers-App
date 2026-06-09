@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import BlockButton from '@/components/BlockButton';
 import { isBlocked } from '@/lib/blockUtils';
 
@@ -269,8 +268,8 @@ export default function ProfilePage() {
       const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
       setProfileField('avatar_url', urlData.publicUrl);
       toast.success('Profile photo updated!');
-    } catch (err) any {
-      toast.error(err?.message ?? 'Upload failed');
+    } catch (err: any) {
+  toast.error(err?.message ?? 'Upload failed');
     } finally {
       setUploading(false);
     }
