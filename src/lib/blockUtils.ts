@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from '@/lib/supabase';   // ← changed from './supabase'
 
 export async function isBlocked(blockerId: string, blockedId: string): Promise<boolean> {
   const { data, error } = await supabase

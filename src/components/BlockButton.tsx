@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';   // ← added useEffect
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { blockUser, unblockUser, isBlocked } from '@/lib/blockUtils';
