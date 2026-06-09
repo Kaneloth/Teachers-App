@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, RefreshCw, CheckCheck, Trash2, ArrowLeft } from 'lucide-react';
+import { MessageCircle, RefreshCw, CheckCheck, Trash2, ArrowLeft, UserX } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { format, isThisYear, isToday } from 'date-fns';
+import { toast } from 'sonner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { blockUser, isBlocked } from '@/lib/blockUtils';
 
 interface Thread {
   partnerId: string;
@@ -38,15 +40,16 @@ export default function ChatsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  /* ── Delete-chat state ──────────────────────────────────────── */
+  // Delete‑chat & block states
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [blockingPartner, setBlockingPartner] = useState<string | null>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const userEventsChannelRef = useRef<any>(null);
 
-  /* ── Close context menu on outside click ───────────────────── */
+  // Close context menu on outside click
   useEffect(() => {
     const handle = (e: MouseEvent | TouchEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -61,7 +64,6 @@ export default function ChatsPage() {
     };
   }, []);
 
-  /* ── Long-press helpers ─────────────────────────────────────── */
   const startLongPress = (partnerId: string) => {
     longPressTriggered.current = false;
     longPressRef.current = setTimeout(() => {
@@ -86,54 +88,82 @@ export default function ChatsPage() {
     navigate(`/chat/${partnerId}`);
   };
 
-  /* ── Fetch threads ──────────────────────────────────────────── */
+  // Fetch threads, excluding blocked users
   const fetchThreads = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data: messages } = await supabase
-      .from('messages')
-      .select('*')
-      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
-      .order('created_at', { ascending: false })
-      .limit(200);
+    try {
+      // 1. Get all messages
+      const { data: messages } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+        .order('created_at', { ascending: false })
+        .limit(200);
 
-    if (!messages) { setLoading(false); return; }
+      if (!messages) {
+        setThreads([]);
+        setLoading(false);
+        return;
+      }
 
-    const seenPartners = new Set<string>();
-    const threadMap: Thread[] = [];
+      // 2. Get blocks (both directions)
+      const { data: blocksGiven } = await supabase
+        .from('user_blocks')
+        .select('blocked_id')
+        .eq('blocker_id', user.id);
+      const blockedByMe = new Set(blocksGiven?.map(b => b.blocked_id) || []);
 
-    for (const msg of messages) {
-      const partnerId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
-      if (!seenPartners.has(partnerId)) {
-        seenPartners.add(partnerId);
-        threadMap.push({
-          partnerId,
-          partnerName: partnerId,
-          lastMessage: msg.content,
-          lastTime: msg.created_at,
-          unread: 0,
-          isMine: msg.sender_id === user.id,
+      const { data: blocksReceived } = await supabase
+        .from('user_blocks')
+        .select('blocker_id')
+        .eq('blocked_id', user.id);
+      const blockedByThem = new Set(blocksReceived?.map(b => b.blocker_id) || []);
+
+      // 3. Build threads, skipping any partner that is blocked in either direction
+      const seenPartners = new Set<string>();
+      const threadMap: Thread[] = [];
+
+      for (const msg of messages) {
+        const partnerId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
+        if (blockedByMe.has(partnerId) || blockedByThem.has(partnerId)) continue;
+        if (!seenPartners.has(partnerId)) {
+          seenPartners.add(partnerId);
+          threadMap.push({
+            partnerId,
+            partnerName: partnerId,
+            lastMessage: msg.content,
+            lastTime: msg.created_at,
+            unread: 0,
+            isMine: msg.sender_id === user.id,
+          });
+        }
+      }
+
+      // 4. Fetch display names
+      const partnerIds = [...seenPartners];
+      if (partnerIds.length) {
+        const { data: profiles } = await supabase
+          .from('educators')
+          .select('user_id, full_name')
+          .in('user_id', partnerIds);
+        const nameMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
+        threadMap.forEach(t => {
+          if (nameMap.has(t.partnerId)) t.partnerName = nameMap.get(t.partnerId)!;
         });
       }
-    }
 
-    const partnerIds = [...seenPartners];
-    if (partnerIds.length) {
-      const { data: profiles } = await supabase
-        .from('educators')
-        .select('user_id, full_name')
-        .in('user_id', partnerIds);
-      const nameMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
-      threadMap.forEach(t => { if (nameMap.has(t.partnerId)) t.partnerName = nameMap.get(t.partnerId)!; });
+      setThreads(threadMap);
+    } catch (error) {
+      console.error('Error fetching threads:', error);
+    } finally {
+      setLoading(false);
     }
-
-    setThreads(threadMap);
-    setLoading(false);
   }, [user]);
 
   useEffect(() => { fetchThreads(); }, [fetchThreads]);
 
-  /* ── Broadcast listener — refresh threads when any message is deleted ── */
+  // Broadcast listener for message deletion (keeps threads fresh)
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -152,7 +182,6 @@ export default function ChatsPage() {
     setRefreshing(false);
   };
 
-  /* ── Delete chat ────────────────────────────────────────────── */
   const handleDeleteChat = async (partnerId: string) => {
     if (!user) return;
     await supabase
@@ -167,11 +196,23 @@ export default function ChatsPage() {
     setConfirmDelete(null);
   };
 
+  const handleBlock = async (partnerId: string) => {
+    setBlockingPartner(partnerId);
+    const success = await blockUser(partnerId);
+    if (success) {
+      toast.success('User blocked. Conversation removed.');
+      setThreads(prev => prev.filter(t => t.partnerId !== partnerId));
+      setSelectedThread(null);
+    } else {
+      toast.error('Failed to block user. Please try again.');
+    }
+    setBlockingPartner(null);
+  };
+
   const deletingPartner = confirmDelete ? threads.find(t => t.partnerId === confirmDelete) : null;
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Header */}
       <div className="flex items-center gap-2 px-4 pt-4 pb-4">
         <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
           <ArrowLeft className="w-5 h-5 text-foreground" />
@@ -200,7 +241,6 @@ export default function ChatsPage() {
 
             return (
               <div key={t.partnerId} className="relative">
-                {/* Thread row */}
                 <div
                   onMouseDown={() => startLongPress(t.partnerId)}
                   onMouseUp={cancelLongPress}
@@ -229,7 +269,6 @@ export default function ChatsPage() {
                   </div>
                 </div>
 
-                {/* Context menu on long-press */}
                 {isSelected && (
                   <div
                     ref={menuRef}
@@ -245,6 +284,14 @@ export default function ChatsPage() {
                       <Trash2 className="w-4 h-4" />
                       Delete chat
                     </button>
+                    <button
+                      onClick={() => handleBlock(t.partnerId)}
+                      disabled={blockingPartner === t.partnerId}
+                      className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
+                    >
+                      <UserX className="w-4 h-4" />
+                      {blockingPartner === t.partnerId ? 'Blocking...' : 'Block user'}
+                    </button>
                   </div>
                 )}
               </div>
@@ -253,7 +300,6 @@ export default function ChatsPage() {
         </div>
       )}
 
-      {/* Confirm delete dialog */}
       <AlertDialog open={!!confirmDelete} onOpenChange={open => { if (!open) setConfirmDelete(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
