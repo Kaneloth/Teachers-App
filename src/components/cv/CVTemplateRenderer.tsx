@@ -29,6 +29,7 @@ interface CVData {
 
 interface Props { data: CVData; forExport?: boolean; watermark?: boolean }
 
+// Unicode emojis – render perfectly in html2canvas
 const ICONS = {
   briefcase: '💼',
   graduation: '🎓',
@@ -41,24 +42,35 @@ const ICONS = {
   languages: '🌐',
 };
 
+// ── FIXED: Use verticalAlign 'middle' instead of 'baseline' ──
+// html2canvas renders baseline-aligned inline-blocks shifted upward
 const BUBBLE_BASE: React.CSSProperties = {
-  display: 'inline-block',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   borderRadius: '4px',
-  padding: '4px 12px 5px',
+  padding: '6px 12px 5px',
   fontSize: '11px',
-  lineHeight: '14px',
+  lineHeight: '1',
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
   margin: '0 6px 6px 0',
 };
 
+// ── FIXED: Removed 'gap' — html2canvas ignores flex gap ──
+// margin spacing is handled on BUBBLE_BASE instead
 const BUBBLE_WRAP: React.CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
-  alignItems: 'flex-start',
-  marginTop: '4px',
+  alignItems: 'center',
 };
 
+/**
+ * Pushes whatever follows it to the start of the next A4 page (1123 px).
+ * Measures real DOM offsetTop after layout — works with html2canvas-based PDF
+ * export. `pageBreakBefore: always` is a CSS print directive that html2canvas
+ * ignores entirely, so this JS approach is required.
+ */
 const A4_PAGE_H = 1123;
 
 function PageBreakSpacer() {
@@ -76,7 +88,7 @@ function PageBreakSpacer() {
     const rem = top % A4_PAGE_H;
     setHeight(rem === 0 ? 0 : A4_PAGE_H - rem);
   }, []);
-  return <div ref={ref} style={{ height }} />;
+  return <div ref__={ref} style={{ height }} />;
 }
 
 export default function CVTemplateRenderer({ data, forExport = false, watermark = false }: Props) {
@@ -103,7 +115,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
       {tmpl}
       {watermark && (
         <div style={{ textAlign: 'center', padding: '16px', fontSize: '11px', color: '#9ca3af' }}>
-          ✦Created FREE at <a href="https://www.crosssa.co.za/" style={{ color: '#9ca3af' }}>www.crosssa.co.za</a> — Connecting SA Educators✦
+          ✦Created FREE at <a href__="https://www.crosssa.co.za/" style={{ color: '#9ca3af' }}>www.crosssa.co.za</a> — Connecting SA Educators✦
         </div>
       )}
     </div>
@@ -112,6 +124,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 
+// ── FIXED: Use flex divs instead of <ul><li> — html2canvas misaligns list markers ──
 function renderDescription(desc: string | undefined, color: string, fontSize = '12px'): React.ReactNode {
   if (!desc) return null;
   const lines = desc.split('\n').map(l => l.trim()).filter(Boolean);
@@ -119,8 +132,8 @@ function renderDescription(desc: string | undefined, color: string, fontSize = '
   return (
     <div style={{ margin: '4px 0 0' }}>
       {lines.map((line, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '2px' }}>
-          <span style={{ color, fontSize, marginRight: '6px', lineHeight: '1.5', flexShrink: 0 }}>•</span>
+        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '2px' }}>
+          <span style={{ color, marginTop: '2px', flexShrink: 0, fontSize }}>•</span>
           <span style={{ fontSize, lineHeight: '1.5', color: '#374151' }}>{line}</span>
         </div>
       ))}
@@ -248,7 +261,7 @@ function SkillRow({ label, items }: { label?: string; items: string[] }) {
   );
 }
 
-/* ── Classic Template (fixed: subjects and soft skills are separate) ────── */
+/* ── Classic Template ────────────────────────────────────────────────────── */
 
 function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   const { personal, skills } = data;
@@ -295,24 +308,14 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           </Section>
         )}
 
-        {/* FIX: Separate subjects and skills */}
-        {skills?.subjects?.length > 0 && (
-          <Section title="Subjects" color="#1e2a3a" icon={ICONS.bookOpen}>
-            <SkillRow items={skills.subjects} />
-          </Section>
-        )}
-
-        {skills?.soft_skills?.length > 0 && (
+        {(skills?.subjects?.length || skills?.soft_skills?.length) && (
           <Section title="Skills" color="#1e2a3a" icon={ICONS.award}>
-            <SkillRow items={skills.soft_skills} />
+            {skills.subjects?.length && <SkillRow label="Subjects" items={skills.subjects} />}
+            {skills.soft_skills?.length && <SkillRow label="Soft Skills" items={skills.soft_skills} />}
           </Section>
         )}
 
-        {skills?.languages?.length > 0 && (
-          <Section title="Languages" color="#1e2a3a" icon={ICONS.languages}>
-            <SkillRow items={skills.languages} />
-          </Section>
-        )}
+        {skills?.languages?.length && <SkillRow label="Languages" items={skills.languages} />}
 
         {renderCustomSections(data.custom_sections, '#1e2a3a')}
 
@@ -323,7 +326,7 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   );
 }
 
-/* ── Modern Template (unchanged, already has subjects in sidebar and soft skills separate) ── */
+/* ── Modern Template ────────────────────────────────────────────────────── */
 
 function ModernTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   const { personal, skills } = data;
@@ -417,12 +420,13 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   );
 }
 
-/* ── Professional Template (already separate) ── */
+/* ── Professional Template ───────────────────────────────────────────────── */
 
 function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   const { personal, skills } = data;
   return (
     <div style={wrapperStyle}>
+      {/* Gradient header */}
       <div style={{ background: 'linear-gradient(135deg, #1e4d2b, #2d7a47)', padding: '28px 36px', textAlign: 'center' }}>
         {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', marginBottom: '12px', border: '3px solid rgba(255,255,255,0.3)' }} />}
         <h1 style={{ fontSize: '26px', fontWeight: 700, color: '#fff', margin: 0 }}>{personal.full_name || 'Your Name'}</h1>
@@ -443,6 +447,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
         )}
 
         <div style={{ display: 'flex', gap: '28px' }}>
+          {/* Left column */}
           <div style={{ flex: 1 }}>
             {validExp.length > 0 && (
               <Section title="Experience" color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.briefcase}>
@@ -458,6 +463,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
             )}
           </div>
 
+          {/* Right column */}
           <div style={{ flex: 1 }}>
             {validEdu.length > 0 && (
               <Section title="Education" color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.graduation}>
@@ -504,7 +510,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   );
 }
 
-/* ── Minimal Template (already separate labels) ── */
+/* ── Minimal Template ────────────────────────────────────────────────────── */
 
 function MinimalTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   const { personal, skills } = data;
@@ -549,8 +555,13 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           </MinimalSection>
         )}
 
-        {skills?.subjects?.length && <SkillRow label="Subjects" items={skills.subjects} />}
-        {skills?.soft_skills?.length && <SkillRow label="Skills" items={skills.soft_skills} />}
+        {(skills?.subjects?.length || skills?.soft_skills?.length) && (
+          <MinimalSection title="Skills">
+            {skills.subjects?.length && <SkillRow label="Subjects" items={skills.subjects} />}
+            {skills.soft_skills?.length && <SkillRow label="Soft Skills" items={skills.soft_skills} />}
+          </MinimalSection>
+        )}
+
         {skills?.languages?.length && <SkillRow label="Languages" items={skills.languages} />}
 
         {renderCustomSections(data.custom_sections, '#111827')}
@@ -562,7 +573,7 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   );
 }
 
-/* ── Sidebar Template (unchanged) ── */
+/* ── Sidebar Template ───────────────────────────────────────────────────── */
 
 function SidebarTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   const { personal, skills } = data;
@@ -570,6 +581,7 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   return (
     <div style={wrapperStyle}>
       <div style={{ display: 'flex' }}>
+        {/* Left sidebar – blue-grey */}
         <div style={{ width: '220px', background: '#1e3a5f', padding: '20px', flexShrink: 0 }}>
           <div style={{ textAlign: 'center', marginBottom: '20px' }}>
             <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', color: '#fff', fontWeight: 700 }}>
@@ -594,6 +606,7 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           </SidebarSection>
         </div>
 
+        {/* Right content */}
         <div style={{ flex: 1, padding: '20px 28px' }}>
           <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1e3a5f', margin: '0 0 2px' }}>{personal.full_name || 'John Smith'}</h1>
           <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px' }}>Senior Sales Associate</div>
@@ -637,19 +650,22 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   );
 }
 
-/* ── Bold Template (already subjects inside sidebar) ── */
+/* ── Bold Template ──────────────────────────────────────────────────────── */
 
 function BoldTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   const { personal, skills } = data;
   return (
     <div style={wrapperStyle}>
+      {/* Pink header */}
       <div style={{ background: '#be185d', padding: '24px 32px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', margin: 0 }}>{personal.full_name || 'John Smith'}</h1>
         <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.85)', marginTop: '2px' }}>Senior Sales Associate</div>
+        {/* Pink divider bar */}
         <div style={{ height: '4px', background: '#ec4899', margin: '12px 0 0', width: '60px' }} />
       </div>
 
       <div style={{ display: 'flex' }}>
+        {/* Left column */}
         <div style={{ width: '200px', background: '#fdf2f8', padding: '20px', flexShrink: 0 }}>
           <div style={{ marginBottom: '20px', fontSize: '12px' }}>
             {personal.email && <div style={{ marginBottom: '6px', color: '#be185d' }}>{ICONS.mail} <span style={{ color: '#4b5563' }}>{personal.email}</span></div>}
@@ -662,6 +678,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           </SidebarSection>
         </div>
 
+        {/* Right column */}
         <div style={{ flex: 1, padding: '20px 28px' }}>
           {personal.bio && (
             <MinimalSection title="Professional Summary">
@@ -702,15 +719,17 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   );
 }
 
-/* ── Executive Template (already subjects inside skills) ── */
+/* ── Executive Template ─────────────────────────────────────────────────── */
 
 function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   const { personal, skills } = data;
   return (
     <div style={wrapperStyle}>
+      {/* Burgundy header */}
       <div style={{ background: '#7f1d1d', padding: '28px 36px' }}>
         <h1 style={{ fontSize: '26px', fontWeight: 700, color: '#fff', margin: 0 }}>{personal.full_name || 'John Smith'}</h1>
         <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.85)', marginTop: '2px' }}>Senior Sales Associate</div>
+        {/* Contact icon row */}
         <div style={{ display: 'flex', gap: '24px', marginTop: '12px', fontSize: '11px', color: 'rgba(255,255,255,0.7)' }}>
           {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
           {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
@@ -720,6 +739,7 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
 
       <div style={{ padding: '24px 36px' }}>
         <div style={{ display: 'flex', gap: '28px' }}>
+          {/* Left */}
           <div style={{ flex: 1 }}>
             {personal.bio && (
               <Section title="Professional Summary" color="#7f1d1d" borderColor="#991b1b">
@@ -751,6 +771,7 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
             )}
           </div>
 
+          {/* Right */}
           <div style={{ flex: 1 }}>
             {skills?.subjects?.length && (
               <Section title="Skills" color="#7f1d1d" borderColor="#991b1b" icon={ICONS.award}>
@@ -783,13 +804,14 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   );
 }
 
-/* ── Corporate Template (already subjects inside sidebar) ── */
+/* ── Corporate Template ─────────────────────────────────────────────────── */
 
 function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
   const { personal, skills } = data;
   return (
     <div style={wrapperStyle}>
       <div style={{ display: 'flex' }}>
+        {/* Dark navy sidebar */}
         <div style={{ width: '220px', background: '#0f172a', padding: '20px', flexShrink: 0 }}>
           <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', margin: '0 0 2px', lineHeight: '1.2' }}>
             {personal.full_name?.split(' ').map((n: string, i: number) => <span key={i}>{n}<br /></span>) || 'John\nSmith'}
@@ -811,6 +833,7 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           </SidebarSection>
         </div>
 
+        {/* White content area */}
         <div style={{ flex: 1, padding: '20px 28px' }}>
           {personal.bio && (
             <MinimalSection title="Professional Summary">
@@ -860,3 +883,4 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
     </div>
   );
 }
+
