@@ -32,19 +32,25 @@ export default function LandingFooter() {
               </ul>
             </div>
             <div>
-              <p className="text-white font-semibold mb-3">Legal</p>
-              <ul className="space-y-2">
-				<li><span className="cursor-default">PAIA Manual</span></li>
-                <li><span className="cursor-default">Privacy Policy</span></li>
-                <li><span className="cursor-default">Terms of Service</span></li>	
-              </ul>
-            </div>
-			
-			  <div className="flex gap-4 text-sm">
-				<Link to="/PAIA Manual.html" target="_blank" rel="noopener noreferrer">PAIA Manual</Link>
-				<Link to="/Privacy Policy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>
-				<Link to="/Terms and Conditions.html" target="_blank" rel="noopener noreferrer">Terms of Service</Link>
-			  </div>
+  <p className="text-white font-semibold mb-3">Legal</p>
+  <ul className="space-y-2">
+    <li>
+      <a href="/PAIA%20Manual.html" target="_blank" rel="noopener noreferrer" className="hover:underline">
+        PAIA Manual
+      </a>
+    </li>
+    <li>
+      <a href="/Privacy%20Policy.html" target="_blank" rel="noopener noreferrer" className="hover:underline">
+        Privacy Policy
+      </a>
+    </li>
+    <li>
+      <a href="/Terms%20and%20Conditions.html" target="_blank" rel="noopener noreferrer" className="hover:underline">
+        Terms of Service
+      </a>
+    </li>
+  </ul>
+</div>
 		
           </div>
         </div>
