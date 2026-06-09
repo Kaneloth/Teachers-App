@@ -39,6 +39,13 @@ export default function LandingFooter() {
                 <li><span className="cursor-default">Terms of Service</span></li>	
               </ul>
             </div>
+			
+			  <div className="flex gap-4 text-sm">
+				<Link to="/PAIA Manual.html" target="_blank" rel="noopener noreferrer">PAIA Manual</Link>
+				<Link to="/Privacy Policy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>
+				<Link to="/Terms and Conditions.html" target="_blank" rel="noopener noreferrer">Terms of Service</Link>
+			  </div>
+		
           </div>
         </div>
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
