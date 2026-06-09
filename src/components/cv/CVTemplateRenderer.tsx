@@ -216,32 +216,13 @@ function renderReferencesPage(refs: RefEntry[] | undefined, color: string, borde
 /* ── Shared UI components ───────────────────────────────────────────────── */
 function Section({ title, color, borderColor, icon, children }: { title: string; color?: string; borderColor?: string; icon?: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: '32px', overflow: 'visible' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', lineHeight: 1 }}>
+    <div style={{ marginBottom: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
         {icon && (
-          <span style={{
-            fontSize: '14px',
-            lineHeight: 1,
-            display: 'inline-block',
-            verticalAlign: 'middle',
-            position: 'relative',
-            top: '-3px',
-          }}>
-            {icon}
-          </span>
+          <span style={{ marginRight: '6px', fontSize: '14px', lineHeight: '1' }}>{icon}</span>
         )}
-        <span style={{
-          fontSize: '15px',
-          fontWeight: 800,
-          textTransform: 'uppercase',
-          letterSpacing: '1.5px',
-          color: color || '#111',
-          lineHeight: 1,
-          display: 'inline-block',
-        }}>
-          {title}
-        </span>
-        <div style={{ flex: 1, height: '1px', background: borderColor || color || '#e5e7eb', marginLeft: '6px' }} />
+        <span style={{ fontWeight: 700, fontSize: '12px', letterSpacing: '1.5px', textTransform: 'uppercase', color: color || '#1e2a3a', lineHeight: '1' }}>{title}</span>
+        <div style={{ flex: 1, height: '1px', background: borderColor || color || '#1e2a3a', marginLeft: '8px', alignSelf: 'center' }} />
       </div>
       {children}
     </div>
