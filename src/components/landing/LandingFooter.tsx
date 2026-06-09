@@ -34,8 +34,9 @@ export default function LandingFooter() {
             <div>
               <p className="text-white font-semibold mb-3">Legal</p>
               <ul className="space-y-2">
+				<li><span className="cursor-default">PAIA Manual</span></li>
                 <li><span className="cursor-default">Privacy Policy</span></li>
-                <li><span className="cursor-default">Terms of Service</span></li>
+                <li><span className="cursor-default">Terms of Service</span></li>	
               </ul>
             </div>
           </div>
