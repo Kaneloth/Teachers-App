@@ -188,8 +188,23 @@ export default function Register() {
 
       <p className="text-center text-xs text-muted-foreground">
         By registering you agree to our{' '}
-        <span className="underline cursor-pointer">Terms of Service</span> and{' '}
-        <span className="underline cursor-pointer">Privacy Policy</span>.
+        <a
+          href="/Terms%20and%20Conditions.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-primary"
+        >
+          Terms of Service
+        </a>{' '}
+        and{' '}
+        <a
+          href="/Privacy%20Policy.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-primary"
+        >
+          Privacy Policy
+        </a>.
       </p>
       <p className="text-center text-sm text-muted-foreground">
         Already have an account?{' '}
