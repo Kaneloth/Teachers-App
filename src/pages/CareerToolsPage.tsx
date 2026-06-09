@@ -1,17 +1,19 @@
 import { useState } from 'react';
-import { FileText, Mail } from 'lucide-react';
+import { Briefcase, FileText, Mail } from 'lucide-react';
+import VacanciesPage from '@/pages/VacanciesPage';
 import CVBuilderPage from '@/pages/CVBuilderPage';
 import CoverLettersPage from '@/pages/CoverLettersPage';
 
-type CareerTab = 'cv' | 'letters';
+type CareerTab = 'vacancies' | 'cv' | 'letters';
 
 const TABS: { id: CareerTab; label: string; icon: typeof FileText }[] = [
-  { id: 'cv',      label: 'CV Builder',    icon: FileText },
-  { id: 'letters', label: 'Cover Letters', icon: Mail     },
+  { id: 'vacancies', label: 'Vacancies',     icon: Briefcase },
+  { id: 'cv',        label: 'CV Builder',    icon: FileText  },
+  { id: 'letters',   label: 'Cover Letters', icon: Mail      },
 ];
 
 export default function CareerToolsPage() {
-  const [active, setActive] = useState<CareerTab>('cv');
+  const [active, setActive] = useState<CareerTab>('vacancies');
 
   return (
     <div className="flex flex-col min-h-full">
@@ -40,8 +42,9 @@ export default function CareerToolsPage() {
 
       {/* ── Content ──────────────────────────────────────────── */}
       <div className="flex-1">
-        {active === 'cv'      && <CVBuilderPage />}
-        {active === 'letters' && <CoverLettersPage />}
+        {active === 'vacancies' && <VacanciesPage />}
+        {active === 'cv'        && <CVBuilderPage />}
+        {active === 'letters'   && <CoverLettersPage />}
       </div>
     </div>
   );

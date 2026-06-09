@@ -17,12 +17,11 @@ import CareerToolsPage from '@/pages/CareerToolsPage';
 import CoverLettersPage from '@/pages/CoverLettersPage';
 
 const EDUCATOR_TABS = [
-  { path: '/home',          component: HomePage,        icon: Home,          label: 'Home'         },
-  { path: '/search',        component: SearchPage,      icon: Search,        label: 'Search'       },
-  { path: '/matches',       component: MatchesPage,     icon: Users,         label: 'Matches'      },
-  { path: '/chats',         component: ChatsPage,       icon: MessageCircle, label: 'Chats'        },
-  { path: '/vacancies',     component: VacanciesPage,   icon: Briefcase,     label: 'Vacancies'    },
-  { path: '/career-tools',  component: CareerToolsPage, icon: BookMarked,    label: 'Career Tools' },
+  { path: '/home',         component: HomePage,        icon: Home,          label: 'Home'         },
+  { path: '/search',       component: SearchPage,      icon: Search,        label: 'Search'       },
+  { path: '/matches',      component: MatchesPage,     icon: Users,         label: 'Matches'      },
+  { path: '/chats',        component: ChatsPage,       icon: MessageCircle, label: 'Chats'        },
+  { path: '/career-tools', component: CareerToolsPage, icon: BookMarked,    label: 'Career Tools' },
 ];
 
 const GENERAL_TABS = [
