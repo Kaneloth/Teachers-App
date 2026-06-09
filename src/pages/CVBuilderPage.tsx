@@ -159,7 +159,31 @@ export default function CVBuilderPage() {
   const lastCVData                  = freshMeta.last_cv_data;
   const lastCVPdfUrl                = freshMeta.last_cv_pdf_url as string | undefined;
   const lastCVGeneratedAt           = freshMeta.last_cv_generated_at as string | undefined;
-  const isFree                      = !freshMeta.subscription_plan || freshMeta.subscription_plan === 'free';
+
+  // ── Live subscription check from DB (overrides stale localStorage) ────────
+  const [dbPlan, setDbPlan] = useState<string | null>(null);
+  const [dbEnd,  setDbEnd]  = useState<string | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .select('subscription_plan, subscription_end')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        setDbPlan(data?.subscription_plan ?? null);
+        setDbEnd(data?.subscription_end  ?? null);
+      });
+  }, [user]);
+
+  // isFree = no active paid plan (free, addon, monthly, semi, annual all handled)
+  const isFree = (() => {
+    const plan = dbPlan ?? (freshMeta.subscription_plan as string | undefined) ?? 'free';
+    const end  = dbEnd  ?? (freshMeta.subscription_end  as string | undefined) ?? null;
+    if (!plan || plan === 'free') return true;
+    if (!end) return true;
+    return new Date(end) <= new Date();
+  })();
 
   const [showBuilder, setShowBuilder] = useState(initialState.showBuilder);
   const [cvType, setCvType]           = useState<CVType | null>(initialState.draft?.cvType ?? null);

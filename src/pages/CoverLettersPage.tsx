@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, Loader2, RotateCcw } from 'lucide-react';
+import { Download, Loader2, RotateCcw, Lock, Check, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/AuthContext';
 import { supabase } from '@/lib/supabase';
+import SubscriptionModal from '@/components/SubscriptionModal';
+
+/* ── Subscription helpers ────────────────────────────────────── */
+const PRO_PLANS = ['monthly', 'semi', 'annual'];
+
+function hasActiveAccess(plan: string | null | undefined, end: string | null | undefined): boolean {
+  if (!plan || plan === 'free') return false;
+  if (!end) return false;
+  return new Date(end) > new Date();
+}
 
 /* ── Template definitions ────────────────────────────────────── */
 interface Template {
@@ -181,7 +191,7 @@ RE: Application for ${pos || 'Hospitality Position'}
 
 I am pleased to apply for the ${pos || 'position'} at ${org || 'your establishment'}. I have a genuine passion for hospitality and a proven ability to create memorable guest experiences through attentive, professional service.
 
-My background includes guest relations, event coordination, and maintaining high service standards in fast-paced environments. I am a team player with a positive attitude, fluent in English and [additional language], and dedicated to representing ${org || 'your brand'} with pride.
+My background includes guest relations, event coordination, and maintaining high service standards in fast-paced environments. I am a team player with a positive attitude and dedicated to representing ${org || 'your brand'} with pride.
 
 I would love the opportunity to bring my hospitality skills to your team and discuss this role further.
 
@@ -217,10 +227,125 @@ ${name || '[Your Name]'}`,
 
 const CATEGORY_KEYS = Object.keys(TEMPLATES);
 
-/* ── Component ───────────────────────────────────────────────── */
+/* ── Gate (locked state) ─────────────────────────────────────── */
+function CoverLetterGate({
+  profileType,
+  onUpgradePro,
+}: {
+  profileType: 'educator' | 'general';
+  onUpgradePro: () => void;
+}) {
+  const BENEFITS = [
+    'All 8 professional letter templates',
+    'Edit & customise per application',
+    'Download as Word (.docx)',
+    'All CV templates (no watermark)',
+  ];
+
+  return (
+    <div className="px-4 pt-10 pb-10 max-w-sm mx-auto">
+      {/* Icon */}
+      <div className="flex flex-col items-center text-center mb-6">
+        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+          <Lock className="w-7 h-7 text-primary" />
+        </div>
+        <h2 className="text-xl font-bold text-foreground mb-1">Cover Letters</h2>
+        <p className="text-sm text-muted-foreground">
+          Unlock professional cover letter templates with a subscription or the R99 add-on.
+        </p>
+      </div>
+
+      {/* Benefits */}
+      <div className="bg-card rounded-2xl border border-border p-4 mb-4 space-y-2.5">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+          What's included
+        </p>
+        {BENEFITS.map(b => (
+          <div key={b} className="flex items-center gap-2.5">
+            <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
+              <Check className="w-3 h-3 text-green-500" />
+            </div>
+            <span className="text-sm text-foreground">{b}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* R99 Add-on card */}
+      <div className="bg-card rounded-2xl border border-border p-4 mb-3">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <p className="font-bold text-foreground text-sm">R99 Add-on</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              12 months · Cover letters + all CV templates
+            </p>
+          </div>
+          <span className="text-xl font-extrabold text-primary shrink-0">R99</span>
+        </div>
+        <Button variant="outline" className="w-full rounded-xl h-10 text-sm font-semibold" asChild>
+          <a href="mailto:support@crosssa.co.za?subject=R99%20Add-on%20Purchase">
+            Get Add-on
+          </a>
+        </Button>
+        <p className="text-[11px] text-muted-foreground text-center mt-2">
+          Contact us to activate · renews annually
+        </p>
+      </div>
+
+      {/* Pro card — educators only */}
+      {profileType === 'educator' && (
+        <div className="bg-primary/5 rounded-2xl border border-primary/25 p-4">
+          <div className="flex items-start justify-between gap-3 mb-1">
+            <div>
+              <p className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-primary" /> Pro Subscription
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Cover letters + transfer matching + ad-free
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-xl font-extrabold text-primary leading-none">R35</p>
+              <p className="text-[10px] text-muted-foreground">/month</p>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground mb-3">
+            Monthly · Semi-annual · Annual · Educator role only
+          </p>
+          <Button className="w-full rounded-xl h-10 text-sm font-semibold gap-1.5" onClick={onUpgradePro}>
+            <Zap className="w-3.5 h-3.5" /> Upgrade to Pro
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Main component ──────────────────────────────────────────── */
 export default function CoverLettersPage() {
   const { user } = useAuth();
 
+  /* ── Subscription / access state ───────────────────────────── */
+  const [accessLoading, setAccessLoading] = useState(true);
+  const [hasAccess,     setHasAccess]     = useState(false);
+  const [profileType,   setProfileType]   = useState<'educator' | 'general'>('general');
+  const [showSubModal,  setShowSubModal]  = useState(false);
+
+  useEffect(() => {
+    if (!user) { setAccessLoading(false); return; }
+
+    Promise.all([
+      supabase.from('profiles').select('subscription_plan, subscription_end').eq('id', user.id).single(),
+      supabase.from('educators').select('profile_type').eq('user_id', user.id).maybeSingle(),
+    ]).then(([{ data: profile }, { data: educator }]) => {
+      const plan = profile?.subscription_plan ?? (user.user_metadata?.subscription_plan as string | undefined) ?? 'free';
+      const end  = profile?.subscription_end  ?? (user.user_metadata?.subscription_end  as string | undefined) ?? null;
+      setHasAccess(hasActiveAccess(plan, end));
+      setProfileType((educator?.profile_type as 'educator' | 'general') ?? 'general');
+      setAccessLoading(false);
+    });
+  }, [user]);
+
+  /* ── Letter state ───────────────────────────────────────────── */
   const [category,   setCategory]  = useState<string>('education');
   const [position,   setPosition]  = useState('');
   const [org,        setOrg]       = useState('');
@@ -231,7 +356,6 @@ export default function CoverLettersPage() {
 
   const today = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  /* ── Load user name ─────────────────────────────────────────── */
   useEffect(() => {
     if (!user) return;
     supabase
@@ -240,11 +364,10 @@ export default function CoverLettersPage() {
       .eq('user_id', user.id)
       .maybeSingle()
       .then(({ data }) => {
-        setUserName(data?.full_name ?? user.user_metadata?.full_name ?? '');
+        setUserName(data?.full_name ?? (user.user_metadata?.full_name as string | undefined) ?? '');
       });
   }, [user]);
 
-  /* ── Auto-fill body when inputs change ──────────────────────── */
   const rebuildBody = useCallback(() => {
     const tpl = TEMPLATES[category];
     if (tpl) setBody(tpl.body(userName, position, org, today));
@@ -252,7 +375,7 @@ export default function CoverLettersPage() {
 
   useEffect(() => { rebuildBody(); }, [rebuildBody]);
 
-  /* ── Download as .docx ──────────────────────────────────────── */
+  /* ── Download ───────────────────────────────────────────────── */
   const handleDownload = async () => {
     if (!body.trim()) { toast.error('Letter body is empty.'); return; }
     setGenerating(true);
@@ -296,7 +419,7 @@ export default function CoverLettersPage() {
       toast.success('Cover letter downloaded as Word document!');
     } catch (err) {
       console.error(err);
-      toast.error('Download failed. Make sure docx and file-saver packages are installed.');
+      toast.error('Download failed. Ensure docx and file-saver packages are installed.');
     } finally {
       setGenerating(false);
     }
@@ -304,10 +427,31 @@ export default function CoverLettersPage() {
 
   const tpl = TEMPLATES[category];
 
+  /* ── Loading ────────────────────────────────────────────────── */
+  if (accessLoading) {
+    return (
+      <div className="flex justify-center py-24">
+        <div className="w-5 h-5 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  /* ── Gate ───────────────────────────────────────────────────── */
+  if (!hasAccess) {
+    return (
+      <>
+        <CoverLetterGate
+          profileType={profileType}
+          onUpgradePro={() => setShowSubModal(true)}
+        />
+        <SubscriptionModal open={showSubModal} onClose={() => setShowSubModal(false)} />
+      </>
+    );
+  }
+
+  /* ── Full content ───────────────────────────────────────────── */
   return (
     <div className="max-w-2xl mx-auto pb-8">
-
-      {/* ── Header ──────────────────────────────────────────── */}
       <div className="px-4 pt-5 pb-3">
         <h1 className="text-lg font-bold text-foreground">Cover Letters</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -315,7 +459,7 @@ export default function CoverLettersPage() {
         </p>
       </div>
 
-      {/* ── Category chips ───────────────────────────────────── */}
+      {/* Category chips */}
       <div className="flex gap-2 overflow-x-auto px-4 pb-3 scrollbar-hide">
         {CATEGORY_KEYS.map(key => {
           const t = TEMPLATES[key];
@@ -337,7 +481,6 @@ export default function CoverLettersPage() {
         })}
       </div>
 
-      {/* ── Fields ───────────────────────────────────────────── */}
       <AnimatePresence mode="wait">
         <motion.div
           key={category}
@@ -348,48 +491,26 @@ export default function CoverLettersPage() {
           className="px-4 space-y-3"
         >
           <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
-
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Position / Job Title</Label>
-              <Input
-                value={position}
-                onChange={e => setPosition(e.target.value)}
-                placeholder={tpl.posPlaceholder}
-                className="rounded-xl"
-              />
+              <Input value={position} onChange={e => setPosition(e.target.value)} placeholder={tpl.posPlaceholder} className="rounded-xl" />
             </div>
-
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">{tpl.orgLabel}</Label>
-              <Input
-                value={org}
-                onChange={e => setOrg(e.target.value)}
-                placeholder={tpl.orgPlaceholder}
-                className="rounded-xl"
-              />
+              <Input value={org} onChange={e => setOrg(e.target.value)} placeholder={tpl.orgPlaceholder} className="rounded-xl" />
             </div>
-
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">
                 Recipient Name <span className="text-muted-foreground font-normal">(optional)</span>
               </Label>
-              <Input
-                value={recipient}
-                onChange={e => setRecipient(e.target.value)}
-                placeholder="e.g. Mr Dlamini, Principal"
-                className="rounded-xl"
-              />
+              <Input value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="e.g. Mr Dlamini, Principal" className="rounded-xl" />
             </div>
           </div>
 
-          {/* ── Letter body ─────────────────────────────────── */}
           <div className="bg-card rounded-2xl border border-border p-4 space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">Letter Body</Label>
-              <button
-                onClick={rebuildBody}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-              >
+              <button onClick={rebuildBody} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors">
                 <RotateCcw className="w-3 h-3" /> Reset template
               </button>
             </div>
@@ -405,12 +526,7 @@ export default function CoverLettersPage() {
             </p>
           </div>
 
-          {/* ── Download button ──────────────────────────────── */}
-          <Button
-            onClick={handleDownload}
-            disabled={generating || !body.trim()}
-            className="w-full h-12 rounded-2xl text-base font-semibold gap-2"
-          >
+          <Button onClick={handleDownload} disabled={generating || !body.trim()} className="w-full h-12 rounded-2xl text-base font-semibold gap-2">
             {generating
               ? <><Loader2 className="w-5 h-5 animate-spin" /> Generating…</>
               : <><Download className="w-5 h-5" /> Download as Word (.docx)</>
@@ -418,7 +534,7 @@ export default function CoverLettersPage() {
           </Button>
 
           <p className="text-xs text-center text-muted-foreground pb-2">
-            The .docx file can be opened and further edited in Microsoft Word, Google Docs, or LibreOffice.
+            The .docx file can be opened in Microsoft Word, Google Docs, or LibreOffice.
           </p>
         </motion.div>
       </AnimatePresence>
