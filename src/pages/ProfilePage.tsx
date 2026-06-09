@@ -318,7 +318,7 @@ function IdentityVerificationSection() {
     <SectionCard label="Identity Verification">
       {meta.doc_verified && (
         <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 rounded-xl px-3 py-2.5">
-          <ShieldVerified className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" />
+          <ShieldCheck className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" />
           <p className="text-sm font-medium text-green-700 dark:text-green-400">
             Identity verified · {meta.doc_type === 'id' ? 'SA ID' : 'Passport'}
           </p>
