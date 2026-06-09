@@ -221,7 +221,7 @@ function Section({ title, color, borderColor, icon, children }: { title: string;
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'auto auto 1fr',
-        alignItems: 'middle',
+        alignItems: 'bottom',
         gap: '8px',
         marginBottom: '8px',
       }}>
