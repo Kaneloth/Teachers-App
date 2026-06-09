@@ -42,26 +42,6 @@ const ICONS = {
   languages: '🌐',
 };
 
-// FIX 1: verticalAlign changed from 'baseline' to 'middle'
-const BUBBLE_BASE: React.CSSProperties = {
-  display: 'inline-block',
-  verticalAlign: 'middle',
-  borderRadius: '4px',
-  padding: '6px 12px',
-  fontSize: '11px',
-  lineHeight: '1.3',
-  whiteSpace: 'nowrap',
-  boxSizing: 'border-box',
-  margin: '0 4px 4px 0',
-};
-
-// FIX 3: removed gap (html2canvas ignores it) – spacing handled by margin on BUBBLE_BASE
-const BUBBLE_WRAP: React.CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  alignItems: 'center',
-};
-
 /**
  * Pushes whatever follows it to the start of the next A4 page (1123 px).
  * Measures real DOM offsetTop after layout — works with html2canvas-based PDF
@@ -146,7 +126,6 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
 }
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
-// FIX 2: renderDescription uses flex divs instead of <ul><li> for perfect html2canvas alignment
 function renderDescription(desc: string | undefined, color: string, fontSize = '12px'): React.ReactNode {
   if (!desc) return null;
   const lines = desc.split('\n').map(l => l.trim()).filter(Boolean);
@@ -287,15 +266,17 @@ function SidebarSection({ title, children }: { title: string; children: React.Re
   );
 }
 
-function SkillRow({ label, items }: { label?: string; items: string[] }) {
+// ── NEW: Bullet list component for skills/subjects/languages (no bubbles) ──
+function BulletList({ items }: { items: string[] }) {
+  if (!items.length) return null;
   return (
-    <div style={{ marginBottom: '16px' }}>
-      {label && <div style={{ fontWeight: '700', fontSize: '12px', color: '#374151', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>}
-      <div style={BUBBLE_WRAP}>
-        {items.map((s, i) => (
-          <span key={i} style={{ ...BUBBLE_BASE, background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb' }}>{s}</span>
-        ))}
-      </div>
+    <div style={{ marginTop: '4px' }}>
+      {items.map((item, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '4px' }}>
+          <span style={{ marginTop: '2px', flexShrink: 0, fontSize: '12px', color: '#374151' }}>•</span>
+          <span style={{ fontSize: '12px', lineHeight: '1.5', color: '#374151' }}>{item}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -337,10 +318,12 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           ))}
         </Section>}
         {(skills?.subjects?.length || skills?.soft_skills?.length) && <Section title="Skills & Subjects" color="#1e2a3a" icon={ICONS.award}>
-          {skills.subjects?.length && <SkillRow label="Subjects" items={skills.subjects} />}
-          {skills.soft_skills?.length && <SkillRow label="Skills" items={skills.soft_skills} />}
+          {skills.subjects?.length && <div><div style={{ fontWeight: '700', fontSize: '12px', color: '#374151', marginBottom: '4px' }}>Subjects</div><BulletList items={skills.subjects} /></div>}
+          {skills.soft_skills?.length && <div style={{ marginTop: '12px' }}><div style={{ fontWeight: '700', fontSize: '12px', color: '#374151', marginBottom: '4px' }}>Skills</div><BulletList items={skills.soft_skills} /></div>}
         </Section>}
-        {skills?.languages?.length && <Section title="Languages" color="#1e2a3a" icon={ICONS.languages}><SkillRow items={skills.languages} /></Section>}
+        {skills?.languages?.length && <Section title="Languages" color="#1e2a3a" icon={ICONS.languages}>
+          <BulletList items={skills.languages} />
+        </Section>}
         {renderCustomSections(data.custom_sections, '#1e2a3a')}
       </div>
 
@@ -366,8 +349,8 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
             {personal.address && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mapPin} {personal.address}</div>}
             {personal.id_number && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.user} ID: {personal.id_number}</div>}
           </SidebarSection>
-          {skills?.subjects?.length && <SidebarSection title="Subjects">{skills.subjects.map((s: string, i: number) => <div key={i} style={{ fontSize: '11px', marginBottom: '3px' }}>• {s}</div>)}</SidebarSection>}
-          {skills?.languages?.length && <SidebarSection title="Languages">{skills.languages.map((l: string, i: number) => <div key={i} style={{ fontSize: '11px', marginBottom: '3px' }}>• {l}</div>)}</SidebarSection>}
+          {skills?.subjects?.length && <SidebarSection title="Subjects"><BulletList items={skills.subjects} /></SidebarSection>}
+          {skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
         </div>
         <div style={{ flex: 1, padding: '28px 24px' }}>
           {personal.bio && <Section title="About Me" color="#0d9488"><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
@@ -389,11 +372,7 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
             ))}
           </Section>}
           {skills?.soft_skills?.length && <Section title="Professional Skills" color="#0d9488" icon={ICONS.award}>
-            <div style={BUBBLE_WRAP}>
-              {skills.soft_skills.map((s: string, i: number) => (
-                <span key={i} style={{ ...BUBBLE_BASE, background: '#f0fdf4', color: '#0d9488', border: '1px solid #99f6e4' }}>{s}</span>
-              ))}
-            </div>
+            <BulletList items={skills.soft_skills} />
           </Section>}
           {renderCustomSections(data.custom_sections, '#0d9488')}
         </div>
@@ -449,17 +428,13 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
               ))}
             </Section>}
             {skills?.subjects?.length && <Section title="Subjects Taught" color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.bookOpen}>
-              {skills.subjects.map((s: string, i: number) => <div key={i} style={{ fontSize: '12px', color: '#374151', marginBottom: '3px' }}>• {s}</div>)}
+              <BulletList items={skills.subjects} />
             </Section>}
             {skills?.soft_skills?.length && <Section title="Skills" color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.award}>
-              <div style={BUBBLE_WRAP}>
-                {skills.soft_skills.map((s: string, i: number) => (
-                  <span key={i} style={{ ...BUBBLE_BASE, background: '#f0fdf4', color: '#1e4d2b', border: '1px solid #bbf7d0' }}>{s}</span>
-                ))}
-              </div>
+              <BulletList items={skills.soft_skills} />
             </Section>}
             {skills?.languages?.length && <Section title="Languages" color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.languages}>
-              {skills.languages.map((l: string, i: number) => <div key={i} style={{ fontSize: '12px', color: '#374151', marginBottom: '3px' }}>• {l}</div>)}
+              <BulletList items={skills.languages} />
             </Section>}
           </div>
         </div>
@@ -515,9 +490,9 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
           ))}
         </MinimalSection>}
         {(skills?.subjects?.length || skills?.soft_skills?.length || skills?.languages?.length) && <MinimalSection title="Skills & Languages">
-          {skills.subjects?.length && <div><strong>Subjects: </strong>{skills.subjects.join(' · ')}</div>}
-          {skills.soft_skills?.length && <div><strong>Skills: </strong>{skills.soft_skills.join(' · ')}</div>}
-          {skills.languages?.length && <div><strong>Languages: </strong>{skills.languages.join(' · ')}</div>}
+          {skills.subjects?.length && <div><strong>Subjects: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.subjects.join(' · ')}</span></div>}
+          {skills.soft_skills?.length && <div><strong>Skills: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.soft_skills.join(' · ')}</span></div>}
+          {skills.languages?.length && <div><strong>Languages: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.languages.join(' · ')}</span></div>}
         </MinimalSection>}
         {renderCustomSections(data.custom_sections, '#111827')}
       </div>
@@ -545,9 +520,9 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
             {personal.address && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mapPin} {personal.address}</div>}
             {personal.id_number && <div>{ICONS.user} ID: {personal.id_number}</div>}
           </SidebarSection>
-          {skills?.subjects?.length && <SidebarSection title="Subjects">{skills.subjects.map((s: string, i: number) => <div key={i} style={{ fontSize: '11px' }}>• {s}</div>)}</SidebarSection>}
-          {skills?.languages?.length && <SidebarSection title="Languages">{skills.languages.map((l: string, i: number) => <div key={i} style={{ fontSize: '11px' }}>• {l}</div>)}</SidebarSection>}
-          {skills?.soft_skills?.length && <SidebarSection title="Skills">{skills.soft_skills.map((s: string, i: number) => <div key={i} style={{ fontSize: '11px' }}>• {s}</div>)}</SidebarSection>}
+          {skills?.subjects?.length && <SidebarSection title="Subjects"><BulletList items={skills.subjects} /></SidebarSection>}
+          {skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
+          {skills?.soft_skills?.length && <SidebarSection title="Skills"><BulletList items={skills.soft_skills} /></SidebarSection>}
         </div>
         <div style={{ flex: 1, padding: '28px 24px' }}>
           {personal.bio && <Section title="About Me" color={sideColor}><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
@@ -626,17 +601,13 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
             ))}
           </Section>}
           {skills?.subjects?.length && <Section title="Subjects" color={accent} icon={ICONS.bookOpen}>
-            {skills.subjects.map((s: string, i: number) => <div key={i} style={{ fontSize: '11px', color: '#374151', marginBottom: '3px' }}>• {s}</div>)}
+            <BulletList items={skills.subjects} />
           </Section>}
           {skills?.soft_skills?.length && <Section title="Skills" color={accent} icon={ICONS.award}>
-            <div style={BUBBLE_WRAP}>
-              {skills.soft_skills.map((s: string, i: number) => (
-                <span key={i} style={{ ...BUBBLE_BASE, background: '#fce4ec', color: accent, border: '1px solid #f48fb1' }}>{s}</span>
-              ))}
-            </div>
+            <BulletList items={skills.soft_skills} />
           </Section>}
           {skills?.languages?.length && <Section title="Languages" color={accent} icon={ICONS.languages}>
-            {skills.languages.map((l: string, i: number) => <div key={i} style={{ fontSize: '11px', color: '#374151', marginBottom: '3px' }}>• {l}</div>)}
+            <BulletList items={skills.languages} />
           </Section>}
         </div>
       </div>
@@ -696,17 +667,13 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
               ))}
             </Section>}
             {skills?.subjects?.length && <Section title="Subjects" color={accent} icon={ICONS.bookOpen}>
-              {skills.subjects.map((s: string, i: number) => <div key={i} style={{ fontSize: '12px', color: '#374151', marginBottom: '3px' }}>• {s}</div>)}
+              <BulletList items={skills.subjects} />
             </Section>}
             {skills?.soft_skills?.length && <Section title="Skills" color={accent} icon={ICONS.award}>
-              <div style={BUBBLE_WRAP}>
-                {skills.soft_skills.map((s: string, i: number) => (
-                  <span key={i} style={{ ...BUBBLE_BASE, background: '#fdf2f2', color: accent, border: `1px solid ${light}40` }}>{s}</span>
-                ))}
-              </div>
+              <BulletList items={skills.soft_skills} />
             </Section>}
             {skills?.languages?.length && <Section title="Languages" color={accent} icon={ICONS.languages}>
-              {skills.languages.map((l: string, i: number) => <div key={i} style={{ fontSize: '12px', color: '#374151', marginBottom: '3px' }}>• {l}</div>)}
+              <BulletList items={skills.languages} />
             </Section>}
           </div>
         </div>
@@ -734,9 +701,9 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
             {personal.address && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mapPin} {personal.address}</div>}
             {personal.id_number && <div>{ICONS.user} ID: {personal.id_number}</div>}
           </SidebarSection>
-          {skills?.subjects?.length && <SidebarSection title="Subjects">{skills.subjects.map((s: string, i: number) => <div key={i} style={{ fontSize: '11px', marginBottom: '3px' }}>• {s}</div>)}</SidebarSection>}
-          {skills?.soft_skills?.length && <SidebarSection title="Skills">{skills.soft_skills.map((s: string, i: number) => <div key={i} style={{ fontSize: '11px', marginBottom: '3px' }}>• {s}</div>)}</SidebarSection>}
-          {skills?.languages?.length && <SidebarSection title="Languages">{skills.languages.map((l: string, i: number) => <div key={i} style={{ fontSize: '11px', marginBottom: '3px' }}>• {l}</div>)}</SidebarSection>}
+          {skills?.subjects?.length && <SidebarSection title="Subjects"><BulletList items={skills.subjects} /></SidebarSection>}
+          {skills?.soft_skills?.length && <SidebarSection title="Skills"><BulletList items={skills.soft_skills} /></SidebarSection>}
+          {skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
         </div>
         <div style={{ flex: 1, padding: '32px 28px' }}>
           <div style={{ borderBottom: `3px solid ${navy}`, paddingBottom: '10px', marginBottom: '22px' }}>
