@@ -104,44 +104,78 @@ export default function AppLayout() {
   const TAB_PATHS = TABS.map(t => t.path);
   const N         = TABS.length;
 
-  // Unread message count via Supabase realtime
+  // ── Filtered unread message count (excludes blocked users) ───
   const [unreadCount, setUnreadCount] = useState(0);
 
-  useEffect(() => {
+  const loadUnreadCount = useCallback(async () => {
     if (!user) return;
 
-    const loadUnread = async () => {
-      const { count } = await supabase
-        .from('messages')
-        .select('id', { count: 'exact', head: true })
-        .eq('receiver_id', user.id)
-        .eq('read', false);
-      setUnreadCount(count ?? 0);
-    };
+    // 1. Get IDs of users blocked by current user
+    const { data: blockedByMe } = await supabase
+      .from('user_blocks')
+      .select('blocked_id')
+      .eq('blocker_id', user.id);
+    const blockedByMeIds = blockedByMe?.map(b => b.blocked_id) || [];
 
-    loadUnread();
+    // 2. Get IDs of users who have blocked current user
+    const { data: blockedMe } = await supabase
+      .from('user_blocks')
+      .select('blocker_id')
+      .eq('blocked_id', user.id);
+    const blockedByThemIds = blockedMe?.map(b => b.blocker_id) || [];
 
-    const channel = supabase
+    const allBlockedIds = [...blockedByMeIds, ...blockedByThemIds];
+
+    // 3. Query unread messages, excluding blocked senders
+    let query = supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('receiver_id', user.id)
+      .eq('read', false);
+
+    if (allBlockedIds.length > 0) {
+      // Supabase requires comma‑separated list inside parentheses
+      const idsString = allBlockedIds.map(id => `'${id}'`).join(',');
+      query = query.not('sender_id', 'in', `(${idsString})`);
+    }
+
+    const { count } = await query;
+    setUnreadCount(count ?? 0);
+  }, [user]);
+
+  // Load on mount & subscribe to messages + user_blocks changes
+  useEffect(() => {
+    if (!user) return;
+    loadUnreadCount();
+
+    // Listen to messages changes (new message, read status)
+    const messagesChannel = supabase
       .channel('unread-messages')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, loadUnread)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, loadUnreadCount)
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [user]);
+    // Also listen to user_blocks changes (block/unblock can affect who is excluded)
+    const blocksChannel = supabase
+      .channel('unread-blocks')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_blocks' }, loadUnreadCount)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(blocksChannel);
+    };
+  }, [user, loadUnreadCount]);
 
   const isTabRoute = TAB_PATHS.includes(location.pathname);
   const tabIndex = isTabRoute ? TAB_PATHS.indexOf(location.pathname) : 0;
 
-  // Swipe / drag state
+  // Swipe / drag state (unchanged)
   const [dragPercent, setDragPercent] = useState(0);
   const isDragging = dragPercent !== 0;
   const touchRef = useRef({ startX: 0, startY: 0, active: false, axisLocked: false, horizontal: false });
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     if (!isTabRoute) return;
-
-    // Don't hijack touches that start inside a horizontally-scrollable element
-    // (e.g. the category chips row in VacanciesPage).
     let el = e.target as HTMLElement | null;
     while (el && el !== e.currentTarget) {
       const overflowX = window.getComputedStyle(el).overflowX;
@@ -150,7 +184,6 @@ export default function AppLayout() {
       }
       el = el.parentElement;
     }
-
     touchRef.current = {
       startX: e.touches[0].clientX,
       startY: e.touches[0].clientY,
@@ -163,24 +196,18 @@ export default function AppLayout() {
   const onTouchMove = useCallback((e: React.TouchEvent) => {
     const t = touchRef.current;
     if (!t.active) return;
-
     const dx = e.touches[0].clientX - t.startX;
     const dy = e.touches[0].clientY - t.startY;
-
     if (!t.axisLocked) {
       if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
       t.axisLocked = true;
       t.horizontal = Math.abs(dx) > Math.abs(dy);
     }
-
     if (!t.horizontal) return;
     e.preventDefault();
-
     let pct = (dx / window.innerWidth) * 100;
-    // Rubber-band at edges
     if (pct > 0 && tabIndex === 0) pct *= 0.15;
     if (pct < 0 && tabIndex === N - 1) pct *= 0.15;
-
     setDragPercent(pct);
   }, [tabIndex, N]);
 
@@ -188,35 +215,28 @@ export default function AppLayout() {
     const t = touchRef.current;
     t.active = false;
     if (!t.horizontal) return;
-
     if (dragPercent < -(THRESHOLD * 100) && tabIndex < N - 1) {
       navigate(TAB_PATHS[tabIndex + 1]);
     } else if (dragPercent > (THRESHOLD * 100) && tabIndex > 0) {
       navigate(TAB_PATHS[tabIndex - 1]);
     }
-
     setDragPercent(0);
   }, [dragPercent, tabIndex, navigate, N, TAB_PATHS]);
 
-  // Reset drag when route changes
   useEffect(() => { setDragPercent(0); }, [location.pathname]);
 
-  // Strip translation
   const baseX = -(tabIndex / N) * 100;
   const dragX = (dragPercent / 100) * (100 / N);
   const stripX = baseX + dragX;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Sticky header */}
       <div className="sticky top-0 z-40 bg-background border-b border-border">
         <AppHeader />
       </div>
 
-      {/* Navigation progress bar */}
       <NavigationProgressBar pathname={location.pathname} />
 
-      {/* Clipping viewport */}
       <div
         className="flex-1 relative overflow-hidden"
         onTouchStart={onTouchStart}
@@ -226,7 +246,6 @@ export default function AppLayout() {
         style={{ touchAction: 'pan-y' }}
       >
         {isTabRoute ? (
-          /* Full-width strip — all tab pages side by side */
           <div
             className="absolute inset-0 flex"
             style={{
@@ -250,14 +269,12 @@ export default function AppLayout() {
             })}
           </div>
         ) : (
-          /* Non-tab routes (profile, settings, educator detail, etc.) */
           <div className="h-full overflow-y-auto pb-20">
             <Outlet />
           </div>
         )}
       </div>
 
-      {/* Bottom navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50">
         <div className="max-w-2xl mx-auto flex">
           {TABS.map(({ path, icon: Icon, label }) => {
