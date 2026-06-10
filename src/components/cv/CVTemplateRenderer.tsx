@@ -87,6 +87,8 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
         page-break-after: always;
         break-inside: avoid;
         position: relative;
+        padding-bottom: 44px;
+        box-sizing: border-box;
       }
       .cv-page:last-child {
         page-break-after: auto;
@@ -221,7 +223,7 @@ function renderCustomSections(sections: CustomSection[] | undefined, color: stri
   );
 }
 
-function renderReferencesPage(refs: RefEntry[] | undefined, color: string, borderColor?: string, padding = '28px 36px', wrapInPageDiv = false): React.ReactNode {
+function renderReferencesPage(refs: RefEntry[] | undefined, color: string, borderColor?: string, padding = '44px 48px', wrapInPageDiv = false): React.ReactNode {
   const validRefs = (refs || []).filter(r => r.name);
   if (!validRefs.length) return null;
   const content = (
@@ -306,7 +308,7 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, forExport = f
   const { personal, skills } = data;
   const pageContent = (
     <>
-      <div style={{ background: '#1e2a3a', color: '#fff', padding: '32px 40px' }}>
+      <div style={{ background: '#1e2a3a', color: '#fff', padding: '44px 48px' }}>
         <div style={{ fontSize: '32px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>
           {personal.full_name || 'Your Name'}
         </div>
@@ -317,7 +319,7 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, forExport = f
           {personal.id_number && <span>{ICONS.user} ID: {personal.id_number}</span>}
         </div>
       </div>
-      <div style={{ padding: '32px 40px', lineHeight: '1.65' }}>
+      <div style={{ padding: '44px 48px', lineHeight: '1.65', paddingBottom: '52px' }}>
         {personal.bio && <Section title="Professional Summary" color="#1e2a3a"><p style={{ color: '#374151', margin: 0, textAlign: 'justify' }}>{personal.bio}</p></Section>}
         {validEdu.length > 0 && <Section title="Education" color="#1e2a3a" icon={ICONS.graduation}>
           {validEdu.map((e: any, i: number) => (
@@ -343,7 +345,7 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, forExport = f
         {skills?.languages?.length && <Section title="Languages" color="#1e2a3a" icon={ICONS.languages}><BulletList items={skills.languages} justify /></Section>}
         {renderCustomSections(data.custom_sections, '#1e2a3a', undefined, true)}
       </div>
-      {renderReferencesPage(data.references, '#1e2a3a', undefined, '32px 40px', true)}
+      {renderReferencesPage(data.references, '#1e2a3a', undefined, '44px 48px', true)}
     </>
   );
   if (forExport) return <div className="cv-page">{pageContent}</div>;
@@ -356,7 +358,7 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp, forExport = fa
   const accent = '#0d9488';
 
   const mainContentOnly = (
-    <div style={{ padding: '28px 32px' }}>
+    <div style={{ padding: '36px 40px' }}>
       {personal.bio && <Section title="About Me" color={accent}><p style={{ color: '#374151', margin: 0, textAlign: 'justify' }}>{personal.bio}</p></Section>}
       {validExp.length > 0 && <Section title="Teaching Experience" color={accent} icon={ICONS.briefcase}>
         {validExp.map((e: any, i: number) => (
@@ -379,7 +381,7 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp, forExport = fa
 
   const firstPage = (
     <div style={{ display: 'flex', minHeight: '1123px' }}>
-      <div style={{ background: accent, color: '#fff', width: '200px', minWidth: '200px', padding: '28px 18px', boxSizing: 'border-box' }}>
+      <div style={{ background: accent, color: '#fff', width: '200px', minWidth: '200px', padding: '36px 24px', boxSizing: 'border-box' }}>
         {personal.photo_url ? <img src={personal.photo_url} alt="Profile" style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', margin: '0 auto 14px', display: 'block' }} /> : <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: '28px', fontWeight: '700', color: '#fff' }}>{(personal.full_name || 'U')[0].toUpperCase()}</div>}
         <div style={{ textAlign: 'center', fontSize: '15px', fontWeight: '700', marginBottom: '4px' }}>{personal.full_name || 'Your Name'}</div>
         <div style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.75)', marginBottom: '20px' }}>Educator</div>
@@ -392,24 +394,24 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp, forExport = fa
         {skills?.subjects?.length && <SidebarSection title="Subjects"><BulletList items={skills.subjects} /></SidebarSection>}
         {skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
       </div>
-      <div style={{ flex: 1 }}>{mainContentOnly}</div>
+      <div style={{ flex: 1, paddingBottom: '44px' }}>{mainContentOnly}</div>
     </div>
   );
 
-  const referencesPage = renderReferencesPage(data.references, accent, undefined, '28px 32px', true);
+  const referencesPage = renderReferencesPage(data.references, accent, undefined, '36px 40px', true);
   if (forExport) {
-    return (<><div className="cv-page">{firstPage}</div><div className="cv-page">{mainContentOnly}</div>{referencesPage && <div className="cv-page">{referencesPage}</div>}</>);
+    return (<><div className="cv-page">{firstPage}</div>{referencesPage && <div className="cv-page">{referencesPage}</div>}</>);
   }
   return <div style={wrapperStyle}>{firstPage}</div>;
 }
 
-/* ── Professional Template (two‑column, no sidebar, just improved spacing) ── */
+/* ── Professional Template ───────────────────────────────────────────────── */
 function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp, forExport = false }: any) {
   const { personal, skills } = data;
   const accent = '#1e4d2b';
   const pageContent = (
     <>
-      <div style={{ background: `linear-gradient(135deg, ${accent} 0%, #2d7a47 100%)`, padding: '32px 40px', color: '#fff', display: 'flex', alignItems: 'center', gap: '24px' }}>
+      <div style={{ background: `linear-gradient(135deg, ${accent} 0%, #2d7a47 100%)`, padding: '44px 48px', color: '#fff', display: 'flex', alignItems: 'center', gap: '24px' }}>
         {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '84px', height: '84px', borderRadius: '50%', objectFit: 'cover', border: '3px solid rgba(255,255,255,0.4)' }} />}
         <div>
           <div style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '1.5px', textTransform: 'uppercase' }}>{personal.full_name || 'Your Name'}</div>
@@ -422,7 +424,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp, forExpor
           </div>
         </div>
       </div>
-      <div style={{ padding: '32px 40px', lineHeight: '1.65' }}>
+      <div style={{ padding: '44px 48px', lineHeight: '1.65', paddingBottom: '52px' }}>
         {personal.bio && <Section title="Professional Profile" color={accent}><p style={{ color: '#374151', margin: 0, textAlign: 'justify' }}>{personal.bio}</p></Section>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 32px' }}>
           <div>
@@ -454,7 +456,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp, forExpor
         </div>
         {renderCustomSections(data.custom_sections, accent, '#2d7a47', true)}
       </div>
-      {renderReferencesPage(data.references, accent, '#2d7a47', '32px 40px', true)}
+      {renderReferencesPage(data.references, accent, '#2d7a47', '44px 48px', true)}
     </>
   );
   if (forExport) return <div className="cv-page">{pageContent}</div>;
@@ -465,7 +467,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp, forExpor
 function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, forExport = false }: any) {
   const { personal, skills } = data;
   const pageContent = (
-    <div style={{ padding: '40px 44px', lineHeight: '1.7' }}>
+    <div style={{ padding: '48px 52px', lineHeight: '1.7', paddingBottom: '56px' }}>
       <div style={{ borderBottom: '2px solid #111827', paddingBottom: '16px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
         {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '76px', height: '76px', borderRadius: '4px', objectFit: 'cover', border: '1px solid #e5e7eb' }} />}
         <div>
@@ -508,7 +510,7 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, forExport = f
         {skills.languages?.length && <div><strong>Languages: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.languages.join(' · ')}</span></div>}
       </MinimalSection>}
       {renderCustomSections(data.custom_sections, '#111827', undefined, true)}
-      {renderReferencesPage(data.references, '#111827', undefined, '40px 44px', true)}
+      {renderReferencesPage(data.references, '#111827', undefined, '48px 52px', true)}
     </div>
   );
   if (forExport) return <div className="cv-page">{pageContent}</div>;
@@ -521,7 +523,7 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp, forExport = f
   const sideColor = '#3b5998';
 
   const mainContentOnly = (
-    <div style={{ padding: '28px 36px' }}>
+    <div style={{ padding: '36px 44px' }}>
       {personal.bio && <Section title="About Me" color={sideColor}><p style={{ color: '#374151', margin: 0, textAlign: 'justify' }}>{personal.bio}</p></Section>}
       {validExp.length > 0 && <Section title="Work History" color={sideColor} icon={ICONS.briefcase}>
         {validExp.map((e: any, i: number) => (
@@ -547,7 +549,7 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp, forExport = f
 
   const firstPage = (
     <div style={{ display: 'flex', minHeight: '1123px' }}>
-      <div style={{ background: sideColor, color: '#fff', width: '210px', minWidth: '210px', padding: '28px 18px', boxSizing: 'border-box' }}>
+      <div style={{ background: sideColor, color: '#fff', width: '210px', minWidth: '210px', padding: '36px 24px', boxSizing: 'border-box' }}>
         <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', fontSize: '26px', fontWeight: '800', color: sideColor }}>
           {(personal.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
         </div>
@@ -563,13 +565,13 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp, forExport = f
         {skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
         {skills?.soft_skills?.length && <SidebarSection title="Skills"><BulletList items={skills.soft_skills} /></SidebarSection>}
       </div>
-      <div style={{ flex: 1 }}>{mainContentOnly}</div>
+      <div style={{ flex: 1, paddingBottom: '44px' }}>{mainContentOnly}</div>
     </div>
   );
 
-  const referencesPage = renderReferencesPage(data.references, sideColor, undefined, '28px 36px', true);
+  const referencesPage = renderReferencesPage(data.references, sideColor, undefined, '36px 44px', true);
   if (forExport) {
-    return (<><div className="cv-page">{firstPage}</div><div className="cv-page">{mainContentOnly}</div>{referencesPage && <div className="cv-page">{referencesPage}</div>}</>);
+    return (<><div className="cv-page">{firstPage}</div>{referencesPage && <div className="cv-page">{referencesPage}</div>}</>);
   }
   return <div style={wrapperStyle}>{firstPage}</div>;
 }
@@ -580,7 +582,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, forExport = fals
   const accent = '#c2185b';
   const pageContent = (
     <>
-      <div style={{ background: accent, color: '#fff', padding: '32px 32px 22px' }}>
+      <div style={{ background: accent, color: '#fff', padding: '40px 40px 28px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
           {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '3px solid rgba(255,255,255,0.4)' }} />}
           <div><div style={{ fontSize: '26px', fontWeight: '800', letterSpacing: '1px' }}>{personal.full_name || 'Your Name'}</div><div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)', marginTop: '4px', letterSpacing: '2px', textTransform: 'uppercase' }}>Educator</div></div>
@@ -593,7 +595,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, forExport = fals
           {personal.id_number && <span>{ICONS.user} ID: {personal.id_number}</span>}
         </div>
       </div>
-      <div style={{ display: 'flex', padding: '24px 32px', gap: '28px', lineHeight: '1.6' }}>
+      <div style={{ display: 'flex', padding: '32px 40px', gap: '28px', lineHeight: '1.6', paddingBottom: '44px' }}>
         <div style={{ flex: 1 }}>
           {personal.bio && <Section title="Summary" color={accent}><p style={{ color: '#374151', margin: 0, textAlign: 'justify' }}>{personal.bio}</p></Section>}
           {validExp.length > 0 && <Section title="Experience" color={accent} icon={ICONS.briefcase}>
@@ -622,7 +624,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, forExport = fals
           {skills?.languages?.length && <Section title="Languages" color={accent} icon={ICONS.languages}><BulletList items={skills.languages} justify /></Section>}
         </div>
       </div>
-      {renderReferencesPage(data.references, accent, undefined, '24px 32px', true)}
+      {renderReferencesPage(data.references, accent, undefined, '32px 40px', true)}
     </>
   );
   if (forExport) return <div className="cv-page">{pageContent}</div>;
@@ -635,7 +637,7 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, forExport =
   const accent = '#6b1a1a';
   const pageContent = (
     <>
-      <div style={{ background: `linear-gradient(135deg, ${accent} 0%, #8b2424 100%)`, color: '#fff', padding: '36px 44px 28px' }}>
+      <div style={{ background: `linear-gradient(135deg, ${accent} 0%, #8b2424 100%)`, color: '#fff', padding: '44px 52px 36px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '84px', height: '84px', borderRadius: '50%', objectFit: 'cover', border: '3px solid rgba(255,255,255,0.35)' }} />}
           <div><div style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase' }}>{personal.full_name || 'Your Name'}</div><div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)', marginTop: '4px', letterSpacing: '3px', textTransform: 'uppercase' }}>Educator</div></div>
@@ -648,7 +650,7 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, forExport =
           {personal.id_number && <span>{ICONS.user} ID: {personal.id_number}</span>}
         </div>
       </div>
-      <div style={{ padding: '32px 44px', lineHeight: '1.65' }}>
+      <div style={{ padding: '40px 52px', lineHeight: '1.65', paddingBottom: '52px' }}>
         {personal.bio && <Section title="Executive Profile" color={accent}><p style={{ color: '#374151', margin: 0, textAlign: 'justify' }}>{personal.bio}</p></Section>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 36px' }}>
           <div>
@@ -679,7 +681,7 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, forExport =
           </div>
         </div>
       </div>
-      {renderReferencesPage(data.references, accent, undefined, '32px 44px', true)}
+      {renderReferencesPage(data.references, accent, undefined, '40px 52px', true)}
     </>
   );
   if (forExport) return <div className="cv-page">{pageContent}</div>;
@@ -692,7 +694,7 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp, forExport =
   const navy = '#1a2a4a';
 
   const mainContentOnly = (
-    <div style={{ padding: '32px 36px' }}>
+    <div style={{ padding: '40px 44px' }}>
       {personal.bio && <Section title="Professional Summary" color={navy}><p style={{ color: '#374151', margin: 0, textAlign: 'justify' }}>{personal.bio}</p></Section>}
       {validExp.length > 0 && <Section title="Work Experience" color={navy} icon={ICONS.briefcase}>
         {validExp.map((e: any, i: number) => (
@@ -718,7 +720,7 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp, forExport =
 
   const firstPage = (
     <div style={{ display: 'flex', minHeight: '1123px' }}>
-      <div style={{ background: navy, color: '#fff', width: '210px', minWidth: '210px', padding: '32px 18px', boxSizing: 'border-box' }}>
+      <div style={{ background: navy, color: '#fff', width: '210px', minWidth: '210px', padding: '40px 24px', boxSizing: 'border-box' }}>
         <div style={{ width: '76px', height: '76px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: '26px', fontWeight: '800', color: '#fff' }}>
           {(personal.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
         </div>
@@ -734,13 +736,13 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp, forExport =
         {skills?.soft_skills?.length && <SidebarSection title="Skills"><BulletList items={skills.soft_skills} /></SidebarSection>}
         {skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
       </div>
-      <div style={{ flex: 1 }}>{mainContentOnly}</div>
+      <div style={{ flex: 1, paddingBottom: '44px' }}>{mainContentOnly}</div>
     </div>
   );
 
-  const referencesPage = renderReferencesPage(data.references, navy, undefined, '32px 36px', true);
+  const referencesPage = renderReferencesPage(data.references, navy, undefined, '40px 44px', true);
   if (forExport) {
-    return (<><div className="cv-page">{firstPage}</div><div className="cv-page">{mainContentOnly}</div>{referencesPage && <div className="cv-page">{referencesPage}</div>}</>);
+    return (<><div className="cv-page">{firstPage}</div>{referencesPage && <div className="cv-page">{referencesPage}</div>}</>);
   }
   return <div style={wrapperStyle}>{firstPage}</div>;
 }
