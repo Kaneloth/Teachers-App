@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Users } from 'lucide-react';
-import SearchPage from './SearchPage';
-import MatchesPage from './MatchesPage';
+import SearchPage from './Search';        // ✅ correct filename
+import MatchesPage from './MatchesPage'; // ✅ unchanged
 
 export default function SearchAndMatches() {
   const [activeTab, setActiveTab] = useState('search');

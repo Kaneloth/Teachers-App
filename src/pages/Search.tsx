@@ -1,3 +1,4 @@
+// src/pages/Search.tsx
 import { useState, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Search as SearchIcon, ArrowLeft, RefreshCw } from 'lucide-react';
@@ -25,7 +26,7 @@ interface Props {
   embedded?: boolean;
 }
 
-export default function SearchPage({ embedded = false }: Props) {
+export default function Search({ embedded = false }: Props) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
