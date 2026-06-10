@@ -1,7 +1,4 @@
-[functions]
-  included_files = ["netlify/functions/**"]
-  node_bundler = "esbuild"
-  
+
 [functions]
   included_files = ["netlify/functions/templates/*.html"]
   node_bundler = "esbuild"
