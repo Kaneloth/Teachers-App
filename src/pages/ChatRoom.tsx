@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Send, Check, CheckCheck, Copy, Trash, Trash2, Lock } from 'lucide-react';
-import { supabase } from '@/lib/supabase';      // ✅ FIXED: absolute path
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
@@ -277,30 +277,60 @@ export default function ChatRoom() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  /* ── Send ───────────────────────────────────────────────────── */
+  /* ── Send (with proper error handling and optimistic removal) ─ */
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim() || !user || !partnerId || sending || chatBlocked) return;
+    if (!text.trim() || !user || !partnerId || sending) return;
+
+    // Extra real‑time block check – even if chatBlocked is false, this catches any race condition
+    const blockedByMe = await isBlocked(user.id, partnerId);
+    const blockedByThem = await isBlocked(partnerId, user.id);
+    if (blockedByMe || blockedByThem) {
+      toast.error("You cannot send messages to this user (blocked).");
+      return;
+    }
+
     setSending(true);
-    const optimistic: Message = {
-      id: `temp-${Date.now()}`,
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: tempId,
       sender_id: user.id,
       receiver_id: partnerId,
       content: text.trim(),
       created_at: new Date().toISOString(),
       read: false,
     };
-    setMessages(prev => [...prev, optimistic]);
+
+    // Add optimistic message
+    setMessages(prev => [...prev, optimisticMessage]);
     setText('');
-    const { data } = await supabase
-      .from('messages')
-      .insert([{ sender_id: user.id, receiver_id: partnerId, content: optimistic.content }])
-      .select()
-      .single();
-    if (data) {
-      setMessages(prev => prev.map(m => m.id === optimistic.id ? data as Message : m));
+
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .insert([{ sender_id: user.id, receiver_id: partnerId, content: optimisticMessage.content }])
+        .select()
+        .single();
+
+      if (error) {
+        // Insert failed – probably due to RLS block policy or other constraint
+        console.error('Send failed:', error);
+        // Remove the optimistic message
+        setMessages(prev => prev.filter(m => m.id !== tempId));
+        toast.error("Message not sent – you may have blocked this user or been blocked.");
+      } else if (data) {
+        // Replace the temporary message with the real one from the database
+        setMessages(prev =>
+          prev.map(m => (m.id === tempId ? (data as Message) : m))
+        );
+      }
+    } catch (err) {
+      console.error('Unexpected send error:', err);
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      toast.error("Failed to send message. Please try again.");
+    } finally {
+      setSending(false);
     }
-    setSending(false);
   };
 
   const partnerInitials = partner?.full_name
