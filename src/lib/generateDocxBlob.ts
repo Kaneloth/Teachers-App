@@ -1,35 +1,48 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Footer, PageNumber, SectionType, BorderStyle, WidthType, ShadingType } from 'docx';
+import {
+  Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
+  Footer, PageNumber, BorderStyle, WidthType, ShadingType,
+  Table, TableRow, TableCell, VerticalAlign, Header
+} from 'docx';
 
 interface CVData {
-  personal: { full_name?: string; email?: string; phone?: string; address?: string; bio?: string };
+  personal: {
+    full_name?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    bio?: string;
+    photo_url?: string;
+    id_number?: string;
+  };
   education: { institution: string; qualification: string; year: string }[];
   experience: { school: string; role: string; from: string; to: string; description: string }[];
   skills: { subjects?: string[]; soft_skills?: string[]; languages?: string[] };
   references?: { name: string; title: string; organisation: string; phone: string; email: string; relationship: string }[];
+  custom_sections?: any[];
   template: string;
 }
 
-function bulletPoints(lines: string[], indent = false): Paragraph[] {
+function bulletPoints(lines: string[], indentLevel = 0): Paragraph[] {
   return lines.map(line => new Paragraph({
     bullet: { level: 0 },
     children: [new TextRun(line.trim())],
-    indent: indent ? { left: 720 } : undefined,
+    indent: indentLevel ? { left: 720 } : undefined,
   }));
 }
 
-// ----- Classic Template (dark header, simple sans‑serif) -----
+// ----------------------------------------------------------------------
+// Classic Template (dark header, left border on experience, etc.)
 function buildClassic(data: CVData, user?: { id: string; email: string }) {
   const { personal, education, experience, skills, references } = data;
   const children: any[] = [];
 
-  // Header: dark background
+  // Header: dark background, white name and contact line
   children.push(
     new Paragraph({
       children: [new TextRun({ text: personal.full_name || 'Your Name', bold: true, size: 32, color: 'FFFFFF' })],
       alignment: AlignmentType.CENTER,
-      spacing: { after: 120 },
+      spacing: { after: 80 },
       shading: { fill: '1e2a3a', type: ShadingType.CLEAR },
-      style: { paragraph: { backgroundColor: '1e2a3a' } },
     }),
   );
   const contactParts = [personal.email, personal.phone, personal.address].filter(Boolean);
@@ -37,56 +50,63 @@ function buildClassic(data: CVData, user?: { id: string; email: string }) {
     children.push(new Paragraph({
       children: contactParts.map((part, idx) => new TextRun({ text: (idx > 0 ? ' | ' : '') + part, color: 'FFFFFF' })),
       alignment: AlignmentType.CENTER,
-      spacing: { after: 240 },
+      spacing: { after: 200 },
+      shading: { fill: '1e2a3a', type: ShadingType.CLEAR },
     }));
   }
 
-  // Bio
+  // Professional Summary
   if (personal.bio) {
-    children.push(new Paragraph({ text: 'Professional Summary', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 80 } }));
-    children.push(new Paragraph(personal.bio));
-  }
-
-  // Experience
-  const validExp = experience.filter(e => e.school);
-  if (validExp.length) {
-    children.push(new Paragraph({ text: 'Teaching Experience', heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 80 } }));
-    for (const exp of validExp) {
-      children.push(new Paragraph({ text: exp.role, bold: true, spacing: { after: 0 } }));
-      children.push(new Paragraph(`${exp.school} · ${exp.from || ''} – ${exp.to || ''}`));
-      const descLines = exp.description.split('\n').filter(l => l.trim());
-      if (descLines.length) children.push(...bulletPoints(descLines));
-      children.push(new Paragraph({ text: '' }));
-    }
+    children.push(
+      new Paragraph({ text: 'Professional Summary', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 80 } }),
+      new Paragraph(personal.bio),
+    );
   }
 
   // Education
   const validEdu = education.filter(e => e.institution);
   if (validEdu.length) {
-    children.push(new Paragraph({ text: 'Education', heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 80 } }));
+    children.push(new Paragraph({ text: 'Education', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 80 } }));
     for (const edu of validEdu) {
-      children.push(new Paragraph({ text: edu.qualification, bold: true, spacing: { after: 0 } }));
-      children.push(new Paragraph(`${edu.institution} · ${edu.year}`));
+      children.push(
+        new Paragraph({ text: edu.qualification, bold: true, spacing: { after: 0 } }),
+        new Paragraph(`${edu.institution} · ${edu.year}`, { spacing: { after: 100 } }),
+      );
     }
   }
 
-  // Skills
-  const skillsChildren: any[] = [];
+  // Experience
+  const validExp = experience.filter(e => e.school);
+  if (validExp.length) {
+    children.push(new Paragraph({ text: 'Teaching Experience', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 80 } }));
+    for (const exp of validExp) {
+      children.push(
+        new Paragraph({ text: exp.role, bold: true, spacing: { after: 0 } }),
+        new Paragraph(`${exp.school} · ${exp.from || ''} – ${exp.to || ''}`, { spacing: { after: 60 } }),
+      );
+      const descLines = exp.description.split('\n').filter(l => l.trim());
+      if (descLines.length) children.push(...bulletPoints(descLines));
+      children.push(new Paragraph({ text: '', spacing: { after: 80 } }));
+    }
+  }
+
+  // Skills & Subjects
+  const skillItems: any[] = [];
   if (skills.subjects?.length) {
-    skillsChildren.push(new Paragraph({ text: 'Subjects', bold: true, spacing: { after: 40 } }));
-    skillsChildren.push(...bulletPoints(skills.subjects));
+    skillItems.push(new Paragraph({ text: 'Subjects', bold: true, spacing: { after: 40 } }));
+    skillItems.push(...bulletPoints(skills.subjects));
   }
   if (skills.soft_skills?.length) {
-    skillsChildren.push(new Paragraph({ text: 'Professional Skills', bold: true, spacing: { before: 80, after: 40 } }));
-    skillsChildren.push(...bulletPoints(skills.soft_skills));
+    skillItems.push(new Paragraph({ text: 'Professional Skills', bold: true, spacing: { before: 80, after: 40 } }));
+    skillItems.push(...bulletPoints(skills.soft_skills));
   }
   if (skills.languages?.length) {
-    skillsChildren.push(new Paragraph({ text: 'Languages', bold: true, spacing: { before: 80, after: 40 } }));
-    skillsChildren.push(...bulletPoints(skills.languages));
+    skillItems.push(new Paragraph({ text: 'Languages', bold: true, spacing: { before: 80, after: 40 } }));
+    skillItems.push(...bulletPoints(skills.languages));
   }
-  if (skillsChildren.length) {
-    children.push(new Paragraph({ text: 'Skills', heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 80 } }));
-    children.push(...skillsChildren);
+  if (skillItems.length) {
+    children.push(new Paragraph({ text: 'Skills & Subjects', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 80 } }));
+    children.push(...skillItems);
   }
 
   // References (new page)
@@ -95,35 +115,39 @@ function buildClassic(data: CVData, user?: { id: string; email: string }) {
     children.push(new Paragraph({ pageBreakBefore: true, text: '' }));
     children.push(new Paragraph({ text: 'References', heading: HeadingLevel.HEADING_2, spacing: { before: 0, after: 80 } }));
     for (const ref of validRefs) {
-      children.push(new Paragraph({ text: ref.name, bold: true, spacing: { after: 0 } }));
-      children.push(new Paragraph([ref.title, ref.organisation].filter(Boolean).join(' · ')));
-      children.push(new Paragraph(`Phone: ${ref.phone} · Email: ${ref.email}`));
-      if (ref.relationship) children.push(new Paragraph(ref.relationship));
-      children.push(new Paragraph({ text: '' }));
+      children.push(
+        new Paragraph({ text: ref.name, bold: true, spacing: { after: 0 } }),
+        new Paragraph([ref.title, ref.organisation].filter(Boolean).join(' · ')),
+        new Paragraph(`Phone: ${ref.phone} · Email: ${ref.email}`),
+        ref.relationship ? new Paragraph(ref.relationship) : null,
+        new Paragraph({ text: '' }),
+      ).filter(Boolean);
     }
   }
 
   return children;
 }
 
-// ----- Modern Template (teal accent, sidebar removed – simplified two‑column?) -----
+// ----------------------------------------------------------------------
+// Modern Template (teal accent, sidebar-less, clean)
 function buildModern(data: CVData, user?: { id: string; email: string }) {
   const { personal, education, experience, skills, references } = data;
   const accent = '0d9488'; // teal
   const children: any[] = [];
 
-  // Header: teal background, white text
+  // Header with teal background
   children.push(
     new Paragraph({
       children: [new TextRun({ text: personal.full_name || 'Your Name', bold: true, size: 32, color: 'FFFFFF' })],
       alignment: AlignmentType.CENTER,
-      spacing: { after: 120 },
+      spacing: { after: 40 },
       shading: { fill: accent, type: ShadingType.CLEAR },
     }),
     new Paragraph({
       children: [new TextRun({ text: 'Educator', color: 'FFFFFF', italics: true, size: 20 })],
       alignment: AlignmentType.CENTER,
       spacing: { after: 80 },
+      shading: { fill: accent, type: ShadingType.CLEAR },
     }),
   );
   const contactParts = [personal.email, personal.phone, personal.address].filter(Boolean);
@@ -131,57 +155,63 @@ function buildModern(data: CVData, user?: { id: string; email: string }) {
     children.push(new Paragraph({
       children: contactParts.map((part, idx) => new TextRun({ text: (idx > 0 ? ' | ' : '') + part, color: 'FFFFFF' })),
       alignment: AlignmentType.CENTER,
-      spacing: { after: 240 },
+      spacing: { after: 200 },
+      shading: { fill: accent, type: ShadingType.CLEAR },
     }));
   }
 
+  // About Me (bio)
   if (personal.bio) {
-    children.push(new Paragraph({ text: 'About Me', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 80 } }));
-    children.push(new Paragraph(personal.bio));
+    children.push(
+      new Paragraph({ text: 'About Me', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 80 } }),
+      new Paragraph(personal.bio),
+    );
   }
 
   // Experience
   const validExp = experience.filter(e => e.school);
   if (validExp.length) {
-    children.push(new Paragraph({ text: 'Teaching Experience', heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 80 } }));
+    children.push(new Paragraph({ text: 'Teaching Experience', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 80 } }));
     for (const exp of validExp) {
       children.push(
         new Paragraph({ text: exp.role, bold: true, spacing: { after: 0 } }),
-        new Paragraph(`${exp.school} · ${exp.from || ''} – ${exp.to || ''}`),
+        new Paragraph(`${exp.school} · ${exp.from || ''} – ${exp.to || ''}`, { spacing: { after: 60 } }),
       );
       const descLines = exp.description.split('\n').filter(l => l.trim());
       if (descLines.length) children.push(...bulletPoints(descLines));
-      children.push(new Paragraph({ text: '' }));
+      children.push(new Paragraph({ text: '', spacing: { after: 80 } }));
     }
   }
 
   // Education
   const validEdu = education.filter(e => e.institution);
   if (validEdu.length) {
-    children.push(new Paragraph({ text: 'Education', heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 80 } }));
+    children.push(new Paragraph({ text: 'Education', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 80 } }));
     for (const edu of validEdu) {
-      children.push(new Paragraph({ text: edu.qualification, bold: true, spacing: { after: 0 } }));
-      children.push(new Paragraph(`${edu.institution} · ${edu.year}`));
+      children.push(
+        new Paragraph({ text: edu.qualification, bold: true, spacing: { after: 0 } }),
+        new Paragraph(`${edu.institution} · ${edu.year}`, { spacing: { after: 100 } }),
+      );
     }
   }
 
-  // Skills (subjects, soft, languages)
-  const skillsChildren: any[] = [];
+  // Skills
+  const skillItems: any[] = [];
   if (skills.subjects?.length) {
-    skillsChildren.push(new Paragraph({ text: 'Subjects', bold: true, spacing: { after: 40 } }));
-    skillsChildren.push(...bulletPoints(skills.subjects));
+    skillItems.push(new Paragraph({ text: 'Subjects', bold: true, spacing: { after: 40 } }));
+    skillItems.push(...bulletPoints(skills.subjects));
   }
   if (skills.soft_skills?.length) {
-    skillsChildren.push(new Paragraph({ text: 'Professional Skills', bold: true, spacing: { before: 80, after: 40 } }));
-    skillsChildren.push(...bulletPoints(skills.soft_skills));
+    skillItems.push(new Paragraph({ text: 'Professional Skills', bold: true, spacing: { before: 80, after: 40 } }));
+    skillItems.push(...bulletPoints(skills.soft_skills));
   }
   if (skills.languages?.length) {
-    skillsChildren.push(new Paragraph({ text: 'Languages', bold: true, spacing: { before: 80, after: 40 } }));
-    skillsChildren.push(...bulletPoints(skills.languages));
+    skillItems.push(new Paragraph({ text: 'Languages', bold: true, spacing: { before: 80, after: 40 } }));
+    skillItems.push(...bulletPoints(skills.languages));
   }
-  if (skillsChildren.length) {
-    children.push(new Paragraph({ text: 'Skills', heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 80 } }));
-    children.push(...skillsChildren);
+  if (skillItems.length) {
+    children.push(new Paragraph({ text: 'Skills', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 80 } }));
+    children.push(...skillItems);
   }
 
   // References
@@ -190,90 +220,114 @@ function buildModern(data: CVData, user?: { id: string; email: string }) {
     children.push(new Paragraph({ pageBreakBefore: true, text: '' }));
     children.push(new Paragraph({ text: 'References', heading: HeadingLevel.HEADING_2, spacing: { before: 0, after: 80 } }));
     for (const ref of validRefs) {
-      children.push(new Paragraph({ text: ref.name, bold: true, spacing: { after: 0 } }));
-      children.push(new Paragraph([ref.title, ref.organisation].filter(Boolean).join(' · ')));
-      children.push(new Paragraph(`Phone: ${ref.phone} · Email: ${ref.email}`));
-      if (ref.relationship) children.push(new Paragraph(ref.relationship));
-      children.push(new Paragraph({ text: '' }));
+      children.push(
+        new Paragraph({ text: ref.name, bold: true, spacing: { after: 0 } }),
+        new Paragraph([ref.title, ref.organisation].filter(Boolean).join(' · ')),
+        new Paragraph(`Phone: ${ref.phone} · Email: ${ref.email}`),
+        ref.relationship ? new Paragraph(ref.relationship) : null,
+        new Paragraph({ text: '' }),
+      ).filter(Boolean);
     }
   }
 
   return children;
 }
 
-// ----- Sidebar Template (two‑column with left sidebar) -----
+// ----------------------------------------------------------------------
+// Sidebar Template (two‑column table with coloured left panel)
 function buildSidebar(data: CVData, user?: { id: string; email: string }) {
   const { personal, education, experience, skills, references } = data;
   const sidebarColor = '3b5998'; // blue
-  // We need a two‑column layout: left column (sidebar) and right column (main)
-  // The docx library supports tables for layout. We'll use a two‑cell table.
-  const sidebarContent: Paragraph[] = [];
-  const mainContent: Paragraph[] = [];
 
-  // Left column: initials, contact, subjects, languages, soft skills
+  // Left column content
+  const leftCol: Paragraph[] = [];
+
+  // Initials circle (approximated with text)
   const initials = (personal.full_name || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-  sidebarContent.push(
-    new Paragraph({ text: initials, alignment: AlignmentType.CENTER, spacing: { after: 80 }, bold: true, size: 28 }),
-    new Paragraph({ text: personal.full_name || 'Your Name', alignment: AlignmentType.CENTER, spacing: { after: 20 } }),
-    new Paragraph({ text: 'Educator', alignment: AlignmentType.CENTER, spacing: { after: 240 } }),
-  );
+  leftCol.push(new Paragraph({
+    text: initials,
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 80 },
+    bold: true,
+    size: 28,
+  }));
+  leftCol.push(new Paragraph({
+    text: personal.full_name || 'Your Name',
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 20 },
+  }));
+  leftCol.push(new Paragraph({ text: 'Educator', alignment: AlignmentType.CENTER, spacing: { after: 160 } }));
+
   // Contact
-  const contact: string[] = [];
-  if (personal.email) contact.push(`✉️ ${personal.email}`);
-  if (personal.phone) contact.push(`📞 ${personal.phone}`);
-  if (personal.address) contact.push(`📍 ${personal.address}`);
-  contact.forEach(line => sidebarContent.push(new Paragraph(line)));
-  sidebarContent.push(new Paragraph({ text: '' }));
+  const contactLines = [];
+  if (personal.email) contactLines.push(`✉️ ${personal.email}`);
+  if (personal.phone) contactLines.push(`📞 ${personal.phone}`);
+  if (personal.address) contactLines.push(`📍 ${personal.address}`);
+  contactLines.forEach(line => leftCol.push(new Paragraph(line)));
+  leftCol.push(new Paragraph({ text: '' }));
 
   if (skills.subjects?.length) {
-    sidebarContent.push(new Paragraph({ text: 'Subjects', bold: true, spacing: { after: 40 } }));
-    skills.subjects.forEach(s => sidebarContent.push(new Paragraph({ bullet: { level: 0 }, children: [new TextRun(s)] })));
-    sidebarContent.push(new Paragraph({ text: '' }));
+    leftCol.push(new Paragraph({ text: 'Subjects', bold: true, spacing: { after: 40 } }));
+    skills.subjects.forEach(s => leftCol.push(new Paragraph({ bullet: { level: 0 }, children: [new TextRun(s)] })));
+    leftCol.push(new Paragraph({ text: '' }));
   }
   if (skills.languages?.length) {
-    sidebarContent.push(new Paragraph({ text: 'Languages', bold: true, spacing: { after: 40 } }));
-    skills.languages.forEach(l => sidebarContent.push(new Paragraph({ bullet: { level: 0 }, children: [new TextRun(l)] })));
-    sidebarContent.push(new Paragraph({ text: '' }));
+    leftCol.push(new Paragraph({ text: 'Languages', bold: true, spacing: { after: 40 } }));
+    skills.languages.forEach(l => leftCol.push(new Paragraph({ bullet: { level: 0 }, children: [new TextRun(l)] })));
+    leftCol.push(new Paragraph({ text: '' }));
   }
   if (skills.soft_skills?.length) {
-    sidebarContent.push(new Paragraph({ text: 'Skills', bold: true, spacing: { after: 40 } }));
-    skills.soft_skills.forEach(s => sidebarContent.push(new Paragraph({ bullet: { level: 0 }, children: [new TextRun(s)] })));
-    sidebarContent.push(new Paragraph({ text: '' }));
+    leftCol.push(new Paragraph({ text: 'Skills', bold: true, spacing: { after: 40 } }));
+    skills.soft_skills.forEach(s => leftCol.push(new Paragraph({ bullet: { level: 0 }, children: [new TextRun(s)] })));
+    leftCol.push(new Paragraph({ text: '' }));
   }
 
-  // Right column: bio, experience, education
+  // Right column content
+  const rightCol: Paragraph[] = [];
+
   if (personal.bio) {
-    mainContent.push(new Paragraph({ text: 'About Me', heading: HeadingLevel.HEADING_2, spacing: { after: 80 } }));
-    mainContent.push(new Paragraph(personal.bio));
+    rightCol.push(new Paragraph({ text: 'About Me', heading: HeadingLevel.HEADING_2, spacing: { after: 80 } }));
+    rightCol.push(new Paragraph(personal.bio));
   }
+
   const validExp = experience.filter(e => e.school);
   if (validExp.length) {
-    mainContent.push(new Paragraph({ text: 'Work History', heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 80 } }));
+    rightCol.push(new Paragraph({ text: 'Work History', heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 80 } }));
     for (const exp of validExp) {
-      mainContent.push(new Paragraph({ text: exp.role, bold: true, spacing: { after: 0 } }));
-      mainContent.push(new Paragraph(`${exp.school} · ${exp.from || ''} – ${exp.to || ''}`));
+      rightCol.push(new Paragraph({ text: exp.role, bold: true, spacing: { after: 0 } }));
+      rightCol.push(new Paragraph(`${exp.school} · ${exp.from || ''} – ${exp.to || ''}`, { spacing: { after: 60 } }));
       const descLines = exp.description.split('\n').filter(l => l.trim());
-      if (descLines.length) mainContent.push(...bulletPoints(descLines, false));
-      mainContent.push(new Paragraph({ text: '' }));
-    }
-  }
-  const validEdu = education.filter(e => e.institution);
-  if (validEdu.length) {
-    mainContent.push(new Paragraph({ text: 'Education', heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 80 } }));
-    for (const edu of validEdu) {
-      mainContent.push(new Paragraph({ text: edu.qualification, bold: true, spacing: { after: 0 } }));
-      mainContent.push(new Paragraph(`${edu.institution} · ${edu.year}`));
+      if (descLines.length) rightCol.push(...bulletPoints(descLines));
+      rightCol.push(new Paragraph({ text: '', spacing: { after: 80 } }));
     }
   }
 
-  // Build a table with two columns: width 30% / 70%
+  const validEdu = education.filter(e => e.institution);
+  if (validEdu.length) {
+    rightCol.push(new Paragraph({ text: 'Education', heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 80 } }));
+    for (const edu of validEdu) {
+      rightCol.push(new Paragraph({ text: edu.qualification, bold: true, spacing: { after: 0 } }));
+      rightCol.push(new Paragraph(`${edu.institution} · ${edu.year}`, { spacing: { after: 100 } }));
+    }
+  }
+
+  // Build two‑column table
   const table = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     rows: [
       new TableRow({
         children: [
-          new TableCell({ children: sidebarContent, shading: { fill: sidebarColor, type: ShadingType.CLEAR }, verticalAlign: 'top' }),
-          new TableCell({ children: mainContent, verticalAlign: 'top' }),
+          new TableCell({
+            children: leftCol,
+            shading: { fill: sidebarColor, type: ShadingType.CLEAR },
+            verticalAlign: VerticalAlign.TOP,
+            width: { size: 30, type: WidthType.PERCENTAGE },
+          }),
+          new TableCell({
+            children: rightCol,
+            verticalAlign: VerticalAlign.TOP,
+            width: { size: 70, type: WidthType.PERCENTAGE },
+          }),
         ],
       }),
     ],
@@ -287,23 +341,24 @@ function buildSidebar(data: CVData, user?: { id: string; email: string }) {
     children.push(new Paragraph({ pageBreakBefore: true, text: '' }));
     children.push(new Paragraph({ text: 'References', heading: HeadingLevel.HEADING_2, spacing: { before: 0, after: 80 } }));
     for (const ref of validRefs) {
-      children.push(new Paragraph({ text: ref.name, bold: true, spacing: { after: 0 } }));
-      children.push(new Paragraph([ref.title, ref.organisation].filter(Boolean).join(' · ')));
-      children.push(new Paragraph(`Phone: ${ref.phone} · Email: ${ref.email}`));
-      if (ref.relationship) children.push(new Paragraph(ref.relationship));
-      children.push(new Paragraph({ text: '' }));
+      children.push(
+        new Paragraph({ text: ref.name, bold: true, spacing: { after: 0 } }),
+        new Paragraph([ref.title, ref.organisation].filter(Boolean).join(' · ')),
+        new Paragraph(`Phone: ${ref.phone} · Email: ${ref.email}`),
+        ref.relationship ? new Paragraph(ref.relationship) : null,
+        new Paragraph({ text: '' }),
+      ).filter(Boolean);
     }
   }
 
   return children;
 }
 
-// ----- Main export function (chooses template) -----
+// ----------------------------------------------------------------------
+// Main export
 export async function generateDocxBlob(data: CVData, user?: { id: string; email: string }): Promise<Blob> {
   let children: any[];
-  const template = data.template || 'classic';
-
-  switch (template) {
+  switch (data.template) {
     case 'modern':
       children = buildModern(data, user);
       break;
@@ -316,7 +371,7 @@ export async function generateDocxBlob(data: CVData, user?: { id: string; email:
       break;
   }
 
-  // Footer (abuse prevention) – same for all templates
+  // Footer (abuse prevention)
   const footer = new Footer({
     children: [
       new Paragraph({
@@ -333,7 +388,9 @@ export async function generateDocxBlob(data: CVData, user?: { id: string; email:
   });
 
   const doc = new Document({
-    styles: { default: { document: { run: { font: "Calibri", size: 24 } } } },
+    styles: {
+      default: { document: { run: { font: "Calibri", size: 24 } } },
+    },
     sections: [{
       properties: {
         page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } },
