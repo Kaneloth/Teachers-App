@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{{full_name}} - CV</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: white;
+}
+.cv-page {
+  width: 794px;
+  min-height: 1123px;
+  background: white;
+  margin: 0 auto;
+  page-break-after: always;
+  break-inside: avoid;
+}
+.cv-page:last-child { page-break-after: auto; }
+</style>
+</head>
+<body>
+<div class="cv-page">
+  <div style="padding: 48px 52px; line-height: 1.7; padding-bottom: 56px;">
+    <div style="border-bottom: 2px solid #111827; padding-bottom: 16px; margin-bottom: 24px; display: flex; align-items: center; gap: 20px;">
+      {{#if photo_url}}<img src="{{photo_url}}" alt="Profile" style="width: 76px; height: 76px; border-radius: 4px; object-fit: cover; border: 1px solid #e5e7eb;">{{/if}}
+      <div>
+        <div style="font-size: 30px; font-weight: 300; letter-spacing: 3px; text-transform: uppercase; color: #111827;">{{full_name}}</div>
+        <div style="margin-top: 8px; font-size: 11px; color: #6b7280; display: flex; gap: 16px; flex-wrap: wrap;">
+          {{#if email}}<span>✉️ {{email}}</span>{{/if}}
+          {{#if phone}}<span>📞 {{phone}}</span>{{/if}}
+          {{#if address}}<span>📍 {{address}}</span>{{/if}}
+          {{#if id_number}}<span>👤 ID: {{id_number}}</span>{{/if}}
+        </div>
+      </div>
+    </div>
+
+    {{#if bio}}<div style="margin-bottom: 28px;"><div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #6b7280; margin-bottom: 12px;">Summary</div><p style="color: #4b5563; margin: 0; font-size: 12px; text-align: justify;">{{bio}}</p></div>{{/if}}
+
+    {{#each experience}}
+      <div style="margin-bottom: 28px;"><div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #6b7280; margin-bottom: 12px;">Experience</div>
+      <div style="display: flex; gap: 16px; margin-bottom: 14px;">
+        <div style="width: 90px; font-size: 11px; color: #9ca3af; padding-top: 2px;">{{from}} – {{to}}</div>
+        <div style="flex: 1;"><div style="font-weight: 600; color: #111827; font-size: 13px;">{{role}}</div><div style="color: #6b7280; font-size: 12px;">{{school}}</div>
+          <div style="margin-top: 4px;">{{#each descriptionLines}}<div style="display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px;"><span>•</span><span style="font-size: 12px; line-height: 1.5; color: #4b5563; text-align: justify;">{{this}}</span></div>{{/each}}</div>
+        </div>
+      </div></div>
+    {{/each}}
+
+    {{#each education}}
+      <div style="margin-bottom: 28px;"><div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #6b7280; margin-bottom: 12px;">Education</div>
+      <div style="display: flex; gap: 16px; margin-bottom: 12px;">
+        <div style="width: 90px; font-size: 11px; color: #9ca3af; padding-top: 2px;">{{year}}</div>
+        <div><div style="font-weight: 600; color: #111827; font-size: 13px;">{{qualification}}</div><div style="color: #6b7280; font-size: 12px;">{{institution}}</div></div>
+      </div></div>
+    {{/each}}
+
+    {{#if subjects}}<div><strong>Subjects: </strong><span style="color: #4b5563; font-size: 12px;">{{subjects}}</span></div>{{/if}}
+    {{#if soft_skills}}<div><strong>Skills: </strong><span style="color: #4b5563; font-size: 12px;">{{soft_skills}}</span></div>{{/if}}
+    {{#if languages}}<div><strong>Languages: </strong><span style="color: #4b5563; font-size: 12px;">{{languages}}</span></div>{{/if}}
+  </div>
+</div>
+{{#if references}}<div class="cv-page"><div style="padding: 48px 52px;">... references ...</div></div>{{/if}}
+</body>
+</html>

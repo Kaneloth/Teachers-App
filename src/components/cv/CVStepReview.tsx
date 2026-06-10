@@ -1,10 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Download, FileText, CheckCircle2, RefreshCw, Eye, List } from 'lucide-react';
 import CVTemplateRenderer from './CVTemplateRenderer';
-import { exportElementAsPDF } from '@/utils/cvExport';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -25,18 +24,28 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const exportRef = useRef<HTMLDivElement>(null);
 
   const { personal, education, experience, skills } = data;
   const fileName = `CV_${(personal.full_name || 'Educator').replace(/\s+/g, '_')}.pdf`;
 
   const handleGenerate = async () => {
-    if (!exportRef.current) return;
     setSending(true);
     try {
-      const pdfBlob = await exportElementAsPDF(exportRef.current, fileName);
+      // 1. Call Netlify function to generate PDF from server
+      const response = await fetch('/.netlify/functions/generate-cv-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
 
-      // ── Trigger device download ──────────────────────────────────────────
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'PDF generation failed');
+      }
+
+      const pdfBlob = await response.blob();
+
+      // 2. Download PDF to user's device
       const blobUrl = URL.createObjectURL(pdfBlob);
       const anchor = document.createElement('a');
       anchor.href = blobUrl;
@@ -46,7 +55,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
       document.body.removeChild(anchor);
       URL.revokeObjectURL(blobUrl);
 
-      // ── Upload to Supabase so LastCVBanner can offer "Download PDF" ──────
+      // 3. Upload PDF to Supabase for last‑CV banner (optional but recommended)
       const path = `${user?.id ?? 'anon'}/cv-${Date.now()}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from('avatars')
@@ -70,8 +79,9 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
 
       setSent(true);
       toast.success('CV downloaded to your device!');
-    } catch (e: unknown) {
-      toast.error((e as Error).message || 'Failed to generate CV');
+    } catch (err: unknown) {
+      console.error(err);
+      toast.error((err as Error).message || 'Failed to generate PDF');
     } finally {
       setSending(false);
     }
@@ -121,13 +131,6 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
 
       {view === 'preview' ? (
         <div className="rounded-xl overflow-hidden border border-border bg-white shadow-sm">
-          {/*
-           * Render the CV at its true A4 width (794 px) then zoom the whole
-           * thing down to ~45% so it fits a phone screen without any clipping.
-           * `zoom` (unlike transform:scale) collapses layout space, so the
-           * container height adjusts to the scaled content automatically and
-           * the page can scroll normally to reveal references or extra pages.
-           */}
           <div style={{ zoom: 0.45 }}>
             <CVTemplateRenderer data={data} forExport watermark={isFree} />
           </div>
@@ -181,13 +184,6 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
           ) : null}
         </div>
       )}
-
-      {/* Hidden full-size render used by exportElementAsPDF — added cv-export-root class */}
-      <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '794px' }}>
-        <div ref={exportRef} className="cv-export-root">
-          <CVTemplateRenderer data={data} forExport watermark={isFree} />
-        </div>
-      </div>
 
       <Button
         onClick={handleGenerate}
