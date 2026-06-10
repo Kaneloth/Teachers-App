@@ -64,17 +64,18 @@ export const handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: err.message }) };
   }
 
+  // ✅ IMPROVED PROMPT – preserve all details, multiple bullet points, no summarization
   const prompt = `
-You are an expert CV parser. Extract information from the following CV text and return a JSON object that exactly matches the structure below.
+You are an expert CV parser. Extract ALL information from the following CV text. Do NOT summarize, shorten, or omit any details. Preserve every bullet point, responsibility, and achievement exactly as written.
 
-Use empty strings or empty arrays where data is missing. Do not add any extra fields or commentary.
+You must return a valid JSON object with the structure below. For the "experience" array, each job entry MUST include the full description text exactly as it appears, with all bullet points preserved. For "education" and "skills", include everything.
 
 CV TEXT:
 """
 ${rawText}
 """
 
-Required JSON structure (Educator CV):
+Required JSON structure:
 {
   "personal": {
     "full_name": "",
@@ -104,6 +105,12 @@ Required JSON structure (Educator CV):
   ],
   "custom_sections": []
 }
+
+Important rules:
+- The "description" field under each experience entry MUST contain the FULL bullet points or paragraphs from the original CV, including line breaks and bullet symbols if possible. Do not truncate.
+- If the CV has multiple bullet points under a role, include all of them in the description field as a single string with newlines.
+- Do not invent any information. Only extract what is present.
+- If a field is missing, use empty strings or empty arrays.
 
 Return ONLY valid JSON. No extra text.
   `;
