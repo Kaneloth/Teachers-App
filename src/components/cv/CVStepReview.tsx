@@ -24,19 +24,34 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
   const [view, setView] = useState<'preview' | 'summary'>('preview');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
-  const [docxUrl, setDocxUrl] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   const { personal, education, experience, skills } = data;
-  const fileName = `CV_${(personal.full_name || 'Educator').replace(/\s+/g, '_')}.docx`;
+  const fileName = `CV_${(personal.full_name || 'Educator').replace(/\s+/g, '_')}.pdf`;
 
   const handleGenerate = async () => {
     setSending(true);
     try {
-      // 1. Generate DOCX blob
-      const blob = await generateDocxBlob(data, user);
+      // 1. Generate DOCX blob (includes footer & hidden metadata)
+      const docxBlob = await generateDocxBlob(data, user);
+      const formData = new FormData();
+      formData.append('file', docxBlob, 'cv.docx');
 
-      // 2. Download DOCX to user's device
-      const blobUrl = URL.createObjectURL(blob);
+      // 2. Call Netlify function to convert DOCX to PDF via ConvertAPI
+      const response = await fetch('/.netlify/functions/convert-to-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'PDF conversion failed');
+      }
+
+      const pdfBlob = await response.blob();
+
+      // 3. Download PDF to user's device
+      const blobUrl = URL.createObjectURL(pdfBlob);
       const anchor = document.createElement('a');
       anchor.href = blobUrl;
       anchor.download = fileName;
@@ -45,20 +60,20 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
       document.body.removeChild(anchor);
       URL.revokeObjectURL(blobUrl);
 
-      // 3. (Optional) Upload DOCX to Supabase for "last CV" banner
-      const path = `${user?.id ?? 'anon'}/cv-${Date.now()}.docx`;
+      // 4. (Optional) Upload PDF to Supabase for "last CV" banner
+      const path = `${user?.id ?? 'anon'}/cv-${Date.now()}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(path, blob, { contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', upsert: true });
+        .upload(path, pdfBlob, { contentType: 'application/pdf', upsert: true });
 
       if (!uploadError) {
         const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
         const uploadedUrl = urlData.publicUrl;
         if (uploadedUrl) {
-          setDocxUrl(uploadedUrl);
+          setPdfUrl(uploadedUrl);
           const newCount = ((user?.user_metadata?.cv_count as number) ?? 0) + 1;
           await updateUserMeta({
-            last_cv_pdf_url: uploadedUrl, // store as DOCX (field name remains but content is DOCX)
+            last_cv_pdf_url: uploadedUrl,
             last_cv_data: data,
             last_cv_generated_at: new Date().toISOString(),
             cv_count: newCount,
@@ -68,10 +83,10 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
       }
 
       setSent(true);
-      toast.success('CV downloaded as Word document!');
+      toast.success('PDF downloaded!');
     } catch (err: unknown) {
       console.error(err);
-      toast.error((err as Error).message || 'Failed to generate CV');
+      toast.error((err as Error).message || 'Failed to generate PDF');
     } finally {
       setSending(false);
     }
@@ -84,11 +99,11 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
           <CheckCircle2 className="w-8 h-8 text-primary" />
         </div>
         <h2 className="text-lg font-bold text-foreground mb-2">CV Downloaded!</h2>
-        <p className="text-sm text-muted-foreground">Your CV (Word document) has been saved to your device.</p>
-        {docxUrl && (
-          <a href={docxUrl} target="_blank" rel="noopener noreferrer">
+        <p className="text-sm text-muted-foreground">Your CV PDF has been saved to your device.</p>
+        {pdfUrl && (
+          <a href={pdfUrl} target="_blank" rel="noopener noreferrer">
             <Button variant="outline" className="mt-4 rounded-xl gap-2">
-              <FileText className="w-4 h-4" /> Open CV
+              <FileText className="w-4 h-4" /> Open PDF
             </Button>
           </a>
         )}
@@ -181,7 +196,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
         className="w-full h-12 rounded-xl text-base font-semibold gap-2"
       >
         <Download className="w-5 h-5" />
-        {sending ? 'Generating Word document...' : 'Download CV (Word)'}
+        {sending ? 'Generating PDF...' : 'Download PDF'}
       </Button>
     </div>
   );
