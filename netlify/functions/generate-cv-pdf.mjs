@@ -82,63 +82,49 @@ function fillTemplate(template, data) {
 }
 
 export const handler = async (event) => {
-  // Enable CORS for local testing (optional)
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers };
-  }
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers, body: 'Method Not Allowed' };
+    return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
   let cvData;
   try {
     cvData = JSON.parse(event.body);
   } catch (err) {
-    console.error('Invalid JSON:', err);
-    return { statusCode: 400, headers, body: 'Invalid JSON' };
+    return { statusCode: 400, body: 'Invalid JSON' };
   }
 
-  // Validate required fields
-  if (!cvData.template) {
-    console.error('Missing template field');
-    return { statusCode: 400, headers, body: 'Missing template field' };
-  }
-
-  const templateName = cvData.template;
+  const templateName = cvData.template || 'classic';
   const templatePath = join(process.cwd(), `netlify/functions/templates/${templateName}.html`);
   let template;
   try {
     template = readFileSync(templatePath, 'utf8');
   } catch (err) {
-    console.error(`Template not found at ${templatePath}:`, err);
-    return { statusCode: 500, headers, body: `Template ${templateName}.html not found` };
+    console.error('Template missing:', templatePath);
+    return { statusCode: 500, body: 'Template not found' };
   }
 
-  let filledHtml;
-  try {
-    filledHtml = fillTemplate(template, cvData);
-  } catch (err) {
-    console.error('fillTemplate error:', err);
-    return { statusCode: 500, headers, body: 'Template processing error: ' + err.message };
-  }
+  const filledHtml = fillTemplate(template, cvData);
 
   let browser = null;
   try {
-    // Get Chromium executable path
+    // ** CRITICAL FIX: set executable path correctly **
     const executablePath = await chromium.executablePath();
     if (!executablePath) {
       throw new Error('Chromium executable path not found');
     }
+
     browser = await puppeteer.launch({
-      args: chromium.args,
+      args: [
+        ...chromium.args,
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+      ],
       defaultViewport: chromium.defaultViewport,
       executablePath,
       headless: chromium.headless,
     });
+
     const page = await browser.newPage();
     await page.setContent(filledHtml, { waitUntil: 'networkidle0' });
 
@@ -162,10 +148,6 @@ export const handler = async (event) => {
   } catch (err) {
     console.error('PDF generation error:', err);
     if (browser) await browser.close();
-    return {
-      statusCode: 500,
-      headers,
-      body: `PDF generation failed: ${err.message}`,
-    };
+    return { statusCode: 500, body: `PDF generation failed: ${err.message}` };
   }
 };
