@@ -22,8 +22,8 @@
     "react-router-dom": "^7.16.0",
     "paystack-sdk-node": "^0.8.0",
 	"react-dom": "^18.2.0",
-	"puppeteer-core": "^21.0.0",
-	"@sparticuz/chromium": "^121.0.0"
+	"@sparticuz/chromium": "^122.0.0",
+	"puppeteer-core": "^22.0.0"
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -107,7 +107,7 @@ export const handler = async (event) => {
 
   let browser = null;
   try {
-    // ** CRITICAL FIX: set executable path correctly **
+    // Obtain the correct Chromium executable path
     const executablePath = await chromium.executablePath();
     if (!executablePath) {
       throw new Error('Chromium executable path not found');
@@ -122,7 +122,7 @@ export const handler = async (event) => {
       ],
       defaultViewport: chromium.defaultViewport,
       executablePath,
-      headless: chromium.headless,
+      headless: 'new', // Use the new headless mode for better compatibility
     });
 
     const page = await browser.newPage();

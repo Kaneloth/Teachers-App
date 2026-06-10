@@ -3,6 +3,13 @@
 
 [functions."fetch-vacancies"]
   timeout = 26
+  
+[functions]
+  node_bundler = "esbuild"
+
+[functions."generate-cv-pdf"]
+  timeout = 26
+  memory = 1024
 
 # Ensure the sitemap is served correctly (before the catch-all rule)
 [[redirects]]
@@ -17,3 +24,4 @@
   from   = "/*"
   to     = "/index.html"
   status = 200
+
