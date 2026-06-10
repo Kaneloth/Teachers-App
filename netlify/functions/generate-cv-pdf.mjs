@@ -30,12 +30,12 @@ function fillTemplate(template, data) {
   }
   replaceObject(data);
 
-  // Special: {{initials}}
+  // {{initials}}
   const fullName = data.personal?.full_name || '';
   const initials = fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   result = result.replace(/{{initials}}/g, initials);
 
-  // Process #each loops for experience, education, references
+  // {{#each ...}}
   const eachRegex = /{{#each (\w+)}}([\s\S]*?){{\/each}}/g;
   result = result.replace(eachRegex, (match, arrayName, inner) => {
     const array = data[arrayName] || [];
@@ -53,15 +53,14 @@ function fillTemplate(template, data) {
           `).join('');
           itemHtml = itemHtml.replace(/{{#each descriptionLines}}[\s\S]*?{{\/each}}/g, bulletsHtml);
         } else {
-          const keyRegex = new RegExp(`{{${key}}}`, 'g');
-          itemHtml = itemHtml.replace(keyRegex, escapeHtml(String(val ?? '')));
+          itemHtml = itemHtml.replace(new RegExp(`{{${key}}}`, 'g'), escapeHtml(String(val ?? '')));
         }
       }
       return itemHtml;
     }).join('');
   });
 
-  // Process subjects, soft_skills, languages
+  // Arrays in skills
   const skills = data.skills || {};
   const processArray = (arrName) => {
     const arr = skills[arrName] || [];
@@ -89,7 +88,7 @@ export const handler = async (event) => {
   let cvData;
   try {
     cvData = JSON.parse(event.body);
-  } catch (err) {
+  } catch {
     return { statusCode: 400, body: 'Invalid JSON' };
   }
 
@@ -100,29 +99,26 @@ export const handler = async (event) => {
     template = readFileSync(templatePath, 'utf8');
   } catch (err) {
     console.error('Template missing:', templatePath);
-    return { statusCode: 500, body: 'Template not found' };
+    return { statusCode: 500, body: `Template ${templateName}.html not found` };
   }
 
   const filledHtml = fillTemplate(template, cvData);
 
   let browser = null;
   try {
-    // Obtain the correct Chromium executable path
+    // █████████████████████████████████████████████████████████████
+    // THE CRITICAL FIX – ALWAYS use chromium.executablePath()
+    // █████████████████████████████████████████████████████████████
     const executablePath = await chromium.executablePath();
     if (!executablePath) {
-      throw new Error('Chromium executable path not found');
+      throw new Error('Chromium executable path not found – check @sparticuz/chromium installation');
     }
 
     browser = await puppeteer.launch({
-      args: [
-        ...chromium.args,
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-      ],
+      args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
       defaultViewport: chromium.defaultViewport,
       executablePath,
-      headless: 'new', // Use the new headless mode for better compatibility
+      headless: chromium.headless,
     });
 
     const page = await browser.newPage();
