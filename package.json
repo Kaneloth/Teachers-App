@@ -22,8 +22,9 @@
     "react-router-dom": "^7.16.0",
     "paystack-sdk-node": "^0.8.0",
 	"react-dom": "^18.2.0",
-	"docx": "^8.5.0",
-	"busboy": "^1.6.0"
+	"busboy": "^1.6.0",
+	"docx": "^9.5.0",
+
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",

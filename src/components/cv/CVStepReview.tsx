@@ -1,87 +1,231 @@
-// netlify/functions/convert-to-pdf.mjs
-import busboy from 'busboy';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
+import { Download, FileText, CheckCircle2, RefreshCw, Eye, List } from 'lucide-react';
+import CVTemplateRenderer from './CVTemplateRenderer';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/AuthContext';
+import { generateDocxBlob } from '@/lib/generateDocxBlob';
 
-export const handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  }
+interface CVData {
+  personal: { full_name?: string; email?: string; photo_url?: string; phone?: string; address?: string; bio?: string };
+  education: { institution: string; qualification: string; year: string }[];
+  experience: { school: string; role: string; from: string; to: string; description: string }[];
+  skills: { subjects?: string[]; soft_skills?: string[]; languages?: string[] };
+  references?: { name: string; title: string; organisation: string; phone: string; email: string; relationship: string }[];
+  template: string;
+}
 
-  const secret = process.env.CONVERTAPI_SECRET;
-  if (!secret) {
-    console.error('CONVERTAPI_SECRET missing');
-    return { statusCode: 500, body: 'ConvertAPI secret missing' };
-  }
+interface Props { data: CVData; onGenerated?: (url: string) => void; isFree?: boolean }
 
-  const contentType = event.headers['content-type'] || '';
-  if (!contentType.includes('multipart/form-data')) {
-    return { statusCode: 400, body: 'Expected multipart/form-data' };
-  }
+export default function CVStepReview({ data, onGenerated, isFree = false }: Props) {
+  const { user, updateUserMeta } = useAuth();
+  const [view, setView] = useState<'preview' | 'summary'>('preview');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
-  let fileBuffer = null;
-  await new Promise((resolve, reject) => {
-    const bb = busboy({ headers: { 'content-type': contentType } });
-    bb.on('file', (name, file, info) => {
-      const chunks = [];
-      file.on('data', (chunk) => chunks.push(chunk));
-      file.on('end', () => {
-        fileBuffer = Buffer.concat(chunks);
-      });
-    });
-    bb.on('finish', resolve);
-    bb.on('error', reject);
-    bb.end(Buffer.from(event.body, 'base64'));
-  });
+  const { personal, education, experience, skills } = data;
+  const fileName = `CV_${(personal.full_name || 'Educator').replace(/\s+/g, '_')}.pdf`;
 
-  if (!fileBuffer) {
-    return { statusCode: 400, body: 'No file uploaded' };
-  }
-
-  // Prepare request to ConvertAPI
-  const formData = new FormData();
-  formData.append('file', new Blob([fileBuffer]), 'cv.docx');
-  formData.append('converter', 'pdf');
-
-  let response;
-  try {
-    response = await fetch('https://v2.convertapi.com/convert/docx/to/pdf', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${secret}` },
-      body: formData,
-    });
-  } catch (err) {
-    console.error('Network error calling ConvertAPI:', err);
-    return { statusCode: 500, body: 'Network error calling conversion service' };
-  }
-
-  // If ConvertAPI returns an error, read and return it
-  if (!response.ok) {
-    let errorText;
+  const handleGenerate = async () => {
+    setSending(true);
     try {
-      errorText = await response.text();
-    } catch {
-      errorText = 'Unknown error';
+      // 1. Generate DOCX blob (includes footer & hidden metadata)
+      const docxBlob = await generateDocxBlob(data, user);
+      const formData = new FormData();
+      formData.append('file', docxBlob, 'cv.docx');
+
+      // 2. Call Netlify function to convert DOCX to PDF via ConvertAPI
+      const response = await fetch('/.netlify/functions/convert-to-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'PDF conversion failed');
+      }
+
+      // Verify content type
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/pdf')) {
+        throw new Error('Server did not return a valid PDF');
+      }
+
+      const pdfBlob = await response.blob();
+      if (pdfBlob.size === 0) {
+        throw new Error('Received empty PDF file');
+      }
+
+      // 3. Download PDF to user's device
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const anchor = document.createElement('a');
+      anchor.href = blobUrl;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(blobUrl);
+
+      // 4. Upload PDF to Supabase for "last CV" banner
+      const path = `${user?.id ?? 'anon'}/cv-${Date.now()}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, pdfBlob, { contentType: 'application/pdf', upsert: true });
+
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+        const uploadedUrl = urlData.publicUrl;
+        if (uploadedUrl) {
+          setPdfUrl(uploadedUrl);
+          const newCount = ((user?.user_metadata?.cv_count as number) ?? 0) + 1;
+          await updateUserMeta({
+            last_cv_pdf_url: uploadedUrl,
+            last_cv_data: data,
+            last_cv_generated_at: new Date().toISOString(),
+            cv_count: newCount,
+          });
+          if (onGenerated) onGenerated(uploadedUrl);
+        }
+      }
+
+      setSent(true);
+      toast.success('PDF downloaded!');
+    } catch (err: unknown) {
+      console.error(err);
+      toast.error((err as Error).message || 'Failed to generate PDF');
+    } finally {
+      setSending(false);
     }
-    console.error('ConvertAPI error response:', errorText);
-    return { statusCode: 500, body: `ConvertAPI error: ${errorText}` };
-  }
-
-  const pdfBuffer = await response.arrayBuffer();
-  const buffer = Buffer.from(pdfBuffer);
-
-  // Validate PDF header
-  const header = buffer.slice(0, 4).toString();
-  if (header !== '%PDF') {
-    console.error('Invalid PDF header. First 100 bytes:', buffer.slice(0, 100).toString());
-    return { statusCode: 500, body: 'ConvertAPI did not return a valid PDF' };
-  }
-
-  return {
-    statusCode: 200,
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': 'attachment; filename="cv.pdf"',
-    },
-    body: buffer.toString('base64'),
-    isBase64Encoded: true,
   };
-};
+
+  if (sent) {
+    return (
+      <div className="text-center py-10">
+        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+          <CheckCircle2 className="w-8 h-8 text-primary" />
+        </div>
+        <h2 className="text-lg font-bold text-foreground mb-2">CV Downloaded!</h2>
+        <p className="text-sm text-muted-foreground">Your CV PDF has been saved to your device.</p>
+        {pdfUrl && (
+          <a href={pdfUrl} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" className="mt-4 rounded-xl gap-2">
+              <FileText className="w-4 h-4" /> Open PDF
+            </Button>
+          </a>
+        )}
+        <div className="flex gap-2 justify-center mt-4">
+          <Button variant="outline" className="rounded-xl" onClick={() => setSent(false)}>
+            Make Changes
+          </Button>
+          <Button className="rounded-xl gap-2" disabled={sending} onClick={handleGenerate}>
+            <RefreshCw className="w-4 h-4" />
+            {sending ? 'Generating...' : 'Download Again'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 bg-muted p-1 rounded-xl">
+        {(['preview', 'summary'] as const).map(v => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={`flex-1 flex items-center justify-center gap-1.5 text-sm font-medium py-1.5 rounded-lg transition-all ${view === v ? 'bg-card shadow text-foreground' : 'text-muted-foreground'}`}
+          >
+            {v === 'preview' ? <><Eye className="w-4 h-4" /> Preview</> : <><List className="w-4 h-4" /> Summary</>}
+          </button>
+        ))}
+      </div>
+
+      {view === 'preview' ? (
+        <div className="rounded-xl overflow-hidden border border-border bg-white shadow-sm">
+          <div style={{ zoom: 0.45 }}>
+            <CVTemplateRenderer data={data} forExport watermark={isFree} />
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <SummaryCard title="Personal Details">
+            <ReviewRow label="Name"    value={personal.full_name} />
+            <ReviewRow label="Email"   value={personal.email} />
+            <ReviewRow label="Phone"   value={personal.phone} />
+            <ReviewRow label="Address" value={personal.address} />
+            {personal.bio && <ReviewRow label="Summary" value={personal.bio} />}
+          </SummaryCard>
+          <SummaryCard title="Education">
+            {education.filter(e => e.institution).map((e, i) => (
+              <div key={i} className="text-sm">
+                <p className="font-medium text-foreground">{e.qualification}</p>
+                <p className="text-muted-foreground text-xs">{e.institution} · {e.year}</p>
+              </div>
+            ))}
+          </SummaryCard>
+          <SummaryCard title="Experience">
+            {experience.filter(e => e.school).map((e, i) => (
+              <div key={i} className="text-sm">
+                <p className="font-medium text-foreground">{e.role}</p>
+                <p className="text-muted-foreground text-xs">{e.school} · {e.from} – {e.to}</p>
+              </div>
+            ))}
+          </SummaryCard>
+          <SummaryCard title="Skills & Languages">
+            <div className="flex flex-wrap gap-1">
+              {[...(skills.subjects || []), ...(skills.soft_skills || [])].map(s => (
+                <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+              ))}
+            </div>
+            {skills.languages?.length ? (
+              <p className="text-sm text-muted-foreground mt-1">Languages: {skills.languages.join(', ')}</p>
+            ) : null}
+          </SummaryCard>
+          {data.references?.filter(r => r.name).length ? (
+            <SummaryCard title="References">
+              {data.references.filter(r => r.name).map((r, i) => (
+                <div key={i} className="text-sm">
+                  <p className="font-medium text-foreground">{r.name}</p>
+                  <p className="text-muted-foreground text-xs">{[r.title, r.organisation].filter(Boolean).join(' · ')}</p>
+                  {r.relationship && <p className="text-muted-foreground text-xs">{r.relationship}</p>}
+                  <p className="text-muted-foreground text-xs">{[r.phone, r.email].filter(Boolean).join(' · ')}</p>
+                </div>
+              ))}
+            </SummaryCard>
+          ) : null}
+        </div>
+      )}
+
+      <Button
+        onClick={handleGenerate}
+        disabled={sending}
+        className="w-full h-12 rounded-xl text-base font-semibold gap-2"
+      >
+        <Download className="w-5 h-5" />
+        {sending ? 'Generating PDF...' : 'Download PDF'}
+      </Button>
+    </div>
+  );
+}
+
+function SummaryCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-card rounded-2xl border border-border p-4 space-y-2">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function ReviewRow({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <div className="flex gap-2 text-sm">
+      <span className="text-muted-foreground w-20 shrink-0">{label}</span>
+      <span className="text-foreground">{value}</span>
+    </div>
+  );
+}
