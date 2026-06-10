@@ -22,8 +22,8 @@ export type CVType = 'educator' | 'general';
 
 const STEPS = ['Personal', 'Education', 'Experience', 'Skills', 'References', 'Extras', 'Template', 'Review'];
 
-const DRAFT_KEY   = 'crosssa_cv_draft';   // in-progress build
-const LAST_CV_KEY = 'crosssa_last_cv';    // most recently generated CV (for banner)
+const DRAFT_KEY   = 'crosssa_cv_draft';
+const LAST_CV_KEY = 'crosssa_last_cv';
 
 interface CVData {
   cvType: CVType;
@@ -131,7 +131,7 @@ function StepStepper({ steps, current, onSelect }: { steps: string[]; current: n
   );
 }
 
-/* ── Upload CV Component (inline, before builder starts) ────── */
+/* ── Upload CV Component (AI never touches personal info) ── */
 function CVUploadZone({ onDataExtracted, cvType }: { onDataExtracted: (data: CVData) => void; cvType: CVType }) {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -161,19 +161,21 @@ function CVUploadZone({ onDataExtracted, cvType }: { onDataExtracted: (data: CVD
       if (!res.ok || !result.success) {
         throw new Error(result.error || 'Failed to process CV');
       }
-      // Merge the parsed data with default structure to ensure all fields exist
+
       const parsed = result.data;
       const newData = defaultData(cvType);
-      // Overwrite with parsed values if present
-      if (parsed.personal) newData.personal = { ...newData.personal, ...parsed.personal };
+
+      // ✅ IMPORTANT: Personal info is NOT overwritten – we skip it entirely.
+      // Only copy education, experience, skills, references, custom_sections.
       if (parsed.education) newData.education = parsed.education;
       if (parsed.experience) newData.experience = parsed.experience;
       if (parsed.skills) newData.skills = { ...newData.skills, ...parsed.skills };
       if (parsed.references) newData.references = parsed.references;
       if (parsed.custom_sections) newData.custom_sections = parsed.custom_sections;
-      // Keep template default, user can change later
+      // Template remains default
+
       onDataExtracted(newData);
-      toast.success('CV imported! You can now review and edit.');
+      toast.success('CV imported! Education, experience, skills & references added.');
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || 'AI processing failed. Please try again.');
@@ -192,7 +194,7 @@ function CVUploadZone({ onDataExtracted, cvType }: { onDataExtracted: (data: CVD
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) processFile(file);
-    e.target.value = ''; // allow re-upload of same file
+    e.target.value = '';
   };
 
   return (
@@ -223,7 +225,7 @@ function CVUploadZone({ onDataExtracted, cvType }: { onDataExtracted: (data: CVD
           <>
             <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
             <p className="text-sm font-medium text-foreground">Upload an existing CV</p>
-            <p className="text-xs text-muted-foreground mt-1">PDF or DOCX — our AI will extract and auto‑fill the form</p>
+            <p className="text-xs text-muted-foreground mt-1">PDF or DOCX — our AI will extract and auto‑fill the form (personal info stays as is)</p>
           </>
         )}
       </div>
@@ -236,7 +238,6 @@ export default function CVBuilderPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Read localStorage synchronously
   const [initialState] = useState(() => {
     const lastMeta: Record<string, unknown> = (() => {
       try { return JSON.parse(localStorage.getItem(LAST_CV_KEY) ?? '{}'); } catch { return {}; }
@@ -379,16 +380,26 @@ export default function CVBuilderPage() {
     setShowBuilder(false);
   };
 
-  // Handle AI‑populated data (from upload zone)
+  // ✅ AI data handler: preserve personal info
   const handleAIDataExtracted = (newData: CVData) => {
-    setData(newData);
+    setData(prev => ({
+      ...newData,
+      personal: prev.personal, // NEVER overwrite personal details
+    }));
     setStep(0);
     setShowBuilder(true);
-    // Auto‑save as draft
     const savedAt = new Date().toISOString();
     setDraftSavedAt(savedAt);
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: newData.cvType, data: newData, step: 0, savedAt }));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        cvType: newData.cvType,
+        data: {
+          ...newData,
+          personal: data.personal, // ensure saved draft keeps original personal
+        },
+        step: 0,
+        savedAt,
+      }));
     } catch {}
   };
 
@@ -453,8 +464,8 @@ export default function CVBuilderPage() {
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
-      {/* AI Upload Zone – only at the top when builder is fresh (step 0 and no draft data) */}
-      {step === 0 && !draftSavedAt && (
+      {/* ✅ AI Upload Zone – always visible on Step 0 (Personal) */}
+      {step === 0 && (
         <CVUploadZone onDataExtracted={handleAIDataExtracted} cvType={cvType} />
       )}
 
