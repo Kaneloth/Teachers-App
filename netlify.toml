@@ -1,11 +1,9 @@
 [functions]
   included_files = ["netlify/functions/**"]
+  node_bundler = "esbuild"
 
 [functions."fetch-vacancies"]
   timeout = 26
-  
-[functions]
-  node_bundler = "esbuild"
 
 [functions."generate-cv-pdf"]
   timeout = 26
@@ -24,4 +22,3 @@
   from   = "/*"
   to     = "/index.html"
   status = 200
-
