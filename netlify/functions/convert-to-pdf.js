@@ -7,7 +7,10 @@ export const handler = async (event) => {
   }
 
   const secret = process.env.CONVERTAPI_SECRET;
+  console.log('CONVERTAPI_SECRET exists?', !!secret); // log for debugging
+
   if (!secret) {
+    console.error('CONVERTAPI_SECRET environment variable is missing');
     return { statusCode: 500, body: 'ConvertAPI secret missing' };
   }
 
@@ -36,7 +39,6 @@ export const handler = async (event) => {
     return { statusCode: 400, body: 'No file uploaded' };
   }
 
-  // Prepare FormData for ConvertAPI
   const formData = new FormData();
   formData.append('file', new Blob([fileBuffer]), 'cv.docx');
   formData.append('converter', 'pdf');
@@ -50,7 +52,7 @@ export const handler = async (event) => {
   if (!response.ok) {
     const errorText = await response.text();
     console.error('ConvertAPI error:', errorText);
-    return { statusCode: 500, body: 'PDF conversion failed' };
+    return { statusCode: 500, body: `PDF conversion failed: ${errorText}` };
   }
 
   const pdfBuffer = await response.arrayBuffer();
