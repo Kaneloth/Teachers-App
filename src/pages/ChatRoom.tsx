@@ -29,7 +29,6 @@ function formatDateSeparator(date: Date) {
   return format(date, 'd MMM yyyy');
 }
 
-/* ── localStorage helpers for "Delete for me" ────────────────── */
 const hiddenKey = (userId: string) => `educross_hidden_msgs_${userId}`;
 
 function getHidden(userId: string): Set<string> {
@@ -70,7 +69,6 @@ export default function ChatRoom() {
   const menuRef = useRef<HTMLDivElement>(null);
   const broadcastChannelRef = useRef<any>(null);
 
-  /* ── Check block status (both directions) ──────────────────── */
   const checkBlockStatus = async () => {
     if (!user || !partnerId) {
       setCheckingBlock(false);
@@ -115,12 +113,9 @@ export default function ChatRoom() {
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => supabase.removeChannel(channel);
   }, [user, partnerId]);
 
-  /* ── Close menu on outside click/touch ─────────────────────── */
   useEffect(() => {
     const handle = (e: MouseEvent | TouchEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -135,7 +130,6 @@ export default function ChatRoom() {
     };
   }, []);
 
-  /* ── Long-press helpers ─────────────────────────────────────── */
   const startLongPress = (msg: Message) => {
     longPressTriggered.current = false;
     longPressRef.current = setTimeout(() => {
@@ -156,7 +150,6 @@ export default function ChatRoom() {
     setSelectedMsg(prev => (prev?.id === msg.id ? null : msg));
   };
 
-  /* ── Message actions ────────────────────────────────────────── */
   const handleCopy = (msg: Message) => {
     navigator.clipboard.writeText(msg.content);
     toast.success('Copied to clipboard');
@@ -186,7 +179,6 @@ export default function ChatRoom() {
     setSelectedMsg(null);
   };
 
-  /* ── Broadcast channel for "Delete for everyone" ───────────── */
   useEffect(() => {
     if (!user || !partnerId) return;
     const channelName = `chat-broadcast-${[user.id, partnerId].sort().join('_')}`;
@@ -199,10 +191,9 @@ export default function ChatRoom() {
       })
       .subscribe();
     broadcastChannelRef.current = channel;
-    return () => { supabase.removeChannel(channel); };
+    return () => supabase.removeChannel(channel);
   }, [user, partnerId]);
 
-  /* ── Load partner info ──────────────────────────────────────── */
   useEffect(() => {
     if (!partnerId) return;
     supabase
@@ -213,7 +204,6 @@ export default function ChatRoom() {
       .then(({ data }) => { if (data) setPartner(data); });
   }, [partnerId]);
 
-  /* ── Load messages + realtime (only if not blocked) ──────────── */
   useEffect(() => {
     if (!user || !partnerId) return;
     if (chatBlocked) return;
@@ -269,20 +259,19 @@ export default function ChatRoom() {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => supabase.removeChannel(channel);
   }, [user, partnerId, chatBlocked]);
 
-  /* ── Auto-scroll ────────────────────────────────────────────── */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  /* ── Send (with proper error handling and optimistic removal) ─ */
+  // ✅ IMPROVED handleSend – check block first, never add optimistic if blocked
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim() || !user || !partnerId || sending) return;
 
-    // Extra real‑time block check – even if chatBlocked is false, this catches any race condition
+    // Check block status BEFORE adding any message
     const blockedByMe = await isBlocked(user.id, partnerId);
     const blockedByThem = await isBlocked(partnerId, user.id);
     if (blockedByMe || blockedByThem) {
@@ -301,7 +290,6 @@ export default function ChatRoom() {
       read: false,
     };
 
-    // Add optimistic message
     setMessages(prev => [...prev, optimisticMessage]);
     setText('');
 
@@ -313,16 +301,11 @@ export default function ChatRoom() {
         .single();
 
       if (error) {
-        // Insert failed – probably due to RLS block policy or other constraint
         console.error('Send failed:', error);
-        // Remove the optimistic message
         setMessages(prev => prev.filter(m => m.id !== tempId));
         toast.error("Message not sent – you may have blocked this user or been blocked.");
       } else if (data) {
-        // Replace the temporary message with the real one from the database
-        setMessages(prev =>
-          prev.map(m => (m.id === tempId ? (data as Message) : m))
-        );
+        setMessages(prev => prev.map(m => (m.id === tempId ? (data as Message) : m)));
       }
     } catch (err) {
       console.error('Unexpected send error:', err);
