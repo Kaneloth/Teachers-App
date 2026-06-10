@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ArrowLeft, FileText, GraduationCap, Briefcase, Save, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, FileText, GraduationCap, Briefcase, Save, Clock, Upload, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -72,7 +72,7 @@ function CVTypeSelector({ onSelect }: { onSelect: (t: CVType) => void }) {
           <div>
             <p className="font-semibold text-foreground text-sm">Educator CV</p>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              Tailored for teachers — includes subjects taught, school history, SACE details, and education-specific templates.
+              Tailored for teachers — includes subjects taught, school history, SACE details, and education‑specific templates.
             </p>
           </div>
         </button>
@@ -87,7 +87,7 @@ function CVTypeSelector({ onSelect }: { onSelect: (t: CVType) => void }) {
           <div>
             <p className="font-semibold text-foreground text-sm">General CV</p>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              For any industry or role — fully editable personal details, generic work experience, and free-form skills.
+              For any industry or role — fully editable personal details, generic work experience, and free‑form skills.
             </p>
           </div>
         </button>
@@ -131,11 +131,112 @@ function StepStepper({ steps, current, onSelect }: { steps: string[]; current: n
   );
 }
 
+/* ── Upload CV Component (inline, before builder starts) ────── */
+function CVUploadZone({ onDataExtracted, cvType }: { onDataExtracted: (data: CVData) => void; cvType: CVType }) {
+  const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+
+  const processFile = async (file: File) => {
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please upload a PDF or DOCX file');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File too large (max 10MB)');
+      return;
+    }
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('cvFile', file);
+    formData.append('cvType', cvType);
+
+    try {
+      const res = await fetch('/.netlify/functions/enhance-cv', {
+        method: 'POST',
+        body: formData,
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'Failed to process CV');
+      }
+      // Merge the parsed data with default structure to ensure all fields exist
+      const parsed = result.data;
+      const newData = defaultData(cvType);
+      // Overwrite with parsed values if present
+      if (parsed.personal) newData.personal = { ...newData.personal, ...parsed.personal };
+      if (parsed.education) newData.education = parsed.education;
+      if (parsed.experience) newData.experience = parsed.experience;
+      if (parsed.skills) newData.skills = { ...newData.skills, ...parsed.skills };
+      if (parsed.references) newData.references = parsed.references;
+      if (parsed.custom_sections) newData.custom_sections = parsed.custom_sections;
+      // Keep template default, user can change later
+      onDataExtracted(newData);
+      toast.success('CV imported! You can now review and edit.');
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'AI processing failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+    e.target.value = ''; // allow re-upload of same file
+  };
+
+  return (
+    <div className="px-4 pb-6">
+      <div
+        className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${
+          dragActive ? 'border-primary bg-primary/5' : 'border-border bg-card'
+        }`}
+        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+        onDragLeave={() => setDragActive(false)}
+        onDrop={handleDrop}
+        onClick={() => document.getElementById('cv-upload-input')?.click()}
+      >
+        <input
+          id="cv-upload-input"
+          type="file"
+          accept=".pdf,.doc,.docx"
+          className="hidden"
+          onChange={handleFileInput}
+          disabled={uploading}
+        />
+        {uploading ? (
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">AI is reading your CV…</p>
+          </div>
+        ) : (
+          <>
+            <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+            <p className="text-sm font-medium text-foreground">Upload an existing CV</p>
+            <p className="text-xs text-muted-foreground mt-1">PDF or DOCX — our AI will extract and auto‑fill the form</p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Main Component ─────────────────────────────────────────── */
 export default function CVBuilderPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // ── Read localStorage synchronously so state is correct on first render ──
+  // Read localStorage synchronously
   const [initialState] = useState(() => {
     const lastMeta: Record<string, unknown> = (() => {
       try { return JSON.parse(localStorage.getItem(LAST_CV_KEY) ?? '{}'); } catch { return {}; }
@@ -160,7 +261,7 @@ export default function CVBuilderPage() {
   const lastCVPdfUrl                = freshMeta.last_cv_pdf_url as string | undefined;
   const lastCVGeneratedAt           = freshMeta.last_cv_generated_at as string | undefined;
 
-  // ── Live subscription check from DB (overrides stale localStorage) ────────
+  // Live subscription check
   const [dbPlan, setDbPlan] = useState<string | null>(null);
   const [dbEnd,  setDbEnd]  = useState<string | null>(null);
   useEffect(() => {
@@ -176,7 +277,6 @@ export default function CVBuilderPage() {
       });
   }, [user]);
 
-  // isFree = no active paid plan (free, addon, monthly, semi, annual all handled)
   const isFree = (() => {
     const plan = dbPlan ?? (freshMeta.subscription_plan as string | undefined) ?? 'free';
     const end  = dbEnd  ?? (freshMeta.subscription_end  as string | undefined) ?? null;
@@ -190,9 +290,9 @@ export default function CVBuilderPage() {
   const [step, setStep]               = useState(initialState.draft?.step ?? 0);
   const [data, setData]               = useState<CVData>(initialState.draft?.data ?? defaultData('educator'));
 
-  // ── Auto-select CV type from user profile (skips the type-selector screen) ─
+  // Auto‑select CV type from user profile (skip type selector)
   useEffect(() => {
-    if (cvType !== null) return; // draft already has a type
+    if (cvType !== null) return;
     if (!user) { setCvType('general'); return; }
     supabase
       .from('educators')
@@ -205,9 +305,10 @@ export default function CVBuilderPage() {
         setData(defaultData(t));
       });
   }, [user]);
+
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(initialState.draft?.savedAt ?? null);
 
-  // ── Auto-save draft to localStorage whenever builder data changes ─────────
+  // Auto‑save draft to localStorage
   useEffect(() => {
     if (!cvType) return;
     const savedAt = new Date().toISOString();
@@ -217,7 +318,7 @@ export default function CVBuilderPage() {
     } catch {}
   }, [data, step, cvType]);
 
-  // ── Background Supabase sync (handles cross-device / fresh installs) ──────
+  // Background sync from user metadata
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user: u } }) => {
       const m = (u?.user_metadata ?? {}) as Record<string, unknown>;
@@ -248,20 +349,18 @@ export default function CVBuilderPage() {
     }
   };
 
-  /* ── Edit last CV — loads lastCV as new draft ───────────── */
   const handleEdit = () => {
     if (!lastCVData) return;
     const saved = lastCVData as CVData;
-    const savedAt = new Date().toISOString();
     setData(saved);
     setCvType(saved.cvType ?? 'educator');
     setStep(0);
     setShowBuilder(true);
+    const savedAt = new Date().toISOString();
     setDraftSavedAt(savedAt);
     try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: saved.cvType ?? 'educator', data: saved, step: 0, savedAt })); } catch {}
   };
 
-  /* ── After CV generated — persist to localStorage, clear draft ── */
   const handleCVGenerated = (pdfUrl: string) => {
     const now = new Date().toISOString();
     const newMeta = {
@@ -280,7 +379,20 @@ export default function CVBuilderPage() {
     setShowBuilder(false);
   };
 
-  /* ── Last CV state ────────────────────────────────────────── */
+  // Handle AI‑populated data (from upload zone)
+  const handleAIDataExtracted = (newData: CVData) => {
+    setData(newData);
+    setStep(0);
+    setShowBuilder(true);
+    // Auto‑save as draft
+    const savedAt = new Date().toISOString();
+    setDraftSavedAt(savedAt);
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: newData.cvType, data: newData, step: 0, savedAt }));
+    } catch {}
+  };
+
+  // Last CV banner view
   if (!showBuilder && lastCVData) {
     return (
       <div className="max-w-2xl mx-auto">
@@ -302,16 +414,33 @@ export default function CVBuilderPage() {
     );
   }
 
-  /* ── Header (shared between type-select and builder) ─────── */
   const subtitle = cvType === 'educator'
     ? 'Building an Educator CV'
     : cvType === 'general'
     ? 'Building a General CV'
     : 'Build a professional CV in minutes';
 
+  // Builder mode – if cvType is selected, render upload zone + stepper
+  if (cvType === null) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center gap-2 px-4 pt-4 pb-1">
+          <button onClick={handleBack} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
+            <ArrowLeft className="w-5 h-5 text-foreground" />
+          </button>
+          <FileText className="w-5 h-5 text-primary" />
+          <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
+        </div>
+        <div className="px-4 pb-4 pt-1">
+          <p className="text-sm text-muted-foreground">Choose a CV type to start</p>
+        </div>
+        <CVTypeSelector onSelect={handleSelectType} />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Header row */}
       <div className="flex items-center gap-2 px-4 pt-4 pb-1">
         <button onClick={handleBack} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
           <ArrowLeft className="w-5 h-5 text-foreground" />
@@ -320,85 +449,78 @@ export default function CVBuilderPage() {
         <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
       </div>
 
-      {/* Subtitle */}
       <div className="px-4 pb-4 pt-1">
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
-      {/* Builder (cvType null = auto-resolving from profile, show spinner) */}
-      <AnimatePresence mode="wait">
-        {cvType === null ? (
-          <div className="flex justify-center py-20">
-            <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-          </div>
-        ) : (
-          <motion.div
-            key="builder"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            {/* Numbered stepper */}
-            <div className="px-4 pb-2">
-              <StepStepper steps={STEPS} current={step} onSelect={setStep} />
-            </div>
-            {/* Draft auto-save indicator */}
-            {draftSavedAt && (
-              <p className="flex items-center gap-1 px-4 pb-3 text-xs text-muted-foreground">
-                <Clock className="w-3 h-3 shrink-0" />
-                Draft saved at {new Date(draftSavedAt).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}
-              </p>
-            )}
+      {/* AI Upload Zone – only at the top when builder is fresh (step 0 and no draft data) */}
+      {step === 0 && !draftSavedAt && (
+        <CVUploadZone onDataExtracted={handleAIDataExtracted} cvType={cvType} />
+      )}
 
-            {/* Step content */}
-            <div className="px-4">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={step}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {step === 0 && <CVStepPersonal cvType={cvType} data={data.personal} onChange={personal => setData(d => ({ ...d, personal }))} />}
-                  {step === 1 && <CVStepEducation data={data.education} onChange={education => setData(d => ({ ...d, education }))} />}
-                  {step === 2 && <CVStepExperience cvType={cvType} data={data.experience} onChange={experience => setData(d => ({ ...d, experience }))} />}
-                  {step === 3 && <CVStepSkills cvType={cvType} data={data.skills} onChange={skills => setData(d => ({ ...d, skills }))} />}
-                  {step === 4 && <CVStepReferences cvType={cvType} data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
-                  {step === 5 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} />}
-                  {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} isFree={isFree} />}
-                  {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} isFree={isFree} />}
-                </motion.div>
-              </AnimatePresence>
-            </div>
+      {/* Stepper + Builder UI */}
+      <motion.div
+        key="builder"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="px-4 pb-2">
+          <StepStepper steps={STEPS} current={step} onSelect={setStep} />
+        </div>
 
-            {/* Nav buttons */}
-            <div className="flex gap-3 px-4 pt-4 pb-2">
-              {step > 0 && (
-                <Button variant="outline" onClick={prev} className="flex-1 rounded-xl gap-2">
-                  <ChevronLeft className="w-4 h-4" /> Back
-                </Button>
-              )}
-              {step < STEPS.length - 1 && (
-                <Button onClick={next} className="flex-1 rounded-xl gap-2">
-                  Next <ChevronRight className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
-            {/* Save & Exit — draft is already auto-saved, just navigate away */}
-            <div className="px-4 pb-6 pt-1">
-              <Button
-                variant="ghost"
-                onClick={() => navigate(-1)}
-                className="w-full rounded-xl gap-2 text-muted-foreground text-sm"
-              >
-                <Save className="w-4 h-4" /> Save &amp; Exit — continue later
-              </Button>
-            </div>
-          </motion.div>
+        {draftSavedAt && (
+          <p className="flex items-center gap-1 px-4 pb-3 text-xs text-muted-foreground">
+            <Clock className="w-3 h-3 shrink-0" />
+            Draft saved at {new Date(draftSavedAt).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}
+          </p>
         )}
-      </AnimatePresence>
+
+        <div className="px-4">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              {step === 0 && <CVStepPersonal cvType={cvType} data={data.personal} onChange={personal => setData(d => ({ ...d, personal }))} />}
+              {step === 1 && <CVStepEducation data={data.education} onChange={education => setData(d => ({ ...d, education }))} />}
+              {step === 2 && <CVStepExperience cvType={cvType} data={data.experience} onChange={experience => setData(d => ({ ...d, experience }))} />}
+              {step === 3 && <CVStepSkills cvType={cvType} data={data.skills} onChange={skills => setData(d => ({ ...d, skills }))} />}
+              {step === 4 && <CVStepReferences cvType={cvType} data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
+              {step === 5 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} />}
+              {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} isFree={isFree} />}
+              {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} isFree={isFree} />}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        <div className="flex gap-3 px-4 pt-4 pb-2">
+          {step > 0 && (
+            <Button variant="outline" onClick={prev} className="flex-1 rounded-xl gap-2">
+              <ChevronLeft className="w-4 h-4" /> Back
+            </Button>
+          )}
+          {step < STEPS.length - 1 && (
+            <Button onClick={next} className="flex-1 rounded-xl gap-2">
+              Next <ChevronRight className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+
+        <div className="px-4 pb-6 pt-1">
+          <Button
+            variant="ghost"
+            onClick={() => navigate(-1)}
+            className="w-full rounded-xl gap-2 text-muted-foreground text-sm"
+          >
+            <Save className="w-4 h-4" /> Save &amp; Exit — continue later
+          </Button>
+        </div>
+      </motion.div>
     </div>
   );
 }
