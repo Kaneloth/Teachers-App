@@ -7,10 +7,7 @@ export const handler = async (event) => {
   }
 
   const secret = process.env.CONVERTAPI_SECRET;
-  console.log('CONVERTAPI_SECRET exists?', !!secret); // log for debugging
-
   if (!secret) {
-    console.error('CONVERTAPI_SECRET environment variable is missing');
     return { statusCode: 500, body: 'ConvertAPI secret missing' };
   }
 
@@ -20,7 +17,6 @@ export const handler = async (event) => {
   }
 
   let fileBuffer = null;
-
   await new Promise((resolve, reject) => {
     const bb = busboy({ headers: { 'content-type': contentType } });
     bb.on('file', (name, file, info) => {
@@ -49,13 +45,22 @@ export const handler = async (event) => {
     body: formData,
   });
 
+  // Check if the response is successful
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('ConvertAPI error:', errorText);
-    return { statusCode: 500, body: `PDF conversion failed: ${errorText}` };
+    console.error('ConvertAPI error response:', errorText);
+    return { statusCode: 500, body: `ConvertAPI error: ${errorText}` };
   }
 
   const pdfBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(pdfBuffer);
+
+  // Verify it's a valid PDF (should start with '%PDF')
+  const isPDF = buffer.slice(0, 4).toString() === '%PDF';
+  if (!isPDF) {
+    console.error('ConvertAPI did not return a PDF. First bytes:', buffer.slice(0, 100).toString());
+    return { statusCode: 500, body: 'ConvertAPI returned invalid data (not a PDF)' };
+  }
 
   return {
     statusCode: 200,
@@ -63,7 +68,7 @@ export const handler = async (event) => {
       'Content-Type': 'application/pdf',
       'Content-Disposition': 'attachment; filename="cv.pdf"',
     },
-    body: Buffer.from(pdfBuffer).toString('base64'),
+    body: buffer.toString('base64'),
     isBase64Encoded: true,
   };
 };
