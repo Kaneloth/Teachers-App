@@ -1,4 +1,4 @@
-import { ReactNode, useState, useLayoutEffect, useRef } from 'react';
+import { useState, useLayoutEffect, useRef } from 'react';
 
 interface CustomSection {
   title: string;
@@ -379,9 +379,19 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp, forExport = fa
     </div>
   );
 
+  /*
+   * SIDEBAR FIX: In export mode the sidebar is capped to exactly 1123 px
+   * (one A4 page) with overflow:hidden. The flex parent has align-items:flex-start
+   * so the sidebar does NOT stretch to match the (potentially taller) content
+   * column. This means the coloured sidebar appears only on page 1 of the PDF.
+   */
+  const sidebarStyle: React.CSSProperties = forExport
+    ? { background: accent, color: '#fff', width: '200px', minWidth: '200px', height: '1123px', overflow: 'hidden', flexShrink: 0, padding: '36px 24px', boxSizing: 'border-box' }
+    : { background: accent, color: '#fff', width: '200px', minWidth: '200px', padding: '36px 24px', boxSizing: 'border-box' };
+
   const firstPage = (
-    <div style={{ display: 'flex', minHeight: '1123px' }}>
-      <div style={{ background: accent, color: '#fff', width: '200px', minWidth: '200px', padding: '36px 24px', boxSizing: 'border-box' }}>
+    <div style={{ display: 'flex', minHeight: '1123px', alignItems: 'flex-start' }}>
+      <div style={sidebarStyle}>
         {personal.photo_url ? <img src={personal.photo_url} alt="Profile" style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', margin: '0 auto 14px', display: 'block' }} /> : <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: '28px', fontWeight: '700', color: '#fff' }}>{(personal.full_name || 'U')[0].toUpperCase()}</div>}
         <div style={{ textAlign: 'center', fontSize: '15px', fontWeight: '700', marginBottom: '4px' }}>{personal.full_name || 'Your Name'}</div>
         <div style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.75)', marginBottom: '20px' }}>Educator</div>
@@ -547,9 +557,14 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp, forExport = f
     </div>
   );
 
+  /* SIDEBAR FIX: cap to 1123 px in export mode (see ModernTemplate comment) */
+  const sidebarStyle: React.CSSProperties = forExport
+    ? { background: sideColor, color: '#fff', width: '210px', minWidth: '210px', height: '1123px', overflow: 'hidden', flexShrink: 0, padding: '36px 24px', boxSizing: 'border-box' }
+    : { background: sideColor, color: '#fff', width: '210px', minWidth: '210px', padding: '36px 24px', boxSizing: 'border-box' };
+
   const firstPage = (
-    <div style={{ display: 'flex', minHeight: '1123px' }}>
-      <div style={{ background: sideColor, color: '#fff', width: '210px', minWidth: '210px', padding: '36px 24px', boxSizing: 'border-box' }}>
+    <div style={{ display: 'flex', minHeight: '1123px', alignItems: 'flex-start' }}>
+      <div style={sidebarStyle}>
         <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', fontSize: '26px', fontWeight: '800', color: sideColor }}>
           {(personal.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
         </div>
@@ -718,9 +733,14 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp, forExport =
     </div>
   );
 
+  /* SIDEBAR FIX: cap to 1123 px in export mode (see ModernTemplate comment) */
+  const sidebarStyle: React.CSSProperties = forExport
+    ? { background: navy, color: '#fff', width: '210px', minWidth: '210px', height: '1123px', overflow: 'hidden', flexShrink: 0, padding: '40px 24px', boxSizing: 'border-box' }
+    : { background: navy, color: '#fff', width: '210px', minWidth: '210px', padding: '40px 24px', boxSizing: 'border-box' };
+
   const firstPage = (
-    <div style={{ display: 'flex', minHeight: '1123px' }}>
-      <div style={{ background: navy, color: '#fff', width: '210px', minWidth: '210px', padding: '40px 24px', boxSizing: 'border-box' }}>
+    <div style={{ display: 'flex', minHeight: '1123px', alignItems: 'flex-start' }}>
+      <div style={sidebarStyle}>
         <div style={{ width: '76px', height: '76px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: '26px', fontWeight: '800', color: '#fff' }}>
           {(personal.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
         </div>
