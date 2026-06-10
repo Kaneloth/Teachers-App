@@ -119,28 +119,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
             top: '1087px',
             height: '36px',
             background: '#1e2a3a',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            fontFamily: 'Arial, Helvetica, sans-serif',
-            fontSize: '11px',
-            fontWeight: '500',
-            letterSpacing: '0.4px',
-          }}>
-            <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: '9px' }}>✦</span>
-            <span style={{ color: 'rgba(255,255,255,0.85)' }}>Created FREE at</span>
-            <a
-              href="https://www.crosssa.co.za"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#60a5fa', textDecoration: 'none', fontWeight: '700' }}
-            >
-              www.crosssa.co.za
-            </a>
-            <span style={{ color: 'rgba(255,255,255,0.85)' }}>— Connecting SA Educators</span>
-            <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: '9px' }}>✦</span>
-          </div>
+          }} />
         )}
       </div>
     </>
