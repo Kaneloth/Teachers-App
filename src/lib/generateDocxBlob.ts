@@ -1,7 +1,7 @@
+// src/lib/generateDocxBlob.ts
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
-  Footer, PageNumber, BorderStyle, WidthType, ShadingType,
-  Table, TableRow, TableCell, VerticalAlign, Header
+  Footer, WidthType, ShadingType, Table, TableRow, TableCell, VerticalAlign
 } from 'docx';
 
 interface CVData {
@@ -22,44 +22,45 @@ interface CVData {
   template: string;
 }
 
-function bulletPoints(lines: string[], indentLevel = 0): Paragraph[] {
+// Helper to create bullet paragraphs
+function bulletPoints(lines: string[]): Paragraph[] {
   return lines.map(line => new Paragraph({
     bullet: { level: 0 },
     children: [new TextRun(line.trim())],
-    indent: indentLevel ? { left: 720 } : undefined,
   }));
 }
 
-// ----------------------------------------------------------------------
-// Classic Template (dark header, left border on experience, etc.)
+// ===================== CLASSIC TEMPLATE =====================
 function buildClassic(data: CVData, user?: { id: string; email: string }) {
   const { personal, education, experience, skills, references } = data;
   const children: any[] = [];
 
-  // Header: dark background, white name and contact line
+  // Header (dark background)
   children.push(
     new Paragraph({
       children: [new TextRun({ text: personal.full_name || 'Your Name', bold: true, size: 32, color: 'FFFFFF' })],
       alignment: AlignmentType.CENTER,
       spacing: { after: 80 },
       shading: { fill: '1e2a3a', type: ShadingType.CLEAR },
-    }),
+    })
   );
   const contactParts = [personal.email, personal.phone, personal.address].filter(Boolean);
   if (contactParts.length) {
-    children.push(new Paragraph({
-      children: contactParts.map((part, idx) => new TextRun({ text: (idx > 0 ? ' | ' : '') + part, color: 'FFFFFF' })),
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 200 },
-      shading: { fill: '1e2a3a', type: ShadingType.CLEAR },
-    }));
+    children.push(
+      new Paragraph({
+        children: contactParts.map((part, idx) => new TextRun({ text: (idx > 0 ? ' | ' : '') + part, color: 'FFFFFF' })),
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 200 },
+        shading: { fill: '1e2a3a', type: ShadingType.CLEAR },
+      })
+    );
   }
 
   // Professional Summary
   if (personal.bio) {
     children.push(
       new Paragraph({ text: 'Professional Summary', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 80 } }),
-      new Paragraph(personal.bio),
+      new Paragraph(personal.bio)
     );
   }
 
@@ -70,7 +71,7 @@ function buildClassic(data: CVData, user?: { id: string; email: string }) {
     for (const edu of validEdu) {
       children.push(
         new Paragraph({ text: edu.qualification, bold: true, spacing: { after: 0 } }),
-        new Paragraph(`${edu.institution} · ${edu.year}`, { spacing: { after: 100 } }),
+        new Paragraph(`${edu.institution} · ${edu.year}`, { spacing: { after: 100 } })
       );
     }
   }
@@ -82,7 +83,7 @@ function buildClassic(data: CVData, user?: { id: string; email: string }) {
     for (const exp of validExp) {
       children.push(
         new Paragraph({ text: exp.role, bold: true, spacing: { after: 0 } }),
-        new Paragraph(`${exp.school} · ${exp.from || ''} – ${exp.to || ''}`, { spacing: { after: 60 } }),
+        new Paragraph(`${exp.school} · ${exp.from || ''} – ${exp.to || ''}`, { spacing: { after: 60 } })
       );
       const descLines = exp.description.split('\n').filter(l => l.trim());
       if (descLines.length) children.push(...bulletPoints(descLines));
@@ -109,33 +110,32 @@ function buildClassic(data: CVData, user?: { id: string; email: string }) {
     children.push(...skillItems);
   }
 
-  // References (new page)
+  // References
   const validRefs = (references || []).filter(r => r.name);
   if (validRefs.length) {
     children.push(new Paragraph({ pageBreakBefore: true, text: '' }));
     children.push(new Paragraph({ text: 'References', heading: HeadingLevel.HEADING_2, spacing: { before: 0, after: 80 } }));
     for (const ref of validRefs) {
-      children.push(
-        new Paragraph({ text: ref.name, bold: true, spacing: { after: 0 } }),
-        new Paragraph([ref.title, ref.organisation].filter(Boolean).join(' · ')),
-        new Paragraph(`Phone: ${ref.phone} · Email: ${ref.email}`),
-        ref.relationship ? new Paragraph(ref.relationship) : null,
-        new Paragraph({ text: '' }),
-      ).filter(Boolean);
+      children.push(new Paragraph({ text: ref.name, bold: true, spacing: { after: 0 } }));
+      if (ref.title || ref.organisation) {
+        children.push(new Paragraph([ref.title, ref.organisation].filter(Boolean).join(' · ')));
+      }
+      children.push(new Paragraph(`Phone: ${ref.phone} · Email: ${ref.email}`));
+      if (ref.relationship) children.push(new Paragraph(ref.relationship));
+      children.push(new Paragraph({ text: '' }));
     }
   }
 
   return children;
 }
 
-// ----------------------------------------------------------------------
-// Modern Template (teal accent, sidebar-less, clean)
+// ===================== MODERN TEMPLATE =====================
 function buildModern(data: CVData, user?: { id: string; email: string }) {
   const { personal, education, experience, skills, references } = data;
   const accent = '0d9488'; // teal
   const children: any[] = [];
 
-  // Header with teal background
+  // Header (teal background)
   children.push(
     new Paragraph({
       children: [new TextRun({ text: personal.full_name || 'Your Name', bold: true, size: 32, color: 'FFFFFF' })],
@@ -148,23 +148,25 @@ function buildModern(data: CVData, user?: { id: string; email: string }) {
       alignment: AlignmentType.CENTER,
       spacing: { after: 80 },
       shading: { fill: accent, type: ShadingType.CLEAR },
-    }),
+    })
   );
   const contactParts = [personal.email, personal.phone, personal.address].filter(Boolean);
   if (contactParts.length) {
-    children.push(new Paragraph({
-      children: contactParts.map((part, idx) => new TextRun({ text: (idx > 0 ? ' | ' : '') + part, color: 'FFFFFF' })),
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 200 },
-      shading: { fill: accent, type: ShadingType.CLEAR },
-    }));
+    children.push(
+      new Paragraph({
+        children: contactParts.map((part, idx) => new TextRun({ text: (idx > 0 ? ' | ' : '') + part, color: 'FFFFFF' })),
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 200 },
+        shading: { fill: accent, type: ShadingType.CLEAR },
+      })
+    );
   }
 
-  // About Me (bio)
+  // About Me
   if (personal.bio) {
     children.push(
       new Paragraph({ text: 'About Me', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 80 } }),
-      new Paragraph(personal.bio),
+      new Paragraph(personal.bio)
     );
   }
 
@@ -175,7 +177,7 @@ function buildModern(data: CVData, user?: { id: string; email: string }) {
     for (const exp of validExp) {
       children.push(
         new Paragraph({ text: exp.role, bold: true, spacing: { after: 0 } }),
-        new Paragraph(`${exp.school} · ${exp.from || ''} – ${exp.to || ''}`, { spacing: { after: 60 } }),
+        new Paragraph(`${exp.school} · ${exp.from || ''} – ${exp.to || ''}`, { spacing: { after: 60 } })
       );
       const descLines = exp.description.split('\n').filter(l => l.trim());
       if (descLines.length) children.push(...bulletPoints(descLines));
@@ -190,7 +192,7 @@ function buildModern(data: CVData, user?: { id: string; email: string }) {
     for (const edu of validEdu) {
       children.push(
         new Paragraph({ text: edu.qualification, bold: true, spacing: { after: 0 } }),
-        new Paragraph(`${edu.institution} · ${edu.year}`, { spacing: { after: 100 } }),
+        new Paragraph(`${edu.institution} · ${edu.year}`, { spacing: { after: 100 } })
       );
     }
   }
@@ -220,45 +222,36 @@ function buildModern(data: CVData, user?: { id: string; email: string }) {
     children.push(new Paragraph({ pageBreakBefore: true, text: '' }));
     children.push(new Paragraph({ text: 'References', heading: HeadingLevel.HEADING_2, spacing: { before: 0, after: 80 } }));
     for (const ref of validRefs) {
-      children.push(
-        new Paragraph({ text: ref.name, bold: true, spacing: { after: 0 } }),
-        new Paragraph([ref.title, ref.organisation].filter(Boolean).join(' · ')),
-        new Paragraph(`Phone: ${ref.phone} · Email: ${ref.email}`),
-        ref.relationship ? new Paragraph(ref.relationship) : null,
-        new Paragraph({ text: '' }),
-      ).filter(Boolean);
+      children.push(new Paragraph({ text: ref.name, bold: true, spacing: { after: 0 } }));
+      if (ref.title || ref.organisation) {
+        children.push(new Paragraph([ref.title, ref.organisation].filter(Boolean).join(' · ')));
+      }
+      children.push(new Paragraph(`Phone: ${ref.phone} · Email: ${ref.email}`));
+      if (ref.relationship) children.push(new Paragraph(ref.relationship));
+      children.push(new Paragraph({ text: '' }));
     }
   }
 
   return children;
 }
 
-// ----------------------------------------------------------------------
-// Sidebar Template (two‑column table with coloured left panel)
+// ===================== SIDEBAR TEMPLATE =====================
 function buildSidebar(data: CVData, user?: { id: string; email: string }) {
   const { personal, education, experience, skills, references } = data;
   const sidebarColor = '3b5998'; // blue
 
   // Left column content
   const leftCol: Paragraph[] = [];
-
-  // Initials circle (approximated with text)
-  const initials = (personal.full_name || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-  leftCol.push(new Paragraph({
-    text: initials,
-    alignment: AlignmentType.CENTER,
-    spacing: { after: 80 },
-    bold: true,
-    size: 28,
-  }));
-  leftCol.push(new Paragraph({
-    text: personal.full_name || 'Your Name',
-    alignment: AlignmentType.CENTER,
-    spacing: { after: 20 },
-  }));
+  const initials = (personal.full_name || 'U')
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+  leftCol.push(new Paragraph({ text: initials, alignment: AlignmentType.CENTER, spacing: { after: 80 }, bold: true, size: 28 }));
+  leftCol.push(new Paragraph({ text: personal.full_name || 'Your Name', alignment: AlignmentType.CENTER, spacing: { after: 20 } }));
   leftCol.push(new Paragraph({ text: 'Educator', alignment: AlignmentType.CENTER, spacing: { after: 160 } }));
 
-  // Contact
   const contactLines = [];
   if (personal.email) contactLines.push(`✉️ ${personal.email}`);
   if (personal.phone) contactLines.push(`📞 ${personal.phone}`);
@@ -284,7 +277,6 @@ function buildSidebar(data: CVData, user?: { id: string; email: string }) {
 
   // Right column content
   const rightCol: Paragraph[] = [];
-
   if (personal.bio) {
     rightCol.push(new Paragraph({ text: 'About Me', heading: HeadingLevel.HEADING_2, spacing: { after: 80 } }));
     rightCol.push(new Paragraph(personal.bio));
@@ -311,7 +303,7 @@ function buildSidebar(data: CVData, user?: { id: string; email: string }) {
     }
   }
 
-  // Build two‑column table
+  // Two‑column table
   const table = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     rows: [
@@ -335,27 +327,26 @@ function buildSidebar(data: CVData, user?: { id: string; email: string }) {
 
   const children: any[] = [table];
 
-  // References (new page, full width)
+  // References (new page)
   const validRefs = (references || []).filter(r => r.name);
   if (validRefs.length) {
     children.push(new Paragraph({ pageBreakBefore: true, text: '' }));
     children.push(new Paragraph({ text: 'References', heading: HeadingLevel.HEADING_2, spacing: { before: 0, after: 80 } }));
     for (const ref of validRefs) {
-      children.push(
-        new Paragraph({ text: ref.name, bold: true, spacing: { after: 0 } }),
-        new Paragraph([ref.title, ref.organisation].filter(Boolean).join(' · ')),
-        new Paragraph(`Phone: ${ref.phone} · Email: ${ref.email}`),
-        ref.relationship ? new Paragraph(ref.relationship) : null,
-        new Paragraph({ text: '' }),
-      ).filter(Boolean);
+      children.push(new Paragraph({ text: ref.name, bold: true, spacing: { after: 0 } }));
+      if (ref.title || ref.organisation) {
+        children.push(new Paragraph([ref.title, ref.organisation].filter(Boolean).join(' · ')));
+      }
+      children.push(new Paragraph(`Phone: ${ref.phone} · Email: ${ref.email}`));
+      if (ref.relationship) children.push(new Paragraph(ref.relationship));
+      children.push(new Paragraph({ text: '' }));
     }
   }
 
   return children;
 }
 
-// ----------------------------------------------------------------------
-// Main export
+// ===================== MAIN EXPORT =====================
 export async function generateDocxBlob(data: CVData, user?: { id: string; email: string }): Promise<Blob> {
   let children: any[];
   switch (data.template) {
