@@ -1,8 +1,7 @@
-const busboy = require('busboy');
-const pdfParse = require('pdf-parse');
-const mammoth = require('mammoth');
+import busboy from 'busboy';
+import pdfParse from 'pdf-parse';
+import mammoth from 'mammoth';
 
-// Helper: extract text from buffer based on MIME type
 async function extractTextFromBuffer(buffer, mimeType) {
   if (mimeType === 'application/pdf') {
     const data = await pdfParse(buffer);
@@ -11,7 +10,6 @@ async function extractTextFromBuffer(buffer, mimeType) {
     const result = await mammoth.extractRawText({ buffer });
     return result.value;
   } else if (mimeType === 'application/msword') {
-    // For older .doc files, mammoth can handle them as well
     const result = await mammoth.extractRawText({ buffer });
     return result.value;
   } else {
@@ -19,8 +17,7 @@ async function extractTextFromBuffer(buffer, mimeType) {
   }
 }
 
-exports.handler = async (event) => {
-  // Only accept POST
+export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
@@ -30,7 +27,6 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: 'Expected multipart/form-data' };
   }
 
-  // Parse the multipart form data
   let fileBuffer = null;
   let fileMimeType = null;
   let cvType = 'educator';
@@ -39,8 +35,7 @@ exports.handler = async (event) => {
     const bb = busboy({ headers: { 'content-type': contentType } });
 
     bb.on('file', (name, file, info) => {
-      const { mimeType } = info;
-      fileMimeType = mimeType;
+      fileMimeType = info.mimeType;
       const chunks = [];
       file.on('data', (chunk) => chunks.push(chunk));
       file.on('end', () => {
@@ -61,7 +56,6 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: 'No file uploaded' };
   }
 
-  // Extract raw text from the uploaded file
   let rawText;
   try {
     rawText = await extractTextFromBuffer(fileBuffer, fileMimeType);
@@ -70,7 +64,6 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: err.message }) };
   }
 
-  // Build the prompt for Groq – match your CVData structure
   const prompt = `
 You are an expert CV parser. Extract information from the following CV text and return a JSON object that exactly matches the structure below.
 
