@@ -4,52 +4,84 @@ import { join } from 'path';
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
 
-// Simple templating engine (supports {{var}} and {{#each array}}...{{/each}})
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
 function fillTemplate(template, data) {
   let result = template;
-  // Replace simple placeholders
-  const replaceSimple = (obj, prefix = '') => {
+
+  // Helper: replace simple placeholders (including nested)
+  function replaceObject(obj, prefix = '') {
     for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === 'object' && !Array.isArray(value)) {
-        replaceSimple(value, prefix ? `${prefix}.${key}` : key);
-      } else if (Array.isArray(value)) {
-        // Skip arrays – handled separately
-      } else {
-        const placeholder = new RegExp(`{{${prefix ? prefix + '.' + key : key}}}`, 'g');
-        result = result.replace(placeholder, value || '');
+      const fullKey = prefix ? `${prefix}.${key}` : key;
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        replaceObject(value, fullKey);
+      } else if (typeof value !== 'object') {
+        const regex = new RegExp(`{{${fullKey}}}`, 'g');
+        result = result.replace(regex, escapeHtml(String(value ?? '')));
       }
     }
-  };
-  replaceSimple(data);
+  }
+  replaceObject(data);
 
-  // Handle #each loops (basic)
+  // Special: {{initials}}
+  const fullName = data.personal?.full_name || '';
+  const initials = fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  result = result.replace(/{{initials}}/g, initials);
+
+  // Process #each loops (experience, education, references, skills arrays)
   const eachRegex = /{{#each (\w+)}}([\s\S]*?){{\/each}}/g;
-  let match;
-  while ((match = eachRegex.exec(result)) !== null) {
-    const arrayName = match[1];
-    const innerTemplate = match[2];
+  result = result.replace(eachRegex, (match, arrayName, inner) => {
     const array = data[arrayName] || [];
-    let loopHtml = '';
-    for (const item of array) {
-      let itemHtml = innerTemplate;
+    if (!array.length) return '';
+    return array.map(item => {
+      let itemHtml = inner;
+      // Replace all {{key}} inside the loop
       for (const [key, val] of Object.entries(item)) {
         if (key === 'description') {
-          // Split description into lines for bullet points
+          // Split description into lines and generate bullets
           const lines = val.split('\n').filter(l => l.trim());
-          let bulletsHtml = '';
-          for (const line of lines) {
-            bulletsHtml += `<div style="display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px;"><span>•</span><span style="font-size: 12px; line-height: 1.5; color: #374151; text-align: justify;">${line.trim()}</span></div>`;
-          }
-          itemHtml = itemHtml.replace(new RegExp(`{{#each descriptionLines}}([\\s\\S]*?){{\\/each}}`, 'g'), () => bulletsHtml);
+          const bulletsHtml = lines.map(line => `
+            <div style="display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px;">
+              <span style="flex-shrink: 0;">•</span>
+              <span style="font-size: 12px; line-height: 1.5; color: #374151; text-align: justify; word-break: break-word;">${escapeHtml(line.trim())}</span>
+            </div>
+          `).join('');
+          // Replace the inner {{#each descriptionLines}} block
+          itemHtml = itemHtml.replace(/{{#each descriptionLines}}[\s\S]*?{{\/each}}/g, bulletsHtml);
         } else {
-          const placeholder = new RegExp(`{{${key}}}`, 'g');
-          itemHtml = itemHtml.replace(placeholder, val || '');
+          const keyRegex = new RegExp(`{{${key}}}`, 'g');
+          itemHtml = itemHtml.replace(keyRegex, escapeHtml(String(val ?? '')));
         }
       }
-      loopHtml += itemHtml;
-    }
-    result = result.replace(match[0], loopHtml);
-  }
+      return itemHtml;
+    }).join('');
+  });
+
+  // Process subjects, soft_skills, languages (simple bullet lists)
+  const skills = data.skills || {};
+  const processArray = (arrName, placeholder) => {
+    const arr = skills[arrName] || [];
+    if (!arr.length) return '';
+    const bullets = arr.map(item => `
+      <div style="display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px;">
+        <span>•</span>
+        <span style="font-size: 12px; line-height: 1.5; color: #374151; text-align: justify; word-break: break-word;">${escapeHtml(item)}</span>
+      </div>
+    `).join('');
+    result = result.replace(new RegExp(`{{#each ${arrName}}}.*?{{\\/each}}`, 's'), bullets);
+  };
+  processArray('subjects', 'subjects');
+  processArray('soft_skills', 'soft_skills');
+  processArray('languages', 'languages');
+
   return result;
 }
 
