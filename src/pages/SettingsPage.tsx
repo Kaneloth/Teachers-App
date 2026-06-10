@@ -74,6 +74,7 @@ function applyTextSize(size: string) {
 }
 
 function GeneralTab() {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState(
     () => localStorage.getItem('crosssa_notifications') !== '0'
   );
@@ -85,11 +86,10 @@ function GeneralTab() {
     () => (localStorage.getItem('crosssa_text_size') as 'Small' | 'Medium' | 'Large') || 'Medium'
   );
 
-  /* Restore stored prefs whenever this tab mounts (handles page-refresh) */
   useEffect(() => {
     applyDark(darkMode);
     applyTextSize(textSize);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDarkMode = (val: boolean) => {
     setDarkMode(val);
@@ -99,6 +99,10 @@ function GeneralTab() {
   const handleTextSize = (size: 'Small' | 'Medium' | 'Large') => {
     setTextSize(size);
     applyTextSize(size);
+  };
+
+  const openLegalDoc = (path: string) => {
+    window.open(path, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -129,11 +133,14 @@ function GeneralTab() {
       </Card>
 
       <Card>
-        <SettingLinkRow icon={Shield} label="Privacy Policy" onClick={() => toast.info('Opening Privacy Policy…')} />
+        <SettingLinkRow icon={Shield} label="Privacy Policy" onClick={() => openLegalDoc('/Privacy Policy.html')} />
         <div className="border-t border-border" />
-        <SettingLinkRow icon={FileText} label="Terms of Service" onClick={() => toast.info('Opening Terms of Service…')} />
+        <SettingLinkRow icon={FileText} label="Terms of Service" onClick={() => openLegalDoc('/Terms and Conditions.html')} />
         <div className="border-t border-border" />
-        <SettingLinkRow icon={Headphones} label="Contact Support" onClick={() => toast.info('Opening support…')} />
+        {/* Optional: Add PAIA Manual row if desired */}
+        <SettingLinkRow icon={FileText} label="PAIA Manual" onClick={() => openLegalDoc('/PAIA Manual.html')} />
+        <div className="border-t border-border" />
+        <SettingLinkRow icon={Headphones} label="Contact Support" onClick={() => navigate('/support')} />
       </Card>
     </div>
   );
