@@ -1,42 +1,550 @@
-function SidebarTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
-  const { personal, skills } = data;
-  const sideColor = '#3b5998';
+import { ReactNode, useState, useLayoutEffect, useRef } from 'react';
 
-  // Main content (without sidebar) for pages after the first
-  const mainContentOnly = (
-    <div style={{ padding: '28px 36px' }}>
-      {personal.bio && (
-        <Section title="About Me" color={sideColor}>
-          <p style={{ color: '#374151', margin: 0, textAlign: 'justify' }}>{personal.bio}</p>
-        </Section>
-      )}
-      {validExp.length > 0 && (
-        <Section title="Work History" color={sideColor} icon={ICONS.briefcase}>
-          {validExp.map((e: any, i: number) => (
-            <div key={i} style={{ marginBottom: '20px' }}>
-              <div style={{ fontWeight: '700', color: '#111827' }}>{e.role}</div>
-              <div style={{ color: sideColor, fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
-              {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
-              {renderDescription(e.description, '#374151', '12px', true)}
+interface CustomSection {
+  title: string;
+  type: 'text' | 'bullets' | 'table';
+  content?: string;
+  columns?: string[];
+  rows?: string[][];
+}
+
+interface RefEntry {
+  name: string;
+  title: string;
+  organisation: string;
+  phone: string;
+  email: string;
+  relationship: string;
+}
+
+interface CVData {
+  personal: { full_name?: string; email?: string; phone?: string; address?: string; bio?: string; photo_url?: string; id_number?: string };
+  education: { institution: string; qualification: string; year: string }[];
+  experience: { school: string; role: string; from: string; to: string; description: string }[];
+  skills: { subjects?: string[]; soft_skills?: string[]; languages?: string[] };
+  references?: RefEntry[];
+  custom_sections?: CustomSection[];
+  template: string;
+}
+
+interface Props { data: CVData; forExport?: boolean; watermark?: boolean }
+
+// Unicode emojis – render perfectly in html2canvas
+const ICONS = {
+  briefcase: '💼',
+  graduation: '🎓',
+  user: '👤',
+  mail: '✉️',
+  phone: '📞',
+  mapPin: '📍',
+  award: '🏅',
+  bookOpen: '📖',
+  languages: '🌐',
+};
+
+/**
+ * Pushes whatever follows it to the start of the next A4 page (1123 px).
+ * Measures real DOM offsetTop after layout — works with html2canvas-based PDF
+ * export. `pageBreakBefore: always` is a CSS print directive that html2canvas
+ * ignores entirely, so this JS approach is required.
+ */
+const A4_PAGE_H = 1123;
+
+function PageBreakSpacer() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(0);
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    let el: HTMLElement = ref.current;
+    let top = 0;
+    while (el.offsetParent) {
+      top += el.offsetTop;
+      el = el.offsetParent as HTMLElement;
+    }
+    top += el.offsetTop;
+    const rem = top % A4_PAGE_H;
+    setHeight(rem === 0 ? 0 : A4_PAGE_H - rem);
+  }, []);
+  return <div ref={ref} style={{ height }} />;
+}
+
+export default function CVTemplateRenderer({ data, forExport = false, watermark = false }: Props) {
+  const { template } = data;
+  const wrapperStyle: React.CSSProperties = forExport
+    ? { width: '794px', minHeight: '1123px', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '13px', background: '#fff' }
+    : { width: '100%', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '13px', background: '#fff', boxShadow: '0 2px 16px rgba(0,0,0,0.10)', borderRadius: '4px', overflow: 'hidden' };
+
+  const validEdu = (data.education || []).filter(e => e.institution);
+  const validExp = (data.experience || []).filter(e => e.school);
+
+  const pageStyles = forExport ? (
+    <style>{`
+      .cv-page {
+        width: 794px;
+        min-height: 1123px;
+        background: white;
+        margin: 0 auto;
+        page-break-after: always;
+        break-inside: avoid;
+        position: relative;
+      }
+      .cv-page:last-child {
+        page-break-after: auto;
+      }
+    `}</style>
+  ) : null;
+
+  const tmpl =
+    template === 'modern'       ? <ModernTemplate       data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} forExport={forExport} /> :
+    template === 'professional' ? <ProfessionalTemplate data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} forExport={forExport} /> :
+    template === 'minimal'      ? <MinimalTemplate      data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} forExport={forExport} /> :
+    template === 'sidebar'      ? <SidebarTemplate      data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} forExport={forExport} /> :
+    template === 'bold'         ? <BoldTemplate         data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} forExport={forExport} /> :
+    template === 'executive'    ? <ExecutiveTemplate    data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} forExport={forExport} /> :
+    template === 'corporate'    ? <CorporateTemplate    data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} forExport={forExport} /> :
+    <ClassicTemplate data={data} wrapperStyle={wrapperStyle} validEdu={validEdu} validExp={validExp} forExport={forExport} />;
+
+  return (
+    <>
+      {pageStyles}
+      <div style={{ position: 'relative' }}>
+        {tmpl}
+        {watermark && (
+          <div style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: '1087px',
+            height: '36px',
+            background: '#1e2a3a',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontSize: '11px',
+            fontWeight: '500',
+            letterSpacing: '0.4px',
+          }}>
+            <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: '9px' }}>✦</span>
+            <span style={{ color: 'rgba(255,255,255,0.85)' }}>Created FREE at</span>
+            <a
+              href="https://www.crosssa.co.za"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#60a5fa', textDecoration: 'none', fontWeight: '700' }}
+            >
+              www.crosssa.co.za
+            </a>
+            <span style={{ color: 'rgba(255,255,255,0.85)' }}>— Connecting SA Educators</span>
+            <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: '9px' }}>✦</span>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ── Helpers ─────────────────────────────────────────────────────────────── */
+function renderDescription(desc: string | undefined, color: string, fontSize = '12px', justify = false): React.ReactNode {
+  if (!desc) return null;
+  const lines = desc.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) return null;
+  return (
+    <div style={{ margin: '4px 0 0' }}>
+      {lines.map((line, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '4px' }}>
+          <span style={{ color, marginTop: '2px', flexShrink: 0, fontSize }}>•</span>
+          <span style={{ fontSize, lineHeight: '1.5', color: '#374151', textAlign: justify ? 'justify' : 'left' }}>{line}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BulletList({ items, justify = false }: { items: string[]; justify?: boolean }) {
+  if (!items.length) return null;
+  return (
+    <div style={{ marginTop: '4px' }}>
+      {items.map((item, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '4px' }}>
+          <span style={{ marginTop: '2px', flexShrink: 0, fontSize: '12px', color: '#374151' }}>•</span>
+          <span style={{ fontSize: '12px', lineHeight: '1.5', color: '#374151', textAlign: justify ? 'justify' : 'left' }}>{item}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function renderCustomSections(sections: CustomSection[] | undefined, color: string, borderColor?: string, justify = false): React.ReactNode {
+  if (!sections?.length) return null;
+  return (
+    <>
+      {sections.filter(s => s.title).map((s, idx) => {
+        let content: React.ReactNode = null;
+        if (s.type === 'text') {
+          content = <p style={{ color: '#374151', margin: 0, fontSize: '12px', lineHeight: '1.6', textAlign: justify ? 'justify' : 'left' }}>{s.content}</p>;
+        } else if (s.type === 'bullets') {
+          const lines = (s.content || '').split('\n').map(l => l.trim()).filter(Boolean);
+          content = lines.length ? (
+            <div style={{ margin: 0 }}>
+              {lines.map((line, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '2px' }}>
+                  <span style={{ color, marginTop: '2px', flexShrink: 0, fontSize: '12px' }}>•</span>
+                  <span style={{ fontSize: '12px', lineHeight: '1.5', color: '#374151', textAlign: justify ? 'justify' : 'left' }}>{line}</span>
+                </div>
+              ))}
+            </div>
+          ) : null;
+        } else if (s.type === 'table') {
+          const cols = s.columns || [];
+          const rows = s.rows || [];
+          if (!cols.length || !rows.length) return null;
+          content = (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+              <thead>
+                <tr>{cols.map((col, ci) => <th key={ci} style={{ background: color, color: '#fff', padding: '6px 10px', textAlign: 'left', fontWeight: '700', fontSize: '10px', letterSpacing: '0.5px' }}>{col}</th>)}</tr>
+              </thead>
+              <tbody>
+                {rows.map((row, ri) => (
+                  <tr key={ri} style={{ background: ri % 2 === 0 ? '#f9fafb' : '#fff' }}>
+                    {row.map((cell, ci) => <td key={ci} style={{ padding: '6px 10px', color: '#374151', borderBottom: '1px solid #e5e7eb', fontSize: '11px' }}>{cell}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        }
+        return content ? <Section key={idx} title={s.title} color={color} borderColor={borderColor}>{content}</Section> : null;
+      })}
+    </>
+  );
+}
+
+function renderReferencesPage(refs: RefEntry[] | undefined, color: string, borderColor?: string, padding = '28px 36px', wrapInPageDiv = false): React.ReactNode {
+  const validRefs = (refs || []).filter(r => r.name);
+  if (!validRefs.length) return null;
+  const content = (
+    <div style={{ padding, background: '#fff', lineHeight: '1.6', minHeight: '200px' }}>
+      <Section title="References" color={color} borderColor={borderColor} icon="📌">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px 28px' }}>
+          {validRefs.map((r, i) => (
+            <div key={i}>
+              <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{r.name}</div>
+              {r.title        && <div style={{ color: '#374151', fontSize: '12px' }}>{r.title}</div>}
+              {r.organisation && <div style={{ color: '#6b7280', fontSize: '12px' }}>{r.organisation}</div>}
+              {r.relationship && <div style={{ color: '#6b7280', fontSize: '11px', fontStyle: 'italic' }}>{r.relationship}</div>}
+              {(r.phone || r.email) && (
+                <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '3px' }}>
+                  {[r.phone, r.email].filter(Boolean).join(' · ')}
+                </div>
+              )}
             </div>
           ))}
-        </Section>
-      )}
-      {validEdu.length > 0 && (
-        <Section title="Education" color={sideColor} icon={ICONS.graduation}>
+        </div>
+      </Section>
+    </div>
+  );
+  return wrapInPageDiv ? <div className="cv-page">{content}</div> : content;
+}
+
+/* ── Shared UI components ───────────────────────────────────────────────── */
+function Section({ title, color, borderColor, icon, children }: { title: string; color?: string; borderColor?: string; icon?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: '32px', overflow: 'visible' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', lineHeight: 1 }}>
+        {icon && (
+          <span style={{
+            fontSize: '14px',
+            lineHeight: 1,
+            display: 'inline-block',
+            verticalAlign: 'middle',
+            position: 'relative',
+            top: '-5px',
+          }}>
+            {icon}
+          </span>
+        )}
+        <span style={{
+          fontSize: '15px',
+          fontWeight: 800,
+          textTransform: 'uppercase',
+          letterSpacing: '1.5px',
+          color: color || '#111',
+          lineHeight: 1,
+          display: 'inline-block',
+        }}>
+          {title}
+        </span>
+        <div style={{ flex: 1, height: '1px', background: borderColor || color || '#e5e7eb', marginLeft: '6px' }} />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function MinimalSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: '28px' }}>
+      <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#6b7280', marginBottom: '12px' }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: '16px' }}>
+      <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: 'rgba(255,255,255,0.55)', marginBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '4px' }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+/* ── Classic Template ────────────────────────────────────────────────────── */
+function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, forExport = false }: any) {
+  const { personal, skills } = data;
+  const pageContent = (
+    <>
+      <div style={{ background: '#1e2a3a', color: '#fff', padding: '32px 40px' }}>
+        <div style={{ fontSize: '32px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>
+          {personal.full_name || 'Your Name'}
+        </div>
+        <div style={{ fontSize: '12px', color: '#a0aec0', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+          {personal.email && <span>{ICONS.mail} {personal.email}</span>}
+          {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
+          {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
+          {personal.id_number && <span>{ICONS.user} ID: {personal.id_number}</span>}
+        </div>
+      </div>
+      <div style={{ padding: '32px 40px', lineHeight: '1.65' }}>
+        {personal.bio && <Section title="Professional Summary" color="#1e2a3a"><p style={{ color: '#374151', margin: 0, textAlign: 'justify' }}>{personal.bio}</p></Section>}
+        {validEdu.length > 0 && <Section title="Education" color="#1e2a3a" icon={ICONS.graduation}>
           {validEdu.map((e: any, i: number) => (
-            <div key={i} style={{ marginBottom: '14px' }}>
-              <div style={{ fontWeight: '600', color: '#111827' }}>{e.qualification}</div>
+            <div key={i} style={{ marginBottom: '16px' }}>
+              <div style={{ fontWeight: '600', color: '#111827', fontSize: '14px' }}>{e.qualification}</div>
               <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
             </div>
           ))}
-        </Section>
-      )}
+        </Section>}
+        {validExp.length > 0 && <Section title="Teaching Experience" color="#1e2a3a" icon={ICONS.briefcase}>
+          {validExp.map((e: any, i: number) => (
+            <div key={i} style={{ marginBottom: '24px', borderLeft: '3px solid #1e2a3a', paddingLeft: '16px' }}>
+              <div style={{ fontWeight: '600', color: '#111827', fontSize: '14px', marginBottom: '2px' }}>{e.role}</div>
+              <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '6px' }}>{e.school}{(e.from || e.to) ? ` · ${e.from || ''} – ${e.to || ''}` : ''}</div>
+              {renderDescription(e.description, '#374151', '12px', true)}
+            </div>
+          ))}
+        </Section>}
+        {(skills?.subjects?.length || skills?.soft_skills?.length) && <Section title="Skills & Subjects" color="#1e2a3a" icon={ICONS.award}>
+          {skills.subjects?.length && <><div style={{ fontWeight: '700', fontSize: '13px', color: '#374151', marginBottom: '6px' }}>Subjects</div><BulletList items={skills.subjects} justify /></>}
+          {skills.soft_skills?.length && <div style={{ marginTop: '16px' }}><div style={{ fontWeight: '700', fontSize: '13px', color: '#374151', marginBottom: '6px' }}>Skills</div><BulletList items={skills.soft_skills} justify /></div>}
+        </Section>}
+        {skills?.languages?.length && <Section title="Languages" color="#1e2a3a" icon={ICONS.languages}><BulletList items={skills.languages} justify /></Section>}
+        {renderCustomSections(data.custom_sections, '#1e2a3a', undefined, true)}
+      </div>
+      {renderReferencesPage(data.references, '#1e2a3a', undefined, '32px 40px', true)}
+    </>
+  );
+  if (forExport) return <div className="cv-page">{pageContent}</div>;
+  return <div style={wrapperStyle}>{pageContent}</div>;
+}
+
+/* ── Modern Template (sidebar only on first page) ───────────────────────── */
+function ModernTemplate({ data, wrapperStyle, validEdu, validExp, forExport = false }: any) {
+  const { personal, skills } = data;
+  const accent = '#0d9488';
+
+  const mainContentOnly = (
+    <div style={{ padding: '28px 32px' }}>
+      {personal.bio && <Section title="About Me" color={accent}><p style={{ color: '#374151', margin: 0, textAlign: 'justify' }}>{personal.bio}</p></Section>}
+      {validExp.length > 0 && <Section title="Teaching Experience" color={accent} icon={ICONS.briefcase}>
+        {validExp.map((e: any, i: number) => (
+          <div key={i} style={{ marginBottom: '20px', borderLeft: `2px solid ${accent}`, paddingLeft: '12px' }}>
+            <div style={{ fontWeight: '600', color: '#111827' }}>{e.role}</div>
+            <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.school}{(e.from || e.to) ? ` · ${e.from || ''} – ${e.to || ''}` : ''}</div>
+            {renderDescription(e.description, '#374151', '12px', true)}
+          </div>
+        ))}
+      </Section>}
+      {validEdu.length > 0 && <Section title="Education" color={accent} icon={ICONS.graduation}>
+        {validEdu.map((e: any, i: number) => (
+          <div key={i} style={{ marginBottom: '14px' }}><div style={{ fontWeight: '600', color: '#111827' }}>{e.qualification}</div><div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div></div>
+        ))}
+      </Section>}
+      {skills?.soft_skills?.length && <Section title="Professional Skills" color={accent} icon={ICONS.award}><BulletList items={skills.soft_skills} justify /></Section>}
+      {renderCustomSections(data.custom_sections, accent, undefined, true)}
+    </div>
+  );
+
+  const firstPage = (
+    <div style={{ display: 'flex', minHeight: '1123px' }}>
+      <div style={{ background: accent, color: '#fff', width: '200px', minWidth: '200px', padding: '28px 18px', boxSizing: 'border-box' }}>
+        {personal.photo_url ? <img src={personal.photo_url} alt="Profile" style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', margin: '0 auto 14px', display: 'block' }} /> : <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: '28px', fontWeight: '700', color: '#fff' }}>{(personal.full_name || 'U')[0].toUpperCase()}</div>}
+        <div style={{ textAlign: 'center', fontSize: '15px', fontWeight: '700', marginBottom: '4px' }}>{personal.full_name || 'Your Name'}</div>
+        <div style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.75)', marginBottom: '20px' }}>Educator</div>
+        <SidebarSection title="Contact">
+          {personal.email && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mail} {personal.email}</div>}
+          {personal.phone && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.phone} {personal.phone}</div>}
+          {personal.address && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mapPin} {personal.address}</div>}
+          {personal.id_number && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.user} ID: {personal.id_number}</div>}
+        </SidebarSection>
+        {skills?.subjects?.length && <SidebarSection title="Subjects"><BulletList items={skills.subjects} /></SidebarSection>}
+        {skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
+      </div>
+      <div style={{ flex: 1 }}>{mainContentOnly}</div>
+    </div>
+  );
+
+  const referencesPage = renderReferencesPage(data.references, accent, undefined, '28px 32px', true);
+  if (forExport) {
+    return (<><div className="cv-page">{firstPage}</div><div className="cv-page">{mainContentOnly}</div>{referencesPage && <div className="cv-page">{referencesPage}</div>}</>);
+  }
+  return <div style={wrapperStyle}>{firstPage}</div>;
+}
+
+/* ── Professional Template (two‑column, no sidebar, just improved spacing) ── */
+function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp, forExport = false }: any) {
+  const { personal, skills } = data;
+  const accent = '#1e4d2b';
+  const pageContent = (
+    <>
+      <div style={{ background: `linear-gradient(135deg, ${accent} 0%, #2d7a47 100%)`, padding: '32px 40px', color: '#fff', display: 'flex', alignItems: 'center', gap: '24px' }}>
+        {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '84px', height: '84px', borderRadius: '50%', objectFit: 'cover', border: '3px solid rgba(255,255,255,0.4)' }} />}
+        <div>
+          <div style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '1.5px', textTransform: 'uppercase' }}>{personal.full_name || 'Your Name'}</div>
+          <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', marginTop: '4px', letterSpacing: '3px', textTransform: 'uppercase' }}>Educator</div>
+          <div style={{ marginTop: '12px', display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '11px', color: 'rgba(255,255,255,0.85)' }}>
+            {personal.email && <span>{ICONS.mail} {personal.email}</span>}
+            {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
+            {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
+            {personal.id_number && <span>{ICONS.user} ID: {personal.id_number}</span>}
+          </div>
+        </div>
+      </div>
+      <div style={{ padding: '32px 40px', lineHeight: '1.65' }}>
+        {personal.bio && <Section title="Professional Profile" color={accent}><p style={{ color: '#374151', margin: 0, textAlign: 'justify' }}>{personal.bio}</p></Section>}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 32px' }}>
+          <div>
+            {validExp.length > 0 && <Section title="Teaching Experience" color={accent} icon={ICONS.briefcase}>
+              {validExp.map((e: any, i: number) => (
+                <div key={i} style={{ marginBottom: '20px' }}>
+                  <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.role}</div>
+                  <div style={{ color: '#2d7a47', fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
+                  {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
+                  {renderDescription(e.description, '#374151', '12px', true)}
+                </div>
+              ))}
+            </Section>}
+          </div>
+          <div>
+            {validEdu.length > 0 && <Section title="Education" color={accent} icon={ICONS.graduation}>
+              {validEdu.map((e: any, i: number) => (
+                <div key={i} style={{ marginBottom: '14px' }}>
+                  <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.qualification}</div>
+                  <div style={{ color: '#2d7a47', fontSize: '12px' }}>{e.institution}</div>
+                  {e.year && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.year}</div>}
+                </div>
+              ))}
+            </Section>}
+            {skills?.subjects?.length && <Section title="Subjects Taught" color={accent} icon={ICONS.bookOpen}><BulletList items={skills.subjects} justify /></Section>}
+            {skills?.soft_skills?.length && <Section title="Skills" color={accent} icon={ICONS.award}><BulletList items={skills.soft_skills} justify /></Section>}
+            {skills?.languages?.length && <Section title="Languages" color={accent} icon={ICONS.languages}><BulletList items={skills.languages} justify /></Section>}
+          </div>
+        </div>
+        {renderCustomSections(data.custom_sections, accent, '#2d7a47', true)}
+      </div>
+      {renderReferencesPage(data.references, accent, '#2d7a47', '32px 40px', true)}
+    </>
+  );
+  if (forExport) return <div className="cv-page">{pageContent}</div>;
+  return <div style={wrapperStyle}>{pageContent}</div>;
+}
+
+/* ── Minimal Template ────────────────────────────────────────────────────── */
+function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, forExport = false }: any) {
+  const { personal, skills } = data;
+  const pageContent = (
+    <div style={{ padding: '40px 44px', lineHeight: '1.7' }}>
+      <div style={{ borderBottom: '2px solid #111827', paddingBottom: '16px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+        {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '76px', height: '76px', borderRadius: '4px', objectFit: 'cover', border: '1px solid #e5e7eb' }} />}
+        <div>
+          <div style={{ fontSize: '30px', fontWeight: '300', letterSpacing: '3px', textTransform: 'uppercase', color: '#111827' }}>{personal.full_name || 'Your Name'}</div>
+          <div style={{ marginTop: '8px', fontSize: '11px', color: '#6b7280', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+            {personal.email && <span>{ICONS.mail} {personal.email}</span>}
+            {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
+            {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
+            {personal.id_number && <span>{ICONS.user} ID: {personal.id_number}</span>}
+          </div>
+        </div>
+      </div>
+      {personal.bio && <MinimalSection title="Summary"><p style={{ color: '#4b5563', margin: 0, fontSize: '12px', textAlign: 'justify' }}>{personal.bio}</p></MinimalSection>}
+      {validExp.length > 0 && <MinimalSection title="Experience">
+        {validExp.map((e: any, i: number) => (
+          <div key={i} style={{ display: 'flex', gap: '16px', marginBottom: '14px' }}>
+            <div style={{ width: '90px', fontSize: '11px', color: '#9ca3af', paddingTop: '2px' }}>{e.from && e.to ? `${e.from} – ${e.to}` : e.from || e.to || ''}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: '600', color: '#111827', fontSize: '13px' }}>{e.role}</div>
+              <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.school}</div>
+              {renderDescription(e.description, '#4b5563', '12px', true)}
+            </div>
+          </div>
+        ))}
+      </MinimalSection>}
+      {validEdu.length > 0 && <MinimalSection title="Education">
+        {validEdu.map((e: any, i: number) => (
+          <div key={i} style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
+            <div style={{ width: '90px', fontSize: '11px', color: '#9ca3af', paddingTop: '2px' }}>{e.year || ''}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: '600', color: '#111827', fontSize: '13px' }}>{e.qualification}</div>
+              <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}</div>
+            </div>
+          </div>
+        ))}
+      </MinimalSection>}
+      {(skills?.subjects?.length || skills?.soft_skills?.length || skills?.languages?.length) && <MinimalSection title="Skills & Languages">
+        {skills.subjects?.length && <div><strong>Subjects: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.subjects.join(' · ')}</span></div>}
+        {skills.soft_skills?.length && <div><strong>Skills: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.soft_skills.join(' · ')}</span></div>}
+        {skills.languages?.length && <div><strong>Languages: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.languages.join(' · ')}</span></div>}
+      </MinimalSection>}
+      {renderCustomSections(data.custom_sections, '#111827', undefined, true)}
+      {renderReferencesPage(data.references, '#111827', undefined, '40px 44px', true)}
+    </div>
+  );
+  if (forExport) return <div className="cv-page">{pageContent}</div>;
+  return <div style={wrapperStyle}>{pageContent}</div>;
+}
+
+/* ── Sidebar Template (sidebar only on first page) ───────────────────────── */
+function SidebarTemplate({ data, wrapperStyle, validEdu, validExp, forExport = false }: any) {
+  const { personal, skills } = data;
+  const sideColor = '#3b5998';
+
+  const mainContentOnly = (
+    <div style={{ padding: '28px 36px' }}>
+      {personal.bio && <Section title="About Me" color={sideColor}><p style={{ color: '#374151', margin: 0, textAlign: 'justify' }}>{personal.bio}</p></Section>}
+      {validExp.length > 0 && <Section title="Work History" color={sideColor} icon={ICONS.briefcase}>
+        {validExp.map((e: any, i: number) => (
+          <div key={i} style={{ marginBottom: '20px' }}>
+            <div style={{ fontWeight: '700', color: '#111827' }}>{e.role}</div>
+            <div style={{ color: sideColor, fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
+            {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
+            {renderDescription(e.description, '#374151', '12px', true)}
+          </div>
+        ))}
+      </Section>}
+      {validEdu.length > 0 && <Section title="Education" color={sideColor} icon={ICONS.graduation}>
+        {validEdu.map((e: any, i: number) => (
+          <div key={i} style={{ marginBottom: '14px' }}>
+            <div style={{ fontWeight: '600', color: '#111827' }}>{e.qualification}</div>
+            <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
+          </div>
+        ))}
+      </Section>}
       {renderCustomSections(data.custom_sections, sideColor, undefined, true)}
     </div>
   );
 
-  // First page: sidebar + first part of main content (it will flow naturally)
   const firstPage = (
     <div style={{ display: 'flex', minHeight: '1123px' }}>
       <div style={{ background: sideColor, color: '#fff', width: '210px', minWidth: '210px', padding: '28px 18px', boxSizing: 'border-box' }}>
@@ -55,23 +563,184 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp }: any) {
         {skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
         {skills?.soft_skills?.length && <SidebarSection title="Skills"><BulletList items={skills.soft_skills} /></SidebarSection>}
       </div>
-      <div style={{ flex: 1 }}>
-        {mainContentOnly}
-      </div>
+      <div style={{ flex: 1 }}>{mainContentOnly}</div>
     </div>
   );
 
   const referencesPage = renderReferencesPage(data.references, sideColor, undefined, '28px 36px', true);
-
   if (forExport) {
-    return (
-      <>
-        <div className="cv-page">{firstPage}</div>
-        {/* Subsequent pages: only main content (no sidebar) */}
-        <div className="cv-page">{mainContentOnly}</div>
-        {referencesPage && <div className="cv-page">{referencesPage}</div>}
-      </>
-    );
+    return (<><div className="cv-page">{firstPage}</div><div className="cv-page">{mainContentOnly}</div>{referencesPage && <div className="cv-page">{referencesPage}</div>}</>);
+  }
+  return <div style={wrapperStyle}>{firstPage}</div>;
+}
+
+/* ── Bold Template ───────────────────────────────────────────────────────── */
+function BoldTemplate({ data, wrapperStyle, validEdu, validExp, forExport = false }: any) {
+  const { personal, skills } = data;
+  const accent = '#c2185b';
+  const pageContent = (
+    <>
+      <div style={{ background: accent, color: '#fff', padding: '32px 32px 22px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+          {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '3px solid rgba(255,255,255,0.4)' }} />}
+          <div><div style={{ fontSize: '26px', fontWeight: '800', letterSpacing: '1px' }}>{personal.full_name || 'Your Name'}</div><div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)', marginTop: '4px', letterSpacing: '2px', textTransform: 'uppercase' }}>Educator</div></div>
+        </div>
+        <div style={{ height: '2px', background: 'rgba(255,255,255,0.3)', margin: '16px 0 12px' }} />
+        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', fontSize: '11px', color: 'rgba(255,255,255,0.85)' }}>
+          {personal.email && <span>{ICONS.mail} {personal.email}</span>}
+          {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
+          {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
+          {personal.id_number && <span>{ICONS.user} ID: {personal.id_number}</span>}
+        </div>
+      </div>
+      <div style={{ display: 'flex', padding: '24px 32px', gap: '28px', lineHeight: '1.6' }}>
+        <div style={{ flex: 1 }}>
+          {personal.bio && <Section title="Summary" color={accent}><p style={{ color: '#374151', margin: 0, textAlign: 'justify' }}>{personal.bio}</p></Section>}
+          {validExp.length > 0 && <Section title="Experience" color={accent} icon={ICONS.briefcase}>
+            {validExp.map((e: any, i: number) => (
+              <div key={i} style={{ marginBottom: '20px' }}>
+                <div style={{ fontWeight: '700', color: '#111827' }}>{e.role}</div>
+                <div style={{ color: accent, fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
+                {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
+                {renderDescription(e.description, '#374151', '12px', true)}
+              </div>
+            ))}
+          </Section>}
+          {renderCustomSections(data.custom_sections, accent, undefined, true)}
+        </div>
+        <div style={{ width: '180px', flexShrink: 0 }}>
+          {validEdu.length > 0 && <Section title="Education" color={accent} icon={ICONS.graduation}>
+            {validEdu.map((e: any, i: number) => (
+              <div key={i} style={{ marginBottom: '14px' }}>
+                <div style={{ fontWeight: '600', color: '#111827', fontSize: '12px' }}>{e.qualification}</div>
+                <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
+              </div>
+            ))}
+          </Section>}
+          {skills?.subjects?.length && <Section title="Subjects" color={accent} icon={ICONS.bookOpen}><BulletList items={skills.subjects} justify /></Section>}
+          {skills?.soft_skills?.length && <Section title="Skills" color={accent} icon={ICONS.award}><BulletList items={skills.soft_skills} justify /></Section>}
+          {skills?.languages?.length && <Section title="Languages" color={accent} icon={ICONS.languages}><BulletList items={skills.languages} justify /></Section>}
+        </div>
+      </div>
+      {renderReferencesPage(data.references, accent, undefined, '24px 32px', true)}
+    </>
+  );
+  if (forExport) return <div className="cv-page">{pageContent}</div>;
+  return <div style={wrapperStyle}>{pageContent}</div>;
+}
+
+/* ── Executive Template ──────────────────────────────────────────────────── */
+function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, forExport = false }: any) {
+  const { personal, skills } = data;
+  const accent = '#6b1a1a';
+  const pageContent = (
+    <>
+      <div style={{ background: `linear-gradient(135deg, ${accent} 0%, #8b2424 100%)`, color: '#fff', padding: '36px 44px 28px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '84px', height: '84px', borderRadius: '50%', objectFit: 'cover', border: '3px solid rgba(255,255,255,0.35)' }} />}
+          <div><div style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase' }}>{personal.full_name || 'Your Name'}</div><div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)', marginTop: '4px', letterSpacing: '3px', textTransform: 'uppercase' }}>Educator</div></div>
+        </div>
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.25)', margin: '18px 0 14px' }} />
+        <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap', fontSize: '11px', color: 'rgba(255,255,255,0.85)' }}>
+          {personal.email && <span>{ICONS.mail} {personal.email}</span>}
+          {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
+          {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
+          {personal.id_number && <span>{ICONS.user} ID: {personal.id_number}</span>}
+        </div>
+      </div>
+      <div style={{ padding: '32px 44px', lineHeight: '1.65' }}>
+        {personal.bio && <Section title="Executive Profile" color={accent}><p style={{ color: '#374151', margin: 0, textAlign: 'justify' }}>{personal.bio}</p></Section>}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 36px' }}>
+          <div>
+            {validExp.length > 0 && <Section title="Teaching Experience" color={accent} icon={ICONS.briefcase}>
+              {validExp.map((e: any, i: number) => (
+                <div key={i} style={{ marginBottom: '20px' }}>
+                  <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.role}</div>
+                  <div style={{ color: '#8b2424', fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
+                  {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
+                  {renderDescription(e.description, '#374151', '12px', true)}
+                </div>
+              ))}
+            </Section>}
+            {renderCustomSections(data.custom_sections, accent, undefined, true)}
+          </div>
+          <div>
+            {validEdu.length > 0 && <Section title="Education" color={accent} icon={ICONS.graduation}>
+              {validEdu.map((e: any, i: number) => (
+                <div key={i} style={{ marginBottom: '14px' }}>
+                  <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.qualification}</div>
+                  <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
+                </div>
+              ))}
+            </Section>}
+            {skills?.subjects?.length && <Section title="Subjects" color={accent} icon={ICONS.bookOpen}><BulletList items={skills.subjects} justify /></Section>}
+            {skills?.soft_skills?.length && <Section title="Skills" color={accent} icon={ICONS.award}><BulletList items={skills.soft_skills} justify /></Section>}
+            {skills?.languages?.length && <Section title="Languages" color={accent} icon={ICONS.languages}><BulletList items={skills.languages} justify /></Section>}
+          </div>
+        </div>
+      </div>
+      {renderReferencesPage(data.references, accent, undefined, '32px 44px', true)}
+    </>
+  );
+  if (forExport) return <div className="cv-page">{pageContent}</div>;
+  return <div style={wrapperStyle}>{pageContent}</div>;
+}
+
+/* ── Corporate Template (sidebar only on first page) ─────────────────────── */
+function CorporateTemplate({ data, wrapperStyle, validEdu, validExp, forExport = false }: any) {
+  const { personal, skills } = data;
+  const navy = '#1a2a4a';
+
+  const mainContentOnly = (
+    <div style={{ padding: '32px 36px' }}>
+      {personal.bio && <Section title="Professional Summary" color={navy}><p style={{ color: '#374151', margin: 0, textAlign: 'justify' }}>{personal.bio}</p></Section>}
+      {validExp.length > 0 && <Section title="Work Experience" color={navy} icon={ICONS.briefcase}>
+        {validExp.map((e: any, i: number) => (
+          <div key={i} style={{ marginBottom: '20px' }}>
+            <div style={{ fontWeight: '700', color: '#111827' }}>{e.role}</div>
+            <div style={{ color: navy, fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
+            {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
+            {renderDescription(e.description, '#374151', '12px', true)}
+          </div>
+        ))}
+      </Section>}
+      {validEdu.length > 0 && <Section title="Education" color={navy} icon={ICONS.graduation}>
+        {validEdu.map((e: any, i: number) => (
+          <div key={i} style={{ marginBottom: '14px' }}>
+            <div style={{ fontWeight: '600', color: '#111827' }}>{e.qualification}</div>
+            <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
+          </div>
+        ))}
+      </Section>}
+      {renderCustomSections(data.custom_sections, navy, undefined, true)}
+    </div>
+  );
+
+  const firstPage = (
+    <div style={{ display: 'flex', minHeight: '1123px' }}>
+      <div style={{ background: navy, color: '#fff', width: '210px', minWidth: '210px', padding: '32px 18px', boxSizing: 'border-box' }}>
+        <div style={{ width: '76px', height: '76px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: '26px', fontWeight: '800', color: '#fff' }}>
+          {(personal.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+        </div>
+        <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: '700', marginBottom: '3px' }}>{personal.full_name || 'Your Name'}</div>
+        <div style={{ textAlign: 'center', fontSize: '10px', color: 'rgba(255,255,255,0.65)', marginBottom: '20px' }}>Educator</div>
+        <SidebarSection title="Contact">
+          {personal.email && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mail} {personal.email}</div>}
+          {personal.phone && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.phone} {personal.phone}</div>}
+          {personal.address && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mapPin} {personal.address}</div>}
+          {personal.id_number && <div>{ICONS.user} ID: {personal.id_number}</div>}
+        </SidebarSection>
+        {skills?.subjects?.length && <SidebarSection title="Subjects"><BulletList items={skills.subjects} /></SidebarSection>}
+        {skills?.soft_skills?.length && <SidebarSection title="Skills"><BulletList items={skills.soft_skills} /></SidebarSection>}
+        {skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
+      </div>
+      <div style={{ flex: 1 }}>{mainContentOnly}</div>
+    </div>
+  );
+
+  const referencesPage = renderReferencesPage(data.references, navy, undefined, '32px 36px', true);
+  if (forExport) {
+    return (<><div className="cv-page">{firstPage}</div><div className="cv-page">{mainContentOnly}</div>{referencesPage && <div className="cv-page">{referencesPage}</div>}</>);
   }
   return <div style={wrapperStyle}>{firstPage}</div>;
 }
