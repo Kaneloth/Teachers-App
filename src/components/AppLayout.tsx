@@ -1,29 +1,29 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Search, Users, MessageCircle, Briefcase, FileText, Mail, BookMarked } from 'lucide-react';
+import { Home, Search, MessageCircle, Briefcase, FileText, Mail, BookMarked } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AppHeader from './AppHeader';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 
-// Tab page components — rendered directly in the strip
+// Tab page components
 import HomePage from '@/pages/Home';
-import SearchPage from '@/pages/Search';
-import MatchesPage from '@/pages/MatchesPage';
+import SearchAndMatches from '@/pages/SearchAndMatches';  // new combined page
 import ChatsPage from '@/pages/ChatsPage';
 import VacanciesPage from '@/pages/VacanciesPage';
 import CVBuilderPage from '@/pages/CVBuilderPage';
 import CareerToolsPage from '@/pages/CareerToolsPage';
 import CoverLettersPage from '@/pages/CoverLettersPage';
 
+// Educator tabs: Home, Search (combined), Chats, Career Tools
 const EDUCATOR_TABS = [
-  { path: '/home',         component: HomePage,        icon: Home,          label: 'Home'         },
-  { path: '/search',       component: SearchPage,      icon: Search,        label: 'Search'       },
-  { path: '/matches',      component: MatchesPage,     icon: Users,         label: 'Matches'      },
-  { path: '/chats',        component: ChatsPage,       icon: MessageCircle, label: 'Chats'        },
-  { path: '/career-tools', component: CareerToolsPage, icon: BookMarked,    label: 'Career Tools' },
+  { path: '/home',         component: HomePage,         icon: Home,          label: 'Home'         },
+  { path: '/search',       component: SearchAndMatches, icon: Search,        label: 'Search'       },
+  { path: '/chats',        component: ChatsPage,        icon: MessageCircle, label: 'Chats'        },
+  { path: '/career-tools', component: CareerToolsPage,  icon: BookMarked,    label: 'Career Tools' },
 ];
 
+// General tabs (unchanged)
 const GENERAL_TABS = [
   { path: '/home',           component: HomePage,         icon: Home,     label: 'Home'    },
   { path: '/vacancies',      component: VacanciesPage,    icon: Briefcase, label: 'Jobs'   },
@@ -134,7 +134,6 @@ export default function AppLayout() {
       .eq('read', false);
 
     if (allBlockedIds.length > 0) {
-      // Supabase requires comma‑separated list inside parentheses
       const idsString = allBlockedIds.map(id => `'${id}'`).join(',');
       query = query.not('sender_id', 'in', `(${idsString})`);
     }
@@ -148,13 +147,11 @@ export default function AppLayout() {
     if (!user) return;
     loadUnreadCount();
 
-    // Listen to messages changes (new message, read status)
     const messagesChannel = supabase
       .channel('unread-messages')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, loadUnreadCount)
       .subscribe();
 
-    // Also listen to user_blocks changes (block/unblock can affect who is excluded)
     const blocksChannel = supabase
       .channel('unread-blocks')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_blocks' }, loadUnreadCount)
@@ -169,7 +166,7 @@ export default function AppLayout() {
   const isTabRoute = TAB_PATHS.includes(location.pathname);
   const tabIndex = isTabRoute ? TAB_PATHS.indexOf(location.pathname) : 0;
 
-  // Swipe / drag state (unchanged)
+  // Swipe / drag state
   const [dragPercent, setDragPercent] = useState(0);
   const isDragging = dragPercent !== 0;
   const touchRef = useRef({ startX: 0, startY: 0, active: false, axisLocked: false, horizontal: false });
@@ -275,6 +272,7 @@ export default function AppLayout() {
         )}
       </div>
 
+      {/* Bottom navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50">
         <div className="max-w-2xl mx-auto flex">
           {TABS.map(({ path, icon: Icon, label }) => {

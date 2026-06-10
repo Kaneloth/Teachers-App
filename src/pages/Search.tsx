@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import EducatorCard, { calculateMatch, MyProfile } from '@/components/search/EducatorCard';
 import SearchFilters, { Filters } from '@/components/search/SearchFilters';
+
 interface Educator {
   id: string;
   full_name: string;
@@ -20,7 +21,11 @@ interface Educator {
   user_id?: string;
 }
 
-export default function Search() {
+interface Props {
+  embedded?: boolean;
+}
+
+export default function SearchPage({ embedded = false }: Props) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
@@ -140,20 +145,24 @@ export default function Search() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Page header */}
-      <div className="px-4 pt-4 pb-3">
-        <div className="flex items-center gap-2 mb-1">
-          <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
-            <ArrowLeft className="w-5 h-5 text-foreground" />
-          </button>
-          <button onClick={handleRefresh} className="p-1 rounded-full hover:bg-muted transition-colors">
-            <RefreshCw className={`w-4 h-4 text-primary ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
-          <h1 className="text-lg font-bold text-foreground">Find Educators</h1>
+    <div className={!embedded ? "max-w-2xl mx-auto" : ""}>
+      {/* Header – only shown when not embedded */}
+      {!embedded && (
+        <div className="px-4 pt-4 pb-3">
+          <div className="flex items-center gap-2 mb-1">
+            <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
+              <ArrowLeft className="w-5 h-5 text-foreground" />
+            </button>
+            <button onClick={handleRefresh} className="p-1 rounded-full hover:bg-muted transition-colors">
+              <RefreshCw className={`w-4 h-4 text-primary ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <h1 className="text-lg font-bold text-foreground">Find Educators</h1>
+          </div>
+          <p className="text-sm text-muted-foreground pl-1">
+            Search and filter educators · <span className="text-primary font-medium">Pro</span> unlocks your highest-quality matches.
+          </p>
         </div>
-        <p className="text-sm text-muted-foreground pl-1">Search and filter educators · <span className="text-primary font-medium">Pro</span> unlocks your highest-quality matches. </p>
-      </div>
+      )}
 
       {/* Search bar + filters */}
       <div className="px-4 pb-3 flex items-center gap-2">
@@ -202,7 +211,6 @@ export default function Search() {
           </div>
         </>
       )}
-
     </div>
   );
 }

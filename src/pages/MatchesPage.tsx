@@ -9,7 +9,6 @@ import { useAuth } from '@/lib/AuthContext';
 import SubscriptionModal from '@/components/SubscriptionModal';
 import { calculateMatch } from '@/components/search/EducatorCard';
 
-
 interface Educator {
   id: string;
   full_name: string;
@@ -24,7 +23,11 @@ interface Educator {
   score?: number;
 }
 
-export default function MatchesPage() {
+interface Props {
+  embedded?: boolean;
+}
+
+export default function MatchesPage({ embedded = false }: Props) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [myProfile, setMyProfile] = useState<Educator | null>(null);
@@ -104,16 +107,19 @@ export default function MatchesPage() {
   }
 
   return (
-    <div className="px-4 py-6 space-y-4 max-w-lg mx-auto">
-      <div className="flex items-center gap-2">
-        <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors shrink-0">
-          <ArrowLeft className="w-5 h-5 text-foreground" />
-        </button>
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Transfer Matches</h1>
-          <p className="text-sm text-muted-foreground">Educators who match your transfer preferences</p>
+    <div className={!embedded ? "px-4 py-6 space-y-4 max-w-lg mx-auto" : "space-y-4"}>
+      {/* Header – only shown when not embedded */}
+      {!embedded && (
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors shrink-0">
+            <ArrowLeft className="w-5 h-5 text-foreground" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-foreground">Transfer Matches</h1>
+            <p className="text-sm text-muted-foreground">Educators who match your transfer preferences</p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Free users: full lock screen, no cards shown ─────────── */}
       {!isPro ? (
