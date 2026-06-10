@@ -1,14 +1,15 @@
-
 [functions]
-  included_files = ["netlify/functions/templates/*.html"]
   node_bundler = "esbuild"
 
 [functions."fetch-vacancies"]
   timeout = 26
 
-[functions."generate-cv-pdf"]
+[functions."convert-to-pdf"]
   timeout = 26
   memory = 1024
+
+[functions."enhance-cv"]
+  timeout = 26
 
 # Ensure the sitemap is served correctly (before the catch-all rule)
 [[redirects]]
@@ -18,7 +19,6 @@
   force  = true
 
 # SPA catch-all — must come LAST so Netlify functions still resolve first.
-# Without this every direct URL hit (e.g. /profile, /vacancies) returns 404.
 [[redirects]]
   from   = "/*"
   to     = "/index.html"
