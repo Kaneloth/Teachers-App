@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
 import SubscriptionModal from '@/components/SubscriptionModal';
 import { useAuth } from '@/lib/AuthContext';
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, LevelFormat, BorderStyle, WidthType, ShadingType, HeadingLevel, PageBreak } from 'docx';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface EducatorProfile {
@@ -19,11 +20,6 @@ interface EducatorProfile {
 
 // ── Docx generation (client-side, using the docx npm package) ─────────────────
 async function generateDocx(templateType: string, profile: EducatorProfile): Promise<Blob> {
-  const {
-    Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-    AlignmentType, LevelFormat, BorderStyle, WidthType, ShadingType, HeadingLevel,
-    PageBreak,
-  } = await import('docx');
 
   const today = new Date().toLocaleDateString('en-ZA', {
     day: 'numeric', month: 'long', year: 'numeric',

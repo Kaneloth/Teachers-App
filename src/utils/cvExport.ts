@@ -5,6 +5,7 @@
  */
 
 import type { jsPDF as JsPDFType } from 'jspdf';
+import { jsPDF as JsPDFClass } from 'jspdf';
 
 const PW       = 210;
 const PH       = 297;
@@ -184,7 +185,7 @@ function drawFooter(p: JsPDFType, name: string, pg: number, total: number, aR: n
 export async function exportElementAsPDF(
   _container: HTMLElement, filename: string, cvData?: Record<string, unknown>,
 ): Promise<Blob> {
-  const { jsPDF } = await import('jspdf');
+  const jsPDF = JsPDFClass;
   if (!cvData) throw new Error('cvData required');
 
   const data    = cvData as any;
