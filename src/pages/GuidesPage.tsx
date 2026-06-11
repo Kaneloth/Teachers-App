@@ -199,7 +199,7 @@ async function generateDocx(templateType: string, profile: EducatorProfile): Pro
           p('The release is subject to the following conditions:', { bold: true }),
           new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: 'The transfer is of a mutual/cross nature, with a suitable replacement educator being transferred to our school simultaneously.', font: 'Arial', size: 24 })] }),
           new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: 'All outstanding work, reports, and administrative duties are completed before the transfer date.', font: 'Arial', size: 24 })] }),
-          new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: 'Final approval is obtained from the relevant district office and Gauteng Department of Education.', font: 'Arial', size: 24 })] }),
+          new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: 'Final approval is obtained from the relevant education district office and Provincial Department of Education.', font: 'Arial', size: 24 })] }),
           blank(),
           p('We confirm that the SGB has been consulted and has endorsed this release.'),
           blank(),
@@ -250,11 +250,11 @@ async function generateDocx(templateType: string, profile: EducatorProfile): Pro
           field('Post / Subject(s)', '[Subject(s) to be taught]'),
           blank(),
           p('This acceptance is conditional upon:', { bold: true }),
-          new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: 'Formal approval from the Gauteng Department of Education (GDE) and the relevant district.', font: 'Arial', size: 24 })] }),
+          new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: 'Formal approval from the Provincial Department of Education and the relevant district.', font: 'Arial', size: 24 })] }),
           new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: 'Receipt of a release letter from your current school signed by the principal and SGB.', font: 'Arial', size: 24 })] }),
-          new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: 'Completion of all paperwork including the official GDE cross-transfer form (Annexure A).', font: 'Arial', size: 24 })] }),
+          new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: 'Completion of all paperwork including the official provincial cross-transfer form (Annexure A).', font: 'Arial', size: 24 })] }),
           blank(),
-          p('Please submit all required documents to the district office at your earliest convenience.'),
+          p('Please submit all required documents to the education district office at your earliest convenience.'),
           blank(),
           ...signatureLine('Principal — Receiving School'),
           ...signatureLine('Chairperson, School Governing Body'),
@@ -327,7 +327,7 @@ async function generateDocx(templateType: string, profile: EducatorProfile): Pro
             rows: [
               row('Current School Name', school),
               row('School EMIS Number', '[EMIS Number]'),
-              row('District', '[GDE District]'),
+              row('District', '[Provincial DoE District]'),
               row('Post Level', postLvl),
               row('Rank / Designation', '[e.g. Educator, HoD, Deputy Principal]'),
               row('Subject(s) Taught', '[Subjects]'),
@@ -344,7 +344,7 @@ async function generateDocx(templateType: string, profile: EducatorProfile): Pro
             rows: [
               row('Receiving School Name', '[Receiving School Name]'),
               row('School EMIS Number', '[EMIS Number]'),
-              row('District', '[GDE District]'),
+              row('District', '[Provincial DoE District]'),
               row('Post Level', '[Post Level]'),
               row('Rank / Designation', '[Designation at new school]'),
               row('Subject(s) to be Taught', '[Subjects]'),
@@ -398,7 +398,7 @@ async function generateDocx(templateType: string, profile: EducatorProfile): Pro
             ],
           }),
           blank(),
-          p('DISCLAIMER: This is a reference template. Always obtain and use the official, current form from your GDE district office. Requirements may change.', { color: 'CC0000' }),
+          p('DISCLAIMER: This is a reference template. Always obtain and use the official, current form from your your education education district office. Requirements may change.', { color: 'CC0000' }),
         ],
       }],
       numbering,
@@ -464,8 +464,8 @@ const STEPS = [
     title: 'Complete the official Annexure A form',
     icon: '📋',
     bullets: [
-      'Download the Annexure A reference template below — it mirrors the official GDE cross-transfer form.',
-      'Obtain the current official form from your district office (forms are updated periodically).',
+      'Download the Annexure A reference template below — it mirrors the official provincial cross-transfer form.',
+      'Obtain the current official form from your education district office (forms are updated periodically).',
       'Fill in all fields including personal details, current and receiving school details, and motivation.',
       'Both principals and SGB chairpersons from both schools must sign.',
     ],
@@ -474,12 +474,12 @@ const STEPS = [
   },
   {
     id: 6,
-    title: 'Submit all documents to both principals & district office',
+    title: 'Submit all documents to both principals & education district office',
     icon: '📬',
     bullets: [
       'Compile a complete set of documents: Request Letter, Release Letter, Acceptance Letter, Annexure A, ID copy, and any supporting documents.',
       'Submit one set to your current principal and one set to the receiving principal.',
-      'Submit the original set to your GDE district office — confirm the correct submission address with your school.',
+      'Submit the original set to your your education education district office — confirm the correct submission address with your school.',
       'Request an official acknowledgement of receipt with a reference number.',
     ],
   },
@@ -488,10 +488,10 @@ const STEPS = [
     title: 'Follow up with district and HR',
     icon: '📞',
     bullets: [
-      'After submission, follow up with your district HR office every 2–3 weeks.',
+      'After submission, follow up with your education district office (HR) every 2–3 weeks.',
       'Quote your reference number in all communications.',
       'The process typically takes 1–3 months depending on the district\'s workload.',
-      'Do not leave your current post until you receive official written confirmation from GDE.',
+      'Do not leave your current post until you receive official written confirmation from Provincial DoE.',
       'Keep copies of all correspondence for your records.',
     ],
   },
@@ -560,7 +560,7 @@ export default function GuidesPage() {
         </div>
         <div>
           <h1 className="text-lg font-bold text-foreground">Transfer Guides</h1>
-          <p className="text-xs text-muted-foreground">GDE Cross-Transfer Process & Templates</p>
+          <p className="text-xs text-muted-foreground">Provincial DoE Cross-Transfer Process & Templates</p>
         </div>
       </div>
 
@@ -569,7 +569,7 @@ export default function GuidesPage() {
         <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
         <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
           This guide is for general reference only and reflects typical cross-transfer procedures.
-          Always confirm current requirements with your <strong>GDE district office</strong> before submitting.
+          Always confirm current requirements with your <strong>your education education district office</strong> before submitting.
           Official forms may be updated — obtain the latest version from your district.
         </p>
       </div>
@@ -589,7 +589,7 @@ export default function GuidesPage() {
       <div className="flex gap-2 flex-wrap mb-5">
         <Badge variant="secondary">7 Steps</Badge>
         <Badge variant="secondary">4 Downloadable Templates</Badge>
-        <Badge variant="outline">Gauteng (GDE)</Badge>
+        <Badge variant="outline">Gauteng (Provincial DoE)</Badge>
         <Badge variant="outline">Cross-Transfer</Badge>
       </div>
 
@@ -652,7 +652,7 @@ export default function GuidesPage() {
             { key: 'request',    label: 'Request Letter',     desc: 'To your principal & SGB',        icon: '✉️' },
             { key: 'release',    label: 'Release Letter',     desc: 'From your current school',        icon: '📄' },
             { key: 'acceptance', label: 'Acceptance Letter',  desc: 'From the receiving school',       icon: '🏫' },
-            { key: 'annexure',   label: 'Annexure A',         desc: 'Official GDE reference form',     icon: '📋' },
+            { key: 'annexure',   label: 'Annexure A',         desc: 'Official Provincial DoE reference form',     icon: '📋' },
           ].map(t => (
             <button
               key={t.key}
@@ -683,7 +683,7 @@ export default function GuidesPage() {
             'Keep a dedicated folder (physical and digital) for all transfer documents.',
             'Communicate openly with both principals — surprises derail applications.',
             'The mutual transfer partner\'s application must be submitted simultaneously.',
-            'Your Persal number is on your payslip — it\'s required on all GDE forms.',
+            'Your Persal number is on your payslip — it\'s required on all Provincial DoE forms.',
             'District offices differ — some accept walk-ins, others require email submissions.',
             'SACE registration must be up to date before any transfer can be approved.',
           ].map((tip, i) => (
@@ -698,7 +698,7 @@ export default function GuidesPage() {
       {/* Contact prompt */}
       <div className="bg-muted rounded-2xl px-4 py-3 text-center">
         <p className="text-xs text-muted-foreground">
-          Questions about the process? Contact your <strong>GDE District Office</strong> directly
+          Questions about the process? Contact your <strong>Your Education District Office</strong> directly
           or visit{' '}
           <a href="https://www.education.gov.za" target="_blank" rel="noopener noreferrer" className="text-primary underline">
             www.education.gov.za
