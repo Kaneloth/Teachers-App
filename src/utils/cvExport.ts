@@ -21,7 +21,7 @@ const MT   = 14;    // margin top
 const MB   = 14;    // margin bottom
 
 // Sidebar templates: left column width
-const SIDEBAR_W = 58;  // mm
+const SIDEBAR_W = 46;  // mm
 
 // Fonts
 const FONT_REGULAR = 'helvetica';
@@ -217,8 +217,7 @@ export async function exportElementAsPDF(
     // Avatar initials circle
     const initials = (personal.full_name || 'U')
       .split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
-    setFill(pdf, 'rgba(255,255,255,0.2)');
-    pdf.setFillColor(255, 255, 255, 0.2);
+    pdf.setFillColor(200, 200, 200);
     pdf.setFillColor(200, 200, 200);
     pdf.circle(sx + smaxW / 2, sy + 8, 8, 'F');
     setTextColor(pdf, palette.sidebarBg!);
@@ -260,7 +259,11 @@ export async function exportElementAsPDF(
       for (const l of el) { pdf.text(l, sx, sy); sy += 3.8; }
       sy += 1;
     }
-    if (personal.phone) { pdf.text(personal.phone, sx, sy); sy += 4; }
+    if (personal.phone) {
+      const pl = pdf.splitTextToSize(personal.phone, smaxW) as string[];
+      for (const l of pl) { pdf.text(l, sx, sy); sy += 3.8; }
+      sy += 1;
+    }
     if (personal.address) {
       const al = pdf.splitTextToSize(personal.address, smaxW) as string[];
       for (const l of al) { pdf.text(l, sx, sy); sy += 3.8; }
@@ -322,8 +325,8 @@ export async function exportElementAsPDF(
     headerH = cy + 4 - MT;
 
   } else {
-    // Non-sidebar: coloured header banner
-    const hh = personal.photo_url ? 32 : 26;
+    // Non-sidebar: coloured header banner — tall enough for name + 2-line contact
+    const hh = 30;
     setFill(pdf, palette.headerBg);
     pdf.rect(0, 0, PW, hh, 'F');
 
@@ -334,19 +337,19 @@ export async function exportElementAsPDF(
 
     pdf.setFont(FONT_REGULAR, 'normal');
     pdf.setFontSize(7.5);
-    let hx = ML;
-    const contactItems = [
-      personal.email   && `✉ ${personal.email}`,
-      personal.phone   && `📞 ${personal.phone}`,
-      personal.address && `📍 ${personal.address}`,
+    // Join contact details with separator, wrap if too long
+    const contactParts = [
+      personal.email,
+      personal.phone,
+      personal.address,
       personal.id_number && `ID: ${personal.id_number}`,
     ].filter(Boolean) as string[];
-
-    for (const item of contactItems) {
-      const iw = pdf.getTextWidth(item) + 5;
-      if (hx + iw > PW - MR) break;
-      pdf.text(item, hx, hh - 6);
-      hx += iw;
+    const contactStr = contactParts.join('   |   ');
+    if (contactStr) {
+      setTextColor(pdf, palette.headerText);
+      const cLines = pdf.splitTextToSize(contactStr, PW - ML - MR) as string[];
+      const startY = cLines.length > 1 ? hh - 9 : hh - 5;
+      cLines.forEach((cl: string, i: number) => pdf.text(cl, ML, startY + i * 4));
     }
 
     headerH = hh + 4;
