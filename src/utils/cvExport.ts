@@ -4,15 +4,12 @@
  * Strategy
  * ────────
  * 1. Render the WHOLE container with html2canvas (keeps watermark + overlays).
- * 2. If `.cv-page` divs are present, use their measured offsetTop/offsetHeight
- *    to determine where to slice the canvas — one PDF page per cv-page div.
- * 3. If a single cv-page slice is taller than one A4 page (content overflows),
- *    sub-slice it using content-aware row scanning: scan near the boundary for
- *    the lightest (most-blank) row and cut there instead of through text.
- * 4. If there are no .cv-page divs at all, fall back to content-aware slicing
- *    of the full canvas.
- *
- * Result: no more lines cut in half, sidebar stays on page 1 only.
+ * 2. `.cv-page` divs define page boundaries — one PDF page per cv-page div.
+ *    Every template now wraps page 1 AND the references page in `.cv-page`,
+ *    so this path is always taken (no more fallback slicer for well-formed CVs).
+ * 3. If a single cv-page slice is taller than one A4 page (very long content),
+ *    sub-slice it using content-aware row scanning to avoid cutting through text.
+ * 4. Fallback: if somehow no .cv-page divs exist, use content-aware slicing.
  */
 
 const PDF_SCALE  = 2;          // retina quality render
@@ -26,8 +23,6 @@ const A4_H_PT    = 841.89;     // jsPDF A4 height in points
  * Scans ±searchPx rows around `proposedY` in the canvas and returns the row
  * index that has the most light (background) pixels in the content area
  * (right 65 % of canvas, skipping dark sidebar columns on the left).
- *
- * Falls back to `proposedY` if the canvas context is unavailable.
  */
 function findSafeCutY(
   ctx: CanvasRenderingContext2D,
@@ -41,7 +36,6 @@ function findSafeCutY(
   const scanH   = scanBot - scanTop;
   if (scanH <= 0) return proposedY;
 
-  // Only look at the content area (skip the left sidebar column)
   const startX = Math.floor(canvasWidth * 0.28);
   const w      = canvasWidth - startX;
 
@@ -90,7 +84,6 @@ function addSliceToPDF(
   const tCtx = tmp.getContext('2d')!;
   tCtx.drawImage(canvas, 0, startY, canvas.width, h, 0, 0, canvas.width, h);
 
-  // Scale proportionally to fit PDF page width; centre vertically if shorter
   const imgH = (h / canvas.width) * A4_W_PT;
   const drawH = Math.min(imgH, A4_H_PT);
   const drawW = (drawH / imgH) * A4_W_PT;
@@ -118,33 +111,44 @@ export async function exportElementAsPDF(
   });
 
   const ctx      = canvas.getContext('2d')!;
-  const scale    = canvas.width / A4_W_PT;           // canvas px per PDF point
-  const pageHpx  = Math.round(A4_H_PT * scale);      // one A4 page in canvas pixels
+  const scale    = canvas.width / A4_W_PT;
+  const pageHpx  = Math.round(A4_H_PT * scale);
 
-  // ── 2. Determine slice boundaries ────────────────────────────────────────
+  // ── 2. Determine slice boundaries via .cv-page divs ──────────────────────
+  //
+  // FIX: Changed from `pageEls.length > 1` to `pageEls.length >= 1`.
+  // Previously, if there was only one .cv-page (single-page CV with no refs),
+  // it would fall through to the content-aware slicer which could cut text.
+  // Now we always use .cv-page boundaries when they exist.
+  //
+  // FIX: offsetTop traversal now walks up to `container` instead of checking
+  // for offsetParent being null. This correctly handles the off-screen render
+  // container (left: -9999px) where offsetParent may be the body, not null.
   const pageEls = Array.from(
     container.querySelectorAll<HTMLElement>('.cv-page'),
   );
 
-  type Slice = [number, number];   // [canvasStartY, canvasEndY]
+  type Slice = [number, number];
   let slices: Slice[];
 
-  if (pageEls.length > 1) {
-    // Use cv-page div positions — each div is one logical page
+  if (pageEls.length >= 1) {
     slices = pageEls.map(el => {
-      // Walk up to container to get the true offsetTop relative to container
+      // Walk up from el to container accumulating offsetTop at each level
       let top = 0;
       let cur: HTMLElement | null = el;
       while (cur && cur !== container) {
         top += cur.offsetTop;
-        cur  = cur.offsetParent as HTMLElement | null;
+        // Move to offsetParent, but stop if it would overshoot the container
+        const parent = cur.offsetParent as HTMLElement | null;
+        if (!parent || parent === document.body || parent === document.documentElement) break;
+        cur = parent;
       }
-      const startPx = Math.round(top                   * PDF_SCALE);
+      const startPx = Math.round(top                     * PDF_SCALE);
       const endPx   = Math.round((top + el.offsetHeight) * PDF_SCALE);
       return [startPx, endPx] as Slice;
     });
   } else {
-    // No (or only one) cv-page div: fall back to content-aware page slicing
+    // Fallback: no .cv-page divs found — content-aware slicing of full canvas
     slices = [];
     let y = 0;
     while (y < canvas.height) {
@@ -168,7 +172,7 @@ export async function exportElementAsPDF(
     if (pageNum > 0) pdf.addPage();
 
     if (sliceH > pageHpx * 1.05) {
-      // Slice is too tall for one PDF page — sub-divide with content-aware cuts
+      // Slice is taller than one A4 page — sub-divide with content-aware cuts
       let subY    = startY;
       let subPage = 0;
       while (subY < endY) {
@@ -188,9 +192,6 @@ export async function exportElementAsPDF(
     pageNum++;
   }
 
-  // Discard the initial blank page jsPDF creates, if we added at least one page
-  // (jsPDF starts with one page already — we add a new page before each slice
-  //  except the first, so page count is exactly slices.length)
-  void filename; // filename is not used by jsPDF.output but kept for API compat
+  void filename;
   return pdf.output('blob');
 }
