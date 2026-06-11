@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/AuthContext';
 
 // Tab page components
 import HomePage from '@/pages/Home';
-import SearchAndMatches from '@/pages/SearchAndMatches';  // new combined page
+import SearchAndMatches from '@/pages/SearchAndMatches';
 import ChatsPage from '@/pages/ChatsPage';
 import VacanciesPage from '@/pages/VacanciesPage';
 import CVBuilderPage from '@/pages/CVBuilderPage';
@@ -33,7 +33,7 @@ const GENERAL_TABS = [
   { path: '/cover-letters',  component: CoverLettersPage, icon: Mail,      label: 'Letters'},
 ];
 
-const SWIPE_THRESHOLD = 0.30;  // 30% drag to navigate — same as Skootlink
+const SWIPE_THRESHOLD = 0.30;  // 30% drag to navigate
 
 // ─── Navigation progress bar ──────────────────────────────────────────────────
 function useNavigationProgress(pathname: string) {
@@ -112,14 +112,12 @@ export default function AppLayout() {
   const loadUnreadCount = useCallback(async () => {
     if (!user) return;
 
-    // 1. Get IDs of users blocked by current user
     const { data: blockedByMe } = await supabase
       .from('user_blocks')
       .select('blocked_id')
       .eq('blocker_id', user.id);
     const blockedByMeIds = blockedByMe?.map(b => b.blocked_id) || [];
 
-    // 2. Get IDs of users who have blocked current user
     const { data: blockedMe } = await supabase
       .from('user_blocks')
       .select('blocker_id')
@@ -128,7 +126,6 @@ export default function AppLayout() {
 
     const allBlockedIds = [...blockedByMeIds, ...blockedByThemIds];
 
-    // 3. Query unread messages, excluding blocked senders
     let query = supabase
       .from('messages')
       .select('id', { count: 'exact', head: true })
@@ -144,7 +141,6 @@ export default function AppLayout() {
     setUnreadCount(count ?? 0);
   }, [user]);
 
-  // Load on mount & subscribe to messages + user_blocks changes
   useEffect(() => {
     if (!user) return;
     loadUnreadCount();
@@ -168,13 +164,14 @@ export default function AppLayout() {
   const isTabRoute = TAB_PATHS.includes(location.pathname);
   const tabIndex = isTabRoute ? TAB_PATHS.indexOf(location.pathname) : 0;
 
-  // ── Swipe — exact Skootlink implementation ───────────────────────────────
+  // ── Swipe / drag state (exact Skootlink implementation) ─────────────────
   const [dragPercent, setDragPercent] = useState(0);
   const isDragging = dragPercent !== 0;
   const touchRef = useRef({ startX: 0, startY: 0, active: false, axisLocked: false, horizontal: false });
   const stripRef = useRef<HTMLDivElement>(null);
 
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
+  // Native touch event handlers (same as Skootlink)
+  const onTouchStart = useCallback((e: TouchEvent) => {
     if (!isTabRoute) return;
     touchRef.current = {
       startX: e.touches[0].clientX,
@@ -185,7 +182,7 @@ export default function AppLayout() {
     };
   }, [isTabRoute]);
 
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
+  const onTouchMove = useCallback((e: TouchEvent) => {
     const t = touchRef.current;
     if (!t.active) return;
 
@@ -222,27 +219,25 @@ export default function AppLayout() {
     setDragPercent(0);
   }, [dragPercent, tabIndex, N, TAB_PATHS, navigate]);
 
-  useEffect(() => { setDragPercent(0); }, [location.pathname]);
-
-  // ── Register native touch events (avoids React synthetic event lag) ───────
-  // Must use native events with passive:false so we can call e.preventDefault()
-  // to block vertical scroll during a horizontal swipe — exactly like Skootlink.
+  // Attach native touch events to the strip element
   useEffect(() => {
     const el = stripRef.current;
     if (!el) return;
-    el.addEventListener('touchstart',  onTouchStart as unknown as EventListener, { passive: true });
-    el.addEventListener('touchmove',   onTouchMove  as unknown as EventListener, { passive: false });
-    el.addEventListener('touchend',    onTouchEnd   as unknown as EventListener, { passive: true });
-    el.addEventListener('touchcancel', onTouchEnd   as unknown as EventListener, { passive: true });
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', onTouchEnd, { passive: true });
     return () => {
-      el.removeEventListener('touchstart',  onTouchStart as unknown as EventListener);
-      el.removeEventListener('touchmove',   onTouchMove  as unknown as EventListener);
-      el.removeEventListener('touchend',    onTouchEnd   as unknown as EventListener);
-      el.removeEventListener('touchcancel', onTouchEnd   as unknown as EventListener);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
     };
   }, [onTouchStart, onTouchMove, onTouchEnd]);
 
-  // ── Strip translation — exact Skootlink formula ───────────────────────────
+  useEffect(() => { setDragPercent(0); }, [location.pathname]);
+
+  // Strip translation formula (same as Skootlink)
   const baseX  = -(tabIndex / N) * 100;
   const dragX  = (dragPercent / 100) * (100 / N);
   const stripX = baseX + dragX;
@@ -266,8 +261,6 @@ export default function AppLayout() {
             style={{
               width: `${N * 100}%`,
               transform: `translateX(${stripX}%)`,
-              // No transition while finger is down — 1:1 tracking
-              // Smooth decelerate-to-stop on release — no overshoot, no snap
               transition: isDragging
                 ? 'none'
                 : 'transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
