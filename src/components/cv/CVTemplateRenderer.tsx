@@ -313,7 +313,7 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: 
         className="cv-page"
         style={{
           width: '794px',
-          minHeight: `${A4_PAGE_H_PX}px`,
+          
           boxSizing: 'border-box',
           position: 'relative',
           background: '#fff',
@@ -376,7 +376,7 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: a
         className="cv-page"
         style={{
           width: '794px',
-          minHeight: `${A4_PAGE_H_PX}px`,
+          
           boxSizing: 'border-box',
           position: 'relative',
           background: '#fff',
@@ -385,7 +385,7 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: a
         }}
       >
         <div style={{ display: 'flex', flex: 1 }}>
-          <div style={{ background: '#0d9488', color: '#fff', width: '200px', minWidth: '200px', padding: '28px 18px', boxSizing: 'border-box' }}>
+          <div style={{ background: '#0d9488', color: '#fff', width: '200px', minWidth: '200px', padding: '28px 18px', boxSizing: 'border-box', minHeight: '1123px' }}>
             {personal.photo_url ? <img src={personal.photo_url} alt="Profile" style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', margin: '0 auto 14px', display: 'block' }} /> : <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: '28px', fontWeight: '700', color: '#fff' }}>{(personal.full_name || 'U')[0].toUpperCase()}</div>}
             <div style={{ textAlign: 'center', fontSize: '15px', fontWeight: '700', marginBottom: '4px' }}>{personal.full_name || 'Your Name'}</div>
             <div style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.75)', marginBottom: '20px' }}>Educator</div>
@@ -439,7 +439,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp, watermar
         className="cv-page"
         style={{
           width: '794px',
-          minHeight: `${A4_PAGE_H_PX}px`,
+          
           boxSizing: 'border-box',
           position: 'relative',
           background: '#fff',
@@ -512,7 +512,7 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: 
         className="cv-page"
         style={{
           width: '794px',
-          minHeight: `${A4_PAGE_H_PX}px`,
+          
           boxSizing: 'border-box',
           position: 'relative',
           background: '#fff',
@@ -579,7 +579,7 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: 
         className="cv-page"
         style={{
           width: '794px',
-          minHeight: `${A4_PAGE_H_PX}px`,
+          
           boxSizing: 'border-box',
           position: 'relative',
           background: '#fff',
@@ -588,7 +588,7 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: 
         }}
       >
         <div style={{ display: 'flex', flex: 1 }}>
-          <div style={{ background: sideColor, color: '#fff', width: '210px', minWidth: '210px', padding: '28px 18px', boxSizing: 'border-box' }}>
+          <div style={{ background: sideColor, color: '#fff', width: '210px', minWidth: '210px', padding: '28px 18px', boxSizing: 'border-box', minHeight: '1123px' }}>
             <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', fontSize: '26px', fontWeight: '800', color: sideColor }}>{(personal.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}</div>
             <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: '700', marginBottom: '3px' }}>{personal.full_name || 'Your Name'}</div>
             <div style={{ textAlign: 'center', fontSize: '10px', color: 'rgba(255,255,255,0.65)', marginBottom: '20px' }}>Educator</div>
@@ -642,7 +642,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any
         className="cv-page"
         style={{
           width: '794px',
-          minHeight: `${A4_PAGE_H_PX}px`,
+          
           boxSizing: 'border-box',
           position: 'relative',
           background: '#fff',
@@ -717,7 +717,7 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, watermark }
         className="cv-page"
         style={{
           width: '794px',
-          minHeight: `${A4_PAGE_H_PX}px`,
+          
           boxSizing: 'border-box',
           position: 'relative',
           background: '#fff',
@@ -793,7 +793,7 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp, watermark }
         className="cv-page"
         style={{
           width: '794px',
-          minHeight: `${A4_PAGE_H_PX}px`,
+          
           boxSizing: 'border-box',
           position: 'relative',
           background: '#fff',
@@ -802,7 +802,7 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp, watermark }
         }}
       >
         <div style={{ display: 'flex', flex: 1 }}>
-          <div style={{ background: navy, color: '#fff', width: '210px', minWidth: '210px', padding: '32px 18px', boxSizing: 'border-box' }}>
+          <div style={{ background: navy, color: '#fff', width: '210px', minWidth: '210px', padding: '32px 18px', boxSizing: 'border-box', minHeight: '1123px' }}>
             <div style={{ width: '76px', height: '76px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: '26px', fontWeight: '800', color: '#fff' }}>{(personal.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}</div>
             <SidebarSection title="Contact">
               {personal.email && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mail} {personal.email}</div>}
