@@ -234,8 +234,8 @@ export async function exportElementAsPDF(
 
     // ─ Sidebar contents ─
     let sy    = MT + 4;
-    const sx  = ML;
-    const smw = SIDEBAR_W - 3;
+    const smw = SIDEBAR_W - 8;          // text block width
+    const sx  = ML + (SIDEBAR_W - smw) / 2 - 1;  // centered in sidebar
 
     // Initials avatar
     const initials = ownerName.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
@@ -466,22 +466,20 @@ export async function exportElementAsPDF(
   if (refs.length) {
     pdf.addPage(); pageCount++;
 
-    if (isSB) {
-      setFill(pdf, pal.sidebarBg!);
-      pdf.rect(0, 0, ML + SIDEBAR_W + 2, PH, 'F');
-    } else {
-      // Thin accent top bar
-      setFill(pdf, pal.headerBg);
-      pdf.rect(0, 0, PW, 6, 'F');
-    }
+    // No sidebar on references page — always full width
+    setFill(pdf, pal.headerBg);
+    pdf.rect(0, 0, PW, 6, 'F');
+
+    // References always use full page width
+    const refCX  = ML;
+    const refCMW = PW - ML - MR;
 
     let ry = MT;
-    ry = sectionHeading(pdf, 'References', CX, ry, CMW, pal.accent, BOTTOM, newPage);
+    ry = sectionHeading(pdf, 'References', refCX, ry, refCMW, pal.accent, BOTTOM, newPage);
     ry += 2;
 
     // Two-column references grid
-    // Draw all left-column refs first, then right-column, tracking max Y per row
-    const half   = (CMW - 8) / 2;
+    const half   = (refCMW - 8) / 2;
     const COL_GAP = 8;
 
     // Draw a single reference card, return end Y
@@ -511,11 +509,10 @@ export async function exportElementAsPDF(
 
     // Lay out in pairs
     for (let i = 0; i < refs.length; i += 2) {
-      const leftY  = drawRefCard(refs[i],   CX,                ry);
-      const rightY = refs[i + 1] ? drawRefCard(refs[i + 1], CX + half + COL_GAP, ry) : ry;
-      // Light separator line below each row
+      const leftY  = drawRefCard(refs[i],   refCX,                    ry);
+      const rightY = refs[i + 1] ? drawRefCard(refs[i + 1], refCX + half + COL_GAP, ry) : ry;
       const rowEndY = Math.max(leftY, rightY) + 2;
-      hRule(pdf, CX, rowEndY, CMW, '#e5e7eb', 0.2);
+      hRule(pdf, refCX, rowEndY, refCMW, '#e5e7eb', 0.2);
       ry = rowEndY + 5;
     }
   }
