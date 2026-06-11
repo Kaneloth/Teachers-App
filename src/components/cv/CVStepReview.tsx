@@ -8,8 +8,7 @@ import { exportElementAsPDF } from '@/utils/cvExport';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 
-// Builds the correct public storage URL — getPublicUrl() sometimes omits /public/
-// depending on Supabase JS client version, causing 400 errors on fetch.
+// Builds correct public storage URL — getPublicUrl() sometimes omits /public/
 function publicStorageUrl(bucket: string, path: string): string {
   const base = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, '');
   return `${base}/storage/v1/object/public/${bucket}/${path}`;
@@ -24,9 +23,9 @@ interface CVData {
   template: string;
 }
 
-interface Props { data: CVData; onGenerated?: (url: string) => void }
+interface Props { data: CVData; onGenerated?: (url: string) => void; isFree?: boolean }
 
-export default function CVStepReview({ data, onGenerated }: Props) {
+export default function CVStepReview({ data, onGenerated, isFree = false }: Props) {
   const { user, updateUserMeta } = useAuth();
   const [view, setView] = useState<'preview' | 'summary'>('preview');
   const [sending, setSending] = useState(false);
@@ -41,7 +40,7 @@ export default function CVStepReview({ data, onGenerated }: Props) {
     if (!exportRef.current) return;
     setSending(true);
     try {
-      const pdfBlob = await exportElementAsPDF(exportRef.current, fileName);
+      const pdfBlob = await exportElementAsPDF(exportRef.current, fileName, { ...data, watermark: isFree });
 
       // ── Trigger device download ──────────────────────────────────────────
       const blobUrl = URL.createObjectURL(pdfBlob);

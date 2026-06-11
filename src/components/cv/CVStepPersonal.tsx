@@ -8,8 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import type { CVType } from '@/pages/CVBuilderPage';
 
-// Builds the correct public storage URL — getPublicUrl() sometimes omits /public/
-// depending on Supabase JS client version, causing 400 errors on fetch.
+// Builds correct public storage URL — getPublicUrl() sometimes omits /public/
 function publicStorageUrl(bucket: string, path: string): string {
   const base = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, '');
   return `${base}/storage/v1/object/public/${bucket}/${path}`;
@@ -84,31 +83,55 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
 
   const set = (field: keyof PersonalData, value: string) => onChange({ ...data, [field]: value });
 
+  /** Resize + convert any image to JPEG via canvas before uploading.
+   *  - Avoids HEIC/HEIF format rejections
+   *  - Reduces file size to stay under bucket limits
+   *  - Normalises to image/jpeg so the RLS mime check always passes
+   */
+  const toJpeg = (file: File, maxPx = 800, q = 0.85): Promise<Blob> =>
+    new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img  = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const s = Math.min(1, maxPx / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width  = Math.round(img.width  * s);
+        c.height = Math.round(img.height * s);
+        c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', q);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
+      img.src = url;
+    });
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!user) { toast.error('You must be signed in to upload a photo.'); return; }
     setUploading(true);
 
-    /* Derive extension from MIME type so camera-captured images (which
-       often arrive as "image" with no dot-extension in their filename)
-       still get a valid path like ".jpg" instead of ".image". */
-    const mimeToExt: Record<string, string> = {
-      'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
-      'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif',
-    };
-    const ext = mimeToExt[file.type] ?? (file.name.includes('.') ? file.name.split('.').pop() : 'jpg');
-    const path = `${user.id}/cv-photo-${Date.now()}.${ext}`;
+    try {
+      const jpeg = await toJpeg(file);
+      // Path: {userId}/cv-photo-{timestamp}.jpg  — matches RLS folder policy
+      const path = `${user.id}/cv-photo-${Date.now()}.jpg`;
 
-    const { error } = await supabase.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true });
-    if (error) {
-      toast.error('Photo upload failed: ' + error.message);
-    } else {
-      set('photo_url', publicStorageUrl('avatars', path));
-      toast.success('Photo added!');
+      const { error } = await supabase.storage
+        .from('avatars')
+        .upload(path, jpeg, { contentType: 'image/jpeg', upsert: true });
+
+      if (error) {
+        console.error('Storage upload error:', error);
+        toast.error(`Photo upload failed: ${error.message}`);
+      } else {
+        set('photo_url', publicStorageUrl('avatars', path));
+        toast.success('Photo added!');
+      }
+    } catch (err: any) {
+      console.error('Photo processing error:', err);
+      toast.error('Could not process photo: ' + (err?.message ?? 'Unknown error'));
     }
 
-    /* Reset the input so the same file can be re-selected if needed */
     e.target.value = '';
     setUploading(false);
   };
