@@ -89,21 +89,22 @@ function sectionHeading(
   accent: string,
   bottom: number,
   newPage: () => number,
+  getLayout?: () => { cx: number; cmw: number },
 ): number {
-  if (y + 10 > bottom) y = newPage();
+  if (y + 10 > bottom) {
+    y = newPage();
+    if (getLayout) { x = getLayout().cx; maxW = getLayout().cmw; }
+  }
   y += SECTION_GAP * 0.6;
 
-  // Left accent bar (3mm tall rectangle, 2.5mm wide)
   setFill(p, accent);
   p.rect(x, y - 3.2, 2.5, 3.8, 'F');
 
-  // Title text
   setTxt(p, accent);
   p.setFont(F, 'bold');
   p.setFontSize(9);
   p.text(title.toUpperCase(), x + 4, y);
 
-  // Rule from end of title to right edge
   const titleW = p.getTextWidth(title.toUpperCase());
   hRule(p, x + 4 + titleW + 2, y - 1.5, maxW - 4 - titleW - 2, accent, 0.35);
 
@@ -111,6 +112,42 @@ function sectionHeading(
 }
 
 // ── Wrapped text block ────────────────────────────────────────────────────
+function justifyLine(p: JsPDFType, line: string, x: number, maxW: number, isLast: boolean) {
+  if (isLast || !line.trim()) { p.text(line, x, 0); return; }  // last line: left-align
+  const words = line.trim().split(' ').filter(w => w.length > 0);
+  if (words.length <= 1) { p.text(line, x, 0); return; }
+  const totalWordsW = words.reduce((sum, w) => sum + p.getTextWidth(w), 0);
+  const gap = (maxW - totalWordsW) / (words.length - 1);
+  let wx = x;
+  for (let wi = 0; wi < words.length; wi++) {
+    p.text(words[wi], wx, 0);
+    wx += p.getTextWidth(words[wi]) + gap;
+  }
+}
+
+function drawJustified(p: JsPDFType, lines: string[], x: number, y: number, maxW: number, lh: number) {
+  for (let i = 0; i < lines.length; i++) {
+    const isLast = i === lines.length - 1;
+    p.saveGraphicsState?.();
+    // jsPDF doesn't support translateY in text matrix easily,
+    // so we use a workaround: set text position via p.text with options
+    const words = lines[i].trim().split(' ').filter(w => w.length > 0);
+    if (isLast || words.length <= 1) {
+      p.text(lines[i], x, y);
+    } else {
+      const totalWordsW = words.reduce((sum, w) => sum + p.getTextWidth(w), 0);
+      const gap = (maxW - totalWordsW) / (words.length - 1);
+      let wx = x;
+      for (const word of words) {
+        p.text(word, wx, y);
+        wx += p.getTextWidth(word) + gap;
+      }
+    }
+    y += lh;
+  }
+  return y;
+}
+
 function wrappedText(
   p: JsPDFType,
   text: string,
@@ -120,11 +157,24 @@ function wrappedText(
   bottom: number,
   newPage: () => number,
   lh = LINE_H,
+  getLayout?: () => { cx: number; cmw: number },
 ): number {
   const lines = p.splitTextToSize(text, maxW) as string[];
-  for (const line of lines) {
-    if (y + lh > bottom) y = newPage();
-    p.text(line, x, y);
+  for (let i = 0; i < lines.length; i++) {
+    if (y + lh > bottom) {
+      y = newPage();
+      if (getLayout) { x = getLayout().cx; maxW = getLayout().cmw; }
+    }
+    const isLast = i === lines.length - 1;
+    const words = lines[i].trim().split(' ').filter(w => w.length > 0);
+    if (isLast || words.length <= 1) {
+      p.text(lines[i], x, y);
+    } else {
+      const totalW = words.reduce((sum, w) => sum + p.getTextWidth(w), 0);
+      const gap    = (maxW - totalW) / (words.length - 1);
+      let wx = x;
+      for (const word of words) { p.text(word, wx, y); wx += p.getTextWidth(word) + gap; }
+    }
     y += lh;
   }
   return y;
@@ -140,14 +190,28 @@ function bulletLine(
   accent: string,
   bottom: number,
   newPage: () => number,
+  getLayout?: () => { cx: number; cmw: number },
 ): number {
-  const textX = x + BULLET_INDENT;
   const lines = p.splitTextToSize(text, maxW - BULLET_INDENT) as string[];
   for (let i = 0; i < lines.length; i++) {
-    if (y + LINE_H > bottom) y = newPage();
+    if (y + LINE_H > bottom) {
+      y = newPage();
+      if (getLayout) { x = getLayout().cx; maxW = getLayout().cmw; }
+    }
+    const textX  = x + BULLET_INDENT;
+    const textMaxW = maxW - BULLET_INDENT;
     if (i === 0) dot(p, x + 0.8, y - 0.2, accent, 1.1);
     setTxt(p, '#374151');
-    p.text(lines[i], textX, y);
+    const isLast = i === lines.length - 1;
+    const words  = lines[i].trim().split(' ').filter(w => w.length > 0);
+    if (isLast || words.length <= 1) {
+      p.text(lines[i], textX, y);
+    } else {
+      const totalW = words.reduce((sum, w) => sum + p.getTextWidth(w), 0);
+      const gap    = (textMaxW - totalW) / (words.length - 1);
+      let wx = textX;
+      for (const word of words) { p.text(word, wx, y); wx += p.getTextWidth(word) + gap; }
+    }
     y += LINE_H;
   }
   return y;
@@ -204,12 +268,14 @@ export async function exportElementAsPDF(
   const pdf = new jsPDF({ format: 'a4', unit: 'mm', compress: true });
 
   // Content column geometry — sidebar only affects page 1
-  const CX1  = isSB ? ML + SIDEBAR_W + 5 : ML;     // page 1 content left (beside sidebar)
-  const CMW1 = isSB ? PW - MR - CX1 : PW - ML - MR;// page 1 content width
-  const CX2  = ML;                                   // page 2+ full width
+  const CX1  = isSB ? ML + SIDEBAR_W + 10 : ML;
+  const CMW1 = isSB ? PW - MR - CX1 : PW - ML - MR;
+  const CX2  = ML;
   const CMW2 = PW - ML - MR;
-  let   CX   = CX1;
-  let   CMW  = CMW1;
+
+  // Layout ref — helpers read from this so they always get the current values
+  // after a page break switches from sidebar-offset to full-width.
+  const layout = { cx: CX1, cmw: CMW1 };
 
   // Page tracking
   let pageCount = 1;
@@ -219,8 +285,8 @@ export async function exportElementAsPDF(
     pdf.addPage();
     pageCount++;
     // Sidebar bg is ONLY on page 1 — page 2+ get a thin accent top bar
-    CX  = CX2;
-    CMW = CMW2;
+    layout.cx  = CX2;
+    layout.cmw = CMW2;
     if (isSB) {
       setFill(pdf, pal.sidebarBg!);
       pdf.rect(0, 0, PW, 6, 'F');
@@ -300,11 +366,11 @@ export async function exportElementAsPDF(
     let cy = MT + 8;
     setTxt(pdf, pal.accent);
     pdf.setFont(F, 'bold'); pdf.setFontSize(16);
-    pdf.text(ownerName.toUpperCase(), CX, cy); cy += 6;
+    pdf.text(ownerName.toUpperCase(), layout.cx, cy); cy += 6;
     setTxt(pdf, '#6b7280');
     pdf.setFont(F, 'normal'); pdf.setFontSize(8);
-    pdf.text('EDUCATOR', CX, cy); cy += 3;
-    hRule(pdf, CX, cy, CMW, pal.accent, 0.5);
+    pdf.text('EDUCATOR', layout.cx, cy); cy += 3;
+    hRule(pdf, layout.cx, cy, layout.cmw, pal.accent, 0.5);
     headerH = cy + 5 - MT;
 
   } else {
@@ -342,46 +408,46 @@ export async function exportElementAsPDF(
 
   // ── Professional Summary ──────────────────────────────────────────────
   if (p.bio) {
-    y = sectionHeading(pdf, 'Professional Summary', CX, y, CMW, pal.accent, BOTTOM, newPage);
+    y = sectionHeading(pdf, 'Professional Summary', layout.cx, y, layout.cmw, pal.accent, BOTTOM, newPage, () => layout);
     pdf.setFont(F, 'normal'); pdf.setFontSize(9); setTxt(pdf, '#374151');
-    y = wrappedText(pdf, p.bio, CX, y, CMW, BOTTOM, newPage);
+    y = wrappedText(pdf, p.bio, layout.cx, y, layout.cmw, BOTTOM, newPage, () => layout);
     y += ITEM_GAP + 1;
   }
 
   // ── Experience ────────────────────────────────────────────────────────
   if (exp.length) {
-    y = sectionHeading(pdf, 'Teaching Experience', CX, y, CMW, pal.accent, BOTTOM, newPage);
+    y = sectionHeading(pdf, 'Teaching Experience', layout.cx, y, layout.cmw, pal.accent, BOTTOM, newPage, () => layout);
 
     for (const e of exp) {
       if (y + 16 > BOTTOM) y = newPage();
 
       // Role — bold, dark
       pdf.setFont(F, 'bold'); pdf.setFontSize(10); setTxt(pdf, '#111827');
-      pdf.text(e.role || '', CX, y); y += LINE_H;
+      pdf.text(e.role || '', layout.cx, y); y += LINE_H;
 
       // School — accent colour
       pdf.setFont(F, 'bold'); pdf.setFontSize(8.5); setTxt(pdf, pal.accent);
       const school = e.school || '';
-      pdf.text(school, CX, y);
+      pdf.text(school, layout.cx, y);
 
       // Date — grey, right-aligned
       const dateStr = [e.from, e.to].filter(Boolean).join(' - ');
       if (dateStr) {
         pdf.setFont(F, 'normal'); pdf.setFontSize(8); setTxt(pdf, '#6b7280');
         const dw = pdf.getTextWidth(dateStr);
-        pdf.text(dateStr, CX + CMW - dw, y);
+        pdf.text(dateStr, layout.cx + layout.cmw - dw, y);
       }
       y += LINE_H;
 
       // Thin rule under school/date row
-      hRule(pdf, CX, y - 1.5, CMW, '#e5e7eb', 0.2);
+      hRule(pdf, layout.cx, y - 1.5, layout.cmw, '#e5e7eb', 0.2);
 
       // Bullets
       if (e.description) {
         y += 1;
         pdf.setFont(F, 'normal'); pdf.setFontSize(9); setTxt(pdf, '#374151');
         for (const b of e.description.split('\n').map((l: string) => l.trim()).filter(Boolean)) {
-          y = bulletLine(pdf, b, CX, y, CMW, pal.accent, BOTTOM, newPage);
+          y = bulletLine(pdf, b, layout.cx, y, layout.cmw, pal.accent, BOTTOM, newPage, () => layout);
         }
       }
       y += ITEM_GAP + 1;
@@ -391,19 +457,19 @@ export async function exportElementAsPDF(
 
   // ── Education ─────────────────────────────────────────────────────────
   if (edu.length) {
-    y = sectionHeading(pdf, 'Education', CX, y, CMW, pal.accent, BOTTOM, newPage);
+    y = sectionHeading(pdf, 'Education', layout.cx, y, layout.cmw, pal.accent, BOTTOM, newPage, () => layout);
 
     for (const e of edu) {
       if (y + 12 > BOTTOM) y = newPage();
 
       // Qualification
       pdf.setFont(F, 'bold'); pdf.setFontSize(10); setTxt(pdf, '#111827');
-      pdf.text(e.qualification || '', CX, y); y += LINE_H;
+      pdf.text(e.qualification || '', layout.cx, y); y += LINE_H;
 
       // Institution + year
       pdf.setFont(F, 'normal'); pdf.setFontSize(8.5); setTxt(pdf, '#6b7280');
       const instStr = [e.institution, e.year].filter(Boolean).join('   |   ');
-      pdf.text(instStr, CX, y);
+      pdf.text(instStr, layout.cx, y);
       y += LINE_H + ITEM_GAP;
     }
     y += 1;
@@ -411,7 +477,7 @@ export async function exportElementAsPDF(
 
   // ── Skills (non-sidebar templates) ───────────────────────────────────
   if (!isSB && (sk.subjects?.length || sk.soft_skills?.length || sk.languages?.length)) {
-    y = sectionHeading(pdf, 'Skills & Languages', CX, y, CMW, pal.accent, BOTTOM, newPage);
+    y = sectionHeading(pdf, 'Skills & Languages', layout.cx, y, layout.cmw, pal.accent, BOTTOM, newPage, () => layout);
 
     const skillRows: [string, string[]][] = [
       ['Subjects',  sk.subjects   || []],
@@ -422,10 +488,10 @@ export async function exportElementAsPDF(
     for (const [label, items] of skillRows) {
       if (y + LINE_H > BOTTOM) y = newPage();
       pdf.setFont(F, 'bold'); pdf.setFontSize(9); setTxt(pdf, '#374151');
-      pdf.text(`${label}:`, CX, y);
+      pdf.text(`${label}:`, layout.cx, y);
       const lw = pdf.getTextWidth(`${label}:`) + 2;
       pdf.setFont(F, 'normal'); setTxt(pdf, '#374151');
-      y = wrappedText(pdf, items.join('  |  '), CX + lw, y, CMW - lw, BOTTOM, newPage);
+      y = wrappedText(pdf, items.join('  |  '), layout.cx + lw, y, layout.cmw - lw, BOTTOM, newPage);
       y += ITEM_GAP;
     }
     y += 2;
@@ -433,29 +499,29 @@ export async function exportElementAsPDF(
 
   // ── Custom sections ───────────────────────────────────────────────────
   for (const sec of customs) {
-    y = sectionHeading(pdf, sec.title, CX, y, CMW, pal.accent, BOTTOM, newPage);
+    y = sectionHeading(pdf, sec.title, layout.cx, y, layout.cmw, pal.accent, BOTTOM, newPage, () => layout);
     pdf.setFont(F, 'normal'); pdf.setFontSize(9); setTxt(pdf, '#374151');
 
     if (sec.type === 'text' && sec.content) {
-      y = wrappedText(pdf, sec.content, CX, y, CMW, BOTTOM, newPage);
+      y = wrappedText(pdf, sec.content, layout.cx, y, layout.cmw, BOTTOM, newPage, () => layout);
     } else if (sec.type === 'bullets' && sec.content) {
       for (const b of sec.content.split('\n').map((l: string) => l.trim()).filter(Boolean)) {
-        y = bulletLine(pdf, b, CX, y, CMW, pal.accent, BOTTOM, newPage);
+        y = bulletLine(pdf, b, layout.cx, y, layout.cmw, pal.accent, BOTTOM, newPage, () => layout);
       }
     } else if (sec.type === 'table' && sec.columns?.length && sec.rows?.length) {
-      const cw = CMW / sec.columns.length;
+      const cw = layout.cmw / sec.columns.length;
       // Header row
       setFill(pdf, pal.accent); setTxt(pdf, '#ffffff');
-      pdf.rect(CX, y - 4, CMW, 6, 'F');
+      pdf.rect(layout.cx, y - 4, layout.cmw, 6, 'F');
       pdf.setFont(F, 'bold'); pdf.setFontSize(8);
-      sec.columns.forEach((col: string, ci: number) => pdf.text(col, CX + ci * cw + 1, y));
+      sec.columns.forEach((col: string, ci: number) => pdf.text(col, layout.cx + ci * cw + 1, y));
       y += 6;
       pdf.setFont(F, 'normal'); pdf.setFontSize(8.5);
       for (let ri = 0; ri < sec.rows.length; ri++) {
         if (y + 6 > BOTTOM) y = newPage();
-        if (ri % 2 === 0) { pdf.setFillColor(249, 250, 251); pdf.rect(CX, y - 4, CMW, 6, 'F'); }
+        if (ri % 2 === 0) { pdf.setFillColor(249, 250, 251); pdf.rect(layout.cx, y - 4, layout.cmw, 6, 'F'); }
         setTxt(pdf, '#374151');
-        sec.rows[ri].forEach((cell: string, ci: number) => pdf.text(String(cell || ''), CX + ci * cw + 1, y));
+        sec.rows[ri].forEach((cell: string, ci: number) => pdf.text(String(cell || ''), layout.cx + ci * cw + 1, y));
         y += 6;
       }
     }
@@ -475,7 +541,7 @@ export async function exportElementAsPDF(
     const refCMW = PW - ML - MR;
 
     let ry = MT;
-    ry = sectionHeading(pdf, 'References', refCX, ry, refCMW, pal.accent, BOTTOM, newPage);
+    ry = sectionHeading(pdf, 'References', refCX, ry, refCMW, pal.accent, BOTTOM, newPage, () => layout);
     ry += 2;
 
     // Two-column references grid
