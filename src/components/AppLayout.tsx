@@ -174,8 +174,17 @@ export default function AppLayout() {
   const touchRef = useRef({ startX: 0, startY: 0, active: false, axisLocked: false, horizontal: false });
   const stripRef = useRef<HTMLDivElement>(null);
 
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
+  const onTouchStart = useCallback((e: TouchEvent) => {
     if (!isTabRoute) return;
+    // Don't intercept if touch starts inside a horizontally scrollable element
+    // (e.g. filter chips, horizontal lists)
+    let el = e.target as HTMLElement | null;
+    while (el && el !== stripRef.current) {
+      const style = window.getComputedStyle(el);
+      const ox = style.overflowX;
+      if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth) return;
+      el = el.parentElement;
+    }
     touchRef.current = {
       startX: e.touches[0].clientX,
       startY: e.touches[0].clientY,
@@ -185,7 +194,7 @@ export default function AppLayout() {
     };
   }, [isTabRoute]);
 
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
+  const onTouchMove = useCallback((e: TouchEvent) => {
     const t = touchRef.current;
     if (!t.active) return;
 
@@ -208,7 +217,7 @@ export default function AppLayout() {
     setDragPercent(pct);
   }, [tabIndex, N]);
 
-  const onTouchEnd = useCallback(() => {
+  const onTouchEnd = useCallback((_e?: TouchEvent) => {
     const t = touchRef.current;
     t.active = false;
     if (!t.horizontal) return;
