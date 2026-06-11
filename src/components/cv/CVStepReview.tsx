@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Download, FileText, CheckCircle2, RefreshCw, Eye, List } from 'lucide-react';
 import CVTemplateRenderer from './CVTemplateRenderer';
+import { exportElementAsPDF } from '@/utils/cvExport';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
-import { generateDocxBlob } from '@/lib/generateDocxBlob';
 
 interface CVData {
   personal: { full_name?: string; email?: string; photo_url?: string; phone?: string; address?: string; bio?: string };
@@ -25,41 +25,18 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   const { personal, education, experience, skills } = data;
   const fileName = `CV_${(personal.full_name || 'Educator').replace(/\s+/g, '_')}.pdf`;
 
   const handleGenerate = async () => {
+    if (!exportRef.current) return;
     setSending(true);
     try {
-      // 1. Generate DOCX blob (includes footer & hidden metadata)
-      const docxBlob = await generateDocxBlob(data, user);
-      const formData = new FormData();
-      formData.append('file', docxBlob, 'cv.docx');
+      const pdfBlob = await exportElementAsPDF(exportRef.current, fileName);
 
-      // 2. Call Netlify function to convert DOCX to PDF via ConvertAPI
-      const response = await fetch('/.netlify/functions/convert-to-pdf', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'PDF conversion failed');
-      }
-
-      // Verify content type
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/pdf')) {
-        throw new Error('Server did not return a valid PDF');
-      }
-
-      const pdfBlob = await response.blob();
-      if (pdfBlob.size === 0) {
-        throw new Error('Received empty PDF file');
-      }
-
-      // 3. Download PDF to user's device
+      // ── Trigger device download ──────────────────────────────────────────
       const blobUrl = URL.createObjectURL(pdfBlob);
       const anchor = document.createElement('a');
       anchor.href = blobUrl;
@@ -69,7 +46,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
       document.body.removeChild(anchor);
       URL.revokeObjectURL(blobUrl);
 
-      // 4. Upload PDF to Supabase for "last CV" banner
+      // ── Upload to Supabase so LastCVBanner can offer "Download PDF" ──────
       const path = `${user?.id ?? 'anon'}/cv-${Date.now()}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from('avatars')
@@ -92,10 +69,9 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
       }
 
       setSent(true);
-      toast.success('PDF downloaded!');
-    } catch (err: unknown) {
-      console.error(err);
-      toast.error((err as Error).message || 'Failed to generate PDF');
+      toast.success('CV downloaded to your device!');
+    } catch (e: unknown) {
+      toast.error((e as Error).message || 'Failed to generate CV');
     } finally {
       setSending(false);
     }
@@ -145,6 +121,13 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
 
       {view === 'preview' ? (
         <div className="rounded-xl overflow-hidden border border-border bg-white shadow-sm">
+          {/*
+           * Render the CV at its true A4 width (794 px) then zoom the whole
+           * thing down to ~45% so it fits a phone screen without any clipping.
+           * `zoom` (unlike transform:scale) collapses layout space, so the
+           * container height adjusts to the scaled content automatically and
+           * the page can scroll normally to reveal references or extra pages.
+           */}
           <div style={{ zoom: 0.45 }}>
             <CVTemplateRenderer data={data} forExport watermark={isFree} />
           </div>
@@ -198,6 +181,13 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
           ) : null}
         </div>
       )}
+
+      {/* Hidden full-size render used by exportElementAsPDF — added cv-export-root class */}
+      <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '794px' }}>
+        <div ref={exportRef} className="cv-export-root">
+          <CVTemplateRenderer data={data} forExport watermark={isFree} />
+        </div>
+      </div>
 
       <Button
         onClick={handleGenerate}
