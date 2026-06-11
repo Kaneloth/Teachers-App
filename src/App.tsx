@@ -26,6 +26,7 @@ import ProfilePage from '@/pages/ProfilePage';
 import CVBuilderPage from '@/pages/CVBuilderPage';
 import CareerToolsPage from '@/pages/CareerToolsPage';
 import CoverLettersPage from '@/pages/CoverLettersPage';
+import GuidesPage from '@/pages/GuidesPage';
 import SettingsPage from '@/pages/SettingsPage';
 import NotFound from '@/pages/not-found';
 
@@ -64,6 +65,7 @@ export default function App() {
                   <Route path="/search"        element={<Search />} />
                   <Route path="/educator/:id"  element={<EducatorProfile />} />
                   <Route path="/chats"         element={<ChatsPage />} />
+                  <Route path="/guides"        element={<GuidesPage />} />
                   <Route path="/chat/:partnerId" element={<ChatRoom />} />
                   <Route path="/vacancies"     element={<VacanciesPage />} />
                   <Route path="/matches"       element={<MatchesPage />} />
