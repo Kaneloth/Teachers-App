@@ -460,6 +460,23 @@ export async function exportElementAsPDF(
     }
   }
 
+  // ── PDF Encryption ────────────────────────────────────────────────────
+  // Lock the PDF to prevent copy-paste and Word conversion.
+  // - userPassword: empty string = no password needed to open/view
+  // - ownerPassword: secret master key that controls permissions
+  // - Permissions: printing allowed, but copying text and editing blocked
+  //   This stops most "PDF to Word" converters which rely on text extraction.
+  try {
+    (pdf as any).encrypt({
+      userPassword:  '',                    // open freely — no password prompt
+      ownerPassword: 'crosssa-cv-owner-2025', // internal lock key
+      userPermissions: ['print', 'print-high'], // allow printing only
+      // copy, modify, annot-forms, fill-forms are all omitted = blocked
+    });
+  } catch (_) {
+    // Encryption not supported in this jsPDF build — output unencrypted
+  }
+
   void filename;
   return pdf.output('blob');
 }
