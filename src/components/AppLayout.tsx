@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Search, MessageCircle, Briefcase, FileText, Mail, BookMarked } from 'lucide-react';
+import { Home, Search, MessageCircle, Briefcase, FileText, Mail, BookMarked, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AppHeader from './AppHeader';
 import { supabase } from '@/lib/supabase';
@@ -14,12 +14,14 @@ import VacanciesPage from '@/pages/VacanciesPage';
 import CVBuilderPage from '@/pages/CVBuilderPage';
 import CareerToolsPage from '@/pages/CareerToolsPage';
 import CoverLettersPage from '@/pages/CoverLettersPage';
+import GuidesPage from '@/pages/GuidesPage';
 
-// Educator tabs: Home, Search (combined), Chats, Career Tools
+// Educator tabs: Home, Search (combined), Chats, Guides, Career Tools
 const EDUCATOR_TABS = [
   { path: '/home',         component: HomePage,         icon: Home,          label: 'Home'         },
   { path: '/search',       component: SearchAndMatches, icon: Search,        label: 'Search'       },
   { path: '/chats',        component: ChatsPage,        icon: MessageCircle, label: 'Chats'        },
+  { path: '/guides',       component: GuidesPage,       icon: BookOpen,      label: 'Guides'       },
   { path: '/career-tools', component: CareerToolsPage,  icon: BookMarked,    label: 'Career Tools' },
 ];
 
