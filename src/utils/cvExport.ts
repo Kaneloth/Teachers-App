@@ -218,10 +218,14 @@ export async function exportElementAsPDF(
   function newPage(): number {
     pdf.addPage();
     pageCount++;
-    // Sidebar bg is ONLY on page 1 — page 2+ are full-width plain white
+    // Sidebar bg is ONLY on page 1 — page 2+ get a thin accent top bar
     CX  = CX2;
     CMW = CMW2;
-    return MT;
+    if (isSB) {
+      setFill(pdf, pal.sidebarBg!);
+      pdf.rect(0, 0, PW, 6, 'F');
+    }
+    return MT + 4;  // extra top margin to clear the accent bar
   }
 
   // ── HEADER ─────────────────────────────────────────────────────────────
@@ -234,8 +238,8 @@ export async function exportElementAsPDF(
 
     // ─ Sidebar contents ─
     let sy    = MT + 4;
-    const smw = SIDEBAR_W - 8;          // text block width
-    const sx  = ML + (SIDEBAR_W - smw) / 2 - 1;  // centered in sidebar
+    const smw = SIDEBAR_W - 4;          // text block width
+    const sx  = ML + 1;                           // left-aligned with small padding
 
     // Initials avatar
     const initials = ownerName.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
@@ -248,12 +252,8 @@ export async function exportElementAsPDF(
     pdf.text(initials, sx + smw / 2 - iw / 2, sy + 9);
     sy += 20;
 
-    // Name
-    setTxt(pdf, '#ffffff');
-    pdf.setFont(F, 'bold'); pdf.setFontSize(9.5);
-    const nameLines = pdf.splitTextToSize(ownerName, smw) as string[];
-    for (const l of nameLines) { pdf.text(l, sx, sy); sy += 5; }
-    sy += 3;
+    // (Name shown in content area only — not repeated in sidebar)
+    sy += 2;
 
     // Contact
     sy = sidebarLabel(pdf, 'Contact', sx, sy, smw);
