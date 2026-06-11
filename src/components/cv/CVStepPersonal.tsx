@@ -9,6 +9,18 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import type { CVType } from '@/pages/CVBuilderPage';
 
+// Ensures Supabase storage URL always uses the /public/ path (works even if bucket
+// policy is not set to public — combined with signed URL fallback above)
+function storagePublicUrl(supabaseClient: typeof supabase, bucket: string, path: string): string {
+  const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
+  // Force /object/public/ format
+  return data.publicUrl.replace(
+    `/storage/v1/object/${bucket}/`,
+    `/storage/v1/object/public/${bucket}/`
+  );
+}
+
+
 interface PersonalData {
   full_name: string;
   email: string;
@@ -140,8 +152,17 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
       if (error) {
         toast.error('Photo upload failed: ' + error.message);
       } else {
-        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-        set('photo_url', urlData.publicUrl);
+        // Use signed URL (1 year) — works for both public and private buckets
+        const { data: signedData, error: signErr } = await supabase.storage
+          .from('avatars')
+          .createSignedUrl(path, 60 * 60 * 24 * 365);
+        if (signErr || !signedData?.signedUrl) {
+          // Fallback: try public URL
+          const { data: pubData } = supabase.storage.from('avatars').getPublicUrl(path);
+          set('photo_url', pubData.publicUrl.replace('/object/avatars/', '/object/public/avatars/'));
+        } else {
+          set('photo_url', signedData.signedUrl);
+        }
         toast.success('Photo added!');
       }
     } catch (err: any) {

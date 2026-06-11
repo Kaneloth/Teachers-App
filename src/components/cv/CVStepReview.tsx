@@ -8,6 +8,18 @@ import { exportElementAsPDF } from '@/utils/cvExport';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 
+// Ensures Supabase storage URL always uses the /public/ path (works even if bucket
+// policy is not set to public — combined with signed URL fallback above)
+function storagePublicUrl(supabaseClient: typeof supabase, bucket: string, path: string): string {
+  const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
+  // Force /object/public/ format
+  return data.publicUrl.replace(
+    `/storage/v1/object/${bucket}/`,
+    `/storage/v1/object/public/${bucket}/`
+  );
+}
+
+
 interface CVData {
   personal: { full_name?: string; email?: string; photo_url?: string; phone?: string; address?: string; bio?: string };
   education: { institution: string; qualification: string; year: string }[];
@@ -53,8 +65,13 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
         .upload(path, pdfBlob, { contentType: 'application/pdf', upsert: true });
 
       if (!uploadError) {
-        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-        const uploadedUrl = urlData.publicUrl;
+        // Use signed URL (1 year) — works for both public and private buckets
+        const { data: signedData } = await supabase.storage
+          .from('avatars')
+          .createSignedUrl(path, 60 * 60 * 24 * 365);
+        const uploadedUrl = signedData?.signedUrl
+          ?? supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
+               .replace('/object/avatars/', '/object/public/avatars/');
         if (uploadedUrl) {
           setPdfUrl(uploadedUrl);
           const newCount = ((user?.user_metadata?.cv_count as number) ?? 0) + 1;
