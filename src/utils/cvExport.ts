@@ -21,6 +21,39 @@ const HEADING_GAP  = 5;
 const ITEM_GAP     = 2.5;
 const BULLET_INDENT = 4.5;
 
+}
+
+// ── Embedded SVG-style PNG icons (20x20) ────────────────────────────────
+// Dark versions for light backgrounds, white versions for coloured sidebars/headers
+const ICONS_DARK:  Record<string, string> = {
+  briefcase: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAASUlEQVR4nGNgGAWUAkZcEhoaGv/xabxx4wZWvUyUuojmBsKdTciLhAAsCKjuQhZcNhEL0H1GexdSGpaD38uD30CqRwrVXTj4AQBPFBMRhDyysQAAAABJRU5ErkJggg==',
+  graduation: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAi0lEQVR4nO2Tyw3AMAhDSdVhvP803iY9RYoSPk7OtdQDKjwMpWa/IgHoSl67AZEM654bV5lbt5M6ntnudnN4AvPyW/TiRiTbMwfjOYXM8ZslZa6jxi7QKxrwaoL0bBStU0hA9R4B9BIIoHujRyr/lHVnJFsGlXfonZQXp19ZbXRU4C0+y5foM6Ry9AFeGVGYLZ+xlQAAAABJRU5ErkJggg==',
+  user: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAa0lEQVR4nOWS0QkAIAhErWncfxq3qa8gKs+UgqD7FO+ldkSvK1kNzFzGmoiovuyFobo5GQK6oDsGrQeuHNFxoKroDWFs0B216CyLnh8cwROwh6EAb/W584U8EdjKezw2qb1AhG9m6dqEH6oCjVQ5wVlaYa4AAAAASUVORK5CYII=',
+  mail: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAdElEQVR4nO2TSxLAIAhDQ6eH4f6nyW105YyDBWl14aJZInkSP8Cvr1LVAgBiC6u6dkCaSMo9a/DWvETDhD3EM/V1u+ljZA+qqiWCAYAbmaQ0s500OorwUkiKNUewKdBCZrA0MAt7BczqfODwbFb/9PYJz1cFb4ozvUKsP0wAAAAASUVORK5CYII=',
+  phone: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAV0lEQVR4nGNgoDJgxCepoaHxH5fcjRs3sOplIscwYuQxFBNjIDY1OF1ILhg1cNTAUQOpaiCxhQFRBsIMI8ZQogyElX24ykBkgFMBMa7BZgFOFxJyDS55AD8+H3Y8FDK0AAAAAElFTkSuQmCC',
+  mapPin: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAiElEQVR4nMWTUQ7AIAhDdafh/qfhNu7LhDBawCxbE39kfZOKY7ysmX0gIsvvqSr0wUIEqoBDoIVFJla/KicQkbUX+gkEepNvPavTE6IcWb4UeKIH0LaCslLVifJMW/YGC4v0zRxm4NbYZDC2T4FZy6hOn1VVNgI4NiewENiB/n/LkbkbCVT1sm7ld2MMcbuIkwAAAABJRU5ErkJggg==',
+  award: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAcElEQVR4nMWUUQ7AIAxCO0/D/U/T27g/05iVUeMmvxh8EqLZKQHoyrm2+2IpUKWTAyvB1ypJlLuPnJYZK2FmE2HUG212edoho2Xef7NhT2bedsLHLiLB3BfzUil7XN1sWRSZUZR3+LkAdKW3M/9hRTdRUitu4McK1gAAAABJRU5ErkJggg==',
+  bookOpen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAQUlEQVR4nGNgGOyAEcbQ0ND4T6lhN27cYGSi1BB0wILNFmwKYT7AJo/sO6q7kOphOPi9PGrgqIGDwcDBX3xRHQAAB7ocJH2J0NIAAAAASUVORK5CYII=',
+  languages: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAi0lEQVR4nNWUyxGAMAhESaqh/2rSTTzhrMgnaDzIcWGfQAaJNkfLCph5am2M4frchAVaAd8EDbJMUU2vwiwdff1eHsOyfLM6exPnVxCadYehfR3FCghDfMw83R0+je07JAEKtApH349GFmh1bD0uEVwKPn21EfS7O8zAXv4CjI4+0tH3/f9wBRyd6AFIBF4TPLxMwQAAAABJRU5ErkJggg==',
+};
+const ICONS_WHITE: Record<string, string> = {
+  briefcase: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAASUlEQVR4nGNgGAWUAkZcEv////+PVyMjI1a9TJS6iOYGwp1NyIsEDYIGAdVdyILLJmIBus9o70JKw3Lwe3nwG0j1SKG6Cwc/AABSBxgbXOAFaQAAAABJRU5ErkJggg==',
+  graduation: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAgUlEQVR4nO2TSw4AIQhDqZn7X7mzMjFafq7tjgw8CjJmT55IspKHGxAAt27cuIrcyk7V8cxOt4fDDkzlw/twIwAYazDVhazxFyWFy3caS6AqmvBsgvBsKtqnKAGr90iSKZAk1eie0j9l3xkARNDyDtVJqTh85WqjVoFafNigC80c/cfxVB1+/56PAAAAAElFTkSuQmCC',
+  user: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAZklEQVR4nOWSSwoAIAhEtfvf2VZBZI4fCoJmKc5LbYheF3sNIiLKxGz6WhaG6u5kCJiCRgxWD1y5ouNAU9UbwtigO1rR2RYzP7iCFXCGoQCH+tL5Qp4KbOc9HhseLxDhm3m6NuGH6gmtc7TjVEeEAAAAAElFTkSuQmCC',
+  mail: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAbUlEQVR4nO2TOxLAIAhEdzO5/5VJozMOZgWjhUVeifAEP8DPV8zMAIA+sMq1Q1IhyTtKUGtqoq7DVqKK2rjf9HVkJbWCkgGAHJkka7HvdHQUw0thISsLhV4SydLCrGxKmOV8YfdsVv/09g7P5wFoziwu31U3CgAAAABJRU5ErkJggg==',
+  phone: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAU0lEQVR4nO2UMQ4AMAgCtf//s51M2lQqMY6ygicTIs3Sn2lmBg9Vw9tVgTH+E2aAUQY2rGqAAxxgK5AdAwroMAZKAX370AZe2awV8+gUbJi1Qf4GuVAsD6jiUSwAAAAASUVORK5CYII=',
+  mapPin: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAg0lEQVR4nMWTUQ7AMAhCy+5/Z/drLKBtlozPWZ5Ku7U+FroDERGbCZA+WWCgCZgCM4yZXP2ZTBBJqokEVlNdvavbCVWOLl8LvNEGzKuorABA5dmuXA0ZRps5mGvGprNABz56Nh3MfbfAbmVVt7/VVDkC+WxuYBR4Av3/lpn5NBKp6WW9KZloFt3MvnUAAAAASUVORK5CYII=',
+  award: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAbUlEQVR4nMWUUQ7AIAhDwfvfuftZFmdGLURnf0vKkzSanRIAKHNt9WIpUKWTAzPBXiV5hbg/OS0yKmFmA2GvGW20PLwho2Xef7VhT2becsLPW/QE472YF0rpY7WzaVFkRpHu4Xbh1mzuzH+Y0QV7+TgHemsWlQAAAABJRU5ErkJggg==',
+  bookOpen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAQElEQVR4nGNgGOyAEcb4////f4oNY2RkZKLUEHTAgs0WbAphPsAmj+w7qruQ6mE4+L08auCogYPBwMFffFEdAAAsDRwk1pEW0gAAAABJRU5ErkJggg==',
+  languages: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAiElEQVR4nNWUSRLAIAgE0f//eXKJ1qgskphDOALTLBaKHLYSJQDAIirF1JkBDbQDXhwzSBN5OTUL0/ysq2u6DwuLaZ29sV6FoVF3bLOusjMDGrq6dQBg7vCpHd+hNGCDZuGs+9HIDZodex5XhC6Fnz7bCOvNHUZgKz4AvaP3/Kz7/j/cAXsnegG8noPebkjsUAAAAABJRU5ErkJggg==',
+};
+
+function icon(p: JsPDFType, name: string, x: number, y: number, size: number, white = false) {
+  const data = (white ? ICONS_WHITE : ICONS_DARK)[name];
+  if (!data) return;
+  try { p.addImage(data, 'PNG', x, y, size, size); } catch(_) {}
+}
+
 interface Palette {
   sidebar: boolean;
   hbR: number; hbG: number; hbB: number;   // headerBg RGB
@@ -65,14 +98,21 @@ function sectionHeading(
   p: JsPDFType, title: string, x: number, y: number, maxW: number,
   aR: number, aG: number, aB: number,
   bottom: number, newPage: () => number, getLayout?: () => { cx: number; cmw: number },
+  iconName?: string,
 ): number {
   if (y + 10 > bottom) { y = newPage(); if (getLayout) { x = getLayout().cx; maxW = getLayout().cmw; } }
   y += SECTION_GAP * 0.6;
+  // Accent rect
   fill(p, aR, aG, aB); p.rect(x, y - 3.2, 2.5, 3.8, 'F');
+  // Icon (4x4mm, tinted with accent colour via addImage)
+  const iconSize = 3.5;
+  const iconX    = x + 3.5;
+  if (iconName) icon(p, iconName, iconX, y - 2.5, iconSize);
+  const textStartX = iconName ? iconX + iconSize + 1 : x + 4;
   text(p, aR, aG, aB); p.setFont(F, 'bold'); p.setFontSize(9);
-  p.text(title.toUpperCase(), x + 4, y);
+  p.text(title.toUpperCase(), textStartX, y);
   const tw = p.getTextWidth(title.toUpperCase());
-  hLine(p, x + 4 + tw + 2, y - 1.5, maxW - 4 - tw - 2, aR, aG, aB, 0.35);
+  hLine(p, textStartX + tw + 2, y - 1.5, maxW - (textStartX - x) - tw - 2, aR, aG, aB, 0.35);
   return y + HEADING_GAP;
 }
 
@@ -203,10 +243,11 @@ export async function exportElementAsPDF(
     // Contact
     sy = sidebarLabel(pdf, 'Contact', sx, sy, smw);
     pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 224, 253, 244);
-    if (pr.email)  { for (const l of pdf.splitTextToSize(pr.email,  smw) as string[]) { pdf.text(l, sx, sy); sy += 4; } sy += 1; }
-    if (pr.phone)  { for (const l of pdf.splitTextToSize(pr.phone,  smw) as string[]) { pdf.text(l, sx, sy); sy += 4; } sy += 1; }
-    if (pr.address){ for (const l of pdf.splitTextToSize(pr.address, smw) as string[]) { pdf.text(l, sx, sy); sy += 4; } }
-    if (pr.id_number) { pdf.text(`ID: ${pr.id_number}`, sx, sy); sy += 4; }
+    const iSz = 3;  // icon size mm in sidebar
+    if (pr.email)  { icon(pdf, 'mail',   sx, sy - 0.5, iSz, true); for (const l of pdf.splitTextToSize(pr.email,  smw - iSz - 1) as string[]) { pdf.text(l, sx + iSz + 1, sy); sy += 4; } sy += 1; }
+    if (pr.phone)  { icon(pdf, 'phone',  sx, sy - 0.5, iSz, true); for (const l of pdf.splitTextToSize(pr.phone,  smw - iSz - 1) as string[]) { pdf.text(l, sx + iSz + 1, sy); sy += 4; } sy += 1; }
+    if (pr.address){ icon(pdf, 'mapPin', sx, sy - 0.5, iSz, true); for (const l of pdf.splitTextToSize(pr.address, smw - iSz - 1) as string[]) { pdf.text(l, sx + iSz + 1, sy); sy += 4; } }
+    if (pr.id_number) { icon(pdf, 'user', sx, sy - 0.5, iSz, true); pdf.text(`ID: ${pr.id_number}`, sx + iSz + 1, sy); sy += 4; }
     sy += 5;
 
     if (sk.subjects?.length) {
@@ -246,10 +287,24 @@ export async function exportElementAsPDF(
     draw(pdf, htR > 200 ? 200 : 209, htR > 200 ? 200 : 213, htR > 200 ? 200 : 219);
     pdf.setLineWidth(0.25); pdf.line(ML, 16, PW - MR, 16);
     // Contact
-    const cp = [pr.email, pr.phone, pr.address, pr.id_number && `ID: ${pr.id_number}`].filter(Boolean) as string[];
+    // Draw contact items with icons side by side
     text(pdf, htR, htG, htB); pdf.setFont(F, 'normal'); pdf.setFontSize(7.5);
-    const cLines = pdf.splitTextToSize(cp.join('   |   '), PW - ML - MR) as string[];
-    cLines.forEach((cl: string, i: number) => pdf.text(cl, ML, 21 + i * 4));
+    const contactIconMap: [string | undefined, string][] = [
+      [pr.email,                    'mail'  ],
+      [pr.phone,                    'phone' ],
+      [pr.address,                  'mapPin'],
+      [pr.id_number ? `ID: ${pr.id_number}` : undefined, 'user'],
+    ];
+    const ciSz = 3;
+    let cx2 = ML; const ciY = 22;
+    for (const [val, iname] of contactIconMap) {
+      if (!val) continue;
+      icon(pdf, iname, cx2, ciY - 2, ciSz, true);
+      const tw2 = pdf.getTextWidth(val) + ciSz + 2 + 5;
+      if (cx2 + tw2 > PW - MR) break;
+      pdf.text(val, cx2 + ciSz + 1, ciY);
+      cx2 += tw2;
+    }
     headerH = 35;
     reset(pdf);
   }
@@ -258,7 +313,7 @@ export async function exportElementAsPDF(
 
   // ── Professional Summary ───────────────────────────────────────────────
   if (pr.bio) {
-    y = sectionHeading(pdf, 'Professional Summary', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL);
+    y = sectionHeading(pdf, 'Professional Summary', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'bookOpen');
     pdf.setFont(F, 'normal'); pdf.setFontSize(9); text(pdf, 55, 65, 81);
     y = wrappedText(pdf, pr.bio, layout.cx, y, layout.cmw, BOTTOM, newPage, LINE_H, GL);
     y += ITEM_GAP + 1;
@@ -266,7 +321,7 @@ export async function exportElementAsPDF(
 
   // ── Teaching Experience ────────────────────────────────────────────────
   if (exp.length) {
-    y = sectionHeading(pdf, 'Teaching Experience', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL);
+    y = sectionHeading(pdf, 'Teaching Experience', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'briefcase');
     for (const e of exp) {
       if (y + 16 > BOTTOM) y = newPage();
       pdf.setFont(F, 'bold'); pdf.setFontSize(10); text(pdf, 17, 24, 39);
@@ -290,7 +345,7 @@ export async function exportElementAsPDF(
 
   // ── Education ─────────────────────────────────────────────────────────
   if (edu.length) {
-    y = sectionHeading(pdf, 'Education', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL);
+    y = sectionHeading(pdf, 'Education', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'graduation');
     for (const e of edu) {
       if (y + 12 > BOTTOM) y = newPage();
       pdf.setFont(F, 'bold'); pdf.setFontSize(10); text(pdf, 17, 24, 39);
@@ -304,7 +359,7 @@ export async function exportElementAsPDF(
 
   // ── Skills (non-sidebar only) ──────────────────────────────────────────
   if (!isSB && (sk.subjects?.length || sk.soft_skills?.length || sk.languages?.length)) {
-    y = sectionHeading(pdf, 'Skills & Languages', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL);
+    y = sectionHeading(pdf, 'Skills & Languages', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'award');
     for (const [label, items] of [['Subjects', sk.subjects || []], ['Skills', sk.soft_skills || []], ['Languages', sk.languages || []]] as [string, string[]][]) {
       if (!items.length) continue;
       if (y + LINE_H > BOTTOM) y = newPage();
@@ -356,7 +411,7 @@ export async function exportElementAsPDF(
 
     const rCX = ML; const rCMW = PW - ML - MR;
     let ry = MT;
-    ry = sectionHeading(pdf, 'References', rCX, ry, rCMW, aR, aG, aB, BOTTOM, newPage);
+    ry = sectionHeading(pdf, 'References', rCX, ry, rCMW, aR, aG, aB, BOTTOM, newPage, undefined, 'user');
     ry += 2;
 
     const half = (rCMW - 8) / 2;
