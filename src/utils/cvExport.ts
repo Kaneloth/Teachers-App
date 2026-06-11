@@ -171,8 +171,9 @@ export async function exportElementAsPDF(
     reset(pdf);
     layout.cx  = CX2;
     layout.cmw = CMW2;
-    if (isSB) { fill(pdf, sbR, sbG, sbB); pdf.rect(0, 0, PW, 6, 'F'); reset(pdf); }
-    return MT + (isSB ? 6 : 0);
+    // Accent top bar on ALL page 2+ (sidebar and non-sidebar)
+    fill(pdf, hbR, hbG, hbB); pdf.rect(0, 0, PW, 6, 'F'); reset(pdf);
+    return MT + 6;
   }
 
   const GL = () => layout;
