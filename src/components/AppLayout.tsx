@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Search, MessageCircle, Briefcase, FileText, Mail, BookMarked, BookOpen } from 'lucide-react';
+import { Home, Search, MessageCircle, Briefcase, FileText, Mail, BookMarked } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AppHeader from './AppHeader';
 import { supabase } from '@/lib/supabase';
@@ -8,20 +8,18 @@ import { useAuth } from '@/lib/AuthContext';
 
 // Tab page components
 import HomePage from '@/pages/Home';
-import SearchAndMatches from '@/pages/SearchAndMatches';
+import SearchAndMatches from '@/pages/SearchAndMatches';  // new combined page
 import ChatsPage from '@/pages/ChatsPage';
 import VacanciesPage from '@/pages/VacanciesPage';
 import CVBuilderPage from '@/pages/CVBuilderPage';
 import CareerToolsPage from '@/pages/CareerToolsPage';
 import CoverLettersPage from '@/pages/CoverLettersPage';
-import GuidesPage from '@/pages/GuidesPage';
 
-// Educator tabs: Home, Search (combined), Chats, Guides, Career Tools
+// Educator tabs: Home, Search (combined), Chats, Career Tools
 const EDUCATOR_TABS = [
   { path: '/home',         component: HomePage,         icon: Home,          label: 'Home'         },
   { path: '/search',       component: SearchAndMatches, icon: Search,        label: 'Search'       },
   { path: '/chats',        component: ChatsPage,        icon: MessageCircle, label: 'Chats'        },
-  { path: '/guides',       component: GuidesPage,       icon: BookOpen,      label: 'Guides'       },
   { path: '/career-tools', component: CareerToolsPage,  icon: BookMarked,    label: 'Career Tools' },
 ];
 
@@ -33,7 +31,7 @@ const GENERAL_TABS = [
   { path: '/cover-letters',  component: CoverLettersPage, icon: Mail,      label: 'Letters'},
 ];
 
-const SWIPE_THRESHOLD = 0.30;  // 30% drag to navigate
+const THRESHOLD = 0.3;
 
 // ─── Navigation progress bar ──────────────────────────────────────────────────
 function useNavigationProgress(pathname: string) {
@@ -112,12 +110,14 @@ export default function AppLayout() {
   const loadUnreadCount = useCallback(async () => {
     if (!user) return;
 
+    // 1. Get IDs of users blocked by current user
     const { data: blockedByMe } = await supabase
       .from('user_blocks')
       .select('blocked_id')
       .eq('blocker_id', user.id);
     const blockedByMeIds = blockedByMe?.map(b => b.blocked_id) || [];
 
+    // 2. Get IDs of users who have blocked current user
     const { data: blockedMe } = await supabase
       .from('user_blocks')
       .select('blocker_id')
@@ -126,6 +126,7 @@ export default function AppLayout() {
 
     const allBlockedIds = [...blockedByMeIds, ...blockedByThemIds];
 
+    // 3. Query unread messages, excluding blocked senders
     let query = supabase
       .from('messages')
       .select('id', { count: 'exact', head: true })
@@ -141,6 +142,7 @@ export default function AppLayout() {
     setUnreadCount(count ?? 0);
   }, [user]);
 
+  // Load on mount & subscribe to messages + user_blocks changes
   useEffect(() => {
     if (!user) return;
     loadUnreadCount();
@@ -164,15 +166,21 @@ export default function AppLayout() {
   const isTabRoute = TAB_PATHS.includes(location.pathname);
   const tabIndex = isTabRoute ? TAB_PATHS.indexOf(location.pathname) : 0;
 
-  // ── Swipe / drag state (exact Skootlink implementation) ─────────────────
+  // Swipe / drag state
   const [dragPercent, setDragPercent] = useState(0);
   const isDragging = dragPercent !== 0;
   const touchRef = useRef({ startX: 0, startY: 0, active: false, axisLocked: false, horizontal: false });
-  const stripRef = useRef<HTMLDivElement>(null);
 
-  // Native touch event handlers (same as Skootlink)
-  const onTouchStart = useCallback((e: TouchEvent) => {
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
     if (!isTabRoute) return;
+    let el = e.target as HTMLElement | null;
+    while (el && el !== e.currentTarget) {
+      const overflowX = window.getComputedStyle(el).overflowX;
+      if ((overflowX === 'auto' || overflowX === 'scroll') && el.scrollWidth > el.clientWidth) {
+        return;
+      }
+      el = el.parentElement;
+    }
     touchRef.current = {
       startX: e.touches[0].clientX,
       startY: e.touches[0].clientY,
@@ -182,26 +190,21 @@ export default function AppLayout() {
     };
   }, [isTabRoute]);
 
-  const onTouchMove = useCallback((e: TouchEvent) => {
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
     const t = touchRef.current;
     if (!t.active) return;
-
     const dx = e.touches[0].clientX - t.startX;
     const dy = e.touches[0].clientY - t.startY;
-
     if (!t.axisLocked) {
       if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
       t.axisLocked = true;
       t.horizontal = Math.abs(dx) > Math.abs(dy);
     }
-
     if (!t.horizontal) return;
     e.preventDefault();
-
     let pct = (dx / window.innerWidth) * 100;
-    if (pct > 0 && tabIndex === 0)      pct *= 0.15;
-    if (pct < 0 && tabIndex === N - 1)  pct *= 0.15;
-
+    if (pct > 0 && tabIndex === 0) pct *= 0.15;
+    if (pct < 0 && tabIndex === N - 1) pct *= 0.15;
     setDragPercent(pct);
   }, [tabIndex, N]);
 
@@ -209,37 +212,18 @@ export default function AppLayout() {
     const t = touchRef.current;
     t.active = false;
     if (!t.horizontal) return;
-
-    if (dragPercent < -(SWIPE_THRESHOLD * 100) && tabIndex < N - 1) {
+    if (dragPercent < -(THRESHOLD * 100) && tabIndex < N - 1) {
       navigate(TAB_PATHS[tabIndex + 1]);
-    } else if (dragPercent > (SWIPE_THRESHOLD * 100) && tabIndex > 0) {
+    } else if (dragPercent > (THRESHOLD * 100) && tabIndex > 0) {
       navigate(TAB_PATHS[tabIndex - 1]);
     }
-
     setDragPercent(0);
-  }, [dragPercent, tabIndex, N, TAB_PATHS, navigate]);
-
-  // Attach native touch events to the strip element
-  useEffect(() => {
-    const el = stripRef.current;
-    if (!el) return;
-    el.addEventListener('touchstart', onTouchStart, { passive: true });
-    el.addEventListener('touchmove', onTouchMove, { passive: false });
-    el.addEventListener('touchend', onTouchEnd, { passive: true });
-    el.addEventListener('touchcancel', onTouchEnd, { passive: true });
-    return () => {
-      el.removeEventListener('touchstart', onTouchStart);
-      el.removeEventListener('touchmove', onTouchMove);
-      el.removeEventListener('touchend', onTouchEnd);
-      el.removeEventListener('touchcancel', onTouchEnd);
-    };
-  }, [onTouchStart, onTouchMove, onTouchEnd]);
+  }, [dragPercent, tabIndex, navigate, N, TAB_PATHS]);
 
   useEffect(() => { setDragPercent(0); }, [location.pathname]);
 
-  // Strip translation formula (same as Skootlink)
-  const baseX  = -(tabIndex / N) * 100;
-  const dragX  = (dragPercent / 100) * (100 / N);
+  const baseX = -(tabIndex / N) * 100;
+  const dragX = (dragPercent / 100) * (100 / N);
   const stripX = baseX + dragX;
 
   return (
@@ -251,8 +235,11 @@ export default function AppLayout() {
       <NavigationProgressBar pathname={location.pathname} />
 
       <div
-        ref={stripRef}
         className="flex-1 relative overflow-hidden"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
         style={{ touchAction: 'pan-y' }}
       >
         {isTabRoute ? (
@@ -261,9 +248,7 @@ export default function AppLayout() {
             style={{
               width: `${N * 100}%`,
               transform: `translateX(${stripX}%)`,
-              transition: isDragging
-                ? 'none'
-                : 'transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              transition: isDragging ? 'none' : 'transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
               willChange: 'transform',
             }}
           >
