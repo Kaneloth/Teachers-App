@@ -33,8 +33,7 @@ const GENERAL_TABS = [
   { path: '/cover-letters',  component: CoverLettersPage, icon: Mail,      label: 'Letters'},
 ];
 
-const SWIPE_THRESHOLD = 0.25;  // 25% drag OR fast flick to navigate
-const VEL_THRESHOLD   = 0.4;   // px/ms — fast flick threshold
+const SWIPE_THRESHOLD = 0.30;  // 30% drag to navigate — same as Skootlink
 
 // ─── Navigation progress bar ──────────────────────────────────────────────────
 function useNavigationProgress(pathname: string) {
@@ -169,38 +168,17 @@ export default function AppLayout() {
   const isTabRoute = TAB_PATHS.includes(location.pathname);
   const tabIndex = isTabRoute ? TAB_PATHS.indexOf(location.pathname) : 0;
 
-  // ── Swipe state — mirrors the Skootlink working implementation ──────────────
+  // ── Swipe — exact Skootlink implementation ───────────────────────────────
   const [dragPercent, setDragPercent] = useState(0);
   const isDragging = dragPercent !== 0;
-
-  // dragPercentRef stays in sync with state so onTouchEnd never reads stale value
-  const dragPercentRef = useRef(0);
-  const setDrag = (v: number) => { dragPercentRef.current = v; setDragPercent(v); };
-
-  const touchRef = useRef({
-    startX:     0,
-    startY:     0,
-    lastX:      0,
-    startT:     0,
-    active:     false,
-    axisLocked: false,
-    horizontal: false,
-  });
+  const touchRef = useRef({ startX: 0, startY: 0, active: false, axisLocked: false, horizontal: false });
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     if (!isTabRoute) return;
-    let el = e.target as HTMLElement | null;
-    while (el && el !== e.currentTarget) {
-      const ox = window.getComputedStyle(el).overflowX;
-      if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth) return;
-      el = el.parentElement;
-    }
     touchRef.current = {
-      startX:     e.touches[0].clientX,
-      startY:     e.touches[0].clientY,
-      lastX:      e.touches[0].clientX,
-      startT:     performance.now(),
-      active:     true,
+      startX: e.touches[0].clientX,
+      startY: e.touches[0].clientY,
+      active: true,
       axisLocked: false,
       horizontal: false,
     };
@@ -218,17 +196,15 @@ export default function AppLayout() {
       t.axisLocked = true;
       t.horizontal = Math.abs(dx) > Math.abs(dy);
     }
+
     if (!t.horizontal) return;
     e.preventDefault();
 
-    t.lastX = e.touches[0].clientX;
-
-    // Same formula as Skootlink — proven to work
     let pct = (dx / window.innerWidth) * 100;
-    if (pct > 0 && tabIndex === 0)      pct = Math.log1p(pct) * 8;   // rubber-band left edge
-    if (pct < 0 && tabIndex === N - 1)  pct = -Math.log1p(-pct) * 8; // rubber-band right edge
+    if (pct > 0 && tabIndex === 0)      pct *= 0.15;
+    if (pct < 0 && tabIndex === N - 1)  pct *= 0.15;
 
-    setDrag(pct);
+    setDragPercent(pct);
   }, [tabIndex, N]);
 
   const onTouchEnd = useCallback(() => {
@@ -236,26 +212,18 @@ export default function AppLayout() {
     t.active = false;
     if (!t.horizontal) return;
 
-    const pct      = dragPercentRef.current;  // read ref, never stale
-    const dx       = t.lastX - t.startX;
-    const dt       = performance.now() - t.startT + 1;
-    const velocity = dx / dt; // px/ms
-
-    const isFastFlick = Math.abs(velocity) > VEL_THRESHOLD;
-    const isFarEnough = Math.abs(pct) > SWIPE_THRESHOLD * 100;
-
-    if ((isFastFlick || isFarEnough) && pct < 0 && tabIndex < N - 1) {
+    if (dragPercent < -(SWIPE_THRESHOLD * 100) && tabIndex < N - 1) {
       navigate(TAB_PATHS[tabIndex + 1]);
-    } else if ((isFastFlick || isFarEnough) && pct > 0 && tabIndex > 0) {
+    } else if (dragPercent > (SWIPE_THRESHOLD * 100) && tabIndex > 0) {
       navigate(TAB_PATHS[tabIndex - 1]);
     }
 
-    setDrag(0);
-  }, [tabIndex, N, TAB_PATHS, navigate]);
+    setDragPercent(0);
+  }, [dragPercent, tabIndex, N, TAB_PATHS, navigate]);
 
-  useEffect(() => { setDrag(0); }, [location.pathname]);
+  useEffect(() => { setDragPercent(0); }, [location.pathname]);
 
-  // ── Strip position — same formula as Skootlink ────────────────────────────
+  // ── Strip translation — exact Skootlink formula ───────────────────────────
   const baseX  = -(tabIndex / N) * 100;
   const dragX  = (dragPercent / 100) * (100 / N);
   const stripX = baseX + dragX;
