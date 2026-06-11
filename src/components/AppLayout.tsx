@@ -232,10 +232,13 @@ export default function AppLayout() {
 
     e.preventDefault(); // prevent page scroll during horizontal swipe
 
-    // Rubber-band at edges: resist drag past first/last tab
+    // Rubber-band at edges: logarithmic resistance like iOS
     let offset = dx;
-    if (offset > 0 && t.tabIndex === 0)           offset = offset * 0.25;
-    if (offset < 0 && t.tabIndex === t.N - 1)     offset = offset * 0.25;
+    if (offset > 0 && t.tabIndex === 0) {
+      offset = Math.log1p(offset) * 18; // slows progressively, never hard-stops
+    } else if (offset < 0 && t.tabIndex === t.N - 1) {
+      offset = -Math.log1p(-offset) * 18;
+    }
 
     // Track velocity
     t.lastX = x;
@@ -271,14 +274,13 @@ export default function AppLayout() {
   // Reset drag when route changes (e.g. programmatic navigation)
   useEffect(() => { setDragOffsetPx(0); }, [location.pathname]);
 
-  // ── Strip position ───────────────────────────────────────────────────────────
-  // Convert px drag offset to a percentage of the full strip width.
-  // strip width = N * 100vw, so 1px drag = (1 / (N * vw)) * 100% of strip width.
-  // We express everything in vw units for the transform to keep it crisp.
-  const tabW    = 100 / N;                        // each tab = (100/N)% of strip
-  const baseX   = -(tabIndex * tabW);             // resting position
-  const dragX   = (dragOffsetPx / window.innerWidth) * tabW; // px → %
-  const stripX  = baseX + dragX;
+  // ── Strip position — pure pixel math, no unit conversion ───────────────────
+  // Everything stays in px so there's zero rounding/conversion jump on release.
+  // The strip is N tabs wide; each tab = window.innerWidth px.
+  // Resting: strip shifted left by (tabIndex * vw) px.
+  // During drag: add dragOffsetPx directly — 1:1 finger tracking.
+  const vw      = typeof window !== 'undefined' ? window.innerWidth : 390;
+  const stripPx = -(tabIndex * vw) + dragOffsetPx;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -301,12 +303,12 @@ export default function AppLayout() {
             className="absolute inset-0 flex"
             style={{
               width: `${N * 100}%`,
-              transform: `translateX(${stripX}%)`,
-              // During drag: no transition (pixel-perfect finger tracking)
-              // On release: spring-like settle — matches iOS/WhatsApp feel
+              transform: `translateX(${stripPx}px)`,
+              // No transition while finger is down — 1:1 tracking
+              // Smooth decelerate-to-stop on release — no overshoot, no snap
               transition: isDragging
                 ? 'none'
-                : 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)',
+                : 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)',
               willChange: 'transform',
             }}
           >
