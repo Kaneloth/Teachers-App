@@ -21,8 +21,6 @@ const HEADING_GAP  = 5;
 const ITEM_GAP     = 2.5;
 const BULLET_INDENT = 4.5;
 
-}
-
 // ── Embedded SVG-style PNG icons (20x20) ────────────────────────────────
 // Dark versions for light backgrounds, white versions for coloured sidebars/headers
 const ICONS_DARK:  Record<string, string> = {
