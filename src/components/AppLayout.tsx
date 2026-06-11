@@ -172,6 +172,7 @@ export default function AppLayout() {
   const [dragPercent, setDragPercent] = useState(0);
   const isDragging = dragPercent !== 0;
   const touchRef = useRef({ startX: 0, startY: 0, active: false, axisLocked: false, horizontal: false });
+  const stripRef = useRef<HTMLDivElement>(null);
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     if (!isTabRoute) return;
@@ -223,6 +224,24 @@ export default function AppLayout() {
 
   useEffect(() => { setDragPercent(0); }, [location.pathname]);
 
+  // ── Register native touch events (avoids React synthetic event lag) ───────
+  // Must use native events with passive:false so we can call e.preventDefault()
+  // to block vertical scroll during a horizontal swipe — exactly like Skootlink.
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    el.addEventListener('touchstart',  onTouchStart as unknown as EventListener, { passive: true });
+    el.addEventListener('touchmove',   onTouchMove  as unknown as EventListener, { passive: false });
+    el.addEventListener('touchend',    onTouchEnd   as unknown as EventListener, { passive: true });
+    el.addEventListener('touchcancel', onTouchEnd   as unknown as EventListener, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart',  onTouchStart as unknown as EventListener);
+      el.removeEventListener('touchmove',   onTouchMove  as unknown as EventListener);
+      el.removeEventListener('touchend',    onTouchEnd   as unknown as EventListener);
+      el.removeEventListener('touchcancel', onTouchEnd   as unknown as EventListener);
+    };
+  }, [onTouchStart, onTouchMove, onTouchEnd]);
+
   // ── Strip translation — exact Skootlink formula ───────────────────────────
   const baseX  = -(tabIndex / N) * 100;
   const dragX  = (dragPercent / 100) * (100 / N);
@@ -237,11 +256,8 @@ export default function AppLayout() {
       <NavigationProgressBar pathname={location.pathname} />
 
       <div
+        ref={stripRef}
         className="flex-1 relative overflow-hidden"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onTouchCancel={onTouchEnd}
         style={{ touchAction: 'pan-y' }}
       >
         {isTabRoute ? (
