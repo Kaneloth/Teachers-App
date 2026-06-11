@@ -20,7 +20,7 @@ const FOOTER_H  = 10;      // footer strip height
 const BOTTOM    = PH - FOOTER_H - 4;  // lowest Y content can reach
 
 // Sidebar
-const SIDEBAR_W = 52;      // mm — sidebar column width
+const SIDEBAR_W = 34;      // mm — sidebar column width (35% narrower)
 
 // Typography
 const F         = 'helvetica';
@@ -203,9 +203,13 @@ export async function exportElementAsPDF(
 
   const pdf = new jsPDF({ format: 'a4', unit: 'mm', compress: true });
 
-  // Content column geometry
-  const CX   = isSB ? ML + SIDEBAR_W + 5 : ML;     // content left edge
-  const CMW  = isSB ? PW - MR - CX : PW - ML - MR; // content max width
+  // Content column geometry — sidebar only affects page 1
+  const CX1  = isSB ? ML + SIDEBAR_W + 5 : ML;     // page 1 content left (beside sidebar)
+  const CMW1 = isSB ? PW - MR - CX1 : PW - ML - MR;// page 1 content width
+  const CX2  = ML;                                   // page 2+ full width
+  const CMW2 = PW - ML - MR;
+  let   CX   = CX1;
+  let   CMW  = CMW1;
 
   // Page tracking
   let pageCount = 1;
@@ -214,10 +218,9 @@ export async function exportElementAsPDF(
   function newPage(): number {
     pdf.addPage();
     pageCount++;
-    if (isSB) {
-      setFill(pdf, pal.sidebarBg!);
-      pdf.rect(0, 0, ML + SIDEBAR_W + 2, PH, 'F');
-    }
+    // Sidebar bg is ONLY on page 1 — page 2+ are full-width plain white
+    CX  = CX2;
+    CMW = CMW2;
     return MT;
   }
 
