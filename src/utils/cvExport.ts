@@ -98,19 +98,25 @@ function sectionHeading(
   bottom: number, newPage: () => number, getLayout?: () => { cx: number; cmw: number },
   iconName?: string,
 ): number {
-  if (y + 10 > bottom) { y = newPage(); if (getLayout) { x = getLayout().cx; maxW = getLayout().cmw; } }
+  if (y + 28 > bottom) { y = newPage(); if (getLayout) { x = getLayout().cx; maxW = getLayout().cmw; } }
   y += SECTION_GAP * 0.6;
-  // Accent rect
-  fill(p, aR, aG, aB); p.rect(x, y - 3.2, 2.5, 3.8, 'F');
-  // Icon (4x4mm, tinted with accent colour via addImage)
-  const iconSize = 3.5;
-  const iconX    = x + 3.5;
-  if (iconName) icon(p, iconName, iconX, y - 2.5, iconSize);
-  const textStartX = iconName ? iconX + iconSize + 1 : x + 4;
-  text(p, aR, aG, aB); p.setFont(F, 'bold'); p.setFontSize(9);
-  p.text(title.toUpperCase(), textStartX, y);
-  const tw = p.getTextWidth(title.toUpperCase());
-  hLine(p, textStartX + tw + 2, y - 1.5, maxW - (textStartX - x) - tw - 2, aR, aG, aB, 0.35);
+  if (iconName) {
+    // Icon replaces the accent rect — draw icon then title
+    const iconSize = 3.8;
+    icon(p, iconName, x, y - 3.2, iconSize);
+    const textStartX = x + iconSize + 1.5;
+    text(p, aR, aG, aB); p.setFont(F, 'bold'); p.setFontSize(9);
+    p.text(title.toUpperCase(), textStartX, y);
+    const tw = p.getTextWidth(title.toUpperCase());
+    hLine(p, textStartX + tw + 2, y - 1.5, maxW - (textStartX - x) - tw - 2, aR, aG, aB, 0.35);
+  } else {
+    // No icon — use accent rect as decoration
+    fill(p, aR, aG, aB); p.rect(x, y - 3.2, 2.5, 3.8, 'F');
+    text(p, aR, aG, aB); p.setFont(F, 'bold'); p.setFontSize(9);
+    p.text(title.toUpperCase(), x + 4, y);
+    const tw = p.getTextWidth(title.toUpperCase());
+    hLine(p, x + 4 + tw + 2, y - 1.5, maxW - 4 - tw - 2, aR, aG, aB, 0.35);
+  }
   return y + HEADING_GAP;
 }
 
@@ -241,11 +247,30 @@ export async function exportElementAsPDF(
     // Contact
     sy = sidebarLabel(pdf, 'Contact', sx, sy, smw);
     pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 224, 253, 244);
-    const iSz = 3;  // icon size mm in sidebar
-    if (pr.email)  { icon(pdf, 'mail',   sx, sy - 0.5, iSz, true); for (const l of pdf.splitTextToSize(pr.email,  smw - iSz - 1) as string[]) { pdf.text(l, sx + iSz + 1, sy); sy += 4; } sy += 1; }
-    if (pr.phone)  { icon(pdf, 'phone',  sx, sy - 0.5, iSz, true); for (const l of pdf.splitTextToSize(pr.phone,  smw - iSz - 1) as string[]) { pdf.text(l, sx + iSz + 1, sy); sy += 4; } sy += 1; }
-    if (pr.address){ icon(pdf, 'mapPin', sx, sy - 0.5, iSz, true); for (const l of pdf.splitTextToSize(pr.address, smw - iSz - 1) as string[]) { pdf.text(l, sx + iSz + 1, sy); sy += 4; } }
-    if (pr.id_number) { icon(pdf, 'user', sx, sy - 0.5, iSz, true); pdf.text(`ID: ${pr.id_number}`, sx + iSz + 1, sy); sy += 4; }
+    const iSz   = 3;    // icon size mm
+    const iOff  = 2.5;  // offset up from text baseline so icon vertically centres with text
+    if (pr.email)  {
+      icon(pdf, 'mail',   sx, sy - iOff, iSz, true);
+      const lines = pdf.splitTextToSize(pr.email,  smw - iSz - 1.5) as string[];
+      lines.forEach((l: string, i: number) => { pdf.text(l, sx + iSz + 1.5, sy + i * 4); });
+      sy += lines.length * 4 + 1;
+    }
+    if (pr.phone)  {
+      icon(pdf, 'phone',  sx, sy - iOff, iSz, true);
+      pdf.text(pr.phone, sx + iSz + 1.5, sy);
+      sy += 4 + 1;
+    }
+    if (pr.address){
+      icon(pdf, 'mapPin', sx, sy - iOff, iSz, true);
+      const lines = pdf.splitTextToSize(pr.address, smw - iSz - 1.5) as string[];
+      lines.forEach((l: string, i: number) => { pdf.text(l, sx + iSz + 1.5, sy + i * 4); });
+      sy += lines.length * 4 + 1;
+    }
+    if (pr.id_number) {
+      icon(pdf, 'user',   sx, sy - iOff, iSz, true);
+      pdf.text(`ID: ${pr.id_number}`, sx + iSz + 1.5, sy);
+      sy += 4;
+    }
     sy += 5;
 
     if (sk.subjects?.length) {
@@ -294,13 +319,14 @@ export async function exportElementAsPDF(
       [pr.id_number ? `ID: ${pr.id_number}` : undefined, 'user'],
     ];
     const ciSz = 3;
+    const ciOff = ciSz - 0.5;  // align icon top with text (baseline - ascender height)
     let cx2 = ML; const ciY = 22;
     for (const [val, iname] of contactIconMap) {
       if (!val) continue;
-      icon(pdf, iname, cx2, ciY - 2, ciSz, true);
-      const tw2 = pdf.getTextWidth(val) + ciSz + 2 + 5;
+      const tw2 = pdf.getTextWidth(val as string) + ciSz + 2 + 4;
       if (cx2 + tw2 > PW - MR) break;
-      pdf.text(val, cx2 + ciSz + 1, ciY);
+      icon(pdf, iname, cx2, ciY - ciOff, ciSz, true);
+      pdf.text(val as string, cx2 + ciSz + 1.5, ciY);
       cx2 += tw2;
     }
     headerH = 35;
