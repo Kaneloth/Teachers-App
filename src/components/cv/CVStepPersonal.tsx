@@ -97,26 +97,55 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
     onChange({ ...data, drivers_licence: next });
   };
 
+  /**
+   * Compress + convert any image (incl. HEIC from mobile) to JPEG via Canvas,
+   * then upload. This avoids 400 errors from:
+   *  - unsupported MIME types (HEIC/HEIF) in Supabase bucket policies
+   *  - files exceeding bucket size limits
+   *  - EXIF orientation issues on mobile
+   */
+  const compressToJpeg = (file: File, maxPx = 800, quality = 0.82): Promise<Blob> =>
+    new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+        const w = Math.round(img.width  * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Canvas toBlob failed')), 'image/jpeg', quality);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
+      img.src = url;
+    });
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!user) { toast.error('You must be signed in to upload a photo.'); return; }
     setUploading(true);
 
-    const mimeToExt: Record<string, string> = {
-      'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
-      'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif',
-    };
-    const ext  = mimeToExt[file.type] ?? (file.name.includes('.') ? file.name.split('.').pop() : 'jpg');
-    const path = `${user.id}/cv-photo-${Date.now()}.${ext}`;
+    try {
+      // Always convert to JPEG — avoids HEIC/HEIF rejections and reduces file size
+      const jpeg = await compressToJpeg(file);
+      const path = `${user.id}/cv-photo-${Date.now()}.jpg`;
 
-    const { error } = await supabase.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true });
-    if (error) {
-      toast.error('Photo upload failed: ' + error.message);
-    } else {
-      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-      set('photo_url', urlData.publicUrl);
-      toast.success('Photo added!');
+      const { error } = await supabase.storage
+        .from('avatars')
+        .upload(path, jpeg, { contentType: 'image/jpeg', upsert: true });
+
+      if (error) {
+        toast.error('Photo upload failed: ' + error.message);
+      } else {
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+        set('photo_url', urlData.publicUrl);
+        toast.success('Photo added!');
+      }
+    } catch (err: any) {
+      toast.error('Could not process photo: ' + (err.message || 'Unknown error'));
     }
 
     e.target.value = '';
