@@ -1,25 +1,33 @@
 /**
  * Smart PDF export for CV templates.
  *
- * Strategy
- * ────────
- * 1. Render the WHOLE container with html2canvas.
- * 2. Use getBoundingClientRect() relative to container to measure each
- *    .cv-page div — works correctly for off-screen containers.
- * 3. Each .cv-page slice is stamped onto one PDF page.
- *    If a slice is taller than one A4 page (overflow content), sub-slice
- *    using content-aware row scanning that avoids cutting through text.
- * 4. Fallback to content-aware slicing if no .cv-page divs found.
+ * Architecture (final fix)
+ * ────────────────────────
+ * Page 1 content is rendered freely — no fixed-height DOM constraint.
+ * The canvas is sliced at A4 boundaries using content-aware row scanning
+ * (finds the whitest row near each page boundary to avoid cutting text).
+ *
+ * The references section has className="cv-page" — it is rendered as a
+ * SEPARATE html2canvas capture and appended as a clean PDF page with no
+ * risk of the content-body bleeding into it.
+ *
+ * This means:
+ * - Page 1..N: content-aware canvas slices of the main content
+ * - Final page: references, clean and independent
+ *
+ * The top of each slice (except slice 0) gets a small white padding strip
+ * so text never starts right at the very top edge of a page.
  */
 
-const PDF_SCALE = 2;
-const A4_W_PX   = 794;
-const A4_W_PT   = 595.28;
-const A4_H_PT   = 841.89;
+const PDF_SCALE  = 2;
+const A4_W_PX    = 794;
+const A4_W_PT    = 595.28;
+const A4_H_PT    = 841.89;
+const PAGE_TOP_PAD_PX = 24;   // white padding added to top of continuation pages (logical px)
 
 /**
- * Finds the best Y position to cut the canvas near proposedY.
- * Scans the content column (skips sidebar) for the whitest/most-blank row.
+ * Finds the best Y position to cut near proposedY.
+ * Scans the content column (right 65%, skipping sidebar) for the whitest row.
  */
 function findSafeCutY(
   ctx: CanvasRenderingContext2D,
@@ -33,7 +41,6 @@ function findSafeCutY(
   const scanH   = scanBot - scanTop;
   if (scanH <= 0) return proposedY;
 
-  // Scan the right 65% of canvas (content column, not sidebar)
   const startX = Math.floor(canvasWidth * 0.35);
   const w      = canvasWidth - startX;
 
@@ -56,16 +63,38 @@ function findSafeCutY(
 
 type PDF = InstanceType<import('jspdf').jsPDF>;
 
-function addSliceToPDF(pdf: PDF, canvas: HTMLCanvasElement, startY: number, endY: number): void {
-  const h = endY - startY;
-  if (h <= 0) return;
-  const tmp  = document.createElement('canvas');
-  tmp.width  = canvas.width;
-  tmp.height = h;
-  tmp.getContext('2d')!.drawImage(canvas, 0, startY, canvas.width, h, 0, 0, canvas.width, h);
-  const imgH  = (h / canvas.width) * A4_W_PT;
-  const drawH = Math.min(imgH, A4_H_PT);
-  const drawW = (drawH / imgH) * A4_W_PT;
+/**
+ * Copies a horizontal strip from `canvas` into the PDF.
+ * `topPad` (canvas pixels) adds a white strip at the top — used for
+ * continuation pages so text doesn't start at the very edge.
+ */
+function addSliceToPDF(
+  pdf: PDF,
+  canvas: HTMLCanvasElement,
+  startY: number,
+  endY: number,
+  topPad = 0,
+): void {
+  const contentH = endY - startY;
+  if (contentH <= 0) return;
+
+  const totalH = contentH + topPad;
+  const tmp    = document.createElement('canvas');
+  tmp.width    = canvas.width;
+  tmp.height   = totalH;
+  const ctx    = tmp.getContext('2d')!;
+
+  // Fill white background (handles the padding strip + any transparent areas)
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, tmp.width, tmp.height);
+
+  // Draw content below the padding strip
+  ctx.drawImage(canvas, 0, startY, canvas.width, contentH, 0, topPad, canvas.width, contentH);
+
+  const imgH  = (totalH / canvas.width) * A4_W_PT;
+  const scale = Math.min(1, A4_H_PT / imgH);   // shrink to fit if taller than A4
+  const drawH = imgH * scale;
+  const drawW = A4_W_PT * scale;
   pdf.addImage(tmp.toDataURL('image/jpeg', 0.95), 'JPEG', (A4_W_PT - drawW) / 2, 0, drawW, drawH);
 }
 
@@ -73,7 +102,13 @@ export async function exportElementAsPDF(container: HTMLElement, filename: strin
   const { default: html2canvas } = await import('html2canvas');
   const { jsPDF }                = await import('jspdf');
 
-  // ── 1. Render ────────────────────────────────────────────────────────────
+  // ── Separate the references page element from the main content ────────────
+  const refsEl = container.querySelector<HTMLElement>('.cv-page');
+
+  // Temporarily hide the references page during main-content render
+  if (refsEl) refsEl.style.display = 'none';
+
+  // ── 1. Render main content (no references) ───────────────────────────────
   const canvas = await html2canvas(container, {
     scale:       PDF_SCALE,
     useCORS:     true,
@@ -82,62 +117,47 @@ export async function exportElementAsPDF(container: HTMLElement, filename: strin
     windowWidth: A4_W_PX,
   });
 
+  // Restore references page
+  if (refsEl) refsEl.style.display = '';
+
   const ctx     = canvas.getContext('2d')!;
   const pageHpx = Math.round(A4_H_PT * PDF_SCALE);
+  const padPx   = Math.round(PAGE_TOP_PAD_PX * PDF_SCALE);
 
-  // ── 2. Get .cv-page slice boundaries via getBoundingClientRect ───────────
-  const pageEls = Array.from(container.querySelectorAll<HTMLElement>('.cv-page'));
+  // ── 2. Slice main content at A4 boundaries ────────────────────────────────
+  const pdf = new jsPDF({ format: 'a4', unit: 'pt', compress: true });
+  let y = 0, pageNum = 0;
 
-  type Slice = [number, number];
-  let slices: Slice[];
+  while (y < canvas.height) {
+    const availH  = pageNum === 0 ? pageHpx : pageHpx - padPx;   // first page uses full height
+    const rawEnd  = Math.min(y + availH, canvas.height);
+    const safeEnd = rawEnd < canvas.height
+      ? findSafeCutY(ctx, canvas.width, canvas.height, rawEnd)
+      : rawEnd;
+    const endY = Math.max(safeEnd, y + 1);
 
-  if (pageEls.length >= 1) {
-    const containerRect = container.getBoundingClientRect();
-    slices = pageEls
-      .map(el => {
-        const r      = el.getBoundingClientRect();
-        const startPx = Math.round(Math.max(0, r.top    - containerRect.top)  * PDF_SCALE);
-        const endPx   = Math.round(Math.max(0, r.bottom - containerRect.top)  * PDF_SCALE);
-        return [startPx, Math.min(endPx, canvas.height)] as Slice;
-      })
-      .filter(([s, e]) => e > s);
-  } else {
-    // Fallback
-    slices = [];
-    let y = 0;
-    while (y < canvas.height) {
-      const rawEnd  = Math.min(y + pageHpx, canvas.height);
-      const safeEnd = rawEnd < canvas.height ? findSafeCutY(ctx, canvas.width, canvas.height, rawEnd) : rawEnd;
-      slices.push([y, Math.max(safeEnd, y + 1)]);
-      y = safeEnd;
-    }
+    if (pageNum > 0) pdf.addPage();
+    addSliceToPDF(pdf, canvas, y, endY, pageNum === 0 ? 0 : padPx);
+
+    y = endY;
+    pageNum++;
   }
 
-  // ── 3. Build PDF — each slice = one PDF page (sub-split if too tall) ─────
-  const pdf = new jsPDF({ format: 'a4', unit: 'pt', compress: true });
-  let pageNum = 0;
+  // ── 3. Render references page separately and append ───────────────────────
+  if (refsEl) {
+    refsEl.style.display = '';   // ensure visible
+    const refsCanvas = await html2canvas(refsEl, {
+      scale:       PDF_SCALE,
+      useCORS:     true,
+      logging:     false,
+      width:       A4_W_PX,
+      windowWidth: A4_W_PX,
+      backgroundColor: '#ffffff',
+    });
 
-  for (const [startY, endY] of slices) {
-    const sliceH = endY - startY;
-    if (sliceH <= 0) continue;
-    if (pageNum > 0) pdf.addPage();
-
-    if (sliceH > pageHpx * 1.02) {
-      // Content overflows one A4 — sub-divide with smart cuts
-      let subY = startY, subPage = 0;
-      while (subY < endY) {
-        if (subPage > 0) pdf.addPage();
-        const rawCut  = Math.min(subY + pageHpx, endY);
-        const safeCut = rawCut < endY ? findSafeCutY(ctx, canvas.width, canvas.height, rawCut) : rawCut;
-        addSliceToPDF(pdf, canvas, subY, Math.max(safeCut, subY + 1));
-        subY = safeCut;
-        subPage++;
-      }
-    } else {
-      addSliceToPDF(pdf, canvas, startY, endY);
-    }
-
-    pageNum++;
+    // References page: add white top padding, then render
+    pdf.addPage();
+    addSliceToPDF(pdf, refsCanvas, 0, refsCanvas.height, padPx);
   }
 
   void filename;
