@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Download, ChevronDown, ChevronRight, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { BookOpen, Download, ChevronDown, ChevronRight, FileText, CheckCircle2, AlertCircle, X, Lock, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
+import SubscriptionModal from '@/components/SubscriptionModal';
 import { useAuth } from '@/lib/AuthContext';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -507,6 +508,8 @@ export default function GuidesPage() {
   const [openStep, setOpenStep]       = useState<number | null>(1);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [lightbox, setLightbox]       = useState<string | null>(null);
+  const [isPro, setIsPro]             = useState(false);
+  const [showSubModal, setShowSubModal] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -528,6 +531,26 @@ export default function GuidesPage() {
         personal_number:  edu?.personal_number  || '',
         post_level:       edu?.post_level       || '',
       });
+
+      // ── Subscription check (mirrors MatchesPage pattern) ──────────────
+      const metaPlan = u?.user_metadata?.subscription_plan as string | undefined;
+      const metaEnd  = u?.user_metadata?.subscription_end  as string | undefined;
+      const isProMeta = metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date();
+      if (isProMeta) {
+        setIsPro(true);
+      } else {
+        const { data: profileRow } = await supabase
+          .from('profiles')
+          .select('subscription_plan, subscription_end')
+          .eq('id', user.id)
+          .single();
+        const proFromDb =
+          profileRow?.subscription_plan &&
+          profileRow.subscription_plan !== 'free' &&
+          profileRow.subscription_end &&
+          new Date(profileRow.subscription_end) > new Date();
+        setIsPro(!!proFromDb);
+      }
     };
     load();
   }, [user]);
@@ -593,25 +616,50 @@ export default function GuidesPage() {
         <Badge variant="outline">Cross-Transfer</Badge>
       </div>
 
+      {/* ── Upgrade banner for free users ── */}
+      {!isPro && (
+        <div className="bg-primary/5 border border-primary/30 rounded-2xl px-4 py-4 mb-4 flex gap-3 items-start">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <Lock className="w-4 h-4 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-foreground mb-0.5">Pro Feature</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Upgrade to Pro to unlock all transfer steps, download templates, and get your documents pre-filled with your details.
+            </p>
+            <button
+              onClick={() => setShowSubModal(true)}
+              className="mt-2.5 flex items-center gap-1.5 bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5 rounded-xl hover:bg-primary/90 transition-colors"
+            >
+              <Zap className="w-3 h-3" /> Upgrade to Pro
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Step-by-step accordion */}
       <div className="space-y-2 mb-6">
         <h2 className="text-sm font-semibold text-foreground mb-3">Step-by-Step Process</h2>
         {STEPS.map(step => {
           const isOpen = openStep === step.id;
+          // Free users: only step 1 is openable (teaser), rest are locked
+          const isLocked = !isPro && step.id > 1;
           return (
-            <div key={step.id} className="bg-card border border-border rounded-2xl overflow-hidden">
+            <div key={step.id} className={`bg-card border rounded-2xl overflow-hidden transition-colors ${isLocked ? 'border-border opacity-75' : 'border-border'}`}>
               <button
-                className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted/50 transition-colors"
-                onClick={() => setOpenStep(isOpen ? null : step.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors ${isLocked ? 'cursor-default' : 'hover:bg-muted/50'}`}
+                onClick={() => isLocked ? setShowSubModal(true) : setOpenStep(isOpen ? null : step.id)}
               >
                 <span className="text-lg shrink-0">{step.icon}</span>
                 <span className="flex-1 text-sm font-semibold text-foreground">
                   <span className="text-muted-foreground font-normal mr-1.5">Step {step.id}.</span>
                   {step.title}
                 </span>
-                {isOpen
-                  ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                  : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                {isLocked
+                  ? <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+                  : isOpen
+                    ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                    : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                 }
               </button>
 
@@ -657,18 +705,19 @@ export default function GuidesPage() {
             <button
               key={t.key}
               disabled={downloading === t.key}
-              onClick={() => handleDownload(t.key, t.label)}
-              className="bg-card border border-border rounded-2xl p-4 text-left hover:border-primary/50 hover:bg-primary/5 transition-all disabled:opacity-50"
+              onClick={() => isPro ? handleDownload(t.key, t.label) : setShowSubModal(true)}
+              className={`bg-card border rounded-2xl p-4 text-left transition-all ${isPro ? "border-border hover:border-primary/50 hover:bg-primary/5" : "border-border/60 opacity-70"}`}
             >
               <div className="text-2xl mb-2">{t.icon}</div>
               <div className="text-sm font-semibold text-foreground">{t.label}</div>
               <div className="text-xs text-muted-foreground mt-0.5">{t.desc}</div>
-              <div className="flex items-center gap-1 mt-2 text-xs text-primary font-medium">
-                {downloading === t.key ? (
-                  <><FileText className="w-3 h-3" /> Generating…</>
-                ) : (
-                  <><Download className="w-3 h-3" /> Download .docx</>
-                )}
+              <div className="flex items-center gap-1 mt-2 text-xs font-medium text-primary">
+                {!isPro
+                  ? <><Lock className="w-3 h-3" /> Pro only</>
+                  : downloading === t.key
+                    ? <><FileText className="w-3 h-3" /> Generating…</>
+                    : <><Download className="w-3 h-3" /> Download .docx</>
+                }
               </div>
             </button>
           ))}
@@ -705,6 +754,8 @@ export default function GuidesPage() {
           </a>
         </p>
       </div>
+
+      <SubscriptionModal open={showSubModal} onClose={() => setShowSubModal(false)} />
 
       {/* Lightbox */}
       {lightbox && (
