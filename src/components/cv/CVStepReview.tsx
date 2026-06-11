@@ -26,7 +26,7 @@ interface CVData {
 interface Props { data: CVData; onGenerated?: (url: string) => void; isFree?: boolean }
 
 export default function CVStepReview({ data, onGenerated, isFree = false }: Props) {
-  const { user, updateUserMeta } = useAuth();
+  const { user } = useAuth();
   const [view, setView] = useState<'preview' | 'summary'>('preview');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -42,36 +42,34 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
     try {
       const pdfBlob = await exportElementAsPDF(exportRef.current, fileName, { ...data, watermark: isFree });
 
-      // ── Trigger device download ──────────────────────────────────────────
+      // ── 1. Trigger immediate device download ─────────────────────────────
       const blobUrl = URL.createObjectURL(pdfBlob);
-      const anchor = document.createElement('a');
-      anchor.href = blobUrl;
+      const anchor  = document.createElement('a');
+      anchor.href     = blobUrl;
       anchor.download = fileName;
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
       URL.revokeObjectURL(blobUrl);
 
-      // ── Upload to Supabase so LastCVBanner can offer "Download PDF" ──────
-      const path = `${user?.id ?? 'anon'}/cv-${Date.now()}.pdf`;
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, pdfBlob, { contentType: 'application/pdf', upsert: true });
-
-      if (!uploadError) {
-        const uploadedUrl = publicStorageUrl('avatars', path);
-        if (uploadedUrl) {
+      // ── 2. Try to upload to Supabase for persistent download link ────────
+      let uploadedUrl = '';
+      try {
+        const path = `${user?.id ?? 'anon'}/cv-${Date.now()}.pdf`;
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(path, pdfBlob, { contentType: 'application/pdf', upsert: true });
+        if (!uploadError) {
+          uploadedUrl = publicStorageUrl('avatars', path);
           setPdfUrl(uploadedUrl);
-          const newCount = ((user?.user_metadata?.cv_count as number) ?? 0) + 1;
-          await updateUserMeta({
-            last_cv_pdf_url: uploadedUrl,
-            last_cv_data: data,
-            last_cv_generated_at: new Date().toISOString(),
-            cv_count: newCount,
-          });
-          if (onGenerated) onGenerated(uploadedUrl);
         }
+      } catch (_) {
+        console.warn('PDF cloud backup failed — local download still succeeded');
       }
+
+      // ── 3. Always notify parent so it saves metadata & shows banner ───────
+      // Pass uploadedUrl (empty string if upload failed — parent handles gracefully)
+      if (onGenerated) onGenerated(uploadedUrl);
 
       setSent(true);
       toast.success('CV downloaded to your device!');
