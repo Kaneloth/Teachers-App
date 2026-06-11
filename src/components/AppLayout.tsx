@@ -33,8 +33,8 @@ const GENERAL_TABS = [
   { path: '/cover-letters',  component: CoverLettersPage, icon: Mail,      label: 'Letters'},
 ];
 
-const DIST_THRESHOLD = 0.22;   // 22% of screen width to navigate (distance)
-const VEL_THRESHOLD  = 0.35;   // px/ms — fast flick always navigates regardless of distance
+const SWIPE_THRESHOLD = 0.25;  // 25% drag OR fast flick to navigate
+const VEL_THRESHOLD   = 0.4;   // px/ms — fast flick threshold
 
 // ─── Navigation progress bar ──────────────────────────────────────────────────
 function useNavigationProgress(pathname: string) {
@@ -169,118 +169,96 @@ export default function AppLayout() {
   const isTabRoute = TAB_PATHS.includes(location.pathname);
   const tabIndex = isTabRoute ? TAB_PATHS.indexOf(location.pathname) : 0;
 
-  // ── Swipe state ──────────────────────────────────────────────────────────────
-  // dragOffsetPx: raw pixel offset of the strip from its resting position.
-  // Using px (not percent) avoids the ratio mismatch that caused shakiness.
-  const [dragOffsetPx, setDragOffsetPx] = useState(0);
-  const isDragging = dragOffsetPx !== 0;
+  // ── Swipe state — mirrors the Skootlink working implementation ──────────────
+  const [dragPercent, setDragPercent] = useState(0);
+  const isDragging = dragPercent !== 0;
 
-  // Store all touch tracking in a ref so handlers never go stale
+  // dragPercentRef stays in sync with state so onTouchEnd never reads stale value
+  const dragPercentRef = useRef(0);
+  const setDrag = (v: number) => { dragPercentRef.current = v; setDragPercent(v); };
+
   const touchRef = useRef({
     startX:     0,
     startY:     0,
     lastX:      0,
-    lastT:      0,           // timestamp of last move event
+    startT:     0,
     active:     false,
     axisLocked: false,
     horizontal: false,
-    tabIndex:   0,           // snapshot of tabIndex at touch start
-    N:          0,           // snapshot of N at touch start
-    paths:      [] as string[],
   });
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     if (!isTabRoute) return;
-    // Don't intercept if a horizontally-scrollable child owns the touch
     let el = e.target as HTMLElement | null;
     while (el && el !== e.currentTarget) {
       const ox = window.getComputedStyle(el).overflowX;
       if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth) return;
       el = el.parentElement;
     }
-    const x = e.touches[0].clientX;
-    const now = performance.now();
     touchRef.current = {
-      startX:     x,
+      startX:     e.touches[0].clientX,
       startY:     e.touches[0].clientY,
-      lastX:      x,
-      lastT:      now,
+      lastX:      e.touches[0].clientX,
+      startT:     performance.now(),
       active:     true,
       axisLocked: false,
       horizontal: false,
-      tabIndex,            // snapshot — avoids stale closure in onTouchEnd
-      N,
-      paths:      TAB_PATHS,
     };
-  }, [isTabRoute, tabIndex, N, TAB_PATHS]);
+  }, [isTabRoute]);
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
     const t = touchRef.current;
     if (!t.active) return;
 
-    const x  = e.touches[0].clientX;
-    const dx = x - t.startX;
+    const dx = e.touches[0].clientX - t.startX;
     const dy = e.touches[0].clientY - t.startY;
 
-    // Axis lock: wait for 6px of movement then decide horizontal vs vertical
     if (!t.axisLocked) {
-      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
       t.axisLocked = true;
-      t.horizontal = Math.abs(dx) > Math.abs(dy) * 1.2; // bias toward vertical
+      t.horizontal = Math.abs(dx) > Math.abs(dy);
     }
     if (!t.horizontal) return;
+    e.preventDefault();
 
-    e.preventDefault(); // prevent page scroll during horizontal swipe
+    t.lastX = e.touches[0].clientX;
 
-    // Rubber-band at edges: logarithmic resistance like iOS
-    let offset = dx;
-    if (offset > 0 && t.tabIndex === 0) {
-      offset = Math.log1p(offset) * 18; // slows progressively, never hard-stops
-    } else if (offset < 0 && t.tabIndex === t.N - 1) {
-      offset = -Math.log1p(-offset) * 18;
-    }
+    // Same formula as Skootlink — proven to work
+    let pct = (dx / window.innerWidth) * 100;
+    if (pct > 0 && tabIndex === 0)      pct = Math.log1p(pct) * 8;   // rubber-band left edge
+    if (pct < 0 && tabIndex === N - 1)  pct = -Math.log1p(-pct) * 8; // rubber-band right edge
 
-    // Track velocity
-    t.lastX = x;
-    t.lastT = performance.now();
-
-    setDragOffsetPx(offset);
-  }, []); // empty deps — reads everything from touchRef, no stale closures
+    setDrag(pct);
+  }, [tabIndex, N]);
 
   const onTouchEnd = useCallback(() => {
     const t = touchRef.current;
     t.active = false;
     if (!t.horizontal) return;
 
+    const pct      = dragPercentRef.current;  // read ref, never stale
     const dx       = t.lastX - t.startX;
-    const dt       = performance.now() - t.lastT + 1; // +1 avoids /0
-    const velocity = dx / dt; // px/ms — positive = right swipe
+    const dt       = performance.now() - t.startT + 1;
+    const velocity = dx / dt; // px/ms
 
-    const W           = window.innerWidth;
-    const distRatio   = Math.abs(dx) / W;
     const isFastFlick = Math.abs(velocity) > VEL_THRESHOLD;
-    const isFarEnough = distRatio > DIST_THRESHOLD;
-    const shouldNav   = isFastFlick || isFarEnough;
+    const isFarEnough = Math.abs(pct) > SWIPE_THRESHOLD * 100;
 
-    if (shouldNav && dx < 0 && t.tabIndex < t.N - 1) {
-      navigate(t.paths[t.tabIndex + 1]);
-    } else if (shouldNav && dx > 0 && t.tabIndex > 0) {
-      navigate(t.paths[t.tabIndex - 1]);
+    if ((isFastFlick || isFarEnough) && pct < 0 && tabIndex < N - 1) {
+      navigate(TAB_PATHS[tabIndex + 1]);
+    } else if ((isFastFlick || isFarEnough) && pct > 0 && tabIndex > 0) {
+      navigate(TAB_PATHS[tabIndex - 1]);
     }
 
-    setDragOffsetPx(0);
-  }, [navigate]); // only navigate is external
+    setDrag(0);
+  }, [tabIndex, N, TAB_PATHS, navigate]);
 
-  // Reset drag when route changes (e.g. programmatic navigation)
-  useEffect(() => { setDragOffsetPx(0); }, [location.pathname]);
+  useEffect(() => { setDrag(0); }, [location.pathname]);
 
-  // ── Strip position — pure pixel math, no unit conversion ───────────────────
-  // Everything stays in px so there's zero rounding/conversion jump on release.
-  // The strip is N tabs wide; each tab = window.innerWidth px.
-  // Resting: strip shifted left by (tabIndex * vw) px.
-  // During drag: add dragOffsetPx directly — 1:1 finger tracking.
-  const vw      = typeof window !== 'undefined' ? window.innerWidth : 390;
-  const stripPx = -(tabIndex * vw) + dragOffsetPx;
+  // ── Strip position — same formula as Skootlink ────────────────────────────
+  const baseX  = -(tabIndex / N) * 100;
+  const dragX  = (dragPercent / 100) * (100 / N);
+  const stripX = baseX + dragX;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -303,12 +281,12 @@ export default function AppLayout() {
             className="absolute inset-0 flex"
             style={{
               width: `${N * 100}%`,
-              transform: `translateX(${stripPx}px)`,
+              transform: `translateX(${stripX}%)`,
               // No transition while finger is down — 1:1 tracking
               // Smooth decelerate-to-stop on release — no overshoot, no snap
               transition: isDragging
                 ? 'none'
-                : 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)',
+                : 'transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
               willChange: 'transform',
             }}
           >
