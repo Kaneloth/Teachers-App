@@ -8,17 +8,12 @@ import { exportElementAsPDF } from '@/utils/cvExport';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 
-// Ensures Supabase storage URL always uses the /public/ path (works even if bucket
-// policy is not set to public — combined with signed URL fallback above)
-function storagePublicUrl(supabaseClient: typeof supabase, bucket: string, path: string): string {
-  const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
-  // Force /object/public/ format
-  return data.publicUrl.replace(
-    `/storage/v1/object/${bucket}/`,
-    `/storage/v1/object/public/${bucket}/`
-  );
+// Builds the correct public storage URL — getPublicUrl() sometimes omits /public/
+// depending on Supabase JS client version, causing 400 errors on fetch.
+function publicStorageUrl(bucket: string, path: string): string {
+  const base = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, '');
+  return `${base}/storage/v1/object/public/${bucket}/${path}`;
 }
-
 
 interface CVData {
   personal: { full_name?: string; email?: string; photo_url?: string; phone?: string; address?: string; bio?: string };
@@ -29,9 +24,9 @@ interface CVData {
   template: string;
 }
 
-interface Props { data: CVData; onGenerated?: (url: string) => void; isFree?: boolean }
+interface Props { data: CVData; onGenerated?: (url: string) => void }
 
-export default function CVStepReview({ data, onGenerated, isFree = false }: Props) {
+export default function CVStepReview({ data, onGenerated }: Props) {
   const { user, updateUserMeta } = useAuth();
   const [view, setView] = useState<'preview' | 'summary'>('preview');
   const [sending, setSending] = useState(false);
@@ -46,32 +41,26 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
     if (!exportRef.current) return;
     setSending(true);
     try {
-      const pdfBlob = await exportElementAsPDF(exportRef.current, fileName, { ...data, watermark: isFree });
+      const pdfBlob = await exportElementAsPDF(exportRef.current, fileName);
 
-      // Trigger device download
+      // ── Trigger device download ──────────────────────────────────────────
       const blobUrl = URL.createObjectURL(pdfBlob);
-      const anchor  = document.createElement('a');
-      anchor.href     = blobUrl;
+      const anchor = document.createElement('a');
+      anchor.href = blobUrl;
       anchor.download = fileName;
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
       URL.revokeObjectURL(blobUrl);
 
-      // Upload to Supabase for LastCVBanner
+      // ── Upload to Supabase so LastCVBanner can offer "Download PDF" ──────
       const path = `${user?.id ?? 'anon'}/cv-${Date.now()}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(path, pdfBlob, { contentType: 'application/pdf', upsert: true });
 
       if (!uploadError) {
-        // Use signed URL (1 year) — works for both public and private buckets
-        const { data: signedData } = await supabase.storage
-          .from('avatars')
-          .createSignedUrl(path, 60 * 60 * 24 * 365);
-        const uploadedUrl = signedData?.signedUrl
-          ?? supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
-               .replace('/object/avatars/', '/object/public/avatars/');
+        const uploadedUrl = publicStorageUrl('avatars', path);
         if (uploadedUrl) {
           setPdfUrl(uploadedUrl);
           const newCount = ((user?.user_metadata?.cv_count as number) ?? 0) + 1;
@@ -88,7 +77,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
       setSent(true);
       toast.success('CV downloaded to your device!');
     } catch (e: unknown) {
-      toast.error((e as Error).message || 'Failed to open print dialog');
+      toast.error((e as Error).message || 'Failed to generate CV');
     } finally {
       setSending(false);
     }
@@ -146,7 +135,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
            * the page can scroll normally to reveal references or extra pages.
            */}
           <div style={{ zoom: 0.45 }}>
-            <CVTemplateRenderer data={data} forExport watermark={isFree} />
+            <CVTemplateRenderer data={data} forExport />
           </div>
         </div>
       ) : (
@@ -202,7 +191,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
       {/* Hidden full-size render used by exportElementAsPDF — added cv-export-root class */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '794px' }}>
         <div ref={exportRef} className="cv-export-root">
-          <CVTemplateRenderer data={data} forExport watermark={isFree} />
+          <CVTemplateRenderer data={data} forExport />
         </div>
       </div>
 

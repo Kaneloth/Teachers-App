@@ -1,7 +1,6 @@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useEffect, useState, useRef } from 'react';
 import { Lock, Camera, X, Loader2, ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -9,17 +8,12 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import type { CVType } from '@/pages/CVBuilderPage';
 
-// Ensures Supabase storage URL always uses the /public/ path (works even if bucket
-// policy is not set to public — combined with signed URL fallback above)
-function storagePublicUrl(supabaseClient: typeof supabase, bucket: string, path: string): string {
-  const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
-  // Force /object/public/ format
-  return data.publicUrl.replace(
-    `/storage/v1/object/${bucket}/`,
-    `/storage/v1/object/public/${bucket}/`
-  );
+// Builds the correct public storage URL — getPublicUrl() sometimes omits /public/
+// depending on Supabase JS client version, causing 400 errors on fetch.
+function publicStorageUrl(bucket: string, path: string): string {
+  const base = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, '');
+  return `${base}/storage/v1/object/public/${bucket}/${path}`;
 }
-
 
 interface PersonalData {
   full_name: string;
@@ -29,10 +23,6 @@ interface PersonalData {
   bio: string;
   photo_url?: string;
   id_number?: string;
-  gender?: string;
-  population_group?: string;
-  citizenship?: string;
-  drivers_licence?: string[];
 }
 
 interface Props {
@@ -41,24 +31,20 @@ interface Props {
   cvType: CVType;
 }
 
-const POPULATION_GROUPS = ['African', 'Coloured', 'Indian/Asian', 'White', 'Other'];
-const CITIZENSHIPS      = ['SA Citizen', 'SA Permanent Resident', 'Work Permit Holder'];
-const GENDERS           = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
-const LICENCE_CODES     = ['Code 8', 'Code 10', 'Code 14', 'Code A', 'Code A1'];
-
 export default function CVStepPersonal({ data, onChange, cvType }: Props) {
   const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [idLabel, setIdLabel] = useState('ID / Passport Number');
-  const fileRef   = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function loadProfile() {
       if (!user) return;
 
+      /* Always fetch fresh metadata so we get the latest doc verification state */
       const { data: { user: freshUser } } = await supabase.auth.getUser();
-      const meta    = freshUser?.user_metadata ?? {};
+      const meta = freshUser?.user_metadata ?? {};
       const docType = meta.doc_type as string | undefined;
       setIdLabel(docType === 'passport' ? 'Passport Number' : 'ID Number');
 
@@ -71,25 +57,23 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
 
       if (cvType === 'educator') {
         onChange({
-          ...data,
           full_name: profile?.full_name || user.user_metadata?.full_name || '',
-          email:     user.email || '',
-          phone:     profile?.phone || '',
-          address:   profile?.current_school
+          email: user.email || '',
+          phone: profile?.phone || '',
+          address: profile?.current_school
             ? `${profile.current_school}${profile.current_province ? ', ' + profile.current_province : ''}`
             : '',
-          bio:       profile?.bio || data.bio || '',
+          bio: profile?.bio || data.bio || '',
           id_number: data.id_number ?? '',
         });
       } else {
         const location = [profile?.town, profile?.current_province].filter(Boolean).join(', ');
         onChange({
-          ...data,
           full_name: profile?.full_name || user.user_metadata?.full_name || '',
-          email:     user.email || '',
-          phone:     profile?.phone || '',
-          address:   location,
-          bio:       profile?.bio || data.bio || '',
+          email: user.email || '',
+          phone: profile?.phone || '',
+          address: location,
+          bio: profile?.bio || data.bio || '',
           id_number: data.id_number ?? '',
         });
       }
@@ -98,41 +82,7 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cvType]);
 
-  const set = (field: keyof PersonalData, value: string) =>
-    onChange({ ...data, [field]: value });
-
-  const toggleLicence = (code: string) => {
-    const current = data.drivers_licence ?? [];
-    const next    = current.includes(code)
-      ? current.filter(c => c !== code)
-      : [...current, code];
-    onChange({ ...data, drivers_licence: next });
-  };
-
-  /**
-   * Compress + convert any image (incl. HEIC from mobile) to JPEG via Canvas,
-   * then upload. This avoids 400 errors from:
-   *  - unsupported MIME types (HEIC/HEIF) in Supabase bucket policies
-   *  - files exceeding bucket size limits
-   *  - EXIF orientation issues on mobile
-   */
-  const compressToJpeg = (file: File, maxPx = 800, quality = 0.82): Promise<Blob> =>
-    new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
-        const w = Math.round(img.width  * scale);
-        const h = Math.round(img.height * scale);
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
-        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Canvas toBlob failed')), 'image/jpeg', quality);
-      };
-      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
-      img.src = url;
-    });
+  const set = (field: keyof PersonalData, value: string) => onChange({ ...data, [field]: value });
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -140,40 +90,30 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
     if (!user) { toast.error('You must be signed in to upload a photo.'); return; }
     setUploading(true);
 
-    try {
-      // Always convert to JPEG — avoids HEIC/HEIF rejections and reduces file size
-      const jpeg = await compressToJpeg(file);
-      const path = `${user.id}/cv-photo-${Date.now()}.jpg`;
+    /* Derive extension from MIME type so camera-captured images (which
+       often arrive as "image" with no dot-extension in their filename)
+       still get a valid path like ".jpg" instead of ".image". */
+    const mimeToExt: Record<string, string> = {
+      'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
+      'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif',
+    };
+    const ext = mimeToExt[file.type] ?? (file.name.includes('.') ? file.name.split('.').pop() : 'jpg');
+    const path = `${user.id}/cv-photo-${Date.now()}.${ext}`;
 
-      const { error } = await supabase.storage
-        .from('avatars')
-        .upload(path, jpeg, { contentType: 'image/jpeg', upsert: true });
-
-      if (error) {
-        toast.error('Photo upload failed: ' + error.message);
-      } else {
-        // Use signed URL (1 year) — works for both public and private buckets
-        const { data: signedData, error: signErr } = await supabase.storage
-          .from('avatars')
-          .createSignedUrl(path, 60 * 60 * 24 * 365);
-        if (signErr || !signedData?.signedUrl) {
-          // Fallback: try public URL
-          const { data: pubData } = supabase.storage.from('avatars').getPublicUrl(path);
-          set('photo_url', pubData.publicUrl.replace('/object/avatars/', '/object/public/avatars/'));
-        } else {
-          set('photo_url', signedData.signedUrl);
-        }
-        toast.success('Photo added!');
-      }
-    } catch (err: any) {
-      toast.error('Could not process photo: ' + (err.message || 'Unknown error'));
+    const { error } = await supabase.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true });
+    if (error) {
+      toast.error('Photo upload failed: ' + error.message);
+    } else {
+      set('photo_url', publicStorageUrl('avatars', path));
+      toast.success('Photo added!');
     }
 
+    /* Reset the input so the same file can be re-selected if needed */
     e.target.value = '';
     setUploading(false);
   };
 
-  const addressLabel      = cvType === 'educator' ? 'Current School / Province' : 'Location';
+  const addressLabel = cvType === 'educator' ? 'Current School / Province' : 'Location';
   const summaryPlaceholder = cvType === 'educator'
     ? 'A brief overview of your teaching career and goals...'
     : 'A brief overview of your professional background and goals...';
@@ -212,17 +152,17 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
               <ImageIcon className="w-3 h-3" /> Gallery
             </button>
           </div>
-          <input ref={fileRef}   type="file" accept="image/*"          className="hidden" onChange={handlePhotoUpload} />
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
           <input ref={cameraRef} type="file" accept="image/*" capture="user" className="hidden" onChange={handlePhotoUpload} />
         </div>
       </div>
 
       {/* Locked fields */}
-      <LockedField label="Full Name"     value={data.full_name} />
+      <LockedField label="Full Name" value={data.full_name} />
       <LockedField label="Email Address" value={data.email} />
-      <LockedField label="Phone Number"  value={data.phone} />
+      <LockedField label="Phone Number" value={data.phone} />
 
-      {/* Address — editable */}
+      {/* Address — editable so users can tailor it per CV */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium">{addressLabel}</Label>
         <Input
@@ -233,7 +173,7 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
         />
       </div>
 
-      {/* ID / Passport — optional */}
+      {/* ID / Passport — optional, user chooses to include */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium">
           {idLabel} <span className="text-muted-foreground font-normal">(optional)</span>
@@ -247,87 +187,7 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
         <p className="text-xs text-muted-foreground">Only include this if you want it printed on your CV.</p>
       </div>
 
-      {/* ── Optional EEA / demographic fields ──────────────────── */}
-      <div className="border-t border-border pt-4 space-y-4">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-          Optional Fields <span className="font-normal normal-case">(leave blank to omit from CV)</span>
-        </p>
-
-        {/* Gender */}
-        <div className="space-y-1.5">
-          <Label className="text-sm font-medium">Gender</Label>
-          <Select value={data.gender ?? ''} onValueChange={v => set('gender', v === '_clear' ? '' : v)}>
-            <SelectTrigger className="rounded-xl">
-              <SelectValue placeholder="Select gender" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_clear"><span className="text-muted-foreground italic">None / omit</span></SelectItem>
-              {GENDERS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Population Group */}
-        <div className="space-y-1.5">
-          <Label className="text-sm font-medium">Population Group</Label>
-          <Select value={data.population_group ?? ''} onValueChange={v => set('population_group', v === '_clear' ? '' : v)}>
-            <SelectTrigger className="rounded-xl">
-              <SelectValue placeholder="Select population group" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_clear"><span className="text-muted-foreground italic">None / omit</span></SelectItem>
-              {POPULATION_GROUPS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Citizenship */}
-        <div className="space-y-1.5">
-          <Label className="text-sm font-medium">Citizenship</Label>
-          <Select value={data.citizenship ?? ''} onValueChange={v => set('citizenship', v === '_clear' ? '' : v)}>
-            <SelectTrigger className="rounded-xl">
-              <SelectValue placeholder="Select citizenship status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_clear"><span className="text-muted-foreground italic">None / omit</span></SelectItem>
-              {CITIZENSHIPS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Drivers Licence — multi-select chips */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">
-            Driver's Licence <span className="text-muted-foreground font-normal">(select all that apply)</span>
-          </Label>
-          <div className="flex flex-wrap gap-2">
-            {LICENCE_CODES.map(code => {
-              const active = (data.drivers_licence ?? []).includes(code);
-              return (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => toggleLicence(code)}
-                  className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-all ${
-                    active
-                      ? 'bg-primary text-white border-primary shadow-sm'
-                      : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
-                  }`}
-                >
-                  {code}
-                </button>
-              );
-            })}
-          </div>
-          {(data.drivers_licence ?? []).length > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Selected: {(data.drivers_licence ?? []).join(', ')}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Professional Summary */}
+      {/* Professional Summary — editable on both types */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium">Professional Summary</Label>
         <Textarea
