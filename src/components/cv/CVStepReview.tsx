@@ -34,19 +34,19 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
     if (!exportRef.current) return;
     setSending(true);
     try {
-      const pdfBlob = await exportElementAsPDF(exportRef.current, fileName);
+      const pdfBlob = await exportElementAsPDF(exportRef.current, fileName, { ...data, watermark: isFree });
 
-      // ── Trigger device download ──────────────────────────────────────────
+      // Trigger device download
       const blobUrl = URL.createObjectURL(pdfBlob);
-      const anchor = document.createElement('a');
-      anchor.href = blobUrl;
+      const anchor  = document.createElement('a');
+      anchor.href     = blobUrl;
       anchor.download = fileName;
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
       URL.revokeObjectURL(blobUrl);
 
-      // ── Upload to Supabase so LastCVBanner can offer "Download PDF" ──────
+      // Upload to Supabase for LastCVBanner
       const path = `${user?.id ?? 'anon'}/cv-${Date.now()}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from('avatars')
@@ -71,7 +71,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
       setSent(true);
       toast.success('CV downloaded to your device!');
     } catch (e: unknown) {
-      toast.error((e as Error).message || 'Failed to generate CV');
+      toast.error((e as Error).message || 'Failed to open print dialog');
     } finally {
       setSending(false);
     }
