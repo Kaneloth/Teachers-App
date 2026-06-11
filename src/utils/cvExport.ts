@@ -171,7 +171,7 @@ function wrappedText(
       p.text(lines[i], x, y);
     } else {
       const totalW = words.reduce((sum, w) => sum + p.getTextWidth(w), 0);
-      const gap    = (maxW - totalW) / (words.length - 1);
+      const gap    = words.length > 1 ? (maxW - totalW) / (words.length - 1) : 0;
       let wx = x;
       for (const word of words) { p.text(word, wx, y); wx += p.getTextWidth(word) + gap; }
     }
@@ -208,7 +208,7 @@ function bulletLine(
       p.text(lines[i], textX, y);
     } else {
       const totalW = words.reduce((sum, w) => sum + p.getTextWidth(w), 0);
-      const gap    = (textMaxW - totalW) / (words.length - 1);
+      const gap    = words.length > 1 ? (textMaxW - totalW) / (words.length - 1) : 0;
       let wx = textX;
       for (const word of words) { p.text(word, wx, y); wx += p.getTextWidth(word) + gap; }
     }
@@ -267,6 +267,11 @@ export async function exportElementAsPDF(
 
   const pdf = new jsPDF({ format: 'a4', unit: 'mm', compress: true });
 
+  // Mobile safety: ensure jsPDF starts with known-good colour state
+  pdf.setFillColor(255, 255, 255);
+  pdf.setDrawColor(0, 0, 0);
+  pdf.setTextColor(0, 0, 0);
+
   // Content column geometry — sidebar only affects page 1
   const CX1  = isSB ? ML + SIDEBAR_W + 10 : ML;
   const CMW1 = isSB ? PW - MR - CX1 : PW - ML - MR;
@@ -284,6 +289,10 @@ export async function exportElementAsPDF(
   function newPage(): number {
     pdf.addPage();
     pageCount++;
+    // Reset colour state on new page (mobile jsPDF safety)
+    pdf.setFillColor(255, 255, 255);
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setTextColor(0, 0, 0);
     // Sidebar bg is ONLY on page 1 — page 2+ get a thin accent top bar
     layout.cx  = CX2;
     layout.cmw = CMW2;
@@ -291,7 +300,7 @@ export async function exportElementAsPDF(
       setFill(pdf, pal.sidebarBg!);
       pdf.rect(0, 0, PW, 6, 'F');
     }
-    return MT + 4;  // extra top margin to clear the accent bar
+    return MT + 4;
   }
 
   // ── HEADER ─────────────────────────────────────────────────────────────
@@ -309,7 +318,6 @@ export async function exportElementAsPDF(
 
     // Initials avatar
     const initials = ownerName.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
-    pdf.setFillColor(255, 255, 255, 0.15);
     pdf.setFillColor(230, 255, 250);
     pdf.circle(sx + smw / 2, sy + 7, 9, 'F');
     setTxt(pdf, pal.sidebarBg!);
@@ -385,10 +393,9 @@ export async function exportElementAsPDF(
     pdf.text(ownerName.toUpperCase(), ML, 13);
 
     // Thin rule below name
-    hRule(pdf, ML, 16, PW - ML - MR,
-      pal.headerText === '#ffffff' ? 'rgba(255,255,255,0.3)' : '#d1d5db', 0.3);
-    // Use a slightly transparent white by setting draw color manually
-    pdf.setDrawColor(255, 255, 255); pdf.setLineWidth(0.25);
+    // Thin separator rule under name — white for dark headers, grey for light
+    pdf.setDrawColor(pal.headerText === '#ffffff' ? 200 : 209, pal.headerText === '#ffffff' ? 200 : 213, pal.headerText === '#ffffff' ? 200 : 219);
+    pdf.setLineWidth(0.25);
     pdf.line(ML, 16, PW - MR, 16);
 
     // Contact row
@@ -588,7 +595,7 @@ export async function exportElementAsPDF(
     const total = pdf.getNumberOfPages();
     for (let pg = 1; pg <= total; pg++) {
       pdf.setPage(pg);
-      setFill(pdf, '#0f172a');
+      pdf.setFillColor(15, 23, 42);  // #0f172a as RGB — avoids hex parse on mobile
       pdf.rect(0, PH - FOOTER_H, PW, FOOTER_H, 'F');
       setTxt(pdf, '#94a3b8');
       pdf.setFont(F, 'normal'); pdf.setFontSize(7);
@@ -602,6 +609,10 @@ export async function exportElementAsPDF(
   const totalPages = pdf.getNumberOfPages();
   for (let pg = 1; pg <= totalPages; pg++) {
     pdf.setPage(pg);
+    // Reset colour state after setPage() for mobile safety
+    pdf.setFillColor(255, 255, 255);
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setTextColor(100, 100, 100);
     if (!data.watermark) {
       drawFooter(pdf, ownerName, pg, totalPages, pal.accent);
     } else {
