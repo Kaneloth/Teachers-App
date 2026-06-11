@@ -311,7 +311,7 @@ export default function CVBuilderPage() {
     return {
       lastMeta,
       draft,
-      showBuilder: draft ? true : !lastMeta.last_cv_data,
+      showBuilder: false,   // always show landing page first
     };
   });
 
@@ -472,7 +472,7 @@ export default function CVBuilderPage() {
   };
 
   // Last CV banner view
-  if (!showBuilder && lastCVData) {
+  if (!showBuilder) {
     return (
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-2 px-4 pt-4 pb-5">
@@ -483,11 +483,37 @@ export default function CVBuilderPage() {
           <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
         </div>
         <div className="px-4">
-          <LastCVBanner
-            lastCV={{ pdf_url: lastCVPdfUrl, generated_at: lastCVGeneratedAt, cv_data: lastCVData }}
-            onBuildNew={() => { setShowBuilder(true); }}
-            onEdit={handleEdit}
-          />
+          {lastCVData ? (
+            <LastCVBanner
+              lastCV={{ pdf_url: lastCVPdfUrl, generated_at: lastCVGeneratedAt, cv_data: lastCVData }}
+              onBuildNew={() => { setShowBuilder(true); }}
+              onEdit={handleEdit}
+            />
+          ) : (
+            /* First-time user — no CV yet */
+            <div className="space-y-4 pt-2">
+              <div className="bg-card border border-border rounded-2xl px-5 py-6 text-center space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+                  <FileText className="w-7 h-7 text-primary" />
+                </div>
+                <div>
+                  <p className="font-bold text-base text-foreground">Build your CV</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    Create a professional CV in minutes. Our AI will help you write, structure, and format everything.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setShowBuilder(true)}
+                  className="w-full rounded-xl h-11 font-semibold gap-2"
+                >
+                  <Plus className="w-4 h-4" /> Start Building My CV
+                </Button>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">Already have a CV? Upload it on the next screen and AI will auto-fill everything.</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
