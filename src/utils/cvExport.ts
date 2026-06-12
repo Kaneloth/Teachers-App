@@ -55,34 +55,33 @@ function icon(p: JsPDFType, name: string, x: number, y: number, size: number, wh
 
 interface Palette {
   sidebar: boolean;
+  layout: string;
   hbR: number; hbG: number; hbB: number;   // headerBg RGB
   htR: number; htG: number; htB: number;   // headerText RGB
   aR:  number; aG:  number; aB:  number;   // accent RGB
   sbR: number; sbG: number; sbB: number;   // sidebarBg RGB (same as header for sidebar templates)
+  accentDim?: string;
 }
 
 function getPalette(t: string): Palette {
   switch (t) {
-    // ── Original 8 templates ──────────────────────────────────────────────
-    case 'modern':       return { sidebar: true,  layout:'sidebar',   hbR:13,  hbG:148, hbB:136, htR:255,htG:255,htB:255, aR:13,  aG:148, aB:136, sbR:13,  sbG:148, sbB:136, accentDim:'#0f766e' };
-    case 'sidebar':      return { sidebar: true,  layout:'sidebar',   hbR:59,  hbG:89,  hbB:152, htR:255,htG:255,htB:255, aR:59,  aG:89,  aB:152, sbR:59,  sbG:89,  sbB:152, accentDim:'#2d4373' };
-    case 'corporate':    return { sidebar: true,  layout:'sidebar',   hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74,  accentDim:'#243a6b' };
-    case 'professional': return { sidebar: false, layout:'banner',    hbR:30,  hbG:77,  hbB:43,  htR:255,htG:255,htB:255, aR:30,  aG:77,  aB:43,  sbR:30,  sbG:77,  sbB:43,  accentDim:'#2d7a47' };
-    case 'minimal':      return { sidebar: false, layout:'minimal',   hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:17,  aG:24,  aB:39,  sbR:249, sbG:250, sbB:251, accentDim:'#374151' };
-    case 'bold':         return { sidebar: false, layout:'banner',    hbR:194, hbG:24,  hbB:91,  htR:255,htG:255,htB:255, aR:194, aG:24,  aB:91,  sbR:194, sbG:24,  sbB:91,  accentDim:'#ad1457' };
-    case 'executive':    return { sidebar: false, layout:'banner',    hbR:107, hbG:26,  hbB:26,  htR:255,htG:255,htB:255, aR:107, aG:26,  aB:26,  sbR:107, sbG:26,  sbB:26,  accentDim:'#8b2424' };
-    // ── New 9 templates ───────────────────────────────────────────────────
-    case 'stylish':      return { sidebar: false, layout:'two-col',   hbR:224, hbG:92,  hbB:107, htR:255,htG:255,htB:255, aR:224, aG:92,  aB:107, sbR:224, sbG:92,  sbB:107, accentDim:'#c0384a' };
-    case 'boxed':        return { sidebar: false, layout:'boxed',     hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81,  accentDim:'#374151' };
-    case 'traditional':  return { sidebar: false, layout:'left-date', hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:55,  aG:65,  aB:81,  sbR:249, sbG:250, sbB:251, accentDim:'#374151' };
-    case 'navy':         return { sidebar: false, layout:'right-sidebar', hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74,  accentDim:'#243a6b' };
-    case 'timeline':     return { sidebar: false, layout:'timeline',   hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81,  accentDim:'#4b5563' };
-    case 'shaded':       return { sidebar: false, layout:'shaded',   hbR:243, hbG:244, hbB:246, htR:55, htG:65, htB:81,  aR:55,  aG:65,  aB:81,  sbR:243, sbG:244, sbB:246, accentDim:'#6b7280' };
-    case 'teal':         return { sidebar: false, layout:'two-col',   hbR:6,   hbG:182, hbB:212, htR:17, htG:24, htB:39,  aR:6,   aG:182, aB:212, sbR:6,   sbG:182, sbB:212, accentDim:'#0891b2' };
-    case 'crimson':      return { sidebar: false, layout:'banner',    hbR:192, hbG:57,  hbB:43,  htR:255,htG:255,htB:255, aR:192, aG:57,  aB:43,  sbR:192, sbG:57,  sbB:43,  accentDim:'#b91c1c' };
-    case 'sage':         return { sidebar: false, layout:'sage',   hbR:232, hbG:240, hbB:232, htR:55, htG:65, htB:81,  aR:127, aG:163, aB:127, sbR:232, sbG:240, sbB:232, accentDim:'#4d7a4d' };
-    // ── Default (classic) ─────────────────────────────────────────────────
-    default:             return { sidebar: false, layout:'banner',    hbR:30,  hbG:42,  hbB:58,  htR:255,htG:255,htB:255, aR:30,  aG:42,  aB:58,  sbR:30,  sbG:42,  sbB:58,  accentDim:'#2d3f52' };
+    case 'modern':       return { layout:'sidebar',   hbR:13,  hbG:148, hbB:136, htR:255,htG:255,htB:255, aR:13,  aG:148, aB:136, sbR:13,  sbG:148, sbB:136 };
+    case 'sidebar':      return { layout:'sidebar',   hbR:59,  hbG:89,  hbB:152, htR:255,htG:255,htB:255, aR:59,  aG:89,  aB:152, sbR:59,  sbG:89,  sbB:152 };
+    case 'corporate':    return { layout:'sidebar',   hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74  };
+    case 'professional': return { layout:'banner',    hbR:30,  hbG:77,  hbB:43,  htR:255,htG:255,htB:255, aR:30,  aG:77,  aB:43,  sbR:30,  sbG:77,  sbB:43  };
+    case 'minimal':      return { layout:'minimal',   hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:17,  aG:24,  aB:39,  sbR:249, sbG:250, sbB:251 };
+    case 'bold':         return { layout:'banner',    hbR:194, hbG:24,  hbB:91,  htR:255,htG:255,htB:255, aR:194, aG:24,  aB:91,  sbR:194, sbG:24,  sbB:91  };
+    case 'executive':    return { layout:'banner',    hbR:107, hbG:26,  hbB:26,  htR:255,htG:255,htB:255, aR:107, aG:26,  aB:26,  sbR:107, sbG:26,  sbB:26  };
+    case 'stylish':      return { layout:'two-col',   hbR:224, hbG:92,  hbB:107, htR:255,htG:255,htB:255, aR:224, aG:92,  aB:107, sbR:224, sbG:92,  sbB:107 };
+    case 'boxed':        return { layout:'boxed',     hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81  };
+    case 'traditional':  return { layout:'left-date', hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:55,  aG:65,  aB:81,  sbR:249, sbG:250, sbB:251 };
+    case 'navy':         return { layout:'right-sidebar', hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74  };
+    case 'timeline':     return { layout:'timeline',   hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81  };
+    case 'shaded':       return { layout:'shaded',    hbR:243, hbG:244, hbB:246, htR:55, htG:65, htB:81,  aR:55,  aG:65,  aB:81,  sbR:243, sbG:244, sbB:246 };
+    case 'teal':         return { layout:'two-col',   hbR:6,   hbG:182, hbB:212, htR:17, htG:24, htB:39,  aR:6,   aG:182, aB:212, sbR:6,   sbG:182, sbB:212 };
+    case 'crimson':      return { layout:'banner',    hbR:192, hbG:57,  hbB:43,  htR:255,htG:255,htB:255, aR:192, aG:57,  aB:43,  sbR:192, sbG:57,  sbB:43  };
+    case 'sage':         return { layout:'sage',      hbR:232, hbG:240, hbB:232, htR:55, htG:65, htB:81,  aR:127, aG:163, aB:127, sbR:232, sbG:240, sbB:232 };
+    default:             return { layout:'banner',    hbR:30,  hbG:42,  hbB:58,  htR:255,htG:255,htB:255, aR:30,  aG:42,  aB:58,  sbR:30,  sbG:42,  sbB:58  };
   }
 }
 
@@ -115,18 +114,15 @@ function sectionHeading(
   if (y + 28 > bottom) { y = newPage(); if (getLayout) { x = getLayout().cx; maxW = getLayout().cmw; } }
   y += SECTION_GAP * 0.6;
   if (layout === 'shaded') {
-    // Grey filled bar — distinctive shaded template style
     fill(p, 243, 244, 246); p.rect(x - 2, y - 4, maxW + 4, 7, 'F');
     text(p, 55, 65, 81); p.setFont(F, 'bold'); p.setFontSize(9);
     p.text(title.toUpperCase(), x + 2, y);
   } else if (layout === 'timeline') {
-    // Diamond bullet + title — timeline style
     text(p, aR, aG, aB); p.setFont(F, 'bold'); p.setFontSize(9);
     p.text('◆ ' + title.toUpperCase(), x, y);
     const tw = p.getTextWidth('◆ ' + title.toUpperCase());
     hLine(p, x + tw + 2, y - 1.5, maxW - tw - 2, 209, 213, 219, 0.4);
   } else if (layout === 'sage') {
-    // Green accent line under title
     text(p, aR, aG, aB); p.setFont(F, 'bold'); p.setFontSize(11);
     p.text(title, x, y);
     hLine(p, x, y + 2, maxW, aR, aG, aB, 0.5);
@@ -215,7 +211,6 @@ export async function exportElementAsPDF(
   const jsPDF = JsPDFClass;
   if (!cvData) throw new Error('cvData required');
 
-
   const data    = cvData as any;
   const pr      = data.personal       || {};
   const edu     = (data.education     || []).filter((e: any) => e.institution);
@@ -256,8 +251,10 @@ export async function exportElementAsPDF(
   const GL = () => layout;
 
   // ── HEADER ───────────────────────────────────────────────────────────────
-  let headerH: number;
+  let y = MT;
+  let headerH = 0;
 
+  // Sidebar layout (modern, sidebar, corporate)
   if (pal.layout === 'sidebar') {
     // Full-page sidebar bg
     fill(pdf, sbR, sbG, sbB);
@@ -280,8 +277,8 @@ export async function exportElementAsPDF(
     // Contact
     sy = sidebarLabel(pdf, 'Contact', sx, sy, smw);
     pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 224, 253, 244);
-    const iSz   = 3;    // icon size mm
-    const iOff  = 2.5;  // offset up from text baseline so icon vertically centres with text
+    const iSz   = 3;
+    const iOff  = 2.5;
     if (pr.email)  {
       icon(pdf, 'mail',   sx, sy - iOff, iSz, true);
       const lines = pdf.splitTextToSize(pr.email,  smw - iSz - 1.5) as string[];
@@ -333,13 +330,12 @@ export async function exportElementAsPDF(
     pdf.text('EDUCATOR', layout.cx, cy); cy += 3;
     hLine(pdf, layout.cx, cy, layout.cmw, aR, aG, aB, 0.5);
     headerH = cy + 5 - MT;
+    y = MT + headerH;
 
   } else if (pal.layout === 'right-sidebar') {
-    // ── Right sidebar: name+content left, dark sidebar right ──────────────
-    // Draw right sidebar background for full page
+    // Navy: right dark sidebar
     fill(pdf, hbR, hbG, hbB);
     pdf.rect(PW - 52, 0, 52, PH, 'F');
-    // Sidebar content
     let rsy = MT + 6;
     const rsx = PW - 48;
     const rsmw = 40;
@@ -362,7 +358,7 @@ export async function exportElementAsPDF(
       rData[li].forEach((item: string) => {
         const ls = pdf.splitTextToSize(item, rsmw) as string[];
         ls.forEach((l: string) => { pdf.text(l, rsx, rsy); rsy += 3.5; });
-        if (li === 1) { // skills - add progress bar
+        if (li === 1) {
           pdf.setFillColor(80, 100, 140);
           pdf.rect(rsx, rsy - 1, rsmw * 0.75, 1.5, 'F');
           rsy += 1;
@@ -370,10 +366,10 @@ export async function exportElementAsPDF(
       });
       rsy += 4;
     });
-    // Name + divider in left content area (narrower — avoid right sidebar)
+    // Left content area
     reset(pdf);
     layout.cx  = ML;
-    layout.cmw = PW - ML - 58; // leave room for right sidebar
+    layout.cmw = PW - ML - 58;
     let cy = MT + 8;
     pdf.setFont(F, 'bold'); pdf.setFontSize(18); text(pdf, aR, aG, aB);
     pdf.text(owner, layout.cx, cy); cy += 6;
@@ -381,10 +377,11 @@ export async function exportElementAsPDF(
     pdf.text('EDUCATOR', layout.cx, cy); cy += 3;
     hLine(pdf, layout.cx, cy, layout.cmw, aR, aG, aB, 0.5);
     headerH = cy + 5 - MT;
+    y = MT + headerH;
     reset(pdf);
 
   } else if (pal.layout === 'two-col') {
-    // ── Two-column: accent banner header, skills in right col ─────────────
+    // Two‑column (stylish, teal)
     fill(pdf, hbR, hbG, hbB); pdf.rect(0, 0, PW, 30, 'F');
     text(pdf, htR, htG, htB); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
     pdf.text(owner.toUpperCase(), ML, 12);
@@ -392,15 +389,13 @@ export async function exportElementAsPDF(
     const tcp = [pr.email, pr.phone, pr.address].filter(Boolean).join('   |   ');
     pdf.text(tcp, ML, 20);
     headerH = 33;
-    // Adjust layout to leave space for right skills column
     layout.cx  = ML;
-    layout.cmw = PW - ML - MR - 55; // main content narrower
+    layout.cmw = PW - ML - MR - 55;
+    y = MT + headerH;
     reset(pdf);
 
   } else if (pal.layout === 'boxed') {
-    // ── Boxed header: name in a rectangle, contact below ──────────────────
     fill(pdf, 248, 248, 248); pdf.rect(0, 0, PW, 36, 'F');
-    // Boxed name
     pdf.setDrawColor(55, 65, 81); pdf.setLineWidth(0.8);
     pdf.rect(ML, 5, PW - ML - MR, 18, 'S');
     text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(15);
@@ -409,15 +404,16 @@ export async function exportElementAsPDF(
     pdf.setFont(F, 'normal'); pdf.setFontSize(7);
     const bsub = [pr.address].filter(Boolean).join(' · ');
     if (bsub) { const bsW = pdf.getTextWidth(bsub); pdf.text(bsub, (PW - bsW) / 2, 20); }
-    // Contact strip
     text(pdf, 107, 114, 128); pdf.setFont(F, 'normal'); pdf.setFontSize(7.5);
     const bcp = [pr.email, pr.phone, pr.address].filter(Boolean).join('   |   ');
     const bcW = pdf.getTextWidth(bcp); pdf.text(bcp, (PW - bcW) / 2, 30);
-    headerH = 40; reset(pdf);
+    headerH = 40;
+    layout.cx  = ML;
+    layout.cmw = CMW2;
+    y = MT + headerH;
+    reset(pdf);
 
   } else if (pal.layout === 'shaded') {
-    // ── Shaded: grey section-header bars, centered name, no colour banner ──
-    // Light grey top strip
     fill(pdf, 243, 244, 246); pdf.rect(0, 0, PW, 28, 'F');
     text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
     const shW = pdf.getTextWidth(owner.toUpperCase());
@@ -427,10 +423,13 @@ export async function exportElementAsPDF(
     const shcW = pdf.getTextWidth(shcp);
     pdf.text(shcp, (PW - shcW) / 2, MT + 16);
     hLine(pdf, ML, 28, PW - ML - MR, 209, 213, 219, 0.4);
-    headerH = 32; reset(pdf);
+    headerH = 32;
+    layout.cx  = ML;
+    layout.cmw = CMW2;
+    y = MT + headerH;
+    reset(pdf);
 
   } else if (pal.layout === 'timeline') {
-    // ── Timeline: centered name, thin rule, slate accent ─────────────────
     text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(18);
     const tlW = pdf.getTextWidth(owner.toUpperCase());
     pdf.text(owner.toUpperCase(), (PW - tlW) / 2, MT + 10);
@@ -438,24 +437,28 @@ export async function exportElementAsPDF(
     const tlcp = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
     const tlcW = pdf.getTextWidth(tlcp);
     pdf.text(tlcp, (PW - tlcW) / 2, MT + 17);
-    // Double rule in accent colour
     hLine(pdf, ML, MT + 20, PW - ML - MR, aR, aG, aB, 1.5);
     hLine(pdf, ML, MT + 23, PW - ML - MR, aR, aG, aB, 0.3);
-    headerH = 28; reset(pdf);
+    headerH = 28;
+    layout.cx  = ML;
+    layout.cmw = CMW2;
+    y = MT + headerH;
+    reset(pdf);
 
   } else if (pal.layout === 'sage') {
-    // ── Sage: rounded-card style header with green background ────────────
-    // Green card background
     fill(pdf, sbR, sbG, sbB); pdf.roundedRect(ML - 2, MT - 4, PW - ML - MR + 4, 28, 3, 3, 'F');
     text(pdf, 26, 46, 26); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
     pdf.text(owner, ML + 2, MT + 8);
     pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 55, 80, 55);
     const sgcp = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
     pdf.text(sgcp, ML + 2, MT + 16);
-    headerH = 30; reset(pdf);
+    headerH = 30;
+    layout.cx  = ML;
+    layout.cmw = CMW2;
+    y = MT + headerH;
+    reset(pdf);
 
   } else if (pal.layout === 'left-date' || pal.layout === 'minimal') {
-    // ── Minimal / Traditional header: centered name + contact, no banner ──
     text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
     const mW = pdf.getTextWidth(owner.toUpperCase());
     pdf.text(owner.toUpperCase(), (PW - mW) / 2, MT + 8);
@@ -463,10 +466,14 @@ export async function exportElementAsPDF(
     const mcp = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
     const mcW = pdf.getTextWidth(mcp); pdf.text(mcp, (PW - mcW) / 2, MT + 14);
     hLine(pdf, ML, MT + 17, PW - ML - MR, aR, aG, aB, 0.5);
-    headerH = 22; reset(pdf);
+    headerH = 22;
+    layout.cx  = ML;
+    layout.cmw = CMW2;
+    y = MT + headerH;
+    reset(pdf);
 
   } else {
-    // ── Default banner header (banner layout) ──────────────────────────────
+    // Default banner header (classic, professional, bold, executive, corporate, crimson)
     fill(pdf, hbR, hbG, hbB); pdf.rect(0, 0, PW, 32, 'F');
     text(pdf, htR, htG, htB); pdf.setFont(F, 'bold'); pdf.setFontSize(17);
     pdf.text(owner.toUpperCase(), ML, 13);
@@ -480,22 +487,23 @@ export async function exportElementAsPDF(
       [pr.id_number ? `ID: ${pr.id_number}` : undefined, 'user'],
     ];
     const ciSz = 3;
-    const ciOff = ciSz - 0.5;
     let cx2 = ML; const ciY = 22;
     for (const [val, iname] of contactIconMap) {
       if (!val) continue;
       const tw2 = pdf.getTextWidth(val as string) + ciSz + 2 + 4;
       if (cx2 + tw2 > PW - MR) break;
-      icon(pdf, iname, cx2, ciY - ciOff, ciSz, true);
+      icon(pdf, iname, cx2, ciY - ciSz + 0.5, ciSz, true);
       pdf.text(val as string, cx2 + ciSz + 1.5, ciY);
       cx2 += tw2;
     }
     headerH = 35;
+    layout.cx  = ML;
+    layout.cmw = CMW2;
+    y = MT + headerH;
     reset(pdf);
   }
 
-  let y = MT + headerH;
-
+  // Now y is set to the first content line after header
   // ── Professional Summary ───────────────────────────────────────────────
   if (pr.bio) {
     y = sectionHeading(pdf, 'Professional Summary', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'bookOpen', pal.layout);
@@ -519,8 +527,18 @@ export async function exportElementAsPDF(
       hLine(pdf, layout.cx, y - 1.5, layout.cmw, 229, 231, 235, 0.2);
       if (e.description) {
         y += 1; pdf.setFont(F, 'normal'); pdf.setFontSize(9); text(pdf, 55, 65, 81);
-        for (const b of (e.description as string).split('\n').map((l: string) => l.trim()).filter(Boolean)) {
-          y = bulletLine(pdf, b, layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL);
+        const descLines = (e.description as string).split('\n').map((l: string) => l.trim()).filter(Boolean);
+        for (const line of descLines) {
+          if (pal.layout === 'timeline') {
+            if (y + LINE_H > BOTTOM) y = newPage();
+            fill(pdf, aR, aG, aB);
+            pdf.triangle(layout.cx, y - 1, layout.cx + 1.5, y + 1.5, layout.cx - 1.5, y + 1.5, 'F');
+            text(pdf, 55, 65, 81);
+            justifyRow(pdf, line, layout.cx + 4.5, y, layout.cmw - 4.5, false);
+            y += LINE_H;
+          } else {
+            y = bulletLine(pdf, line, layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL);
+          }
         }
       }
       y += ITEM_GAP + 1;
@@ -587,7 +605,7 @@ export async function exportElementAsPDF(
     y += 3;
   }
 
-  // ── Right skills column for two-col layout ──────────────────────────────
+  // ── Right skills column for two-col layout (stylish, teal) ──────────────
   if (pal.layout === 'two-col') {
     const rcX = PW - MR - 50;
     const rcW = 50;
@@ -597,14 +615,13 @@ export async function exportElementAsPDF(
     hLine(pdf, rcX, rcy, rcW, aR, aG, aB, 0.4); rcy += 4;
     const allSkills = [...(sk.subjects || []), ...(sk.soft_skills || [])];
     pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 55, 65, 81);
-    allSkills.slice(0, 8).forEach(s => {
+    allSkills.slice(0, 6).forEach(s => {
       const sl = pdf.splitTextToSize(s, rcW) as string[];
-      sl.forEach(l => { if (rcy < BOTTOM) { pdf.text(l, rcX, rcy); rcy += 3.8; } });
-      // Dot rating bar
-      if (rcy < BOTTOM) {
+      sl.forEach(l => { if (rcy < BOTTOM - 20) { pdf.text(l, rcX, rcy); rcy += 3.8; } });
+      if (rcy < BOTTOM - 20) {
         for (let d = 0; d < 5; d++) {
           fill(pdf, d < 3 ? aR : 229, d < 3 ? aG : 231, d < 3 ? aB : 235);
-          pdf.circle(rcX + d * 5, rcy - 0.5, 1.5, 'F');
+          pdf.circle(rcX + d * 5, rcy - 1.5, 1.2, 'F');
         }
         rcy += 5;
       }
@@ -633,7 +650,6 @@ export async function exportElementAsPDF(
     ry += 2;
 
     const half = (rCMW - 8) / 2;
-
     function refCard(ref: any, rx: number, startY: number): number {
       let cy = startY;
       dot(pdf, rx, cy - 0.8, aR, aG, aB, 1.6);
@@ -658,7 +674,7 @@ export async function exportElementAsPDF(
     }
   }
 
-  // ── Watermark ──────────────────────────────────────────────────────────
+  // ── Watermark and footer ───────────────────────────────────────────────
   const totalPages = pdf.getNumberOfPages();
   for (let pg = 1; pg <= totalPages; pg++) {
     pdf.setPage(pg);
@@ -668,7 +684,6 @@ export async function exportElementAsPDF(
       text(pdf, 148, 163, 184); pdf.setFont(F, 'normal'); pdf.setFontSize(7);
       const wt = 'Created FREE at www.crosssa.co.za  -  Upgrade to remove this watermark';
       pdf.text(wt, (PW - pdf.getTextWidth(wt)) / 2, PH - 3.5);
-      // Footer text on watermark bar
       text(pdf, 255, 255, 255); pdf.setFont(F, 'italic'); pdf.setFontSize(7);
       pdf.text(`Resume of ${owner}`, ML, PH - 3.5);
       const ps = `Page ${pg} of ${totalPages}`;
@@ -679,21 +694,13 @@ export async function exportElementAsPDF(
   }
 
   // ── PDF Encryption ────────────────────────────────────────────────────
-  // Lock the PDF to prevent copy-paste and Word conversion.
-  // - userPassword: empty string = no password needed to open/view
-  // - ownerPassword: secret master key that controls permissions
-  // - Permissions: printing allowed, but copying text and editing blocked
-  //   This stops most "PDF to Word" converters which rely on text extraction.
   try {
     (pdf as any).encrypt({
-      userPassword:  '',                    // open freely — no password prompt
-      ownerPassword: 'crosssa-cv-owner-2025', // internal lock key
-      userPermissions: ['print', 'print-high'], // allow printing only
-      // copy, modify, annot-forms, fill-forms are all omitted = blocked
+      userPassword:  '',
+      ownerPassword: 'crosssa-cv-owner-2025',
+      userPermissions: ['print', 'print-high'],
     });
-  } catch (_) {
-    // Encryption not supported in this jsPDF build — output unencrypted
-  }
+  } catch (_) {}
 
   void filename;
   return pdf.output('blob');
