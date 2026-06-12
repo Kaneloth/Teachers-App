@@ -59,9 +59,30 @@ const A4_PAGE_H_PX = 1123;
 
 export default function CVTemplateRenderer({ data, forExport = false, watermark = false }: Props) {
   const { template } = data;
+  const TEMPLATE_FONTS: Record<string, string> = {
+    'classic': "'Inter', Arial, Helvetica, sans-serif",
+    'modern': "'Inter', Arial, Helvetica, sans-serif",
+    'professional': "Arial, Helvetica, sans-serif",
+    'minimal': "'Trebuchet MS', Arial, sans-serif",
+    'sidebar': "Arial, Helvetica, sans-serif",
+    'bold': "'Arial Black', Arial, sans-serif",
+    'corporate': "'Gill Sans', 'Gill Sans MT', Calibri, sans-serif",
+    'stylish': "Arial, Helvetica, sans-serif",
+    'boxed': "Arial, Helvetica, sans-serif",
+    'navy': "Arial, Helvetica, sans-serif",
+    'timeline': "'Trebuchet MS', Arial, sans-serif",
+    'shaded': "Arial, Helvetica, sans-serif",
+    'teal': "Arial, Helvetica, sans-serif",
+    'sage': "'Segoe UI', Arial, sans-serif",
+    'executive': "Georgia, 'Times New Roman', serif",
+    'traditional': "Georgia, 'Times New Roman', serif",
+    'crimson': "Georgia, 'Times New Roman', serif",
+  };
+  const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
+
   const wrapperStyle: React.CSSProperties = forExport
-    ? { width: '794px', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '13px', background: '#fff' }
-    : { width: '100%', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '13px', background: '#fff', boxShadow: '0 2px 16px rgba(0,0,0,0.10)', borderRadius: '4px', overflow: 'hidden' };
+    ? { width: '794px', fontFamily: templateFont, fontSize: '13px', background: '#fff' }
+    : { width: '100%', fontFamily: templateFont, fontSize: '13px', background: '#fff', boxShadow: '0 2px 16px rgba(0,0,0,0.10)', borderRadius: '4px', overflow: 'hidden' };
 
   const validEdu = (data.education || []).filter(e => e.institution);
   const validExp = (data.experience || []).filter(e => e.school);
@@ -247,7 +268,7 @@ function WatermarkBar() {
 }
 
 /* ── Shared UI components ───────────────────────────────────────────────── */
-function Section({ title, color, borderColor, icon, children }: { title: string; color?: string; borderColor?: string; icon?: string; children: React.ReactNode }) {
+function Section({ title, color, borderColor, icon, children, titleStyle }: { title: string; color?: string; borderColor?: string; icon?: string; children: React.ReactNode; titleStyle?: React.CSSProperties }) {
   return (
     <div style={{ marginBottom: '32px', overflow: 'visible' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', lineHeight: 1 }}>
@@ -271,6 +292,7 @@ function Section({ title, color, borderColor, icon, children }: { title: string;
           color: color || '#111',
           lineHeight: 1,
           display: 'inline-block',
+          ...titleStyle,
         }}>
           {title}
         </span>
@@ -737,7 +759,7 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, watermark }
           <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
             {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '84px', height: '84px', borderRadius: '50%', objectFit: 'cover', border: '3px solid rgba(255,255,255,0.35)', flexShrink: 0 }} />}
             <div>
-              <div style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase' }}>{personal.full_name || 'Your Name'}</div>
+              <div style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase', fontStyle: 'italic' }}>{personal.full_name || 'Your Name'}</div>
               <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)', marginTop: '4px', letterSpacing: '3px', textTransform: 'uppercase' }}>Educator</div>
             </div>
           </div>
@@ -750,10 +772,10 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, watermark }
           </div>
         </div>
         <div style={{ padding: '28px 44px', lineHeight: '1.65' }}>
-          {personal.bio && <Section title="Executive Profile" color={accent}><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
+          {personal.bio && <Section title="Executive Profile" color={accent} titleStyle={{ fontStyle: "italic", letterSpacing: "1px", textTransform: "uppercase" }}><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 36px' }}>
             <div>
-              {validExp.length > 0 && <Section title="Teaching Experience" color={accent} icon={ICONS.briefcase}>
+              {validExp.length > 0 && <Section title="Teaching Experience" color={accent} icon={ICONS.briefcase} titleStyle={{ fontStyle: "italic", letterSpacing: "1px" }}>
                 {validExp.map((e: any, i: number) => (
                   <div key={i} style={{ marginBottom: '16px' }}>
                     <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.role}</div>
@@ -766,7 +788,7 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, watermark }
               {renderCustomSections(data.custom_sections, accent)}
             </div>
             <div>
-              {validEdu.length > 0 && <Section title="Education" color={accent} icon={ICONS.graduation}>
+              {validEdu.length > 0 && <Section title="Education" color={accent} icon={ICONS.graduation} titleStyle={{ fontStyle: "italic", letterSpacing: "1px" }}>
                 {validEdu.map((e: any, i: number) => (
                   <div key={i} style={{ marginBottom: '12px' }}>
                     <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.qualification}</div>
@@ -1037,13 +1059,13 @@ function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark
       <div className="cv-content-page" style={{ width: '794px', boxSizing: 'border-box', background: '#fff', position: 'relative', padding: '36px 44px' }}>
         {/* Header */}
         <div style={{ textAlign: 'center', borderBottom: '1px solid #d1d5db', paddingBottom: '16px', marginBottom: '24px' }}>
-          <div style={{ fontSize: '20px', fontWeight: '700', color: '#111827', letterSpacing: '1px' }}>{personal.full_name || 'Your Name'}</div>
+          <div style={{ fontSize: '20px', fontWeight: '700', color: '#111827', letterSpacing: '1px', fontFamily: "Georgia, 'Times New Roman', serif" }}>{personal.full_name || 'Your Name'}</div>
           <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '6px' }}>{[personal.address, personal.phone, personal.email].filter(Boolean).join('   ·   ')}</div>
         </div>
         {/* Sections with left-date layout */}
         {personal.bio && (
           <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-            <div style={{ width: '110px', flexShrink: 0, fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151', paddingTop: '2px' }}>PROFILE</div>
+            <div style={{ width: '110px', flexShrink: 0, fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#374151', fontFamily: "Georgia, 'Times New Roman', serif", paddingTop: '2px' }}>PROFILE</div>
             <div style={{ flex: 1, borderLeft: '1px solid #e5e7eb', paddingLeft: '16px' }}>
               <p style={{ fontSize: '12px', color: '#374151', lineHeight: '1.7', margin: 0 }}>{personal.bio}</p>
             </div>
@@ -1052,7 +1074,7 @@ function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark
         {validExp.length > 0 && (
           <div style={{ marginBottom: '20px' }}>
             <div style={{ display: 'flex', gap: '20px', marginBottom: '12px' }}>
-              <div style={{ width: '110px', flexShrink: 0, fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>EMPLOYMENT<br />HISTORY</div>
+              <div style={{ width: '110px', flexShrink: 0, fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#374151', fontFamily: "Georgia, 'Times New Roman', serif" }}>EMPLOYMENT<br />HISTORY</div>
               <div style={{ flex: 1, borderLeft: '1px solid #e5e7eb', paddingLeft: '16px', borderBottom: '1px solid #e5e7eb', paddingBottom: '2px' }} />
             </div>
             {validExp.map((e: any, i: number) => (
@@ -1070,7 +1092,7 @@ function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark
         {validEdu.length > 0 && (
           <div style={{ marginBottom: '20px' }}>
             <div style={{ display: 'flex', gap: '20px', marginBottom: '4px' }}>
-              <div style={{ width: '110px', flexShrink: 0, fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>EDUCATION</div>
+              <div style={{ width: '110px', flexShrink: 0, fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#374151', fontFamily: "Georgia, 'Times New Roman', serif" }}>EDUCATION</div>
               <div style={{ flex: 1, borderLeft: '1px solid #e5e7eb', paddingLeft: '16px', borderBottom: '1px solid #e5e7eb', paddingBottom: '2px' }} />
             </div>
             {validEdu.map((e: any, i: number) => (
@@ -1086,7 +1108,7 @@ function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark
         )}
         {(skills?.soft_skills?.length || skills?.subjects?.length || skills?.languages?.length) && (
           <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-            <div style={{ width: '110px', flexShrink: 0, fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>SKILLS</div>
+            <div style={{ width: '110px', flexShrink: 0, fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#374151', fontFamily: "Georgia, 'Times New Roman', serif" }}>SKILLS</div>
             <div style={{ flex: 1, borderLeft: '1px solid #e5e7eb', paddingLeft: '16px' }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
                 {[...(skills.subjects || []), ...(skills.soft_skills || [])].map((s: string, i: number) => (
