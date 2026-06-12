@@ -72,13 +72,13 @@ function getPalette(t: string): Palette {
     case 'bold':         return { sidebar: false, layout:'banner',    hbR:194, hbG:24,  hbB:91,  htR:255,htG:255,htB:255, aR:194, aG:24,  aB:91,  sbR:194, sbG:24,  sbB:91,  accentDim:'#ad1457' };
     case 'executive':    return { sidebar: false, layout:'banner',    hbR:107, hbG:26,  hbB:26,  htR:255,htG:255,htB:255, aR:107, aG:26,  aB:26,  sbR:107, sbG:26,  sbB:26,  accentDim:'#8b2424' };
     // ── New 9 templates ───────────────────────────────────────────────────
-    case 'stylish':      return { sidebar: false, layout:'banner',    hbR:224, hbG:92,  hbB:107, htR:255,htG:255,htB:255, aR:224, aG:92,  aB:107, sbR:224, sbG:92,  sbB:107, accentDim:'#c0384a' };
+    case 'stylish':      return { sidebar: false, layout:'two-col',   hbR:224, hbG:92,  hbB:107, htR:255,htG:255,htB:255, aR:224, aG:92,  aB:107, sbR:224, sbG:92,  sbB:107, accentDim:'#c0384a' };
     case 'boxed':        return { sidebar: false, layout:'boxed',     hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81,  accentDim:'#374151' };
     case 'traditional':  return { sidebar: false, layout:'left-date', hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:55,  aG:65,  aB:81,  sbR:249, sbG:250, sbB:251, accentDim:'#374151' };
-    case 'navy':         return { sidebar: false, layout:'banner',    hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74,  accentDim:'#243a6b' };
-    case 'timeline':     return { sidebar: false, layout:'banner',    hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81,  accentDim:'#4b5563' };
+    case 'navy':         return { sidebar: false, layout:'right-sidebar', hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74,  accentDim:'#243a6b' };
+    case 'timeline':     return { sidebar: false, layout:'minimal',   hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81,  accentDim:'#4b5563' };
     case 'shaded':       return { sidebar: false, layout:'minimal',   hbR:243, hbG:244, hbB:246, htR:55, htG:65, htB:81,  aR:55,  aG:65,  aB:81,  sbR:243, sbG:244, sbB:246, accentDim:'#6b7280' };
-    case 'teal':         return { sidebar: false, layout:'banner',    hbR:6,   hbG:182, hbB:212, htR:17, htG:24, htB:39,  aR:6,   aG:182, aB:212, sbR:6,   sbG:182, sbB:212, accentDim:'#0891b2' };
+    case 'teal':         return { sidebar: false, layout:'two-col',   hbR:6,   hbG:182, hbB:212, htR:17, htG:24, htB:39,  aR:6,   aG:182, aB:212, sbR:6,   sbG:182, sbB:212, accentDim:'#0891b2' };
     case 'crimson':      return { sidebar: false, layout:'banner',    hbR:192, hbG:57,  hbB:43,  htR:255,htG:255,htB:255, aR:192, aG:57,  aB:43,  sbR:192, sbG:57,  sbB:43,  accentDim:'#b91c1c' };
     case 'sage':         return { sidebar: false, layout:'minimal',   hbR:232, hbG:240, hbB:232, htR:55, htG:65, htB:81,  aR:127, aG:163, aB:127, sbR:232, sbG:240, sbB:232, accentDim:'#4d7a4d' };
     // ── Default (classic) ─────────────────────────────────────────────────
@@ -228,8 +228,12 @@ export async function exportElementAsPDF(
     reset(pdf);
     layout.cx  = CX2;
     layout.cmw = CMW2;
-    // Accent top bar on ALL page 2+ (sidebar and non-sidebar)
+    // Accent top bar on ALL page 2+ — no right sidebar on subsequent pages
     fill(pdf, hbR, hbG, hbB); pdf.rect(0, 0, PW, 6, 'F'); reset(pdf);
+    // Reset content width to full on page 2+ for right-sidebar templates
+    if (pal.layout === 'right-sidebar' || pal.layout === 'two-col') {
+      layout.cx = ML; layout.cmw = CMW2;
+    }
     return MT + 6;
   }
 
@@ -313,6 +317,69 @@ export async function exportElementAsPDF(
     pdf.text('EDUCATOR', layout.cx, cy); cy += 3;
     hLine(pdf, layout.cx, cy, layout.cmw, aR, aG, aB, 0.5);
     headerH = cy + 5 - MT;
+
+  } else if (pal.layout === 'right-sidebar') {
+    // ── Right sidebar: name+content left, dark sidebar right ──────────────
+    // Draw right sidebar background for full page
+    fill(pdf, hbR, hbG, hbB);
+    pdf.rect(PW - 52, 0, 52, PH, 'F');
+    // Sidebar content
+    let rsy = MT + 6;
+    const rsx = PW - 48;
+    const rsmw = 40;
+    pdf.setFont(F, 'normal'); pdf.setFontSize(7);
+    text(pdf, 200, 210, 220);
+    const rLabels = ['Details', 'Skills', 'Languages'];
+    const rData = [
+      [pr.address, pr.phone, pr.email].filter(Boolean),
+      [...(sk.subjects || []), ...(sk.soft_skills || [])].slice(0, 5),
+      sk.languages || [],
+    ];
+    rLabels.forEach((lbl, li) => {
+      if (!rData[li].length) return;
+      pdf.setFont(F, 'bold'); pdf.setFontSize(6);
+      text(pdf, 150, 170, 200);
+      pdf.text(lbl.toUpperCase(), rsx, rsy); rsy += 3;
+      pdf.setLineWidth(0.2); pdf.setDrawColor(100, 130, 180);
+      pdf.line(rsx, rsy, rsx + rsmw, rsy); rsy += 3;
+      pdf.setFont(F, 'normal'); pdf.setFontSize(6.5); text(pdf, 200, 215, 230);
+      rData[li].forEach((item: string) => {
+        const ls = pdf.splitTextToSize(item, rsmw) as string[];
+        ls.forEach((l: string) => { pdf.text(l, rsx, rsy); rsy += 3.5; });
+        if (li === 1) { // skills - add progress bar
+          pdf.setFillColor(80, 100, 140);
+          pdf.rect(rsx, rsy - 1, rsmw * 0.75, 1.5, 'F');
+          rsy += 1;
+        }
+      });
+      rsy += 4;
+    });
+    // Name + divider in left content area (narrower — avoid right sidebar)
+    reset(pdf);
+    layout.cx  = ML;
+    layout.cmw = PW - ML - 58; // leave room for right sidebar
+    let cy = MT + 8;
+    pdf.setFont(F, 'bold'); pdf.setFontSize(18); text(pdf, aR, aG, aB);
+    pdf.text(owner, layout.cx, cy); cy += 6;
+    pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128);
+    pdf.text('EDUCATOR', layout.cx, cy); cy += 3;
+    hLine(pdf, layout.cx, cy, layout.cmw, aR, aG, aB, 0.5);
+    headerH = cy + 5 - MT;
+    reset(pdf);
+
+  } else if (pal.layout === 'two-col') {
+    // ── Two-column: accent banner header, skills in right col ─────────────
+    fill(pdf, hbR, hbG, hbB); pdf.rect(0, 0, PW, 30, 'F');
+    text(pdf, htR, htG, htB); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
+    pdf.text(owner.toUpperCase(), ML, 12);
+    pdf.setFont(F, 'normal'); pdf.setFontSize(7.5);
+    const tcp = [pr.email, pr.phone, pr.address].filter(Boolean).join('   |   ');
+    pdf.text(tcp, ML, 20);
+    headerH = 33;
+    // Adjust layout to leave space for right skills column
+    layout.cx  = ML;
+    layout.cmw = PW - ML - MR - 55; // main content narrower
+    reset(pdf);
 
   } else if (pal.layout === 'boxed') {
     // ── Boxed header: name in a rectangle, contact below ──────────────────
@@ -463,6 +530,39 @@ export async function exportElementAsPDF(
       }
     }
     y += 3;
+  }
+
+  // ── Right skills column for two-col layout ──────────────────────────────
+  if (pal.layout === 'two-col') {
+    const rcX = PW - MR - 50;
+    const rcW = 50;
+    let rcy   = MT + headerH + 2;
+    pdf.setFont(F, 'bold'); pdf.setFontSize(8); text(pdf, aR, aG, aB);
+    pdf.text('SKILLS', rcX, rcy); rcy += 4;
+    hLine(pdf, rcX, rcy, rcW, aR, aG, aB, 0.4); rcy += 4;
+    const allSkills = [...(sk.subjects || []), ...(sk.soft_skills || [])];
+    pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 55, 65, 81);
+    allSkills.slice(0, 8).forEach(s => {
+      const sl = pdf.splitTextToSize(s, rcW) as string[];
+      sl.forEach(l => { if (rcy < BOTTOM) { pdf.text(l, rcX, rcy); rcy += 3.8; } });
+      // Dot rating bar
+      if (rcy < BOTTOM) {
+        for (let d = 0; d < 5; d++) {
+          fill(pdf, d < 3 ? aR : 229, d < 3 ? aG : 231, d < 3 ? aB : 235);
+          pdf.circle(rcX + d * 5, rcy - 0.5, 1.5, 'F');
+        }
+        rcy += 5;
+      }
+    });
+    if (sk.languages?.length) {
+      rcy += 4;
+      pdf.setFont(F, 'bold'); pdf.setFontSize(8); text(pdf, aR, aG, aB);
+      pdf.text('LANGUAGES', rcX, rcy); rcy += 4;
+      hLine(pdf, rcX, rcy, rcW, aR, aG, aB, 0.4); rcy += 4;
+      pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 55, 65, 81);
+      sk.languages.forEach((l: string) => { if (rcy < BOTTOM) { pdf.text(l, rcX, rcy); rcy += 4; } });
+    }
+    reset(pdf);
   }
 
   // ── References page ────────────────────────────────────────────────────
