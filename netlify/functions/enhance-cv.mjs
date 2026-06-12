@@ -221,7 +221,7 @@ INSTRUCTIONS:
 1. Write a professional cover letter tailored SPECIFICALLY to this job description
 2. Reference specific requirements, skills, or keywords from the job description
 3. Match the applicant's experience/skills to the job requirements — be specific
-4. ${hasCv ? 'Use the applicant's CV data above to personalise — mention their actual experience, qualifications, and skills' : 'Write a compelling letter based on the position and job description'}
+4. ${hasCv ? "Use the applicant's CV data above to personalise — mention their actual experience, qualifications, and skills" : 'Write a compelling letter based on the position and job description'}
 5. The letter must be appropriate for the South African job market
 6. Format:
    - Date line at top: ${new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })}
