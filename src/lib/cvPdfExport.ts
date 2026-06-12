@@ -1,5 +1,6 @@
 import { jsPDF as JsPDFClass } from 'jspdf';
 
+// ── Types ──────────────────────────────────────────────────────────────────
 interface CVData {
   personal: { full_name?: string; email?: string; phone?: string; address?: string; bio?: string; photo_url?: string; id_number?: string };
   education: { institution: string; qualification: string; year: string }[];
@@ -187,7 +188,7 @@ export async function generateCvPdf(cvData: CVData): Promise<Blob> {
   let y = MT;
   let headerH = 0;
 
-  // ── HEADER ──
+  // ── HEADER ──────────────────────────────────────────────────────────────
   if (pal.layout === 'sidebar') {
     fill(pdf, sbR, sbG, sbB); pdf.rect(0, 0, ML + SIDEBAR_W + 2, PH, 'F');
     let sy = MT + 4; const sx = ML + 1; const smw = SIDEBAR_W - 4;
@@ -202,7 +203,24 @@ export async function generateCvPdf(cvData: CVData): Promise<Blob> {
     if (pr.phone) { sy += 1; pdf.text(pr.phone, sx, sy); sy += 4; }
     if (pr.address) { sy += 1; const ls = pdf.splitTextToSize(pr.address, smw) as string[]; ls.forEach((l: string) => { pdf.text(l, sx, sy); sy += 4; }); }
     if (pr.id_number) { sy += 1; pdf.text(`ID: ${pr.id_number}`, sx, sy); sy += 4; }
-    // ... (sidebar skills/languages/subjects — compacted for brevity)
+    sy += 5;
+    if (sk.subjects?.length) {
+      sy = sidebarLabel(pdf, 'Subjects', sx, sy, smw);
+      pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 224, 253, 244);
+      for (const s of (sk.subjects as string[])) { for (const l of pdf.splitTextToSize(`- ${s}`, smw) as string[]) { pdf.text(l, sx, sy); sy += 4; } }
+      sy += 4;
+    }
+    if (sk.languages?.length) {
+      sy = sidebarLabel(pdf, 'Languages', sx, sy, smw);
+      pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 224, 253, 244);
+      for (const l of (sk.languages as string[])) { pdf.text(`- ${l}`, sx, sy); sy += 4; }
+      sy += 4;
+    }
+    if (sk.soft_skills?.length) {
+      sy = sidebarLabel(pdf, 'Skills', sx, sy, smw);
+      pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 224, 253, 244);
+      for (const s of (sk.soft_skills as string[])) { for (const l of pdf.splitTextToSize(`- ${s}`, smw) as string[]) { pdf.text(l, sx, sy); sy += 4; } }
+    }
     reset(pdf);
     let cy = MT + 8;
     text(pdf, aR, aG, aB); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
@@ -211,8 +229,305 @@ export async function generateCvPdf(cvData: CVData): Promise<Blob> {
     pdf.text('EDUCATOR', layout.cx, cy); cy += 3;
     hLine(pdf, layout.cx, cy, layout.cmw, aR, aG, aB, 0.5);
     headerH = cy + 5 - MT; y = MT + headerH;
+  } else if (pal.layout === 'right-sidebar') {
+    fill(pdf, hbR, hbG, hbB); pdf.rect(PW - 52, 0, 52, PH, 'F');
+    let rsy = MT + 6; const rsx = PW - 48; const rsmw = 40;
+    pdf.setFont(F, 'normal'); pdf.setFontSize(7); text(pdf, 200, 210, 220);
+    const rData = [
+      [pr.address, pr.phone, pr.email].filter(Boolean),
+      [...(sk.subjects || []), ...(sk.soft_skills || [])].slice(0, 5),
+      sk.languages || [],
+    ];
+    ['Details', 'Skills', 'Languages'].forEach((lbl, li) => {
+      if (!rData[li].length) return;
+      pdf.setFont(F, 'bold'); pdf.setFontSize(6);
+      text(pdf, 150, 170, 200);
+      pdf.text(lbl.toUpperCase(), rsx, rsy); rsy += 3;
+      pdf.setLineWidth(0.2); pdf.setDrawColor(100, 130, 180);
+      pdf.line(rsx, rsy, rsx + rsmw, rsy); rsy += 3;
+      pdf.setFont(F, 'normal'); pdf.setFontSize(6.5); text(pdf, 200, 215, 230);
+      rData[li].forEach((item: string) => {
+        const ls = pdf.splitTextToSize(item, rsmw) as string[];
+        ls.forEach((l: string) => { pdf.text(l, rsx, rsy); rsy += 3.5; });
+        if (li === 1) { pdf.setFillColor(80, 100, 140); pdf.rect(rsx, rsy - 1, rsmw * 0.75, 1.5, 'F'); rsy += 1; }
+      });
+      rsy += 4;
+    });
+    reset(pdf); layout.cx = ML; layout.cmw = PW - ML - 58;
+    let cy = MT + 8;
+    pdf.setFont(F, 'bold'); pdf.setFontSize(18); text(pdf, aR, aG, aB);
+    pdf.text(owner, layout.cx, cy); cy += 6;
+    pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128);
+    pdf.text('EDUCATOR', layout.cx, cy); cy += 3;
+    hLine(pdf, layout.cx, cy, layout.cmw, aR, aG, aB, 0.5);
+    headerH = cy + 5 - MT; y = MT + headerH; reset(pdf);
+  } else if (pal.layout === 'two-col') {
+    fill(pdf, hbR, hbG, hbB); pdf.rect(0, 0, PW, 30, 'F');
+    text(pdf, htR, htG, htB); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
+    pdf.text(owner.toUpperCase(), ML, 12);
+    pdf.setFont(F, 'normal'); pdf.setFontSize(7.5);
+    const tcp = [pr.email, pr.phone, pr.address].filter(Boolean).join('   |   ');
+    pdf.text(tcp, ML, 20);
+    headerH = 33; layout.cx = ML; layout.cmw = PW - ML - MR - 55; y = MT + headerH; reset(pdf);
+  } else if (pal.layout === 'boxed') {
+    fill(pdf, 248, 248, 248); pdf.rect(0, 0, PW, 36, 'F');
+    pdf.setDrawColor(55, 65, 81); pdf.setLineWidth(0.8);
+    pdf.rect(ML, 5, PW - ML - MR, 18, 'S');
+    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(15);
+    const bnW = pdf.getTextWidth(owner.toUpperCase());
+    pdf.text(owner.toUpperCase(), (PW - bnW) / 2, 16);
+    text(pdf, 107, 114, 128); pdf.setFont(F, 'normal'); pdf.setFontSize(7.5);
+    const bcp = [pr.email, pr.phone, pr.address].filter(Boolean).join('   |   ');
+    const bcW = pdf.getTextWidth(bcp); pdf.text(bcp, (PW - bcW) / 2, 30);
+    headerH = 40; layout.cx = ML; layout.cmw = CMW2; y = MT + headerH; reset(pdf);
+  } else if (pal.layout === 'shaded') {
+    fill(pdf, 243, 244, 246); pdf.rect(0, 0, PW, 28, 'F');
+    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
+    const shW = pdf.getTextWidth(owner.toUpperCase());
+    pdf.text(owner.toUpperCase(), (PW - shW) / 2, MT + 9);
+    pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128);
+    const shcp = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
+    const shcW = pdf.getTextWidth(shcp);
+    pdf.text(shcp, (PW - shcW) / 2, MT + 16);
+    hLine(pdf, ML, 28, PW - ML - MR, 209, 213, 219, 0.4);
+    headerH = 32; layout.cx = ML; layout.cmw = CMW2; y = MT + headerH; reset(pdf);
+  } else if (pal.layout === 'timeline') {
+    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(18);
+    const tlW = pdf.getTextWidth(owner.toUpperCase());
+    pdf.text(owner.toUpperCase(), (PW - tlW) / 2, MT + 10);
+    pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128);
+    const tlcp = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
+    const tlcW = pdf.getTextWidth(tlcp);
+    pdf.text(tlcp, (PW - tlcW) / 2, MT + 17);
+    hLine(pdf, ML, MT + 20, PW - ML - MR, aR, aG, aB, 1.5);
+    hLine(pdf, ML, MT + 23, PW - ML - MR, aR, aG, aB, 0.3);
+    headerH = 28; layout.cx = ML; layout.cmw = CMW2; y = MT + headerH; reset(pdf);
+  } else if (pal.layout === 'sage') {
+    fill(pdf, sbR, sbG, sbB); pdf.roundedRect(ML - 2, MT - 4, PW - ML - MR + 4, 28, 3, 3, 'F');
+    text(pdf, 26, 46, 26); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
+    pdf.text(owner, ML + 2, MT + 8);
+    pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 55, 80, 55);
+    const sgcp = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
+    pdf.text(sgcp, ML + 2, MT + 16);
+    headerH = 30; layout.cx = ML; layout.cmw = CMW2; y = MT + headerH; reset(pdf);
+  } else if (pal.layout === 'left-date' || pal.layout === 'minimal') {
+    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
+    const mW = pdf.getTextWidth(owner.toUpperCase());
+    pdf.text(owner.toUpperCase(), (PW - mW) / 2, MT + 8);
+    pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128);
+    const mcp = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
+    const mcW = pdf.getTextWidth(mcp); pdf.text(mcp, (PW - mcW) / 2, MT + 14);
+    hLine(pdf, ML, MT + 17, PW - ML - MR, aR, aG, aB, 0.5);
+    headerH = 22; layout.cx = ML; layout.cmw = CMW2; y = MT + headerH; reset(pdf);
+  } else {
+    fill(pdf, hbR, hbG, hbB); pdf.rect(0, 0, PW, 32, 'F');
+    text(pdf, htR, htG, htB); pdf.setFont(F, 'bold'); pdf.setFontSize(17);
+    pdf.text(owner.toUpperCase(), ML, 13);
+    draw(pdf, htR > 200 ? 200 : 209, htR > 200 ? 200 : 213, htR > 200 ? 200 : 219);
+    pdf.setLineWidth(0.25); pdf.line(ML, 16, PW - MR, 16);
+    text(pdf, htR, htG, htB); pdf.setFont(F, 'normal'); pdf.setFontSize(7.5);
+    const tcp = [pr.email, pr.phone, pr.address, pr.id_number ? `ID: ${pr.id_number}` : null].filter(Boolean) as string[];
+    let cx2 = ML; const ciY = 22;
+    for (const val of tcp) {
+      const tw2 = pdf.getTextWidth(val) + 2 + 4;
+      if (cx2 + tw2 > PW - MR) break;
+      pdf.text(val, cx2, ciY);
+      cx2 += tw2;
+    }
+    headerH = 35; layout.cx = ML; layout.cmw = CMW2; y = MT + headerH; reset(pdf);
   }
-  // ... (all other layout headers, sections, references, footer, encryption)
+
+  // ── Professional Summary ───────────────────────────────────────────────
+  if (pr.bio) {
+    y = sectionHeading(pdf, 'Professional Summary', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, pal.layout);
+    pdf.setFont(F, 'normal'); pdf.setFontSize(9); text(pdf, 55, 65, 81);
+    y = wrappedText(pdf, pr.bio, layout.cx, y, layout.cmw, BOTTOM, newPage, LINE_H, GL);
+    y += ITEM_GAP + 1;
+  }
+
+  // ── Teaching Experience ────────────────────────────────────────────────
+  if (exp.length) {
+    y = sectionHeading(pdf, 'Teaching Experience', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, pal.layout);
+    for (const e of exp) {
+      if (y + 16 > BOTTOM) y = newPage();
+      pdf.setFont(F, 'bold'); pdf.setFontSize(10); text(pdf, 17, 24, 39);
+      pdf.text(e.role || '', layout.cx, y); y += LINE_H;
+      pdf.setFont(F, 'bold'); pdf.setFontSize(8.5); text(pdf, aR, aG, aB);
+      pdf.text(e.school || '', layout.cx, y);
+      const ds = [e.from, e.to].filter(Boolean).join(' - ');
+      if (ds) { pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128); pdf.text(ds, layout.cx + layout.cmw - pdf.getTextWidth(ds), y); }
+      y += LINE_H;
+      hLine(pdf, layout.cx, y - 1.5, layout.cmw, 229, 231, 235, 0.2);
+      if (e.description) {
+        y += 1; pdf.setFont(F, 'normal'); pdf.setFontSize(9); text(pdf, 55, 65, 81);
+        const descLines = (e.description as string).split('\n').map((l: string) => l.trim()).filter(Boolean);
+        for (const line of descLines) {
+          if (pal.layout === 'timeline') {
+            if (y + LINE_H > BOTTOM) y = newPage();
+            fill(pdf, aR, aG, aB);
+            pdf.triangle(layout.cx, y - 1, layout.cx + 1.5, y + 1.5, layout.cx - 1.5, y + 1.5, 'F');
+            text(pdf, 55, 65, 81);
+            justifyRow(pdf, line, layout.cx + 4.5, y, layout.cmw - 4.5, false);
+            y += LINE_H;
+          } else {
+            y = bulletLine(pdf, line, layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL);
+          }
+        }
+      }
+      y += ITEM_GAP + 1;
+    }
+    y += 1;
+  }
+
+  // ── Education ─────────────────────────────────────────────────────────
+  if (edu.length) {
+    y = sectionHeading(pdf, 'Education', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, pal.layout);
+    for (const e of edu) {
+      if (y + 12 > BOTTOM) y = newPage();
+      pdf.setFont(F, 'bold'); pdf.setFontSize(10); text(pdf, 17, 24, 39);
+      pdf.text(e.qualification || '', layout.cx, y); y += LINE_H;
+      pdf.setFont(F, 'normal'); pdf.setFontSize(8.5); text(pdf, 107, 114, 128);
+      pdf.text([e.institution, e.year].filter(Boolean).join('   |   '), layout.cx, y);
+      y += LINE_H + ITEM_GAP;
+    }
+    y += 1;
+  }
+
+  // ── Skills (non-sidebar only) ──────────────────────────────────────────
+  if (pal.layout !== 'sidebar' && (sk.subjects?.length || sk.soft_skills?.length || sk.languages?.length)) {
+    y = sectionHeading(pdf, 'Skills & Languages', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, pal.layout);
+    for (const [label, items] of [['Subjects', sk.subjects || []], ['Skills', sk.soft_skills || []], ['Languages', sk.languages || []]] as [string, string[]][]) {
+      if (!items.length) continue;
+      if (y + LINE_H > BOTTOM) y = newPage();
+      pdf.setFont(F, 'bold'); pdf.setFontSize(9); text(pdf, 55, 65, 81);
+      pdf.text(`${label}:`, layout.cx, y);
+      const lw = pdf.getTextWidth(`${label}:`) + 2;
+      pdf.setFont(F, 'normal'); text(pdf, 55, 65, 81);
+      y = wrappedText(pdf, items.join('  |  '), layout.cx + lw, y, layout.cmw - lw, BOTTOM, newPage, LINE_H, GL);
+      y += ITEM_GAP;
+    }
+    y += 2;
+  }
+
+  // ── Custom sections ────────────────────────────────────────────────────
+  for (const sec of customs) {
+    y = sectionHeading(pdf, sec.title, layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, pal.layout);
+    pdf.setFont(F, 'normal'); pdf.setFontSize(9); text(pdf, 55, 65, 81);
+    if (sec.type === 'text' && sec.content) {
+      y = wrappedText(pdf, sec.content, layout.cx, y, layout.cmw, BOTTOM, newPage, LINE_H, GL);
+    } else if (sec.type === 'bullets' && sec.content) {
+      for (const b of (sec.content as string).split('\n').map((l: string) => l.trim()).filter(Boolean)) {
+        y = bulletLine(pdf, b, layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL);
+      }
+    } else if (sec.type === 'table' && sec.columns?.length && sec.rows?.length) {
+      const cw = layout.cmw / sec.columns.length;
+      fill(pdf, aR, aG, aB); text(pdf, 255, 255, 255);
+      pdf.rect(layout.cx, y - 4, layout.cmw, 6, 'F');
+      pdf.setFont(F, 'bold'); pdf.setFontSize(8);
+      sec.columns.forEach((col: string, ci: number) => pdf.text(col, layout.cx + ci * cw + 1, y));
+      y += 6;
+      pdf.setFont(F, 'normal'); pdf.setFontSize(8.5);
+      for (let ri = 0; ri < sec.rows!.length; ri++) {
+        if (y + 6 > BOTTOM) y = newPage();
+        if (ri % 2 === 0) { pdf.setFillColor(249, 250, 251); pdf.rect(layout.cx, y - 4, layout.cmw, 6, 'F'); }
+        text(pdf, 55, 65, 81);
+        sec.rows![ri].forEach((cell: string, ci: number) => pdf.text(String(cell || ''), layout.cx + ci * cw + 1, y));
+        y += 6;
+      }
+    }
+    y += 3;
+  }
+
+  // ── Right skills column for two-col layout ─────────────────────────────
+  if (pal.layout === 'two-col') {
+    const rcX = PW - MR - 50; const rcW = 50;
+    let rcy = MT + headerH + 2;
+    pdf.setFont(F, 'bold'); pdf.setFontSize(8); text(pdf, aR, aG, aB);
+    pdf.text('SKILLS', rcX, rcy); rcy += 4;
+    hLine(pdf, rcX, rcy, rcW, aR, aG, aB, 0.4); rcy += 4;
+    const allSkills = [...(sk.subjects || []), ...(sk.soft_skills || [])];
+    pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 55, 65, 81);
+    allSkills.slice(0, 6).forEach((s: string) => {
+      const sl = pdf.splitTextToSize(s, rcW) as string[];
+      sl.forEach((l: string) => { if (rcy < BOTTOM - 20) { pdf.text(l, rcX, rcy); rcy += 3.8; } });
+      if (rcy < BOTTOM - 20) {
+        for (let d = 0; d < 5; d++) {
+          fill(pdf, d < 3 ? aR : 229, d < 3 ? aG : 231, d < 3 ? aB : 235);
+          pdf.circle(rcX + d * 5, rcy - 1.5, 1.2, 'F');
+        }
+        rcy += 5;
+      }
+    });
+    if (sk.languages?.length) {
+      rcy += 4;
+      pdf.setFont(F, 'bold'); pdf.setFontSize(8); text(pdf, aR, aG, aB);
+      pdf.text('LANGUAGES', rcX, rcy); rcy += 4;
+      hLine(pdf, rcX, rcy, rcW, aR, aG, aB, 0.4); rcy += 4;
+      pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 55, 65, 81);
+      (sk.languages as string[]).forEach((l: string) => { if (rcy < BOTTOM) { pdf.text(l, rcX, rcy); rcy += 4; } });
+    }
+    reset(pdf);
+  }
+
+  // ── References page ────────────────────────────────────────────────────
+  if (refs.length) {
+    pdf.addPage(); pageCount++;
+    reset(pdf);
+    fill(pdf, hbR, hbG, hbB); pdf.rect(0, 0, PW, 6, 'F'); reset(pdf);
+    const rCX = ML; const rCMW = PW - ML - MR;
+    let ry = MT;
+    ry = sectionHeading(pdf, 'References', rCX, ry, rCMW, aR, aG, aB, BOTTOM, newPage, undefined, pal.layout);
+    ry += 2;
+    const half = (rCMW - 8) / 2;
+    function refCard(ref: any, rx: number, startY: number): number {
+      let cy = startY;
+      dot(pdf, rx, cy - 0.8, aR, aG, aB, 1.6);
+      pdf.setFont(F, 'bold'); pdf.setFontSize(9.5); text(pdf, 17, 24, 39);
+      pdf.text(ref.name, rx + 3, cy); cy += LINE_H;
+      if (ref.title)        { pdf.setFont(F, 'normal'); pdf.setFontSize(9);   text(pdf, aR, aG, aB);       pdf.text(ref.title,        rx + 3, cy); cy += LINE_H; }
+      if (ref.organisation) { pdf.setFont(F, 'normal'); pdf.setFontSize(8.5); text(pdf, 107, 114, 128);    pdf.text(ref.organisation, rx + 3, cy); cy += LINE_H; }
+      if (ref.relationship) { pdf.setFont(F, 'italic'); pdf.setFontSize(8);   text(pdf, 156, 163, 175);    pdf.text(ref.relationship, rx + 3, cy); cy += LINE_H; }
+      if (ref.phone || ref.email) {
+        pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128);
+        pdf.text([ref.phone, ref.email].filter(Boolean).join('  |  '), rx + 3, cy); cy += LINE_H;
+      }
+      return cy;
+    }
+    for (let i = 0; i < refs.length; i += 2) {
+      const ly = refCard(refs[i], rCX, ry);
+      const ry2 = refs[i + 1] ? refCard(refs[i + 1], rCX + half + 8, ry) : ry;
+      const rowEnd = Math.max(ly, ry2) + 2;
+      hLine(pdf, rCX, rowEnd, rCMW, 229, 231, 235, 0.2);
+      ry = rowEnd + 5;
+    }
+  }
+
+  // ── Footer ─────────────────────────────────────────────────────────────
+  const totalPages = pdf.getNumberOfPages();
+  for (let pg = 1; pg <= totalPages; pg++) {
+    pdf.setPage(pg); reset(pdf);
+    if (data.watermark) {
+      pdf.setFillColor(15, 23, 42); pdf.rect(0, PH - FOOTER_H, PW, FOOTER_H, 'F');
+      text(pdf, 148, 163, 184); pdf.setFont(F, 'normal'); pdf.setFontSize(7);
+      const wt = 'Created FREE at www.crosssa.co.za  -  Upgrade to remove this watermark';
+      pdf.text(wt, (PW - pdf.getTextWidth(wt)) / 2, PH - 3.5);
+      text(pdf, 255, 255, 255); pdf.setFont(F, 'italic'); pdf.setFontSize(7);
+      pdf.text(`Resume of ${owner}`, ML, PH - 3.5);
+      const ps = `Page ${pg} of ${totalPages}`;
+      pdf.text(ps, PW - MR - pdf.getTextWidth(ps), PH - 3.5);
+    } else {
+      drawFooter(pdf, owner, pg, totalPages, aR, aG, aB);
+    }
+  }
+
+  // ── Encryption ────────────────────────────────────────────────────────
+  try {
+    (pdf as any).encrypt({
+      userPassword: '',
+      ownerPassword: 'crosssa-cv-owner-2025',
+      userPermissions: ['print', 'print-high'],
+    });
+  } catch (_) {}
 
   return pdf.output('blob');
 }
