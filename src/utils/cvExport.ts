@@ -208,7 +208,7 @@ export async function exportElementAsPDF(
   const refs    = (data.references    || []).filter((r: any) => r.name);
   const customs = (data.custom_sections || []).filter((s: any) => s.title);
   const pal     = getPalette(data.template || 'classic');
-  const pal.layout === 'sidebar'    = pal.sidebar;
+  const isSB = pal.layout === 'sidebar';
   const owner   = pr.full_name || 'Applicant';
 
   const { aR, aG, aB, hbR, hbG, hbB, htR, htG, htB, sbR, sbG, sbB } = pal;
@@ -216,7 +216,7 @@ export async function exportElementAsPDF(
   const pdf = new jsPDF({ format: 'a4', unit: 'mm', compress: true });
   reset(pdf);
 
-  const CX1  = pal.layout === 'sidebar' ? ML + SIDEBAR_W + 10 : ML;
+  const CX1  = isSB ? ML + SIDEBAR_W + 10 : ML;
   const CMW1 = PW - MR - CX1;
   const CX2  = ML;
   const CMW2 = PW - ML - MR;
