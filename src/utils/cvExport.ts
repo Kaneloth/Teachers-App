@@ -63,6 +63,7 @@ interface Palette {
 
 function getPalette(t: string): Palette {
   switch (t) {
+    // ── Original 8 templates ──────────────────────────────────────────────
     case 'modern':       return { sidebar: true,  hbR:13,  hbG:148, hbB:136, htR:255,htG:255,htB:255, aR:13,  aG:148, aB:136, sbR:13,  sbG:148, sbB:136 };
     case 'sidebar':      return { sidebar: true,  hbR:59,  hbG:89,  hbB:152, htR:255,htG:255,htB:255, aR:59,  aG:89,  aB:152, sbR:59,  sbG:89,  sbB:152 };
     case 'corporate':    return { sidebar: true,  hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74  };
@@ -70,6 +71,17 @@ function getPalette(t: string): Palette {
     case 'minimal':      return { sidebar: false, hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:17,  aG:24,  aB:39,  sbR:249, sbG:250, sbB:251 };
     case 'bold':         return { sidebar: false, hbR:194, hbG:24,  hbB:91,  htR:255,htG:255,htB:255, aR:194, aG:24,  aB:91,  sbR:194, sbG:24,  sbB:91  };
     case 'executive':    return { sidebar: false, hbR:107, hbG:26,  hbB:26,  htR:255,htG:255,htB:255, aR:107, aG:26,  aB:26,  sbR:107, sbG:26,  sbB:26  };
+    // ── New 9 templates ───────────────────────────────────────────────────
+    case 'stylish':      return { sidebar: false, hbR:224, hbG:92,  hbB:107, htR:255,htG:255,htB:255, aR:224, aG:92,  aB:107, sbR:224, sbG:92,  sbB:107 }; // coral
+    case 'boxed':        return { sidebar: false, hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81  }; // dark grey
+    case 'traditional':  return { sidebar: false, hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:55,  aG:65,  aB:81,  sbR:249, sbG:250, sbB:251 }; // minimal grey
+    case 'navy':         return { sidebar: false, hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74  }; // navy (right sidebar in renderer)
+    case 'timeline':     return { sidebar: false, hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81  }; // slate
+    case 'shaded':       return { sidebar: false, hbR:243, hbG:244, hbB:246, htR:55, htG:65, htB:81,  aR:55,  aG:65,  aB:81,  sbR:243, sbG:244, sbB:246 }; // light grey
+    case 'teal':         return { sidebar: false, hbR:6,   hbG:182, hbB:212, htR:17, htG:24, htB:39,  aR:6,   aG:182, aB:212, sbR:6,   sbG:182, sbB:212 }; // cyan/teal
+    case 'crimson':      return { sidebar: false, hbR:192, hbG:57,  hbB:43,  htR:255,htG:255,htB:255, aR:192, aG:57,  aB:43,  sbR:192, sbG:57,  sbB:43  }; // crimson red
+    case 'sage':         return { sidebar: false, hbR:127, hbG:163, hbB:127, htR:255,htG:255,htB:255, aR:127, aG:163, aB:127, sbR:232, sbG:240, sbB:232 }; // sage green
+    // ── Default (classic) ─────────────────────────────────────────────────
     default:             return { sidebar: false, hbR:30,  hbG:42,  hbB:58,  htR:255,htG:255,htB:255, aR:30,  aG:42,  aB:58,  sbR:30,  sbG:42,  sbB:58  };
   }
 }
