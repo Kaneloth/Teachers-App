@@ -108,17 +108,9 @@ export default function CVStepTemplate({ selected, onChange, isFree = false }: P
               }`}
             >
               {/* ── Live preview thumbnail ── */}
+              {/* zoom (unlike transform:scale) collapses layout height automatically */}
               <div className="h-36 overflow-hidden bg-white relative">
-                {/* Scale the 794px-wide renderer down to fit the ~160px card width */}
-                <div style={{
-                  transform: 'scale(0.20)',
-                  transformOrigin: 'top left',
-                  width: '500%',         // 1/0.20 = 5x wider
-                  pointerEvents: 'none',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                }}>
+                <div style={{ zoom: 0.205, pointerEvents: 'none' }}>
                   <CVTemplateRenderer data={previewData as any} forExport={false} watermark={false} />
                 </div>
 
