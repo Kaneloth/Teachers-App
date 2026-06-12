@@ -597,36 +597,64 @@ export async function exportElementAsPDF(
   }
 
   // ── Right skills column for two-col layout ──────────────────────────────
+  // IMPORTANT: switch to page 1 before drawing the right column.
+  // Content may have pushed pdf to page 2+; right col must be on page 1.
   if (pal.layout === 'two-col') {
-    const rcX = PW - MR - 50;
-    const rcW = 50;
-    let rcy   = MT + headerH + 2;
-    pdf.setFont(F, 'bold'); pdf.setFontSize(8); text(pdf, aR, aG, aB);
-    pdf.text('SKILLS', rcX, rcy); rcy += 4;
-    hLine(pdf, rcX, rcy, rcW, aR, aG, aB, 0.4); rcy += 4;
+    const lastPage = pdf.getNumberOfPages();
+    pdf.setPage(1);   // always draw right col on page 1
+
+    const rcX  = PW - MR - 52;
+    const rcW  = 48;
+    const rcTop = MT + headerH;    // start just below the header banner
+
+    // Light background panel for the right column
+    fill(pdf, sbR > 200 ? 248 : Math.min(sbR + 200, 248),
+              sbG > 200 ? 248 : Math.min(sbG + 200, 248),
+              sbB > 200 ? 248 : Math.min(sbB + 200, 248));
+    pdf.rect(rcX - 3, rcTop, rcW + 6, PH - rcTop - FOOTER_H, 'F');
+
+    // Thin divider line
+    hLine(pdf, rcX - 3, rcTop, 0.3, aR, aG, aB, 0.3);
+    pdf.setLineWidth(0.3); draw(pdf, aR, aG, aB);
+    pdf.line(rcX - 3, rcTop, rcX - 3, PH - FOOTER_H);
+
+    let rcy = rcTop + 6;
+
+    // Skills section
     const allSkills = [...(sk.subjects || []), ...(sk.soft_skills || [])];
-    pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 55, 65, 81);
-    allSkills.slice(0, 8).forEach(s => {
-      const sl = pdf.splitTextToSize(s, rcW) as string[];
-      sl.forEach(l => { if (rcy < BOTTOM) { pdf.text(l, rcX, rcy); rcy += 3.8; } });
-      // Dot rating bar
-      if (rcy < BOTTOM) {
-        for (let d = 0; d < 5; d++) {
-          fill(pdf, d < 3 ? aR : 229, d < 3 ? aG : 231, d < 3 ? aB : 235);
-          pdf.circle(rcX + d * 5, rcy - 0.5, 1.5, 'F');
-        }
-        rcy += 5;
-      }
-    });
-    if (sk.languages?.length) {
-      rcy += 4;
-      pdf.setFont(F, 'bold'); pdf.setFontSize(8); text(pdf, aR, aG, aB);
-      pdf.text('LANGUAGES', rcX, rcy); rcy += 4;
+    if (allSkills.length) {
+      pdf.setFont(F, 'bold'); pdf.setFontSize(7.5); text(pdf, aR, aG, aB);
+      pdf.text('SKILLS', rcX, rcy); rcy += 3;
       hLine(pdf, rcX, rcy, rcW, aR, aG, aB, 0.4); rcy += 4;
-      pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 55, 65, 81);
-      sk.languages.forEach((l: string) => { if (rcy < BOTTOM) { pdf.text(l, rcX, rcy); rcy += 4; } });
+      pdf.setFont(F, 'normal'); pdf.setFontSize(7); text(pdf, 55, 65, 81);
+      allSkills.slice(0, 10).forEach(s => {
+        if (rcy > BOTTOM - 10) return;
+        const sl = pdf.splitTextToSize(s, rcW) as string[];
+        sl.forEach((l: string) => { if (rcy < BOTTOM - 8) { pdf.text(l, rcX, rcy); rcy += 3.5; } });
+        if (rcy < BOTTOM - 8) {
+          for (let d = 0; d < 5; d++) {
+            fill(pdf, d < 3 ? aR : 209, d < 3 ? aG : 213, d < 3 ? aB : 219);
+            pdf.circle(rcX + 1 + d * 7, rcy - 1, 1.8, 'F');
+          }
+          rcy += 6;
+        }
+      });
     }
+
+    // Languages section
+    if (sk.languages?.length && rcy < BOTTOM - 20) {
+      rcy += 5;
+      pdf.setFont(F, 'bold'); pdf.setFontSize(7.5); text(pdf, aR, aG, aB);
+      pdf.text('LANGUAGES', rcX, rcy); rcy += 3;
+      hLine(pdf, rcX, rcy, rcW, aR, aG, aB, 0.4); rcy += 4;
+      pdf.setFont(F, 'normal'); pdf.setFontSize(7); text(pdf, 55, 65, 81);
+      sk.languages.forEach((l: string) => {
+        if (rcy < BOTTOM - 4) { pdf.text(l, rcX, rcy); rcy += 4; }
+      });
+    }
+
     reset(pdf);
+    pdf.setPage(lastPage);  // restore to last page so footer loop works correctly
   }
 
   // ── References page ────────────────────────────────────────────────────
