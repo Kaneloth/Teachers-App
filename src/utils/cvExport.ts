@@ -76,11 +76,11 @@ function getPalette(t: string): Palette {
     case 'boxed':        return { sidebar: false, layout:'boxed',     hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81,  accentDim:'#374151' };
     case 'traditional':  return { sidebar: false, layout:'left-date', hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:55,  aG:65,  aB:81,  sbR:249, sbG:250, sbB:251, accentDim:'#374151' };
     case 'navy':         return { sidebar: false, layout:'right-sidebar', hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74,  accentDim:'#243a6b' };
-    case 'timeline':     return { sidebar: false, layout:'minimal',   hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81,  accentDim:'#4b5563' };
-    case 'shaded':       return { sidebar: false, layout:'minimal',   hbR:243, hbG:244, hbB:246, htR:55, htG:65, htB:81,  aR:55,  aG:65,  aB:81,  sbR:243, sbG:244, sbB:246, accentDim:'#6b7280' };
+    case 'timeline':     return { sidebar: false, layout:'timeline',   hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81,  accentDim:'#4b5563' };
+    case 'shaded':       return { sidebar: false, layout:'shaded',   hbR:243, hbG:244, hbB:246, htR:55, htG:65, htB:81,  aR:55,  aG:65,  aB:81,  sbR:243, sbG:244, sbB:246, accentDim:'#6b7280' };
     case 'teal':         return { sidebar: false, layout:'two-col',   hbR:6,   hbG:182, hbB:212, htR:17, htG:24, htB:39,  aR:6,   aG:182, aB:212, sbR:6,   sbG:182, sbB:212, accentDim:'#0891b2' };
     case 'crimson':      return { sidebar: false, layout:'banner',    hbR:192, hbG:57,  hbB:43,  htR:255,htG:255,htB:255, aR:192, aG:57,  aB:43,  sbR:192, sbG:57,  sbB:43,  accentDim:'#b91c1c' };
-    case 'sage':         return { sidebar: false, layout:'minimal',   hbR:232, hbG:240, hbB:232, htR:55, htG:65, htB:81,  aR:127, aG:163, aB:127, sbR:232, sbG:240, sbB:232, accentDim:'#4d7a4d' };
+    case 'sage':         return { sidebar: false, layout:'sage',   hbR:232, hbG:240, hbB:232, htR:55, htG:65, htB:81,  aR:127, aG:163, aB:127, sbR:232, sbG:240, sbB:232, accentDim:'#4d7a4d' };
     // ── Default (classic) ─────────────────────────────────────────────────
     default:             return { sidebar: false, layout:'banner',    hbR:30,  hbG:42,  hbB:58,  htR:255,htG:255,htB:255, aR:30,  aG:42,  aB:58,  sbR:30,  sbG:42,  sbB:58,  accentDim:'#2d3f52' };
   }
@@ -110,11 +110,27 @@ function sectionHeading(
   aR: number, aG: number, aB: number,
   bottom: number, newPage: () => number, getLayout?: () => { cx: number; cmw: number },
   iconName?: string,
+  layout = 'banner',
 ): number {
   if (y + 28 > bottom) { y = newPage(); if (getLayout) { x = getLayout().cx; maxW = getLayout().cmw; } }
   y += SECTION_GAP * 0.6;
-  if (iconName) {
-    // Icon replaces the accent rect — draw icon then title
+  if (layout === 'shaded') {
+    // Grey filled bar — distinctive shaded template style
+    fill(p, 243, 244, 246); p.rect(x - 2, y - 4, maxW + 4, 7, 'F');
+    text(p, 55, 65, 81); p.setFont(F, 'bold'); p.setFontSize(9);
+    p.text(title.toUpperCase(), x + 2, y);
+  } else if (layout === 'timeline') {
+    // Diamond bullet + title — timeline style
+    text(p, aR, aG, aB); p.setFont(F, 'bold'); p.setFontSize(9);
+    p.text('◆ ' + title.toUpperCase(), x, y);
+    const tw = p.getTextWidth('◆ ' + title.toUpperCase());
+    hLine(p, x + tw + 2, y - 1.5, maxW - tw - 2, 209, 213, 219, 0.4);
+  } else if (layout === 'sage') {
+    // Green accent line under title
+    text(p, aR, aG, aB); p.setFont(F, 'bold'); p.setFontSize(11);
+    p.text(title, x, y);
+    hLine(p, x, y + 2, maxW, aR, aG, aB, 0.5);
+  } else if (iconName) {
     const iconSize = 3.8;
     icon(p, iconName, x, y - 3.2, iconSize);
     const textStartX = x + iconSize + 1.5;
@@ -123,7 +139,6 @@ function sectionHeading(
     const tw = p.getTextWidth(title.toUpperCase());
     hLine(p, textStartX + tw + 2, y - 1.5, maxW - (textStartX - x) - tw - 2, aR, aG, aB, 0.35);
   } else {
-    // No icon — use accent rect as decoration
     fill(p, aR, aG, aB); p.rect(x, y - 3.2, 2.5, 3.8, 'F');
     text(p, aR, aG, aB); p.setFont(F, 'bold'); p.setFontSize(9);
     p.text(title.toUpperCase(), x + 4, y);
@@ -199,6 +214,7 @@ export async function exportElementAsPDF(
 ): Promise<Blob> {
   const jsPDF = JsPDFClass;
   if (!cvData) throw new Error('cvData required');
+
 
   const data    = cvData as any;
   const pr      = data.personal       || {};
@@ -399,6 +415,45 @@ export async function exportElementAsPDF(
     const bcW = pdf.getTextWidth(bcp); pdf.text(bcp, (PW - bcW) / 2, 30);
     headerH = 40; reset(pdf);
 
+  } else if (pal.layout === 'shaded') {
+    // ── Shaded: grey section-header bars, centered name, no colour banner ──
+    // Light grey top strip
+    fill(pdf, 243, 244, 246); pdf.rect(0, 0, PW, 28, 'F');
+    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
+    const shW = pdf.getTextWidth(owner.toUpperCase());
+    pdf.text(owner.toUpperCase(), (PW - shW) / 2, MT + 9);
+    pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128);
+    const shcp = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
+    const shcW = pdf.getTextWidth(shcp);
+    pdf.text(shcp, (PW - shcW) / 2, MT + 16);
+    hLine(pdf, ML, 28, PW - ML - MR, 209, 213, 219, 0.4);
+    headerH = 32; reset(pdf);
+
+  } else if (pal.layout === 'timeline') {
+    // ── Timeline: centered name, thin rule, slate accent ─────────────────
+    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(18);
+    const tlW = pdf.getTextWidth(owner.toUpperCase());
+    pdf.text(owner.toUpperCase(), (PW - tlW) / 2, MT + 10);
+    pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128);
+    const tlcp = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
+    const tlcW = pdf.getTextWidth(tlcp);
+    pdf.text(tlcp, (PW - tlcW) / 2, MT + 17);
+    // Double rule in accent colour
+    hLine(pdf, ML, MT + 20, PW - ML - MR, aR, aG, aB, 1.5);
+    hLine(pdf, ML, MT + 23, PW - ML - MR, aR, aG, aB, 0.3);
+    headerH = 28; reset(pdf);
+
+  } else if (pal.layout === 'sage') {
+    // ── Sage: rounded-card style header with green background ────────────
+    // Green card background
+    fill(pdf, sbR, sbG, sbB); pdf.roundedRect(ML - 2, MT - 4, PW - ML - MR + 4, 28, 3, 3, 'F');
+    text(pdf, 26, 46, 26); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
+    pdf.text(owner, ML + 2, MT + 8);
+    pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 55, 80, 55);
+    const sgcp = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
+    pdf.text(sgcp, ML + 2, MT + 16);
+    headerH = 30; reset(pdf);
+
   } else if (pal.layout === 'left-date' || pal.layout === 'minimal') {
     // ── Minimal / Traditional header: centered name + contact, no banner ──
     text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
@@ -443,7 +498,7 @@ export async function exportElementAsPDF(
 
   // ── Professional Summary ───────────────────────────────────────────────
   if (pr.bio) {
-    y = sectionHeading(pdf, 'Professional Summary', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'bookOpen');
+    y = sectionHeading(pdf, 'Professional Summary', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'bookOpen', pal.layout);
     pdf.setFont(F, 'normal'); pdf.setFontSize(9); text(pdf, 55, 65, 81);
     y = wrappedText(pdf, pr.bio, layout.cx, y, layout.cmw, BOTTOM, newPage, LINE_H, GL);
     y += ITEM_GAP + 1;
@@ -451,7 +506,7 @@ export async function exportElementAsPDF(
 
   // ── Teaching Experience ────────────────────────────────────────────────
   if (exp.length) {
-    y = sectionHeading(pdf, 'Teaching Experience', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'briefcase');
+    y = sectionHeading(pdf, 'Teaching Experience', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'briefcase', pal.layout);
     for (const e of exp) {
       if (y + 16 > BOTTOM) y = newPage();
       pdf.setFont(F, 'bold'); pdf.setFontSize(10); text(pdf, 17, 24, 39);
@@ -475,7 +530,7 @@ export async function exportElementAsPDF(
 
   // ── Education ─────────────────────────────────────────────────────────
   if (edu.length) {
-    y = sectionHeading(pdf, 'Education', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'graduation');
+    y = sectionHeading(pdf, 'Education', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'graduation', pal.layout);
     for (const e of edu) {
       if (y + 12 > BOTTOM) y = newPage();
       pdf.setFont(F, 'bold'); pdf.setFontSize(10); text(pdf, 17, 24, 39);
@@ -489,7 +544,7 @@ export async function exportElementAsPDF(
 
   // ── Skills (non-sidebar only) ──────────────────────────────────────────
   if (pal.layout !== 'sidebar' && (sk.subjects?.length || sk.soft_skills?.length || sk.languages?.length)) {
-    y = sectionHeading(pdf, 'Skills & Languages', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'award');
+    y = sectionHeading(pdf, 'Skills & Languages', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'award', pal.layout);
     for (const [label, items] of [['Subjects', sk.subjects || []], ['Skills', sk.soft_skills || []], ['Languages', sk.languages || []]] as [string, string[]][]) {
       if (!items.length) continue;
       if (y + LINE_H > BOTTOM) y = newPage();
@@ -505,7 +560,7 @@ export async function exportElementAsPDF(
 
   // ── Custom sections ────────────────────────────────────────────────────
   for (const sec of customs) {
-    y = sectionHeading(pdf, sec.title, layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL);
+    y = sectionHeading(pdf, sec.title, layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, undefined, pal.layout);
     pdf.setFont(F, 'normal'); pdf.setFontSize(9); text(pdf, 55, 65, 81);
     if (sec.type === 'text' && sec.content) {
       y = wrappedText(pdf, sec.content, layout.cx, y, layout.cmw, BOTTOM, newPage, LINE_H, GL);
@@ -574,7 +629,7 @@ export async function exportElementAsPDF(
 
     const rCX = ML; const rCMW = PW - ML - MR;
     let ry = MT;
-    ry = sectionHeading(pdf, 'References', rCX, ry, rCMW, aR, aG, aB, BOTTOM, newPage, undefined, 'user');
+    ry = sectionHeading(pdf, 'References', rCX, ry, rCMW, aR, aG, aB, BOTTOM, newPage, undefined, 'user', pal.layout);
     ry += 2;
 
     const half = (rCMW - 8) / 2;
