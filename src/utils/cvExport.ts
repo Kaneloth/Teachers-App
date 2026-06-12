@@ -64,25 +64,25 @@ interface Palette {
 function getPalette(t: string): Palette {
   switch (t) {
     // ── Original 8 templates ──────────────────────────────────────────────
-    case 'modern':       return { sidebar: true,  hbR:13,  hbG:148, hbB:136, htR:255,htG:255,htB:255, aR:13,  aG:148, aB:136, sbR:13,  sbG:148, sbB:136 };
-    case 'sidebar':      return { sidebar: true,  hbR:59,  hbG:89,  hbB:152, htR:255,htG:255,htB:255, aR:59,  aG:89,  aB:152, sbR:59,  sbG:89,  sbB:152 };
-    case 'corporate':    return { sidebar: true,  hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74  };
-    case 'professional': return { sidebar: false, hbR:30,  hbG:77,  hbB:43,  htR:255,htG:255,htB:255, aR:30,  aG:77,  aB:43,  sbR:30,  sbG:77,  sbB:43  };
-    case 'minimal':      return { sidebar: false, hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:17,  aG:24,  aB:39,  sbR:249, sbG:250, sbB:251 };
-    case 'bold':         return { sidebar: false, hbR:194, hbG:24,  hbB:91,  htR:255,htG:255,htB:255, aR:194, aG:24,  aB:91,  sbR:194, sbG:24,  sbB:91  };
-    case 'executive':    return { sidebar: false, hbR:107, hbG:26,  hbB:26,  htR:255,htG:255,htB:255, aR:107, aG:26,  aB:26,  sbR:107, sbG:26,  sbB:26  };
+    case 'modern':       return { sidebar: true,  layout:'sidebar',   hbR:13,  hbG:148, hbB:136, htR:255,htG:255,htB:255, aR:13,  aG:148, aB:136, sbR:13,  sbG:148, sbB:136, accentDim:'#0f766e' };
+    case 'sidebar':      return { sidebar: true,  layout:'sidebar',   hbR:59,  hbG:89,  hbB:152, htR:255,htG:255,htB:255, aR:59,  aG:89,  aB:152, sbR:59,  sbG:89,  sbB:152, accentDim:'#2d4373' };
+    case 'corporate':    return { sidebar: true,  layout:'sidebar',   hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74,  accentDim:'#243a6b' };
+    case 'professional': return { sidebar: false, layout:'banner',    hbR:30,  hbG:77,  hbB:43,  htR:255,htG:255,htB:255, aR:30,  aG:77,  aB:43,  sbR:30,  sbG:77,  sbB:43,  accentDim:'#2d7a47' };
+    case 'minimal':      return { sidebar: false, layout:'minimal',   hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:17,  aG:24,  aB:39,  sbR:249, sbG:250, sbB:251, accentDim:'#374151' };
+    case 'bold':         return { sidebar: false, layout:'banner',    hbR:194, hbG:24,  hbB:91,  htR:255,htG:255,htB:255, aR:194, aG:24,  aB:91,  sbR:194, sbG:24,  sbB:91,  accentDim:'#ad1457' };
+    case 'executive':    return { sidebar: false, layout:'banner',    hbR:107, hbG:26,  hbB:26,  htR:255,htG:255,htB:255, aR:107, aG:26,  aB:26,  sbR:107, sbG:26,  sbB:26,  accentDim:'#8b2424' };
     // ── New 9 templates ───────────────────────────────────────────────────
-    case 'stylish':      return { sidebar: false, hbR:224, hbG:92,  hbB:107, htR:255,htG:255,htB:255, aR:224, aG:92,  aB:107, sbR:224, sbG:92,  sbB:107 }; // coral
-    case 'boxed':        return { sidebar: false, hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81  }; // dark grey
-    case 'traditional':  return { sidebar: false, hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:55,  aG:65,  aB:81,  sbR:249, sbG:250, sbB:251 }; // minimal grey
-    case 'navy':         return { sidebar: false, hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74  }; // navy (right sidebar in renderer)
-    case 'timeline':     return { sidebar: false, hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81  }; // slate
-    case 'shaded':       return { sidebar: false, hbR:243, hbG:244, hbB:246, htR:55, htG:65, htB:81,  aR:55,  aG:65,  aB:81,  sbR:243, sbG:244, sbB:246 }; // light grey
-    case 'teal':         return { sidebar: false, hbR:6,   hbG:182, hbB:212, htR:17, htG:24, htB:39,  aR:6,   aG:182, aB:212, sbR:6,   sbG:182, sbB:212 }; // cyan/teal
-    case 'crimson':      return { sidebar: false, hbR:192, hbG:57,  hbB:43,  htR:255,htG:255,htB:255, aR:192, aG:57,  aB:43,  sbR:192, sbG:57,  sbB:43  }; // crimson red
-    case 'sage':         return { sidebar: false, hbR:127, hbG:163, hbB:127, htR:255,htG:255,htB:255, aR:127, aG:163, aB:127, sbR:232, sbG:240, sbB:232 }; // sage green
+    case 'stylish':      return { sidebar: false, layout:'banner',    hbR:224, hbG:92,  hbB:107, htR:255,htG:255,htB:255, aR:224, aG:92,  aB:107, sbR:224, sbG:92,  sbB:107, accentDim:'#c0384a' };
+    case 'boxed':        return { sidebar: false, layout:'boxed',     hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81,  accentDim:'#374151' };
+    case 'traditional':  return { sidebar: false, layout:'left-date', hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:55,  aG:65,  aB:81,  sbR:249, sbG:250, sbB:251, accentDim:'#374151' };
+    case 'navy':         return { sidebar: false, layout:'banner',    hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74,  accentDim:'#243a6b' };
+    case 'timeline':     return { sidebar: false, layout:'banner',    hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81,  accentDim:'#4b5563' };
+    case 'shaded':       return { sidebar: false, layout:'minimal',   hbR:243, hbG:244, hbB:246, htR:55, htG:65, htB:81,  aR:55,  aG:65,  aB:81,  sbR:243, sbG:244, sbB:246, accentDim:'#6b7280' };
+    case 'teal':         return { sidebar: false, layout:'banner',    hbR:6,   hbG:182, hbB:212, htR:17, htG:24, htB:39,  aR:6,   aG:182, aB:212, sbR:6,   sbG:182, sbB:212, accentDim:'#0891b2' };
+    case 'crimson':      return { sidebar: false, layout:'banner',    hbR:192, hbG:57,  hbB:43,  htR:255,htG:255,htB:255, aR:192, aG:57,  aB:43,  sbR:192, sbG:57,  sbB:43,  accentDim:'#b91c1c' };
+    case 'sage':         return { sidebar: false, layout:'minimal',   hbR:232, hbG:240, hbB:232, htR:55, htG:65, htB:81,  aR:127, aG:163, aB:127, sbR:232, sbG:240, sbB:232, accentDim:'#4d7a4d' };
     // ── Default (classic) ─────────────────────────────────────────────────
-    default:             return { sidebar: false, hbR:30,  hbG:42,  hbB:58,  htR:255,htG:255,htB:255, aR:30,  aG:42,  aB:58,  sbR:30,  sbG:42,  sbB:58  };
+    default:             return { sidebar: false, layout:'banner',    hbR:30,  hbG:42,  hbB:58,  htR:255,htG:255,htB:255, aR:30,  aG:42,  aB:58,  sbR:30,  sbG:42,  sbB:58,  accentDim:'#2d3f52' };
   }
 }
 
@@ -208,7 +208,7 @@ export async function exportElementAsPDF(
   const refs    = (data.references    || []).filter((r: any) => r.name);
   const customs = (data.custom_sections || []).filter((s: any) => s.title);
   const pal     = getPalette(data.template || 'classic');
-  const isSB    = pal.sidebar;
+  const pal.layout === 'sidebar'    = pal.sidebar;
   const owner   = pr.full_name || 'Applicant';
 
   const { aR, aG, aB, hbR, hbG, hbB, htR, htG, htB, sbR, sbG, sbB } = pal;
@@ -216,7 +216,7 @@ export async function exportElementAsPDF(
   const pdf = new jsPDF({ format: 'a4', unit: 'mm', compress: true });
   reset(pdf);
 
-  const CX1  = isSB ? ML + SIDEBAR_W + 10 : ML;
+  const CX1  = pal.layout === 'sidebar' ? ML + SIDEBAR_W + 10 : ML;
   const CMW1 = PW - MR - CX1;
   const CX2  = ML;
   const CMW2 = PW - ML - MR;
@@ -238,7 +238,7 @@ export async function exportElementAsPDF(
   // ── HEADER ───────────────────────────────────────────────────────────────
   let headerH: number;
 
-  if (isSB) {
+  if (pal.layout === 'sidebar') {
     // Full-page sidebar bg
     fill(pdf, sbR, sbG, sbB);
     pdf.rect(0, 0, ML + SIDEBAR_W + 2, PH, 'F');
@@ -314,16 +314,42 @@ export async function exportElementAsPDF(
     hLine(pdf, layout.cx, cy, layout.cmw, aR, aG, aB, 0.5);
     headerH = cy + 5 - MT;
 
+  } else if (pal.layout === 'boxed') {
+    // ── Boxed header: name in a rectangle, contact below ──────────────────
+    fill(pdf, 248, 248, 248); pdf.rect(0, 0, PW, 36, 'F');
+    // Boxed name
+    pdf.setDrawColor(55, 65, 81); pdf.setLineWidth(0.8);
+    pdf.rect(ML, 5, PW - ML - MR, 18, 'S');
+    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(15);
+    const bnW = pdf.getTextWidth(owner.toUpperCase());
+    pdf.text(owner.toUpperCase(), (PW - bnW) / 2, 16);
+    pdf.setFont(F, 'normal'); pdf.setFontSize(7);
+    const bsub = [pr.address].filter(Boolean).join(' · ');
+    if (bsub) { const bsW = pdf.getTextWidth(bsub); pdf.text(bsub, (PW - bsW) / 2, 20); }
+    // Contact strip
+    text(pdf, 107, 114, 128); pdf.setFont(F, 'normal'); pdf.setFontSize(7.5);
+    const bcp = [pr.email, pr.phone, pr.address].filter(Boolean).join('   |   ');
+    const bcW = pdf.getTextWidth(bcp); pdf.text(bcp, (PW - bcW) / 2, 30);
+    headerH = 40; reset(pdf);
+
+  } else if (pal.layout === 'left-date' || pal.layout === 'minimal') {
+    // ── Minimal / Traditional header: centered name + contact, no banner ──
+    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
+    const mW = pdf.getTextWidth(owner.toUpperCase());
+    pdf.text(owner.toUpperCase(), (PW - mW) / 2, MT + 8);
+    pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128);
+    const mcp = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
+    const mcW = pdf.getTextWidth(mcp); pdf.text(mcp, (PW - mcW) / 2, MT + 14);
+    hLine(pdf, ML, MT + 17, PW - ML - MR, aR, aG, aB, 0.5);
+    headerH = 22; reset(pdf);
+
   } else {
-    // Banner header
+    // ── Default banner header (banner layout) ──────────────────────────────
     fill(pdf, hbR, hbG, hbB); pdf.rect(0, 0, PW, 32, 'F');
     text(pdf, htR, htG, htB); pdf.setFont(F, 'bold'); pdf.setFontSize(17);
     pdf.text(owner.toUpperCase(), ML, 13);
-    // Rule under name
     draw(pdf, htR > 200 ? 200 : 209, htR > 200 ? 200 : 213, htR > 200 ? 200 : 219);
     pdf.setLineWidth(0.25); pdf.line(ML, 16, PW - MR, 16);
-    // Contact
-    // Draw contact items with icons side by side
     text(pdf, htR, htG, htB); pdf.setFont(F, 'normal'); pdf.setFontSize(7.5);
     const contactIconMap: [string | undefined, string][] = [
       [pr.email,                    'mail'  ],
@@ -332,7 +358,7 @@ export async function exportElementAsPDF(
       [pr.id_number ? `ID: ${pr.id_number}` : undefined, 'user'],
     ];
     const ciSz = 3;
-    const ciOff = ciSz - 0.5;  // align icon top with text (baseline - ascender height)
+    const ciOff = ciSz - 0.5;
     let cx2 = ML; const ciY = 22;
     for (const [val, iname] of contactIconMap) {
       if (!val) continue;
@@ -395,7 +421,7 @@ export async function exportElementAsPDF(
   }
 
   // ── Skills (non-sidebar only) ──────────────────────────────────────────
-  if (!isSB && (sk.subjects?.length || sk.soft_skills?.length || sk.languages?.length)) {
+  if (pal.layout !== 'sidebar' && (sk.subjects?.length || sk.soft_skills?.length || sk.languages?.length)) {
     y = sectionHeading(pdf, 'Skills & Languages', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'award');
     for (const [label, items] of [['Subjects', sk.subjects || []], ['Skills', sk.soft_skills || []], ['Languages', sk.languages || []]] as [string, string[]][]) {
       if (!items.length) continue;
