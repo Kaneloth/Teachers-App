@@ -135,25 +135,17 @@ function StepStepper({ steps, current, onSelect }: { steps: string[]; current: n
 function CVUploadZone({ onDataExtracted, cvType }: { onDataExtracted: (data: CVData) => void; cvType: CVType }) {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [freeText, setFreeText] = useState('');
-  const [activeTab, setActiveTab] = useState<'upload' | 'freetext'>('upload');
-
-  /** Merge AI-parsed data into a fresh default — never overwrite personal info */
-  const mergeAndEmit = (parsed: Partial<CVData>, newData: CVData) => {
-    if (parsed.education?.length)       newData.education       = parsed.education;
-    if (parsed.experience?.length)      newData.experience      = parsed.experience;
-    if (parsed.skills)                  newData.skills          = { ...newData.skills, ...parsed.skills };
-    if (parsed.references?.length)      newData.references      = parsed.references;
-    if (parsed.custom_sections?.length) newData.custom_sections = parsed.custom_sections;
-    // Let the AI-generated bio populate the summary field
-    if (parsed.personal?.bio)           newData.personal        = { ...newData.personal, bio: parsed.personal.bio };
-    onDataExtracted(newData);
-  };
 
   const processFile = async (file: File) => {
     const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    if (!allowedTypes.includes(file.type)) { toast.error('Please upload a PDF or DOCX file'); return; }
-    if (file.size > 10 * 1024 * 1024)      { toast.error('File too large (max 10MB)');         return; }
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please upload a PDF or DOCX file');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File too large (max 10MB)');
+      return;
+    }
 
     setUploading(true);
     const formData = new FormData();
@@ -161,32 +153,31 @@ function CVUploadZone({ onDataExtracted, cvType }: { onDataExtracted: (data: CVD
     formData.append('cvType', cvType);
 
     try {
-      const res    = await fetch('/.netlify/functions/enhance-cv', { method: 'POST', body: formData });
-      const result = await res.json();
-      if (!res.ok || !result.success) throw new Error(result.error || 'Failed to process CV');
-      mergeAndEmit(result.data, defaultData(cvType));
-      toast.success('CV imported and restructured by AI!');
-    } catch (err: any) {
-      toast.error(err.message || 'AI processing failed. Please try again.');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const processFreeText = async () => {
-    if (!freeText.trim()) { toast.error('Please type something about yourself first.'); return; }
-    setUploading(true);
-    try {
-      const res    = await fetch('/.netlify/functions/enhance-cv', {
+      const res = await fetch('/.netlify/functions/enhance-cv', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'process_freetext', text: freeText, cvType }),
+        body: formData,
       });
       const result = await res.json();
-      if (!res.ok || !result.success) throw new Error(result.error || 'AI processing failed');
-      mergeAndEmit(result.data, defaultData(cvType));
-      toast.success('AI has structured your information into CV sections!');
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'Failed to process CV');
+      }
+
+      const parsed = result.data;
+      const newData = defaultData(cvType);
+
+      // ✅ IMPORTANT: Personal info is NOT overwritten – we skip it entirely.
+      // Only copy education, experience, skills, references, custom_sections.
+      if (parsed.education) newData.education = parsed.education;
+      if (parsed.experience) newData.experience = parsed.experience;
+      if (parsed.skills) newData.skills = { ...newData.skills, ...parsed.skills };
+      if (parsed.references) newData.references = parsed.references;
+      if (parsed.custom_sections) newData.custom_sections = parsed.custom_sections;
+      // Template remains default
+
+      onDataExtracted(newData);
+      toast.success('CV imported! Education, experience, skills & references added.');
     } catch (err: any) {
+      console.error(err);
       toast.error(err.message || 'AI processing failed. Please try again.');
     } finally {
       setUploading(false);
@@ -194,7 +185,8 @@ function CVUploadZone({ onDataExtracted, cvType }: { onDataExtracted: (data: CVD
   };
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault(); setDragActive(false);
+    e.preventDefault();
+    setDragActive(false);
     const file = e.dataTransfer.files?.[0];
     if (file) processFile(file);
   };
@@ -206,94 +198,44 @@ function CVUploadZone({ onDataExtracted, cvType }: { onDataExtracted: (data: CVD
   };
 
   return (
-    <div className="px-4 pb-4">
-      <p className="text-xs text-muted-foreground mb-3">
-        Speed up your CV — import an existing CV or describe yourself and our AI will fill in the sections for you.
-      </p>
-
-      {/* Tab switcher */}
-      <div className="flex gap-1 bg-muted p-1 rounded-xl mb-3">
-        <button
-          onClick={() => setActiveTab('upload')}
-          className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-lg transition-all ${activeTab === 'upload' ? 'bg-card shadow text-foreground' : 'text-muted-foreground'}`}
-        >
-          <Upload className="w-3.5 h-3.5" /> Upload CV
-        </button>
-        <button
-          onClick={() => setActiveTab('freetext')}
-          className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-lg transition-all ${activeTab === 'freetext' ? 'bg-card shadow text-foreground' : 'text-muted-foreground'}`}
-        >
-          <Loader2 className="w-3.5 h-3.5" /> Tell AI About You
-        </button>
-      </div>
-
-      {/* Upload tab */}
-      {activeTab === 'upload' && (
-        <div
-          className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${
-            dragActive ? 'border-primary bg-primary/5' : 'border-border bg-card'
-          }`}
-          onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-          onDragLeave={() => setDragActive(false)}
-          onDrop={handleDrop}
-          onClick={() => document.getElementById('cv-upload-input')?.click()}
-        >
-          <input id="cv-upload-input" type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={handleFileInput} disabled={uploading} />
-          {uploading ? (
-            <div className="flex flex-col items-center gap-2">
-              <Loader2 className="w-7 h-7 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">AI is restructuring your CV…</p>
-              <p className="text-xs text-muted-foreground">Identifying sections, skills & experience</p>
-            </div>
-          ) : (
-            <>
-              <Upload className="w-7 h-7 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm font-medium text-foreground">Drop your CV here or tap to browse</p>
-              <p className="text-xs text-muted-foreground mt-1">PDF or DOCX · AI will intelligently restructure all sections</p>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Free-text tab */}
-      {activeTab === 'freetext' && (
-        <div className="space-y-3">
-          <div className="bg-card rounded-2xl border border-border p-4 space-y-2">
-            <p className="text-sm font-medium text-foreground">Tell us about yourself</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Write anything — your job history, qualifications, skills, achievements.
-              Even unstructured notes work. Our AI will extract and organise everything into the right CV sections.
-            </p>
-            <textarea
-              value={freeText}
-              onChange={e => setFreeText(e.target.value)}
-              rows={7}
-              placeholder={cvType === 'educator'
-                ? 'e.g. I have been teaching Maths and Science at Soweto High School since 2015. Before that I worked at Pretoria Primary for 4 years teaching Grade 4-6. I have a B.Ed from UNISA completed in 2011. I also do extramural sports coaching and was nominated for a teaching award in 2019...'
-                : 'e.g. I have 8 years experience in accounting, mainly at KPMG where I worked as a senior auditor from 2016 to 2022. I have a BCom degree from UCT. I am good at Excel, SAP and team leadership...'}
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-              disabled={uploading}
-            />
+    <div className="px-4 pb-6">
+      <div
+        className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${
+          dragActive ? 'border-primary bg-primary/5' : 'border-border bg-card'
+        }`}
+        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+        onDragLeave={() => setDragActive(false)}
+        onDrop={handleDrop}
+        onClick={() => document.getElementById('cv-upload-input')?.click()}
+      >
+        <input
+          id="cv-upload-input"
+          type="file"
+          accept=".pdf,.doc,.docx"
+          className="hidden"
+          onChange={handleFileInput}
+          disabled={uploading}
+        />
+        {uploading ? (
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">AI is reading your CV…</p>
           </div>
-          <button
-            onClick={processFreeText}
-            disabled={uploading || !freeText.trim()}
-            className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl py-3 text-sm font-semibold transition-all disabled:opacity-50 hover:bg-primary/90"
-          >
-            {uploading
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> AI is structuring your info…</>
-              : <><Upload className="w-4 h-4" /> Structure with AI</>
-            }
-          </button>
-        </div>
-      )}
+        ) : (
+          <>
+            <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+            <p className="text-sm font-medium text-foreground">Upload an existing CV</p>
+            <p className="text-xs text-muted-foreground mt-1">PDF or DOCX — our AI will extract and auto‑fill the form (personal info stays as is)</p>
+          </>
+        )}
+      </div>
     </div>
   );
 }
 
 /* ── Main Component ─────────────────────────────────────────── */
 export default function CVBuilderPage() {
-  const { user, updateUserMeta } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [initialState] = useState(() => {
@@ -311,7 +253,7 @@ export default function CVBuilderPage() {
     return {
       lastMeta,
       draft,
-      showBuilder: false,   // always show landing page first
+      showBuilder: draft ? true : !lastMeta.last_cv_data,
     };
   });
 
@@ -420,28 +362,18 @@ export default function CVBuilderPage() {
     try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: saved.cvType ?? 'educator', data: saved, step: 0, savedAt })); } catch {}
   };
 
-  const handleCVGenerated = async (pdfUrl: string) => {
+  const handleCVGenerated = (pdfUrl: string) => {
     const now = new Date().toISOString();
     const newMeta = {
       ...freshMeta,
-      // Only update pdf URL if we got one — keep old URL if upload failed
-      last_cv_pdf_url: pdfUrl || (freshMeta.last_cv_pdf_url as string | undefined) || '',
-      last_cv_data: data,          // always save the latest CV data for Edit & Re-generate
+      last_cv_pdf_url: pdfUrl,
+      last_cv_data: data,
       last_cv_generated_at: now,
       cv_count: ((freshMeta.cv_count as number) ?? 0) + 1,
     };
     try { localStorage.setItem(LAST_CV_KEY, JSON.stringify(newMeta)); } catch {}
     try { localStorage.removeItem(DRAFT_KEY); } catch {}
     setFreshMeta(newMeta);
-    // Also persist to Supabase user metadata so it survives across devices/browsers
-    try {
-      await updateUserMeta({
-        last_cv_pdf_url: newMeta.last_cv_pdf_url,
-        last_cv_data:    data,
-        last_cv_generated_at: now,
-        cv_count:        newMeta.cv_count,
-      });
-    } catch (_) { /* metadata sync failure is non-critical */ }
     setDraftSavedAt(null);
     setCvType(null);
     setStep(0);
@@ -472,7 +404,7 @@ export default function CVBuilderPage() {
   };
 
   // Last CV banner view
-  if (!showBuilder) {
+  if (!showBuilder && lastCVData) {
     return (
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-2 px-4 pt-4 pb-5">
@@ -483,37 +415,11 @@ export default function CVBuilderPage() {
           <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
         </div>
         <div className="px-4">
-          {lastCVData ? (
-            <LastCVBanner
-              lastCV={{ pdf_url: lastCVPdfUrl, generated_at: lastCVGeneratedAt, cv_data: lastCVData }}
-              onBuildNew={() => { setShowBuilder(true); }}
-              onEdit={handleEdit}
-            />
-          ) : (
-            /* First-time user — no CV yet */
-            <div className="space-y-4 pt-2">
-              <div className="bg-card border border-border rounded-2xl px-5 py-6 text-center space-y-3">
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
-                  <FileText className="w-7 h-7 text-primary" />
-                </div>
-                <div>
-                  <p className="font-bold text-base text-foreground">Build your CV</p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Create a professional CV in minutes. Our AI will help you write, structure, and format everything.
-                  </p>
-                </div>
-                <Button
-                  onClick={() => setShowBuilder(true)}
-                  className="w-full rounded-xl h-11 font-semibold gap-2"
-                >
-                  <Plus className="w-4 h-4" /> Start Building My CV
-                </Button>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground">Already have a CV? Upload it on the next screen and AI will auto-fill everything.</p>
-              </div>
-            </div>
-          )}
+          <LastCVBanner
+            lastCV={{ pdf_url: lastCVPdfUrl, generated_at: lastCVGeneratedAt, cv_data: lastCVData }}
+            onBuildNew={() => { setShowBuilder(true); }}
+            onEdit={handleEdit}
+          />
         </div>
       </div>
     );
@@ -598,7 +504,7 @@ export default function CVBuilderPage() {
               {step === 4 && <CVStepReferences cvType={cvType} data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
               {step === 5 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} />}
               {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} isFree={isFree} />}
-              {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} isFree={isFree} />}
+              {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} isFree={isFree} cvType={cvType} />}
             </motion.div>
           </AnimatePresence>
         </div>

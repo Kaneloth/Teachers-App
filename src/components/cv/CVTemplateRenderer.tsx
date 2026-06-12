@@ -27,7 +27,7 @@ interface CVData {
   template: string;
 }
 
-interface Props { data: CVData; forExport?: boolean; watermark?: boolean }
+interface Props { data: CVData; forExport?: boolean; watermark?: boolean; cvType?: 'educator' | 'general' }
 
 // Unicode emojis – render perfectly in html2canvas
 const ICONS = {
@@ -57,7 +57,7 @@ const ICONS = {
  */
 const A4_PAGE_H_PX = 1123;
 
-export default function CVTemplateRenderer({ data, forExport = false, watermark = false }: Props) {
+export default function CVTemplateRenderer({ data, forExport = false, watermark = false, cvType }: Props) {
   const { template } = data;
   const TEMPLATE_FONTS: Record<string, string> = {
     'classic': "'Inter', Arial, Helvetica, sans-serif",
@@ -86,8 +86,13 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
 
   const validEdu = (data.education || []).filter(e => e.institution);
   const validExp = (data.experience || []).filter(e => e.school);
+  // For general users, 'subjects' holds Key Skills — don't label them as educator subjects
+  const isEducatorCV = cvType === 'educator' || cvType === undefined;
+  const skillsLabel  = isEducatorCV ? 'Subjects Taught' : 'Key Skills';
+  const subjectsLabel = isEducatorCV ? 'Subjects' : 'Key Skills';
 
-  const T = { data, wrapperStyle, validEdu, validExp, watermark };
+  const expLabel = isEducatorCV ? 'Teaching Experience' : 'Work Experience';
+  const T = { data, wrapperStyle, validEdu, validExp, watermark, skillsLabel, subjectsLabel, expLabel };
   const tmpl =
     template === 'modern'       ? <ModernTemplate       {...T} /> :
     template === 'professional' ? <ProfessionalTemplate {...T} /> :
@@ -336,7 +341,7 @@ function BulletList({ items }: { items: string[] }) {
 }
 
 /* ── Classic Template ────────────────────────────────────────────────────── */
-function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   return (
     <div style={{ ...wrapperStyle }}>
@@ -373,7 +378,7 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: 
               </div>
             ))}
           </Section>}
-          {validExp.length > 0 && <Section title="Teaching Experience" color="#1e2a3a" icon={ICONS.briefcase}>
+          {validExp.length > 0 && <Section title={expLabel} color="#1e2a3a" icon={ICONS.briefcase}>
             {validExp.map((e: any, i: number) => (
               <div key={i} style={{ marginBottom: '16px', borderLeft: '3px solid #1e2a3a', paddingLeft: '12px' }}>
                 <div style={{ fontWeight: '600', color: '#111827' }}>{e.role}</div>
@@ -399,7 +404,7 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: 
 }
 
 /* ── Modern Template ────────────────────────────────────────────────────── */
-function ModernTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function ModernTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   return (
     <div style={{ ...wrapperStyle }}>
@@ -427,12 +432,12 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: a
               {personal.address && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mapPin} {personal.address}</div>}
               {personal.id_number && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.user} ID: {personal.id_number}</div>}
             </SidebarSection>
-            {skills?.subjects?.length && <SidebarSection title="Subjects"><BulletList items={skills.subjects} /></SidebarSection>}
+            {skills?.subjects?.length && <SidebarSection title={subjectsLabel}><BulletList items={skills.subjects} /></SidebarSection>}
             {skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
           </div>
           <div style={{ flex: 1, padding: '28px 24px' }}>
             {personal.bio && <Section title="About Me" color="#0d9488"><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
-            {validExp.length > 0 && <Section title="Teaching Experience" color="#0d9488" icon={ICONS.briefcase}>
+            {validExp.length > 0 && <Section title={expLabel} color="#0d9488" icon={ICONS.briefcase}>
               {validExp.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '16px', borderLeft: '2px solid #0d9488', paddingLeft: '12px' }}>
                   <div style={{ fontWeight: '600', color: '#111827' }}>{e.role}</div>
@@ -463,7 +468,7 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: a
 }
 
 /* ── Professional Template ───────────────────────────────────────────────── */
-function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   return (
     <div style={{ ...wrapperStyle }}>
@@ -494,7 +499,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp, watermar
           {personal.bio && <Section title="Professional Profile" color="#1e4d2b" borderColor="#2d7a47"><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 32px' }}>
             <div>
-              {validExp.length > 0 && <Section title="Teaching Experience" color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.briefcase}>
+              {validExp.length > 0 && <Section title={expLabel} color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.briefcase}>
                 {validExp.map((e: any, i: number) => (
                   <div key={i} style={{ marginBottom: '16px' }}>
                     <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.role}</div>
@@ -515,7 +520,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp, watermar
                   </div>
                 ))}
               </Section>}
-              {skills?.subjects?.length && <Section title="Subjects Taught" color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.bookOpen}>
+              {skills?.subjects?.length && <Section title={skillsLabel} color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.bookOpen}>
                 <BulletList items={skills.subjects} />
               </Section>}
               {skills?.soft_skills?.length && <Section title="Skills" color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.award}>
@@ -536,7 +541,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp, watermar
 }
 
 /* ── Minimal Template ────────────────────────────────────────────────────── */
-function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   return (
     <div style={{ ...wrapperStyle }}>
@@ -588,7 +593,7 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: 
             ))}
           </MinimalSection>}
           {(skills?.subjects?.length || skills?.soft_skills?.length || skills?.languages?.length) && <MinimalSection title="Skills & Languages">
-            {skills.subjects?.length && <div><strong>Subjects: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.subjects.join(' · ')}</span></div>}
+            {skills.subjects?.length && <div><strong>{subjectsLabel}: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.subjects.join(' · ')}</span></div>}
             {skills.soft_skills?.length && <div><strong>Skills: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.soft_skills.join(' · ')}</span></div>}
             {skills.languages?.length && <div><strong>Languages: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.languages.join(' · ')}</span></div>}
           </MinimalSection>}
@@ -602,7 +607,7 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: 
 }
 
 /* ── Sidebar Template ────────────────────────────────────────────────────── */
-function SidebarTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function SidebarTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   const sideColor = '#3b5998';
   return (
@@ -630,7 +635,7 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: 
               {personal.address && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mapPin} {personal.address}</div>}
               {personal.id_number && <div>{ICONS.user} ID: {personal.id_number}</div>}
             </SidebarSection>
-            {skills?.subjects?.length && <SidebarSection title="Subjects"><BulletList items={skills.subjects} /></SidebarSection>}
+            {skills?.subjects?.length && <SidebarSection title={subjectsLabel}><BulletList items={skills.subjects} /></SidebarSection>}
             {skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
             {skills?.soft_skills?.length && <SidebarSection title="Skills"><BulletList items={skills.soft_skills} /></SidebarSection>}
           </div>
@@ -665,7 +670,7 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: 
 }
 
 /* ── Bold Template ───────────────────────────────────────────────────────── */
-function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   const accent = '#c2185b';
   return (
@@ -720,7 +725,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any
                 </div>
               ))}
             </Section>}
-            {skills?.subjects?.length && <Section title="Subjects" color={accent} icon={ICONS.bookOpen}>
+            {skills?.subjects?.length && <Section title={subjectsLabel} color={accent} icon={ICONS.bookOpen}>
               <BulletList items={skills.subjects} />
             </Section>}
             {skills?.soft_skills?.length && <Section title="Skills" color={accent} icon={ICONS.award}>
@@ -739,7 +744,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any
 }
 
 /* ── Executive Template ──────────────────────────────────────────────────── */
-function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   const accent = '#6b1a1a';
   const light = '#8b2424';
@@ -775,7 +780,7 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, watermark }
           {personal.bio && <Section title="Executive Profile" color={accent} titleStyle={{ fontStyle: "italic", letterSpacing: "1px", textTransform: "uppercase" }}><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 36px' }}>
             <div>
-              {validExp.length > 0 && <Section title="Teaching Experience" color={accent} icon={ICONS.briefcase} titleStyle={{ fontStyle: "italic", letterSpacing: "1px" }}>
+              {validExp.length > 0 && <Section title={expLabel} color={accent} icon={ICONS.briefcase} titleStyle={{ fontStyle: "italic", letterSpacing: "1px" }}>
                 {validExp.map((e: any, i: number) => (
                   <div key={i} style={{ marginBottom: '16px' }}>
                     <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.role}</div>
@@ -796,7 +801,7 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, watermark }
                   </div>
                 ))}
               </Section>}
-              {skills?.subjects?.length && <Section title="Subjects" color={accent} icon={ICONS.bookOpen}>
+              {skills?.subjects?.length && <Section title={subjectsLabel} color={accent} icon={ICONS.bookOpen}>
                 <BulletList items={skills.subjects} />
               </Section>}
               {skills?.soft_skills?.length && <Section title="Skills" color={accent} icon={ICONS.award}>
@@ -816,7 +821,7 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, watermark }
 }
 
 /* ── Corporate Template ──────────────────────────────────────────────────── */
-function CorporateTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function CorporateTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   const navy = '#1a2a4a';
   return (
@@ -842,7 +847,7 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp, watermark }
               {personal.address && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mapPin} {personal.address}</div>}
               {personal.id_number && <div>{ICONS.user} ID: {personal.id_number}</div>}
             </SidebarSection>
-            {skills?.subjects?.length && <SidebarSection title="Subjects"><BulletList items={skills.subjects} /></SidebarSection>}
+            {skills?.subjects?.length && <SidebarSection title={subjectsLabel}><BulletList items={skills.subjects} /></SidebarSection>}
             {skills?.soft_skills?.length && <SidebarSection title="Skills"><BulletList items={skills.soft_skills} /></SidebarSection>}
             {skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
           </div>
@@ -885,7 +890,7 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp, watermark }
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Stylish Template (Image 1 — pink/coral, photo left, skills right) ───── */
-function StylishTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function StylishTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   const accent = '#e05c6b';
   return (
@@ -973,7 +978,7 @@ function StylishTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: 
 }
 
 /* ── Boxed Template (Image 2/8 — boxed name, grey left sidebar) ──────────── */
-function BoxedTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function BoxedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   return (
     <div style={{ ...wrapperStyle }}>
@@ -1052,7 +1057,7 @@ function BoxedTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: an
 }
 
 /* ── Traditional Template (Image 5 — classical, left date col, serif feel) ── */
-function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   return (
     <div style={{ ...wrapperStyle }}>
@@ -1128,7 +1133,7 @@ function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark
 }
 
 /* ── Navy Template (Image 6 — dark navy right sidebar) ───────────────────── */
-function NavyTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function NavyTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   const navy = '#1a2a4a';
   return (
@@ -1209,7 +1214,7 @@ function NavyTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any
 }
 
 /* ── Timeline Template (Image 7 — centered header, timeline dots) ─────────── */
-function TimelineTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function TimelineTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   return (
     <div style={{ ...wrapperStyle }}>
@@ -1306,7 +1311,7 @@ function TimelineTemplate({ data, wrapperStyle, validEdu, validExp, watermark }:
 }
 
 /* ── Shaded Template (Image 9 — shaded section headers, dot leader lines) ─── */
-function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   return (
     <div style={{ ...wrapperStyle }}>
@@ -1387,7 +1392,7 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: a
 }
 
 /* ── Teal Template (Image 10 — teal header with photo, left sidebar) ─────── */
-function TealTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function TealTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   const teal = '#06b6d4';
   return (
@@ -1470,7 +1475,7 @@ function TealTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any
 }
 
 /* ── Crimson Template (Image 13 — bold red banner header) ────────────────── */
-function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   const crimson = '#c0392b';
   return (
@@ -1549,7 +1554,7 @@ function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: 
 }
 
 /* ── Sage Template (Image 16 — green header, clean minimal) ──────────────── */
-function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark }: any) {
+function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   const sage = '#7fa37f';
   const sageBg = '#e8f0e8';
