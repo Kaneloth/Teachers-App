@@ -606,36 +606,50 @@ export async function exportElementAsPDF(
   }
 
   // ── Right skills column for two-col layout (stylish, teal) ──────────────
-  if (pal.layout === 'two-col') {
-    const rcX = PW - MR - 50;
-    const rcW = 50;
-    let rcy   = MT + headerH + 2;
-    pdf.setFont(F, 'bold'); pdf.setFontSize(8); text(pdf, aR, aG, aB);
-    pdf.text('SKILLS', rcX, rcy); rcy += 4;
-    hLine(pdf, rcX, rcy, rcW, aR, aG, aB, 0.4); rcy += 4;
-    const allSkills = [...(sk.subjects || []), ...(sk.soft_skills || [])];
-    pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 55, 65, 81);
-    allSkills.slice(0, 6).forEach(s => {
-      const sl = pdf.splitTextToSize(s, rcW) as string[];
-      sl.forEach(l => { if (rcy < BOTTOM - 20) { pdf.text(l, rcX, rcy); rcy += 3.8; } });
-      if (rcy < BOTTOM - 20) {
-        for (let d = 0; d < 5; d++) {
-          fill(pdf, d < 3 ? aR : 229, d < 3 ? aG : 231, d < 3 ? aB : 235);
-          pdf.circle(rcX + d * 5, rcy - 1.5, 1.2, 'F');
-        }
-        rcy += 5;
+ // ── Right skills column for two-col layout (stylish, teal) ──────────────
+if (pal.layout === 'two-col') {
+  const rcX = PW - MR - 50;
+  const rcW = 50;
+  // Start right column at the top of the content area
+  let rcy = MT + headerH + 2;
+  const maxRightColY = BOTTOM - 20; // leave some bottom margin
+
+  pdf.setFont(F, 'bold'); pdf.setFontSize(8); text(pdf, aR, aG, aB);
+  pdf.text('SKILLS', rcX, rcy); rcy += 4;
+  hLine(pdf, rcX, rcy, rcW, aR, aG, aB, 0.4); rcy += 4;
+
+  const allSkills = [...(sk.subjects || []), ...(sk.soft_skills || [])];
+  pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 55, 65, 81);
+  // Limit to 5 skills to fit on one page
+  const skillsToShow = allSkills.slice(0, 5);
+  for (const s of skillsToShow) {
+    if (rcy > maxRightColY) break;
+    const sl = pdf.splitTextToSize(s, rcW) as string[];
+    sl.forEach(l => { if (rcy < maxRightColY) { pdf.text(l, rcX, rcy); rcy += 3.8; } });
+    // Dot rating (3 out of 5)
+    if (rcy < maxRightColY) {
+      for (let d = 0; d < 5; d++) {
+        fill(pdf, d < 3 ? aR : 229, d < 3 ? aG : 231, d < 3 ? aB : 235);
+        pdf.circle(rcX + d * 5, rcy - 1.5, 1.2, 'F');
       }
-    });
-    if (sk.languages?.length) {
-      rcy += 4;
-      pdf.setFont(F, 'bold'); pdf.setFontSize(8); text(pdf, aR, aG, aB);
-      pdf.text('LANGUAGES', rcX, rcy); rcy += 4;
-      hLine(pdf, rcX, rcy, rcW, aR, aG, aB, 0.4); rcy += 4;
-      pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 55, 65, 81);
-      sk.languages.forEach((l: string) => { if (rcy < BOTTOM) { pdf.text(l, rcX, rcy); rcy += 4; } });
+      rcy += 5;
     }
-    reset(pdf);
   }
+
+  if (sk.languages?.length && rcy < maxRightColY) {
+    rcy += 4;
+    pdf.setFont(F, 'bold'); pdf.setFontSize(8); text(pdf, aR, aG, aB);
+    pdf.text('LANGUAGES', rcX, rcy); rcy += 4;
+    hLine(pdf, rcX, rcy, rcW, aR, aG, aB, 0.4); rcy += 4;
+    pdf.setFont(F, 'normal'); pdf.setFontSize(7.5); text(pdf, 55, 65, 81);
+    for (const l of sk.languages) {
+      if (rcy > maxRightColY) break;
+      pdf.text(l, rcX, rcy);
+      rcy += 4;
+    }
+  }
+  reset(pdf);
+}
 
   // ── References page ────────────────────────────────────────────────────
   if (refs.length) {
