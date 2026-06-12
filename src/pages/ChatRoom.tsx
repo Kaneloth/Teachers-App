@@ -67,7 +67,9 @@ export default function ChatRoom() {
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const broadcastChannelRef = useRef<any>(null);
+  const broadcastChannelRef    = useRef<any>(null); // chat-specific (for partner's ChatRoom)
+  const userNotifyChannelRef   = useRef<any>(null); // user-specific (for our own ChatsPage)
+  const partnerNotifyChannelRef = useRef<any>(null); // partner-specific (for partner's ChatsPage)
 
   const checkBlockStatus = async () => {
     if (!user || !partnerId) {
@@ -169,10 +171,22 @@ export default function ChatRoom() {
     } else {
       if (user) removeHidden(user.id, msg.id);
       setMessages(prev => prev.filter(m => m.id !== msg.id));
+      // Notify the other user's ChatRoom (so their message list updates)
       broadcastChannelRef.current?.send({
         type: 'broadcast',
         event: 'message_deleted',
         payload: { id: msg.id },
+      });
+      // Notify both users' ChatsPage (so thread list last-message refreshes)
+      userNotifyChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'thread_changed',
+        payload: { deletedId: msg.id },
+      });
+      partnerNotifyChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'thread_changed',
+        payload: { deletedId: msg.id },
       });
       toast.success('Message deleted for everyone');
     }
@@ -181,17 +195,31 @@ export default function ChatRoom() {
 
   useEffect(() => {
     if (!user || !partnerId) return;
-    const channelName = `chat-broadcast-${[user.id, partnerId].sort().join('_')}`;
-    const channel = supabase
-      .channel(channelName)
+
+    // Chat-specific channel: receive deletions from partner's ChatRoom
+    const chatChannelName = `chat-broadcast-${[user.id, partnerId].sort().join('_')}`;
+    const chatChannel = supabase
+      .channel(chatChannelName)
       .on('broadcast', { event: 'message_deleted' }, payload => {
         if (payload.payload?.id) {
           setMessages(prev => prev.filter(m => m.id !== payload.payload.id));
         }
       })
       .subscribe();
-    broadcastChannelRef.current = channel;
-    return () => supabase.removeChannel(channel);
+    broadcastChannelRef.current = chatChannel;
+
+    // User-specific channels: notify ChatsPage of changes for both users
+    const myNotifyChannel = supabase.channel(`user-events-${user.id}`).subscribe();
+    userNotifyChannelRef.current = myNotifyChannel;
+
+    const partnerNotifyChannel = supabase.channel(`user-events-${partnerId}`).subscribe();
+    partnerNotifyChannelRef.current = partnerNotifyChannel;
+
+    return () => {
+      supabase.removeChannel(chatChannel);
+      supabase.removeChannel(myNotifyChannel);
+      supabase.removeChannel(partnerNotifyChannel);
+    };
   }, [user, partnerId]);
 
   useEffect(() => {
@@ -306,6 +334,12 @@ export default function ChatRoom() {
         toast.error("Message not sent – you may have blocked this user or been blocked.");
       } else if (data) {
         setMessages(prev => prev.map(m => (m.id === tempId ? (data as Message) : m)));
+        // Notify partner's ChatsPage so their thread list updates with new last message
+        partnerNotifyChannelRef.current?.send({
+          type: 'broadcast',
+          event: 'thread_changed',
+          payload: { newMessageId: data.id },
+        });
       }
     } catch (err) {
       console.error('Unexpected send error:', err);

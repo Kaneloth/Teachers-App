@@ -172,20 +172,21 @@ export default function ChatsPage() {
 
   useEffect(() => { fetchThreads(); }, [fetchThreads]);
 
-  // Real-time listener: refresh threads on any message INSERT or DELETE
-  // Uses postgres_changes so it works for ALL partners regardless of channel name.
+  // Real-time listener: refresh threads on new messages or deletions.
+  // Listens on the user-specific channel that ChatRoom broadcasts to.
+  // This guarantees last-message stays accurate after sends and deletes.
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel(`chatspage-realtime-${user.id}`)
+      .channel(`user-events-${user.id}`)
+      // thread_changed: fired by ChatRoom on send or delete-for-everyone
+      .on('broadcast', { event: 'thread_changed' }, async () => {
+        await fetchThreads();
+      })
+      // Also catch incoming new messages via postgres_changes (works without Replica Identity)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${user.id}` },
-        async () => { await fetchThreads(); }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'messages' },
         async () => { await fetchThreads(); }
       )
       .subscribe();
