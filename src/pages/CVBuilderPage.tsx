@@ -131,22 +131,22 @@ function StepStepper({ steps, current, onSelect }: { steps: string[]; current: n
   );
 }
 
-/* ── Upload CV Component (AI never touches personal info) ── */
+/* ── Upload CV Component ── */
 function CVUploadZone({ onDataExtracted, cvType }: { onDataExtracted: (data: CVData) => void; cvType: CVType }) {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [freeText, setFreeText] = useState('');
   const [activeTab, setActiveTab] = useState<'upload' | 'freetext'>('upload');
 
-  /** Merge AI-parsed data into a fresh default — never overwrite personal info */
+  /** Merge AI-parsed data — never overwrite personal info */
   const mergeAndEmit = (parsed: Partial<CVData>, newData: CVData) => {
-    if (parsed.education?.length)       newData.education       = parsed.education;
-    if (parsed.experience?.length)      newData.experience      = parsed.experience;
-    if (parsed.skills)                  newData.skills          = { ...newData.skills, ...parsed.skills };
-    if (parsed.references?.length)      newData.references      = parsed.references;
+    if (parsed.education?.length)    newData.education     = parsed.education;
+    if (parsed.experience?.length)   newData.experience    = parsed.experience;
+    if (parsed.skills)               newData.skills        = { ...newData.skills, ...parsed.skills };
+    if (parsed.references?.length)   newData.references    = parsed.references;
     if (parsed.custom_sections?.length) newData.custom_sections = parsed.custom_sections;
-    // Let the AI-generated bio populate the summary field
-    if (parsed.personal?.bio)           newData.personal        = { ...newData.personal, bio: parsed.personal.bio };
+    // bio goes into personal.bio so the AI summary populates the summary field
+    if (parsed.personal?.bio)        newData.personal      = { ...newData.personal, bio: parsed.personal.bio };
     onDataExtracted(newData);
   };
 
@@ -261,7 +261,7 @@ function CVUploadZone({ onDataExtracted, cvType }: { onDataExtracted: (data: CVD
           <div className="bg-card rounded-2xl border border-border p-4 space-y-2">
             <p className="text-sm font-medium text-foreground">Tell us about yourself</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Write anything — your job history, qualifications, skills, achievements.
+              Write anything — your job history, qualifications, skills, achievements. 
               Even unstructured notes work. Our AI will extract and organise everything into the right CV sections.
             </p>
             <textarea
@@ -269,8 +269,8 @@ function CVUploadZone({ onDataExtracted, cvType }: { onDataExtracted: (data: CVD
               onChange={e => setFreeText(e.target.value)}
               rows={7}
               placeholder={cvType === 'educator'
-                ? 'e.g. I have been teaching Maths and Science at Soweto High School since 2015. Before that I worked at Pretoria Primary for 4 years teaching Grade 4-6. I have a B.Ed from UNISA completed in 2011. I also do extramural sports coaching and was nominated for a teaching award in 2019...'
-                : 'e.g. I have 8 years experience in accounting, mainly at KPMG where I worked as a senior auditor from 2016 to 2022. I have a BCom degree from UCT. I am good at Excel, SAP and team leadership...'}
+                ? "e.g. I have been teaching Maths and Science at Soweto High School since 2015. Before that I worked at Pretoria Primary for 4 years teaching Grade 4-6. I have a B.Ed from UNISA completed in 2011. I also do extramural sports coaching and was nominated for a teaching award in 2019..."
+                : "e.g. I have 8 years experience in accounting, mainly at KPMG where I worked as a senior auditor from 2016 to 2022. I have a BCom degree from UCT. I am good at Excel, SAP and team leadership..."}
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
               disabled={uploading}
             />
@@ -280,10 +280,11 @@ function CVUploadZone({ onDataExtracted, cvType }: { onDataExtracted: (data: CVD
             disabled={uploading || !freeText.trim()}
             className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl py-3 text-sm font-semibold transition-all disabled:opacity-50 hover:bg-primary/90"
           >
-            {uploading
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> AI is structuring your info…</>
-              : <><Upload className="w-4 h-4" /> Structure with AI</>
-            }
+            {uploading ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> AI is structuring your info…</>
+            ) : (
+              <><Loader2 className="w-4 h-4" /> Structure with AI</>
+            )}
           </button>
         </div>
       )}
@@ -293,7 +294,7 @@ function CVUploadZone({ onDataExtracted, cvType }: { onDataExtracted: (data: CVD
 
 /* ── Main Component ─────────────────────────────────────────── */
 export default function CVBuilderPage() {
-  const { user, updateUserMeta } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [initialState] = useState(() => {
@@ -311,7 +312,7 @@ export default function CVBuilderPage() {
     return {
       lastMeta,
       draft,
-      showBuilder: false,   // always show landing page first
+      showBuilder: draft ? true : !lastMeta.last_cv_data,
     };
   });
 
@@ -420,28 +421,18 @@ export default function CVBuilderPage() {
     try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: saved.cvType ?? 'educator', data: saved, step: 0, savedAt })); } catch {}
   };
 
-  const handleCVGenerated = async (pdfUrl: string) => {
+  const handleCVGenerated = (pdfUrl: string) => {
     const now = new Date().toISOString();
     const newMeta = {
       ...freshMeta,
-      // Only update pdf URL if we got one — keep old URL if upload failed
-      last_cv_pdf_url: pdfUrl || (freshMeta.last_cv_pdf_url as string | undefined) || '',
-      last_cv_data: data,          // always save the latest CV data for Edit & Re-generate
+      last_cv_pdf_url: pdfUrl,
+      last_cv_data: data,
       last_cv_generated_at: now,
       cv_count: ((freshMeta.cv_count as number) ?? 0) + 1,
     };
     try { localStorage.setItem(LAST_CV_KEY, JSON.stringify(newMeta)); } catch {}
     try { localStorage.removeItem(DRAFT_KEY); } catch {}
     setFreshMeta(newMeta);
-    // Also persist to Supabase user metadata so it survives across devices/browsers
-    try {
-      await updateUserMeta({
-        last_cv_pdf_url: newMeta.last_cv_pdf_url,
-        last_cv_data:    data,
-        last_cv_generated_at: now,
-        cv_count:        newMeta.cv_count,
-      });
-    } catch (_) { /* metadata sync failure is non-critical */ }
     setDraftSavedAt(null);
     setCvType(null);
     setStep(0);
@@ -472,7 +463,7 @@ export default function CVBuilderPage() {
   };
 
   // Last CV banner view
-  if (!showBuilder) {
+  if (!showBuilder && lastCVData) {
     return (
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-2 px-4 pt-4 pb-5">
@@ -483,37 +474,11 @@ export default function CVBuilderPage() {
           <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
         </div>
         <div className="px-4">
-          {lastCVData ? (
-            <LastCVBanner
-              lastCV={{ pdf_url: lastCVPdfUrl, generated_at: lastCVGeneratedAt, cv_data: lastCVData }}
-              onBuildNew={() => { setShowBuilder(true); }}
-              onEdit={handleEdit}
-            />
-          ) : (
-            /* First-time user — no CV yet */
-            <div className="space-y-4 pt-2">
-              <div className="bg-card border border-border rounded-2xl px-5 py-6 text-center space-y-3">
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
-                  <FileText className="w-7 h-7 text-primary" />
-                </div>
-                <div>
-                  <p className="font-bold text-base text-foreground">Build your CV</p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Create a professional CV in minutes. Our AI will help you write, structure, and format everything.
-                  </p>
-                </div>
-                <Button
-                  onClick={() => setShowBuilder(true)}
-                  className="w-full rounded-xl h-11 font-semibold gap-2"
-                >
-                  <Plus className="w-4 h-4" /> Start Building My CV
-                </Button>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground">Already have a CV? Upload it on the next screen and AI will auto-fill everything.</p>
-              </div>
-            </div>
-          )}
+          <LastCVBanner
+            lastCV={{ pdf_url: lastCVPdfUrl, generated_at: lastCVGeneratedAt, cv_data: lastCVData }}
+            onBuildNew={() => { setShowBuilder(true); }}
+            onEdit={handleEdit}
+          />
         </div>
       </div>
     );
