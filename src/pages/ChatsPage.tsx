@@ -124,6 +124,15 @@ export default function ChatsPage() {
       const seenPartners = new Set<string>();
       const threadMap: Thread[] = [];
 
+      // Count unread per partner first (messages sent TO me that are unread)
+      const unreadCount = new Map<string, number>();
+      for (const msg of messages) {
+        if (msg.receiver_id === user.id && !msg.read) {
+          const pid = msg.sender_id;
+          unreadCount.set(pid, (unreadCount.get(pid) || 0) + 1);
+        }
+      }
+
       for (const msg of messages) {
         const partnerId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
         if (blockedByMe.has(partnerId) || blockedByThem.has(partnerId)) continue;
@@ -134,7 +143,7 @@ export default function ChatsPage() {
             partnerName: partnerId,
             lastMessage: msg.content,
             lastTime: msg.created_at,
-            unread: 0,
+            unread: unreadCount.get(partnerId) || 0,
             isMine: msg.sender_id === user.id,
           });
         }
@@ -163,14 +172,22 @@ export default function ChatsPage() {
 
   useEffect(() => { fetchThreads(); }, [fetchThreads]);
 
-  // Broadcast listener for message deletion (keeps threads fresh)
+  // Real-time listener: refresh threads on any message INSERT or DELETE
+  // Uses postgres_changes so it works for ALL partners regardless of channel name.
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel(`user-events-${user.id}`)
-      .on('broadcast', { event: 'message_deleted' }, async () => {
-        await fetchThreads();
-      })
+      .channel(`chatspage-realtime-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${user.id}` },
+        async () => { await fetchThreads(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'messages' },
+        async () => { await fetchThreads(); }
+      )
       .subscribe();
     userEventsChannelRef.current = channel;
     return () => { supabase.removeChannel(channel); };
@@ -249,7 +266,11 @@ export default function ChatsPage() {
                   onTouchEnd={cancelLongPress}
                   onClick={() => handleRowClick(t.partnerId)}
                   className={`flex items-center gap-3 bg-card rounded-2xl border px-4 py-3.5 cursor-pointer select-none transition-all hover:shadow-sm ${
-                    isSelected ? 'border-primary/40 bg-primary/5' : 'border-border'
+                    isSelected
+                      ? 'border-primary/40 bg-primary/5'
+                      : t.unread > 0
+                      ? 'border-primary/30 bg-primary/[0.02]'
+                      : 'border-border'
                   }`}
                 >
                   <div className="w-11 h-11 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
@@ -257,14 +278,25 @@ export default function ChatsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-0.5">
-                      <p className="font-semibold text-sm text-foreground truncate">{t.partnerName}</p>
-                      <span className="text-[11px] text-muted-foreground shrink-0">
-                        {formatThreadTime(t.lastTime)}
-                      </span>
+                      <p className={`text-sm truncate ${t.unread > 0 ? 'font-bold text-foreground' : 'font-semibold text-foreground'}`}>
+                        {t.partnerName}
+                      </p>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[11px] text-muted-foreground">
+                          {formatThreadTime(t.lastTime)}
+                        </span>
+                        {t.unread > 0 && (
+                          <span className="min-w-[18px] h-[18px] rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center px-1">
+                            {t.unread > 99 ? '99+' : t.unread}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1">
                       {t.isMine && <CheckCheck className="w-3.5 h-3.5 text-primary shrink-0" />}
-                      <p className="text-xs text-muted-foreground truncate">{t.lastMessage}</p>
+                      <p className={`text-xs truncate ${t.unread > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                        {t.lastMessage}
+                      </p>
                     </div>
                   </div>
                 </div>
