@@ -174,6 +174,69 @@ ${cvData?.personal?.bio ? `Existing summary (improve this): "${cvData.personal.b
 Return ONLY the summary paragraph. No labels, no JSON, no preamble. Just the 3-4 sentence professional summary.`;
 }
 
+
+function buildCoverLetterPrompt(jobDescription, cvData, meta) {
+  const name       = cvData?.personal?.full_name || meta?.name || '[Applicant Name]';
+  const position   = meta?.position || '[Position]';
+  const org        = meta?.org || '[Organisation]';
+  const category   = meta?.category || 'general';
+
+  // Build CV summary for context
+  const expList = (cvData?.experience || [])
+    .filter(e => e.role || e.school)
+    .map(e => `${e.role || ''} at ${e.school || ''} (${[e.from, e.to].filter(Boolean).join('–')})${e.description ? ': ' + e.description.split('\n').slice(0,2).join('; ') : ''}`)
+    .join('\n');
+  const eduList = (cvData?.education || [])
+    .filter(e => e.qualification)
+    .map(e => `${e.qualification} — ${e.institution} (${e.year})`)
+    .join('; ');
+  const skills = [
+    ...(cvData?.skills?.subjects || []),
+    ...(cvData?.skills?.soft_skills || []),
+  ].slice(0, 12).join(', ');
+  const bio = cvData?.personal?.bio || '';
+
+  const hasCv = expList || eduList || skills || bio;
+
+  return `You are an expert South African cover letter writer. Write a compelling, tailored cover letter for a job application.
+
+APPLICANT DETAILS:
+Name: ${name}
+${bio ? `Professional Summary: ${bio}` : ''}
+${expList ? `Work Experience:\n${expList}` : ''}
+${eduList ? `Education: ${eduList}` : ''}
+${skills ? `Key Skills: ${skills}` : ''}
+
+JOB DETAILS:
+Position applied for: ${position || 'the advertised position'}
+Organisation: ${org || 'the organisation'}
+Industry/Category: ${category}
+
+JOB DESCRIPTION PROVIDED BY APPLICANT:
+"""
+${jobDescription}
+"""
+
+INSTRUCTIONS:
+1. Write a professional cover letter tailored SPECIFICALLY to this job description
+2. Reference specific requirements, skills, or keywords from the job description
+3. Match the applicant's experience/skills to the job requirements — be specific
+4. ${hasCv ? 'Use the applicant's CV data above to personalise — mention their actual experience, qualifications, and skills' : 'Write a compelling letter based on the position and job description'}
+5. The letter must be appropriate for the South African job market
+6. Format:
+   - Date line at top: ${new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })}
+   - Salutation (use recipient name if provided, otherwise "Dear Hiring Manager")
+   - RE: line referencing the position
+   - 3-4 paragraphs: opening interest, relevant experience/skills matched to JD, value proposition, closing
+   - "Yours sincerely," closing
+   - Applicant name at the bottom
+7. Length: 3-4 paragraphs, professional and concise
+8. NEVER fabricate experience or qualifications not mentioned in the CV data
+9. If no CV data is provided, write a strong generic letter for the role based on the JD
+
+Return ONLY the letter text. No labels, no JSON, no preamble or postamble. Just the letter.`;
+}
+
 async function callGroq(prompt, jsonMode = true) {
   const body = {
     model: 'llama-3.3-70b-versatile',
@@ -225,6 +288,20 @@ export const handler = async (event) => {
         return {
           statusCode: 200,
           body: JSON.stringify({ success: true, data: JSON.parse(content) }),
+        };
+      }
+
+      // ── Mode 3: Generate AI cover letter tailored to job description ────
+      if (body.action === 'generate_cover_letter') {
+        const prompt = buildCoverLetterPrompt(
+          body.jobDescription || '',
+          body.cvData || null,
+          body.meta || {}
+        );
+        const letter = await callGroq(prompt, false);
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ success: true, letter: letter.trim() }),
         };
       }
 

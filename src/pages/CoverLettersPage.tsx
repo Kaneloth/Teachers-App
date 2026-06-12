@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, Loader2, RotateCcw, Lock, Check, Zap } from 'lucide-react';
+import { Download, Loader2, RotateCcw, Lock, Check, Zap, Sparkles, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -352,7 +352,10 @@ export default function CoverLettersPage() {
   const [recipient,  setRecipient] = useState('');
   const [body,       setBody]      = useState('');
   const [userName,   setUserName]  = useState('');
-  const [generating, setGenerating] = useState(false);
+  const [generating,    setGenerating]    = useState(false);
+  const [jobDesc,       setJobDesc]        = useState('');
+  const [aiGenerating,  setAiGenerating]   = useState(false);
+  const [lastCvData,    setLastCvData]     = useState<Record<string, unknown> | null>(null);
 
   const today = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -366,6 +369,9 @@ export default function CoverLettersPage() {
       .then(({ data }) => {
         setUserName(data?.full_name ?? (user.user_metadata?.full_name as string | undefined) ?? '');
       });
+    // Load last generated CV data for AI context
+    const savedMeta = user.user_metadata?.last_cv_data as Record<string, unknown> | undefined;
+    if (savedMeta) setLastCvData(savedMeta);
   }, [user]);
 
   const rebuildBody = useCallback(() => {
@@ -374,6 +380,40 @@ export default function CoverLettersPage() {
   }, [category, userName, position, org, today]);
 
   useEffect(() => { rebuildBody(); }, [rebuildBody]);
+
+  /* ── AI Generate ───────────────────────────────────────────── */
+  const generateWithAI = async () => {
+    if (!jobDesc.trim()) {
+      toast.error('Please paste the job description first.');
+      return;
+    }
+    setAiGenerating(true);
+    try {
+      const res = await fetch('/.netlify/functions/enhance-cv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'generate_cover_letter',
+          jobDescription: jobDesc,
+          cvData: lastCvData || null,
+          meta: {
+            name:     userName,
+            position: position,
+            org:      org,
+            category: category,
+          },
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || 'AI generation failed');
+      setBody(result.letter);
+      toast.success('Cover letter generated! Review and edit before downloading.');
+    } catch (err: any) {
+      toast.error(err.message || 'AI generation failed. Please try again.');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
 
   /* ── Download ───────────────────────────────────────────────── */
   const handleDownload = async () => {
@@ -505,6 +545,38 @@ export default function CoverLettersPage() {
               </Label>
               <Input value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="e.g. Mr Dlamini, Principal" className="rounded-xl" />
             </div>
+          </div>
+
+          {/* Job Description + AI generation */}
+          <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary shrink-0" />
+              <Label className="text-sm font-semibold">Job Description</Label>
+              <span className="text-xs text-muted-foreground">(optional — for AI tailoring)</span>
+            </div>
+            <Textarea
+              value={jobDesc}
+              onChange={e => setJobDesc(e.target.value)}
+              rows={5}
+              placeholder="Paste the job advertisement or description here… The AI will tailor your cover letter to match the specific requirements and keywords."
+              className="rounded-xl text-sm resize-none"
+            />
+            {lastCvData && (
+              <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/5 rounded-lg px-2.5 py-1.5">
+                <Check className="w-3 h-3 shrink-0" />
+                Your CV is on file — the AI will use your experience and skills to personalise the letter.
+              </div>
+            )}
+            <button
+              onClick={generateWithAI}
+              disabled={aiGenerating || !jobDesc.trim()}
+              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl py-2.5 text-sm font-semibold transition-all disabled:opacity-50 hover:bg-primary/90"
+            >
+              {aiGenerating
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating tailored letter…</>
+                : <><Sparkles className="w-4 h-4" /> Generate with AI</>
+              }
+            </button>
           </div>
 
           <div className="bg-card rounded-2xl border border-border p-4 space-y-2">
