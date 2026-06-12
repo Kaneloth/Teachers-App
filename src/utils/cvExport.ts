@@ -15,8 +15,8 @@ const MT       = 14;
 const FOOTER_H = 10;
 const BOTTOM   = PH - FOOTER_H - 4;
 const SIDEBAR_W = 34;
-const F        = 'helvetica';
-const LINE_H   = 5.2;
+const F_DEFAULT = 'helvetica'; // overridden per template via pal.font
+let LINE_H     = 5.2; // adjusted per template
 const SECTION_GAP  = 7;
 const HEADING_GAP  = 5;
 const ITEM_GAP     = 2.5;
@@ -64,25 +64,25 @@ interface Palette {
 function getPalette(t: string): Palette {
   switch (t) {
     // ── Original 8 templates ──────────────────────────────────────────────
-    case 'modern':       return { sidebar: true,  layout:'sidebar',   hbR:13,  hbG:148, hbB:136, htR:255,htG:255,htB:255, aR:13,  aG:148, aB:136, sbR:13,  sbG:148, sbB:136, accentDim:'#0f766e' };
-    case 'sidebar':      return { sidebar: true,  layout:'sidebar',   hbR:59,  hbG:89,  hbB:152, htR:255,htG:255,htB:255, aR:59,  aG:89,  aB:152, sbR:59,  sbG:89,  sbB:152, accentDim:'#2d4373' };
-    case 'corporate':    return { sidebar: true,  layout:'sidebar',   hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74,  accentDim:'#243a6b' };
-    case 'professional': return { sidebar: false, layout:'banner',    hbR:30,  hbG:77,  hbB:43,  htR:255,htG:255,htB:255, aR:30,  aG:77,  aB:43,  sbR:30,  sbG:77,  sbB:43,  accentDim:'#2d7a47' };
-    case 'minimal':      return { sidebar: false, layout:'minimal',   hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:17,  aG:24,  aB:39,  sbR:249, sbG:250, sbB:251, accentDim:'#374151' };
-    case 'bold':         return { sidebar: false, layout:'banner',    hbR:194, hbG:24,  hbB:91,  htR:255,htG:255,htB:255, aR:194, aG:24,  aB:91,  sbR:194, sbG:24,  sbB:91,  accentDim:'#ad1457' };
-    case 'executive':    return { sidebar: false, layout:'banner',    hbR:107, hbG:26,  hbB:26,  htR:255,htG:255,htB:255, aR:107, aG:26,  aB:26,  sbR:107, sbG:26,  sbB:26,  accentDim:'#8b2424' };
+    case 'modern':       return { sidebar: true,  layout:'sidebar',   hbR:13,  hbG:148, hbB:136, htR:255,htG:255,htB:255, aR:13,  aG:148, aB:136, sbR:13,  sbG:148, sbB:136, accentDim:'#0f766e', font:'helvetica', nameSize:16, bodySize:9.0, headingSize:9.0, tight:false }; 
+    case 'sidebar':      return { sidebar: true,  layout:'sidebar',   hbR:59,  hbG:89,  hbB:152, htR:255,htG:255,htB:255, aR:59,  aG:89,  aB:152, sbR:59,  sbG:89,  sbB:152, accentDim:'#2d4373', font:'helvetica', nameSize:16, bodySize:9.0, headingSize:9.0, tight:false }; 
+    case 'corporate':    return { sidebar: true,  layout:'sidebar',   hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74,  accentDim:'#243a6b', font:'helvetica', nameSize:16, bodySize:8.5, headingSize:9.0, tight:true }; 
+    case 'professional': return { sidebar: false, layout:'banner',    hbR:30,  hbG:77,  hbB:43,  htR:255,htG:255,htB:255, aR:30,  aG:77,  aB:43,  sbR:30,  sbG:77,  sbB:43,  accentDim:'#2d7a47', font:'helvetica', nameSize:17, bodySize:9.0, headingSize:9.5, tight:false }; 
+    case 'minimal':      return { sidebar: false, layout:'minimal',   hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:17,  aG:24,  aB:39,  sbR:249, sbG:250, sbB:251, accentDim:'#374151', font:'helvetica', nameSize:17, bodySize:9.5, headingSize:9.0, tight:false }; 
+    case 'bold':         return { sidebar: false, layout:'banner',    hbR:194, hbG:24,  hbB:91,  htR:255,htG:255,htB:255, aR:194, aG:24,  aB:91,  sbR:194, sbG:24,  sbB:91,  accentDim:'#ad1457', font:'helvetica', nameSize:18, bodySize:9.0, headingSize:10.0, tight:false }; 
+    case 'executive':    return { sidebar: false, layout:'banner',    hbR:107, hbG:26,  hbB:26,  htR:255,htG:255,htB:255, aR:107, aG:26,  aB:26,  sbR:107, sbG:26,  sbB:26,  accentDim:'#8b2424', font:'times', nameSize:18, bodySize:9.5, headingSize:10.0, tight:false }; 
     // ── New 9 templates ───────────────────────────────────────────────────
-    case 'stylish':      return { sidebar: false, layout:'two-col',   hbR:224, hbG:92,  hbB:107, htR:255,htG:255,htB:255, aR:224, aG:92,  aB:107, sbR:224, sbG:92,  sbB:107, accentDim:'#c0384a' };
-    case 'boxed':        return { sidebar: false, layout:'boxed',     hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81,  accentDim:'#374151' };
-    case 'traditional':  return { sidebar: false, layout:'left-date', hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:55,  aG:65,  aB:81,  sbR:249, sbG:250, sbB:251, accentDim:'#374151' };
-    case 'navy':         return { sidebar: false, layout:'right-sidebar', hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74,  accentDim:'#243a6b' };
-    case 'timeline':     return { sidebar: false, layout:'timeline',   hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81,  accentDim:'#4b5563' };
-    case 'shaded':       return { sidebar: false, layout:'shaded',   hbR:243, hbG:244, hbB:246, htR:55, htG:65, htB:81,  aR:55,  aG:65,  aB:81,  sbR:243, sbG:244, sbB:246, accentDim:'#6b7280' };
-    case 'teal':         return { sidebar: false, layout:'two-col',   hbR:6,   hbG:182, hbB:212, htR:17, htG:24, htB:39,  aR:6,   aG:182, aB:212, sbR:6,   sbG:182, sbB:212, accentDim:'#0891b2' };
-    case 'crimson':      return { sidebar: false, layout:'banner',    hbR:192, hbG:57,  hbB:43,  htR:255,htG:255,htB:255, aR:192, aG:57,  aB:43,  sbR:192, sbG:57,  sbB:43,  accentDim:'#b91c1c' };
-    case 'sage':         return { sidebar: false, layout:'sage',   hbR:232, hbG:240, hbB:232, htR:55, htG:65, htB:81,  aR:127, aG:163, aB:127, sbR:232, sbG:240, sbB:232, accentDim:'#4d7a4d' };
+    case 'stylish':      return { sidebar: false, layout:'two-col',   hbR:224, hbG:92,  hbB:107, htR:255,htG:255,htB:255, aR:224, aG:92,  aB:107, sbR:224, sbG:92,  sbB:107, accentDim:'#c0384a', font:'helvetica', nameSize:16, bodySize:9.0, headingSize:9.0, tight:false }; 
+    case 'boxed':        return { sidebar: false, layout:'boxed',     hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81,  accentDim:'#374151', font:'helvetica', nameSize:15, bodySize:9.0, headingSize:9.5, tight:false }; 
+    case 'traditional':  return { sidebar: false, layout:'left-date', hbR:249, hbG:250, hbB:251, htR:17, htG:24, htB:39,  aR:55,  aG:65,  aB:81,  sbR:249, sbG:250, sbB:251, accentDim:'#374151', font:'times', nameSize:16, bodySize:9.5, headingSize:10.0, tight:false }; 
+    case 'navy':         return { sidebar: false, layout:'right-sidebar', hbR:26,  hbG:42,  hbB:74,  htR:255,htG:255,htB:255, aR:26,  aG:42,  aB:74,  sbR:26,  sbG:42,  sbB:74,  accentDim:'#243a6b', font:'helvetica', nameSize:18, bodySize:9.0, headingSize:9.0, tight:false }; 
+    case 'timeline':     return { sidebar: false, layout:'timeline',   hbR:55,  hbG:65,  hbB:81,  htR:255,htG:255,htB:255, aR:55,  aG:65,  aB:81,  sbR:55,  sbG:65,  sbB:81,  accentDim:'#4b5563', font:'helvetica', nameSize:18, bodySize:9.0, headingSize:9.0, tight:false }; 
+    case 'shaded':       return { sidebar: false, layout:'shaded',   hbR:243, hbG:244, hbB:246, htR:55, htG:65, htB:81,  aR:55,  aG:65,  aB:81,  sbR:243, sbG:244, sbB:246, accentDim:'#6b7280', font:'helvetica', nameSize:16, bodySize:9.0, headingSize:9.0, tight:false }; 
+    case 'teal':         return { sidebar: false, layout:'two-col',   hbR:6,   hbG:182, hbB:212, htR:17, htG:24, htB:39,  aR:6,   aG:182, aB:212, sbR:6,   sbG:182, sbB:212, accentDim:'#0891b2', font:'helvetica', nameSize:16, bodySize:9.0, headingSize:9.0, tight:false }; 
+    case 'crimson':      return { sidebar: false, layout:'banner',    hbR:192, hbG:57,  hbB:43,  htR:255,htG:255,htB:255, aR:192, aG:57,  aB:43,  sbR:192, sbG:57,  sbB:43,  accentDim:'#b91c1c', font:'times', nameSize:17, bodySize:9.5, headingSize:9.5, tight:false }; 
+    case 'sage':         return { sidebar: false, layout:'sage',   hbR:232, hbG:240, hbB:232, htR:55, htG:65, htB:81,  aR:127, aG:163, aB:127, sbR:232, sbG:240, sbB:232, accentDim:'#4d7a4d', font:'helvetica', nameSize:16, bodySize:9.0, headingSize:11.0, tight:false }; 
     // ── Default (classic) ─────────────────────────────────────────────────
-    default:             return { sidebar: false, layout:'banner',    hbR:30,  hbG:42,  hbB:58,  htR:255,htG:255,htB:255, aR:30,  aG:42,  aB:58,  sbR:30,  sbG:42,  sbB:58,  accentDim:'#2d3f52' };
+    default:             return { sidebar: false, layout:'banner',    hbR:30,  hbG:42,  hbB:58,  htR:255,htG:255,htB:255, aR:30,  aG:42,  aB:58,  sbR:30,  sbG:42,  sbB:58,  accentDim:'#2d3f52', font:'helvetica', nameSize:17, bodySize:9.0, headingSize:9.5, tight:false };
   }
 }
 
@@ -111,38 +111,39 @@ function sectionHeading(
   bottom: number, newPage: () => number, getLayout?: () => { cx: number; cmw: number },
   iconName?: string,
   layout = 'banner',
+  hs = 9.5,
 ): number {
   if (y + 28 > bottom) { y = newPage(); if (getLayout) { x = getLayout().cx; maxW = getLayout().cmw; } }
   y += SECTION_GAP * 0.6;
   if (layout === 'shaded') {
     // Grey filled bar — distinctive shaded template style
     fill(p, 243, 244, 246); p.rect(x - 2, y - 4, maxW + 4, 7, 'F');
-    text(p, 55, 65, 81); p.setFont(F, 'bold'); p.setFontSize(9);
+    text(p, 55, 65, 81); p.setFont(F_DEFAULT, 'bold'); p.setFontSize(hs);
     p.text(title.toUpperCase(), x + 2, y);
   } else if (layout === 'timeline') {
     // Slate accent rect + title (no Unicode chars — Helvetica safe)
     fill(p, aR, aG, aB); p.rect(x, y - 3.2, 2.5, 3.8, 'F');
-    text(p, aR, aG, aB); p.setFont(F, 'bold'); p.setFontSize(9);
+    text(p, aR, aG, aB); p.setFont(F_DEFAULT, 'bold'); p.setFontSize(hs);
     p.text(title.toUpperCase(), x + 4, y);
     const tw = p.getTextWidth(title.toUpperCase());
     // Rule BELOW text baseline (y+1.5) not through it (y-1.5)
     hLine(p, x + 4 + tw + 2, y + 1.5, maxW - 4 - tw - 2, 209, 213, 219, 0.35);
   } else if (layout === 'sage') {
     // Green accent line under title
-    text(p, aR, aG, aB); p.setFont(F, 'bold'); p.setFontSize(11);
+    text(p, aR, aG, aB); p.setFont(F_DEFAULT, 'bold'); p.setFontSize(hs);
     p.text(title, x, y);
     hLine(p, x, y + 2, maxW, aR, aG, aB, 0.5);
   } else if (iconName) {
     const iconSize = 3.8;
     icon(p, iconName, x, y - 3.2, iconSize);
     const textStartX = x + iconSize + 1.5;
-    text(p, aR, aG, aB); p.setFont(F, 'bold'); p.setFontSize(9);
+    text(p, aR, aG, aB); p.setFont(F_DEFAULT, 'bold'); p.setFontSize(hs);
     p.text(title.toUpperCase(), textStartX, y);
     const tw = p.getTextWidth(title.toUpperCase());
     hLine(p, textStartX + tw + 2, y - 1.5, maxW - (textStartX - x) - tw - 2, aR, aG, aB, 0.35);
   } else {
     fill(p, aR, aG, aB); p.rect(x, y - 3.2, 2.5, 3.8, 'F');
-    text(p, aR, aG, aB); p.setFont(F, 'bold'); p.setFontSize(9);
+    text(p, aR, aG, aB); p.setFont(F_DEFAULT, 'bold'); p.setFontSize(hs);
     p.text(title.toUpperCase(), x + 4, y);
     const tw = p.getTextWidth(title.toUpperCase());
     hLine(p, x + 4 + tw + 2, y - 1.5, maxW - 4 - tw - 2, aR, aG, aB, 0.35);
@@ -228,6 +229,12 @@ export async function exportElementAsPDF(
   const pal     = getPalette(data.template || 'classic');
   const isSB = pal.layout === 'sidebar';
   const owner   = pr.full_name || 'Applicant';
+  // ── Per-template font & spacing ─────────────────────────────────────────
+  const F        = pal.font        || 'helvetica';
+  const NS       = pal.nameSize    || 17;   // name/header size
+  const BS       = pal.bodySize    || 9;    // body text size
+  const HS       = pal.headingSize || 9.5;  // section heading size
+  LINE_H = pal.tight ? 4.8 : 5.2;
 
   const { aR, aG, aB, hbR, hbG, hbB, htR, htG, htB, sbR, sbG, sbB } = pal;
 
@@ -329,7 +336,7 @@ export async function exportElementAsPDF(
     // Name + divider in content area
     reset(pdf);
     let cy = MT + 8;
-    text(pdf, aR, aG, aB); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
+    text(pdf, aR, aG, aB); pdf.setFont(F, 'bold'); pdf.setFontSize(NS);
     pdf.text(owner.toUpperCase(), layout.cx, cy); cy += 6;
     text(pdf, 107, 114, 128); pdf.setFont(F, 'normal'); pdf.setFontSize(8);
     pdf.text('EDUCATOR', layout.cx, cy); cy += 3;
@@ -377,7 +384,7 @@ export async function exportElementAsPDF(
     layout.cx  = ML;
     layout.cmw = PW - ML - 58; // leave room for right sidebar
     let cy = MT + 8;
-    pdf.setFont(F, 'bold'); pdf.setFontSize(18); text(pdf, aR, aG, aB);
+    pdf.setFont(F, 'bold'); pdf.setFontSize(NS); text(pdf, aR, aG, aB);
     pdf.text(owner, layout.cx, cy); cy += 6;
     pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128);
     pdf.text('EDUCATOR', layout.cx, cy); cy += 3;
@@ -388,7 +395,7 @@ export async function exportElementAsPDF(
   } else if (pal.layout === 'two-col') {
     // ── Two-column: accent banner header, skills in right col ─────────────
     fill(pdf, hbR, hbG, hbB); pdf.rect(0, 0, PW, 30, 'F');
-    text(pdf, htR, htG, htB); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
+    text(pdf, htR, htG, htB); pdf.setFont(F, 'bold'); pdf.setFontSize(NS);
     pdf.text(owner.toUpperCase(), ML, 12);
     pdf.setFont(F, 'normal'); pdf.setFontSize(7.5);
     const tcp = [pr.email, pr.phone, pr.address].filter(Boolean).join('   |   ');
@@ -405,7 +412,7 @@ export async function exportElementAsPDF(
     // Boxed name
     pdf.setDrawColor(55, 65, 81); pdf.setLineWidth(0.8);
     pdf.rect(ML, 5, PW - ML - MR, 18, 'S');
-    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(15);
+    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(NS);
     const bnW = pdf.getTextWidth(owner.toUpperCase());
     pdf.text(owner.toUpperCase(), (PW - bnW) / 2, 16);
     pdf.setFont(F, 'normal'); pdf.setFontSize(7);
@@ -421,7 +428,7 @@ export async function exportElementAsPDF(
     // ── Shaded: grey section-header bars, centered name, no colour banner ──
     // Light grey top strip
     fill(pdf, 243, 244, 246); pdf.rect(0, 0, PW, 28, 'F');
-    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
+    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(NS);
     const shW = pdf.getTextWidth(owner.toUpperCase());
     pdf.text(owner.toUpperCase(), (PW - shW) / 2, MT + 9);
     pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128);
@@ -433,7 +440,7 @@ export async function exportElementAsPDF(
 
   } else if (pal.layout === 'timeline') {
     // ── Timeline: centered name, thin rule, slate accent ─────────────────
-    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(18);
+    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(NS);
     const tlW = pdf.getTextWidth(owner.toUpperCase());
     pdf.text(owner.toUpperCase(), (PW - tlW) / 2, MT + 10);
     pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128);
@@ -449,7 +456,7 @@ export async function exportElementAsPDF(
     // ── Sage: rounded-card style header with green background ────────────
     // Green card background
     fill(pdf, sbR, sbG, sbB); pdf.roundedRect(ML - 2, MT - 4, PW - ML - MR + 4, 28, 3, 3, 'F');
-    text(pdf, 26, 46, 26); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
+    text(pdf, 26, 46, 26); pdf.setFont(F, 'bold'); pdf.setFontSize(NS);
     pdf.text(owner, ML + 2, MT + 8);
     pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 55, 80, 55);
     const sgcp = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
@@ -458,7 +465,7 @@ export async function exportElementAsPDF(
 
   } else if (pal.layout === 'left-date' || pal.layout === 'minimal') {
     // ── Minimal / Traditional header: centered name + contact, no banner ──
-    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(16);
+    text(pdf, 17, 24, 39); pdf.setFont(F, 'bold'); pdf.setFontSize(NS);
     const mW = pdf.getTextWidth(owner.toUpperCase());
     pdf.text(owner.toUpperCase(), (PW - mW) / 2, MT + 8);
     pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128);
@@ -470,7 +477,7 @@ export async function exportElementAsPDF(
   } else {
     // ── Default banner header (banner layout) ──────────────────────────────
     fill(pdf, hbR, hbG, hbB); pdf.rect(0, 0, PW, 32, 'F');
-    text(pdf, htR, htG, htB); pdf.setFont(F, 'bold'); pdf.setFontSize(17);
+    text(pdf, htR, htG, htB); pdf.setFont(F, 'bold'); pdf.setFontSize(NS);
     pdf.text(owner.toUpperCase(), ML, 13);
     draw(pdf, htR > 200 ? 200 : 209, htR > 200 ? 200 : 213, htR > 200 ? 200 : 219);
     pdf.setLineWidth(0.25); pdf.line(ML, 16, PW - MR, 16);
@@ -500,27 +507,27 @@ export async function exportElementAsPDF(
 
   // ── Professional Summary ───────────────────────────────────────────────
   if (pr.bio) {
-    y = sectionHeading(pdf, 'Professional Summary', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'bookOpen', pal.layout);
-    pdf.setFont(F, 'normal'); pdf.setFontSize(9); text(pdf, 55, 65, 81);
+    y = sectionHeading(pdf, 'Professional Summary', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'bookOpen', pal.layout, HS);
+    pdf.setFont(F, 'normal'); pdf.setFontSize(BS); text(pdf, 55, 65, 81);
     y = wrappedText(pdf, pr.bio, layout.cx, y, layout.cmw, BOTTOM, newPage, LINE_H, GL);
     y += ITEM_GAP + 1;
   }
 
   // ── Teaching Experience ────────────────────────────────────────────────
   if (exp.length) {
-    y = sectionHeading(pdf, 'Teaching Experience', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'briefcase', pal.layout);
+    y = sectionHeading(pdf, 'Teaching Experience', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'briefcase', pal.layout, HS);
     for (const e of exp) {
       if (y + 16 > BOTTOM) y = newPage();
-      pdf.setFont(F, 'bold'); pdf.setFontSize(10); text(pdf, 17, 24, 39);
+      pdf.setFont(F, 'bold'); pdf.setFontSize(BS + 1); text(pdf, 17, 24, 39);
       pdf.text(e.role || '', layout.cx, y); y += LINE_H;
-      pdf.setFont(F, 'bold'); pdf.setFontSize(8.5); text(pdf, aR, aG, aB);
+      pdf.setFont(F, 'bold'); pdf.setFontSize(BS - 0.5); text(pdf, aR, aG, aB);
       pdf.text(e.school || '', layout.cx, y);
       const ds = [e.from, e.to].filter(Boolean).join(' - ');
-      if (ds) { pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128); pdf.text(ds, layout.cx + layout.cmw - pdf.getTextWidth(ds), y); }
+      if (ds) { pdf.setFont(F, 'normal'); pdf.setFontSize(BS - 1); text(pdf, 107, 114, 128); pdf.text(ds, layout.cx + layout.cmw - pdf.getTextWidth(ds), y); }
       y += LINE_H;
       hLine(pdf, layout.cx, y - 1.5, layout.cmw, 229, 231, 235, 0.2);
       if (e.description) {
-        y += 1; pdf.setFont(F, 'normal'); pdf.setFontSize(9); text(pdf, 55, 65, 81);
+        y += 1; pdf.setFont(F, 'normal'); pdf.setFontSize(BS); text(pdf, 55, 65, 81);
         for (const b of (e.description as string).split('\n').map((l: string) => l.trim()).filter(Boolean)) {
           y = bulletLine(pdf, b, layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL);
         }
@@ -532,12 +539,12 @@ export async function exportElementAsPDF(
 
   // ── Education ─────────────────────────────────────────────────────────
   if (edu.length) {
-    y = sectionHeading(pdf, 'Education', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'graduation', pal.layout);
+    y = sectionHeading(pdf, 'Education', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'graduation', pal.layout, HS);
     for (const e of edu) {
       if (y + 12 > BOTTOM) y = newPage();
-      pdf.setFont(F, 'bold'); pdf.setFontSize(10); text(pdf, 17, 24, 39);
+      pdf.setFont(F, 'bold'); pdf.setFontSize(BS + 1); text(pdf, 17, 24, 39);
       pdf.text(e.qualification || '', layout.cx, y); y += LINE_H;
-      pdf.setFont(F, 'normal'); pdf.setFontSize(8.5); text(pdf, 107, 114, 128);
+      pdf.setFont(F, 'normal'); pdf.setFontSize(BS - 0.5); text(pdf, 107, 114, 128);
       pdf.text([e.institution, e.year].filter(Boolean).join('   |   '), layout.cx, y);
       y += LINE_H + ITEM_GAP;
     }
@@ -546,11 +553,11 @@ export async function exportElementAsPDF(
 
   // ── Skills (non-sidebar only) ──────────────────────────────────────────
   if (pal.layout !== 'sidebar' && (sk.subjects?.length || sk.soft_skills?.length || sk.languages?.length)) {
-    y = sectionHeading(pdf, 'Skills & Languages', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'award', pal.layout);
+    y = sectionHeading(pdf, 'Skills & Languages', layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, 'award', pal.layout, HS);
     for (const [label, items] of [['Subjects', sk.subjects || []], ['Skills', sk.soft_skills || []], ['Languages', sk.languages || []]] as [string, string[]][]) {
       if (!items.length) continue;
       if (y + LINE_H > BOTTOM) y = newPage();
-      pdf.setFont(F, 'bold'); pdf.setFontSize(9); text(pdf, 55, 65, 81);
+      pdf.setFont(F, 'bold'); pdf.setFontSize(BS); text(pdf, 55, 65, 81);
       pdf.text(`${label}:`, layout.cx, y);
       const lw = pdf.getTextWidth(`${label}:`) + 2;
       pdf.setFont(F, 'normal'); text(pdf, 55, 65, 81);
@@ -562,8 +569,8 @@ export async function exportElementAsPDF(
 
   // ── Custom sections ────────────────────────────────────────────────────
   for (const sec of customs) {
-    y = sectionHeading(pdf, sec.title, layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, undefined, pal.layout);
-    pdf.setFont(F, 'normal'); pdf.setFontSize(9); text(pdf, 55, 65, 81);
+    y = sectionHeading(pdf, sec.title, layout.cx, y, layout.cmw, aR, aG, aB, BOTTOM, newPage, GL, undefined, pal.layout, HS);
+    pdf.setFont(F, 'normal'); pdf.setFontSize(BS); text(pdf, 55, 65, 81);
     if (sec.type === 'text' && sec.content) {
       y = wrappedText(pdf, sec.content, layout.cx, y, layout.cmw, BOTTOM, newPage, LINE_H, GL);
     } else if (sec.type === 'bullets' && sec.content) {
@@ -577,7 +584,7 @@ export async function exportElementAsPDF(
       pdf.setFont(F, 'bold'); pdf.setFontSize(8);
       (sec.columns as string[]).forEach((col, ci) => pdf.text(col, layout.cx + ci * cw + 1, y));
       y += 6;
-      pdf.setFont(F, 'normal'); pdf.setFontSize(8.5);
+      pdf.setFont(F, 'normal'); pdf.setFontSize(BS - 0.5);
       for (let ri = 0; ri < sec.rows.length; ri++) {
         if (y + 6 > BOTTOM) y = newPage();
         if (ri % 2 === 0) { pdf.setFillColor(249, 250, 251); pdf.rect(layout.cx, y - 4, layout.cmw, 6, 'F'); }
@@ -631,7 +638,7 @@ export async function exportElementAsPDF(
 
     const rCX = ML; const rCMW = PW - ML - MR;
     let ry = MT;
-    ry = sectionHeading(pdf, 'References', rCX, ry, rCMW, aR, aG, aB, BOTTOM, newPage, undefined, 'user', pal.layout);
+    ry = sectionHeading(pdf, 'References', rCX, ry, rCMW, aR, aG, aB, BOTTOM, newPage, undefined, 'user', pal.layout, HS);
     ry += 2;
 
     const half = (rCMW - 8) / 2;
@@ -642,10 +649,10 @@ export async function exportElementAsPDF(
       pdf.setFont(F, 'bold'); pdf.setFontSize(9.5); text(pdf, 17, 24, 39);
       pdf.text(ref.name, rx + 3, cy); cy += LINE_H;
       if (ref.title)        { pdf.setFont(F, 'normal'); pdf.setFontSize(9);   text(pdf, aR, aG, aB);       pdf.text(ref.title,        rx + 3, cy); cy += LINE_H; }
-      if (ref.organisation) { pdf.setFont(F, 'normal'); pdf.setFontSize(8.5); text(pdf, 107, 114, 128);    pdf.text(ref.organisation, rx + 3, cy); cy += LINE_H; }
+      if (ref.organisation) { pdf.setFont(F, 'normal'); pdf.setFontSize(BS - 0.5); text(pdf, 107, 114, 128);    pdf.text(ref.organisation, rx + 3, cy); cy += LINE_H; }
       if (ref.relationship) { pdf.setFont(F, 'italic'); pdf.setFontSize(8);   text(pdf, 156, 163, 175);    pdf.text(ref.relationship, rx + 3, cy); cy += LINE_H; }
       if (ref.phone || ref.email) {
-        pdf.setFont(F, 'normal'); pdf.setFontSize(8); text(pdf, 107, 114, 128);
+        pdf.setFont(F, 'normal'); pdf.setFontSize(BS - 1); text(pdf, 107, 114, 128);
         pdf.text([ref.phone, ref.email].filter(Boolean).join('  |  '), rx + 3, cy); cy += LINE_H;
       }
       return cy;
