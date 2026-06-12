@@ -154,7 +154,7 @@ export default function CVStepSkills({ data, onChange, cvType }: Props) {
       {/* Key Skills — free-form chip input */}
       <div className="bg-card rounded-2xl border border-border p-4">
         <Label className="text-sm font-semibold mb-1 block">Key Skills</Label>
-        <p className="text-xs text-muted-foreground mb-3">Add the skills most relevant to the role you're applying for.</p>
+        <p className="text-xs text-muted-foreground mb-3">Add technical skills, tools, and competencies relevant to the role.</p>
         {(data.subjects || []).length > 0 && (
           <div className="flex flex-wrap gap-2 mb-3">
             {(data.subjects || []).map(s => (

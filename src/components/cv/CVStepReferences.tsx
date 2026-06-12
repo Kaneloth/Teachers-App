@@ -65,7 +65,7 @@ export default function CVStepReferences({ data, onChange, cvType }: Props) {
             <Input
               value={ref.title}
               onChange={e => set(i, 'title', e.target.value)}
-              placeholder={isEducator ? 'e.g. Principal' : 'e.g. HR Manager'}
+              placeholder={isEducator ? 'e.g. Principal' : 'e.g. HR Manager, Line Manager, Director'}
               className="rounded-xl"
             />
           </Field>
@@ -74,7 +74,7 @@ export default function CVStepReferences({ data, onChange, cvType }: Props) {
             <Input
               value={ref.organisation}
               onChange={e => set(i, 'organisation', e.target.value)}
-              placeholder={isEducator ? 'e.g. Soweto High School' : 'e.g. Acme Corp'}
+              placeholder={isEducator ? 'e.g. Soweto High School' : 'e.g. Company Name / Organisation'}
               className="rounded-xl"
             />
           </Field>
@@ -83,7 +83,7 @@ export default function CVStepReferences({ data, onChange, cvType }: Props) {
             <Input
               value={ref.relationship}
               onChange={e => set(i, 'relationship', e.target.value)}
-              placeholder={isEducator ? 'e.g. Former Principal' : 'e.g. Line Manager'}
+              placeholder={isEducator ? 'e.g. Former Principal' : 'e.g. Direct Supervisor, Former Manager'}
               className="rounded-xl"
             />
           </Field>

@@ -65,16 +65,16 @@ export default function CVStepExperience({ data, onChange, cvType }: Props) {
               <Input
                 value={entry.school}
                 onChange={e => set(i, 'school', e.target.value)}
-                placeholder={isEducator ? 'e.g. Pretoria High School' : 'e.g. Acme Corp'}
+                placeholder={isEducator ? 'e.g. Pretoria High School' : 'e.g. Acme Corporation, City of Joburg'}
                 className="rounded-xl"
               />
             </Field>
 
-            <Field label={isEducator ? 'Role / Post' : 'Job Title'}>
+            <Field label={isEducator ? 'Role / Post' : 'Job Title / Role'}>
               <Input
                 value={entry.role}
                 onChange={e => set(i, 'role', e.target.value)}
-                placeholder={isEducator ? 'e.g. Mathematics Educator' : 'e.g. Software Developer'}
+                placeholder={isEducator ? 'e.g. Mathematics Educator' : 'e.g. Software Developer, Accountant, Nurse'}
                 className="rounded-xl"
               />
             </Field>
@@ -90,7 +90,7 @@ export default function CVStepExperience({ data, onChange, cvType }: Props) {
 
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">
-                {isEducator ? 'Key Responsibilities' : 'Description'}
+                {isEducator ? 'Key Responsibilities' : 'Key Responsibilities / Achievements'}
               </Label>
               <p className="text-xs text-muted-foreground -mt-0.5">Each point will appear as a bullet on your CV</p>
               <div className="space-y-2">
@@ -103,7 +103,7 @@ export default function CVStepExperience({ data, onChange, cvType }: Props) {
                       placeholder={
                         isEducator
                           ? bi === 0 ? 'e.g. Teaching, assessing and reporting' : 'Add another responsibility...'
-                          : bi === 0 ? 'e.g. Managed a team of 5 developers'    : 'Add another point...'
+                          : bi === 0 ? 'e.g. Managed a team of 5 staff members'  : 'Add another achievement or responsibility...'
                       }
                       className="rounded-xl flex-1 text-sm"
                     />
@@ -131,7 +131,7 @@ export default function CVStepExperience({ data, onChange, cvType }: Props) {
       })}
       <Button variant="outline" onClick={add} className="w-full rounded-xl gap-2">
         <Plus className="w-4 h-4" />
-        {isEducator ? 'Add Position' : 'Add Experience'}
+        {isEducator ? 'Add Position' : 'Add Work Experience'}
       </Button>
     </div>
   );

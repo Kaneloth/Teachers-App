@@ -2,7 +2,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useEffect, useState, useRef } from 'react';
-import { Lock, Camera, X, Loader2, ImageIcon, Sparkles } from 'lucide-react';
+import { Lock, Camera, X, Loader2, ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -33,7 +33,6 @@ interface Props {
 export default function CVStepPersonal({ data, onChange, cvType }: Props) {
   const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
-  const [generatingSummary, setGeneratingSummary] = useState(false);
   const [idLabel, setIdLabel] = useState('ID / Passport Number');
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -83,30 +82,6 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
   }, [cvType]);
 
   const set = (field: keyof PersonalData, value: string) => onChange({ ...data, [field]: value });
-
-  /** Call the enhance-cv function to generate a professional summary */
-  const generateSummary = async () => {
-    setGeneratingSummary(true);
-    try {
-      const res = await fetch('/.netlify/functions/enhance-cv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'generate_summary',
-          cvData: { personal: data },
-          userBlurb: data.bio || '',
-        }),
-      });
-      const result = await res.json();
-      if (!res.ok || !result.success) throw new Error(result.error || 'AI failed');
-      set('bio', result.summary);
-      toast.success('Professional summary generated!');
-    } catch (err: any) {
-      toast.error('Could not generate summary: ' + (err?.message ?? 'Unknown error'));
-    } finally {
-      setGeneratingSummary(false);
-    }
-  };
 
   /** Resize + convert any image to JPEG via canvas before uploading.
    *  - Avoids HEIC/HEIF format rejections
@@ -161,10 +136,10 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
     setUploading(false);
   };
 
-  const addressLabel = cvType === 'educator' ? 'Current School / Province' : 'Location';
+  const addressLabel = cvType === 'educator' ? 'Current School / Province' : 'City / Location';
   const summaryPlaceholder = cvType === 'educator'
     ? 'A brief overview of your teaching career and goals...'
-    : 'A brief overview of your professional background and goals...';
+    : 'A brief professional summary — your experience, strengths, and career goals...';
 
   return (
     <div className="bg-card rounded-2xl border border-border p-4 space-y-4">
@@ -216,7 +191,7 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
         <Input
           value={data.address}
           onChange={e => set('address', e.target.value)}
-          placeholder={cvType === 'educator' ? 'e.g. Greenfield High, Western Cape' : 'e.g. Cape Town, Western Cape'}
+          placeholder={cvType === 'educator' ? 'e.g. Greenfield High, Western Cape' : 'e.g. Cape Town, Gauteng'}
           className="rounded-xl"
         />
       </div>
@@ -235,32 +210,17 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
         <p className="text-xs text-muted-foreground">Only include this if you want it printed on your CV.</p>
       </div>
 
-      {/* Professional Summary — editable, with AI generation */}
+      {/* Professional Summary — editable on both types */}
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">Professional Summary</Label>
-          <button
-            type="button"
-            onClick={generateSummary}
-            disabled={generatingSummary}
-            className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50"
-          >
-            {generatingSummary
-              ? <><Loader2 className="w-3 h-3 animate-spin" /> Generating…</>
-              : <><Sparkles className="w-3 h-3" /> Generate with AI</>
-            }
-          </button>
-        </div>
+        <Label className="text-sm font-medium">Professional Summary</Label>
         <Textarea
           value={data.bio}
           onChange={e => set('bio', e.target.value)}
           placeholder={summaryPlaceholder}
-          rows={4}
+          rows={3}
           className="rounded-xl"
         />
-        <p className="text-xs text-muted-foreground">
-          Tap "Generate with AI" for a suggested summary, then edit to personalise it.
-        </p>
+        <p className="text-xs text-muted-foreground">This field is editable — tailor it per CV.</p>
       </div>
 
       <p className="text-xs text-muted-foreground bg-muted rounded-xl px-3 py-2">
