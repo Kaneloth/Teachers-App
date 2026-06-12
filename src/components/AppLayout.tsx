@@ -28,7 +28,7 @@ const EDUCATOR_TABS = [
 // General tabs (unchanged)
 const GENERAL_TABS = [
   { path: '/home',           component: HomePage,         icon: Home,     label: 'Home'    },
-  { path: '/vacancies',      component: VacanciesPage,    icon: Briefcase, label: 'Jobs'   },
+  { path: '/vacancies',      component: VacanciesPage,    icon: Briefcase, label: 'Vacancies'   },
   { path: '/cv-builder',     component: CVBuilderPage,    icon: FileText,  label: 'CV'     },
   { path: '/cover-letters',  component: CoverLettersPage, icon: Mail,      label: 'Letters'},
 ];
