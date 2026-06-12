@@ -194,7 +194,7 @@ function bulletLine(
 
 // ── Sidebar label ─────────────────────────────────────────────────────────
 function sidebarLabel(p: JsPDFType, t: string, x: number, y: number, maxW: number): number {
-  p.setFont(F, 'bold'); p.setFontSize(7);
+  p.setFont(F_DEFAULT, 'bold'); p.setFontSize(7);
   p.setTextColor(200, 230, 225);
   p.text(t.toUpperCase(), x, y);
   p.setLineWidth(0.2); p.setDrawColor(180, 220, 215);
@@ -205,7 +205,7 @@ function sidebarLabel(p: JsPDFType, t: string, x: number, y: number, maxW: numbe
 // ── Footer ────────────────────────────────────────────────────────────────
 function drawFooter(p: JsPDFType, name: string, pg: number, total: number, aR: number, aG: number, aB: number) {
   hLine(p, ML, PH - FOOTER_H, PW - ML - MR, 229, 231, 235, 0.25);
-  p.setFont(F, 'italic'); p.setFontSize(7); text(p, 156, 163, 175);
+  p.setFont(F_DEFAULT, 'italic'); p.setFontSize(7); text(p, 156, 163, 175);
   p.text(`Resume of ${name}`, ML, PH - 5);
   const ps = `Page ${pg} of ${total}`;
   p.text(ps, PW - MR - p.getTextWidth(ps), PH - 5);
