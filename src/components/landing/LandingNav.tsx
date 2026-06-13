@@ -5,10 +5,12 @@ export default function LandingNav() {
   return (
     <nav className="bg-[#0d9488] sticky top-0 z-50 shadow-sm">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
+        {/* Clickable Logo */}
+        <Link to="/" className="flex items-center gap-2 cursor-pointer hover:opacity-90 transition-opacity">
           <GraduationCap className="w-7 h-7 text-white" />
           <span className="text-white text-xl font-bold tracking-tight">Crosssa</span>
         </Link>
+
         <div className="hidden md:flex items-center gap-8 text-sm text-white/90">
           <a href="#features" className="hover:text-white transition-colors">Features</a>
           <span className="text-white/30">|</span>
@@ -20,6 +22,7 @@ export default function LandingNav() {
           <span className="text-white/30">|</span>
           <a href="#contact" className="hover:text-white transition-colors">Contact</a>
         </div>
+
         <div className="flex items-center gap-3">
           <Link to="/login" className="text-sm font-medium text-white/80 hover:text-white transition-colors hidden sm:block">
             Sign In
