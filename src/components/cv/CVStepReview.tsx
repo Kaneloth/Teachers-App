@@ -23,9 +23,9 @@ interface CVData {
   template: string;
 }
 
-interface Props { data: CVData; onGenerated?: (url: string) => void; isFree?: boolean; cvType?: 'educator' | 'general' }
+interface Props { data: CVData; onGenerated?: (url: string) => void; isFree?: boolean }
 
-export default function CVStepReview({ data, onGenerated, isFree = false, cvType }: Props) {
+export default function CVStepReview({ data, onGenerated, isFree = false }: Props) {
   const { user } = useAuth();
   const [view, setView] = useState<'preview' | 'summary'>('preview');
   const [sending, setSending] = useState(false);
@@ -132,7 +132,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, cvType
            * the page can scroll normally to reveal references or extra pages.
            */}
           <div style={{ zoom: 0.45 }}>
-            <CVTemplateRenderer data={data} forExport cvType={cvType} />
+            <CVTemplateRenderer data={data} forExport />
           </div>
         </div>
       ) : (
@@ -188,7 +188,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, cvType
       {/* Hidden full-size render used by exportElementAsPDF — added cv-export-root class */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '794px' }}>
         <div ref={exportRef} className="cv-export-root">
-          <CVTemplateRenderer data={data} forExport cvType={cvType} />
+          <CVTemplateRenderer data={data} forExport />
         </div>
       </div>
 

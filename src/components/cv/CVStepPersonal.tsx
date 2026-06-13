@@ -6,9 +6,7 @@ import { Lock, Camera, X, Loader2, ImageIcon, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
-import type { CVType } from '@/pages/CVBuilderPage';
 
-// Builds correct public storage URL — getPublicUrl() sometimes omits /public/
 function publicStorageUrl(bucket: string, path: string): string {
   const base = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, '');
   return `${base}/storage/v1/object/public/${bucket}/${path}`;
@@ -27,75 +25,45 @@ interface PersonalData {
 interface Props {
   data: PersonalData;
   onChange: (d: PersonalData) => void;
-  cvType: CVType;
 }
 
-export default function CVStepPersonal({ data, onChange, cvType }: Props) {
+export default function CVStepPersonal({ data, onChange }: Props) {
   const { user } = useAuth();
-  const [uploading, setUploading] = useState(false);
+  const [uploading,         setUploading]         = useState(false);
   const [generatingSummary, setGeneratingSummary] = useState(false);
-  const [idLabel, setIdLabel] = useState('ID / Passport Number');
-  const fileRef = useRef<HTMLInputElement>(null);
+  const fileRef   = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
+  // Pre-fill locked fields from profile on mount
   useEffect(() => {
-    async function loadProfile() {
-      if (!user) return;
-
-      /* Always fetch fresh metadata so we get the latest doc verification state */
-      const { data: { user: freshUser } } = await supabase.auth.getUser();
-      const meta = freshUser?.user_metadata ?? {};
-      const docType = meta.doc_type as string | undefined;
-      setIdLabel(docType === 'passport' ? 'Passport Number' : 'ID Number');
-
-      const { data: educators } = await supabase
-        .from('educators')
-        .select('full_name, phone, bio, current_school, current_province, town')
-        .eq('user_id', user.id)
-        .limit(1);
-      const profile = educators?.[0];
-
-      if (cvType === 'educator') {
-        onChange({
-          full_name: profile?.full_name || user.user_metadata?.full_name || '',
-          email: user.email || '',
-          phone: profile?.phone || '',
-          address: profile?.current_school
-            ? `${profile.current_school}${profile.current_province ? ', ' + profile.current_province : ''}`
-            : '',
-          bio: profile?.bio || data.bio || '',
-          id_number: data.id_number ?? '',
-        });
-      } else {
+    if (!user) return;
+    // Only pre-fill if fields are still empty (don't overwrite user edits)
+    if (data.full_name && data.email) return;
+    supabase.from('educators').select('full_name, phone, bio, town, current_province')
+      .eq('user_id', user.id).maybeSingle()
+      .then(({ data: profile }) => {
         const location = [profile?.town, profile?.current_province].filter(Boolean).join(', ');
         onChange({
-          full_name: profile?.full_name || user.user_metadata?.full_name || '',
-          email: user.email || '',
-          phone: profile?.phone || user.user_metadata?.phone || '',
-          address: location || '',  // no school fallback for general CVs
-          bio: profile?.bio || data.bio || '',
-          id_number: data.id_number ?? '',
+          ...data,
+          full_name: data.full_name || profile?.full_name || user.user_metadata?.full_name || '',
+          email:     data.email     || user.email || '',
+          phone:     data.phone     || profile?.phone || user.user_metadata?.phone || '',
+          address:   data.address   || location || '',
+          bio:       data.bio       || profile?.bio || '',
         });
-      }
-    }
-    loadProfile();
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cvType]);
+  }, [user]);
 
   const set = (field: keyof PersonalData, value: string) => onChange({ ...data, [field]: value });
 
-  /** Call the enhance-cv function to generate a professional summary */
   const generateSummary = async () => {
     setGeneratingSummary(true);
     try {
       const res = await fetch('/.netlify/functions/enhance-cv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'generate_summary',
-          cvData: { personal: data },
-          userBlurb: data.bio || '',
-        }),
+        body: JSON.stringify({ action: 'generate_summary', cvData: { personal: data }, userBlurb: data.bio || '' }),
       });
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error || 'AI failed');
@@ -103,20 +71,13 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
       toast.success('Professional summary generated!');
     } catch (err: any) {
       toast.error('Could not generate summary: ' + (err?.message ?? 'Unknown error'));
-    } finally {
-      setGeneratingSummary(false);
-    }
+    } finally { setGeneratingSummary(false); }
   };
 
-  /** Resize + convert any image to JPEG via canvas before uploading.
-   *  - Avoids HEIC/HEIF format rejections
-   *  - Reduces file size to stay under bucket limits
-   *  - Normalises to image/jpeg so the RLS mime check always passes
-   */
   const toJpeg = (file: File, maxPx = 800, q = 0.85): Promise<Blob> =>
     new Promise((resolve, reject) => {
       const url = URL.createObjectURL(file);
-      const img  = new Image();
+      const img = new Image();
       img.onload = () => {
         URL.revokeObjectURL(url);
         const s = Math.min(1, maxPx / Math.max(img.width, img.height));
@@ -135,36 +96,18 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
     if (!file) return;
     if (!user) { toast.error('You must be signed in to upload a photo.'); return; }
     setUploading(true);
-
     try {
       const jpeg = await toJpeg(file);
-      // Path: {userId}/cv-photo-{timestamp}.jpg  — matches RLS folder policy
       const path = `${user.id}/cv-photo-${Date.now()}.jpg`;
-
-      const { error } = await supabase.storage
-        .from('avatars')
-        .upload(path, jpeg, { contentType: 'image/jpeg', upsert: true });
-
-      if (error) {
-        console.error('Storage upload error:', error);
-        toast.error(`Photo upload failed: ${error.message}`);
-      } else {
-        set('photo_url', publicStorageUrl('avatars', path));
-        toast.success('Photo added!');
-      }
+      const { error } = await supabase.storage.from('avatars').upload(path, jpeg, { contentType: 'image/jpeg', upsert: true });
+      if (error) { toast.error(`Photo upload failed: ${error.message}`); }
+      else        { set('photo_url', publicStorageUrl('avatars', path)); toast.success('Photo added!'); }
     } catch (err: any) {
-      console.error('Photo processing error:', err);
       toast.error('Could not process photo: ' + (err?.message ?? 'Unknown error'));
     }
-
     e.target.value = '';
     setUploading(false);
   };
-
-  const addressLabel = cvType === 'educator' ? 'Current School / Province' : 'Location';
-  const summaryPlaceholder = cvType === 'educator'
-    ? 'A brief overview of your teaching career and goals...'
-    : 'A brief overview of your professional background and goals...';
 
   return (
     <div className="bg-card rounded-2xl border border-border p-4 space-y-4">
@@ -175,13 +118,12 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
         </div>
       </div>
 
-      {/* Photo upload */}
+      {/* Photo */}
       <div className="flex items-center gap-4">
         <div className="relative">
           {data.photo_url
             ? <img src={data.photo_url} alt="CV photo" className="w-20 h-20 rounded-xl object-cover border border-border" />
-            : <div className="w-20 h-20 rounded-xl bg-muted border border-border flex items-center justify-center"><Camera className="w-7 h-7 text-muted-foreground" /></div>
-          }
+            : <div className="w-20 h-20 rounded-xl bg-muted border border-border flex items-center justify-center"><Camera className="w-7 h-7 text-muted-foreground" /></div>}
           {data.photo_url && (
             <button onClick={() => set('photo_url', '')} className="absolute -top-2 -right-2 w-5 h-5 bg-destructive text-white rounded-full flex items-center justify-center shadow">
               <X className="w-3 h-3" />
@@ -192,75 +134,56 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
           <p className="text-sm font-medium text-foreground mb-1">Profile Photo <span className="text-muted-foreground font-normal">(optional)</span></p>
           <p className="text-xs text-muted-foreground mb-2">A professional headshot looks great on modern templates.</p>
           <div className="flex gap-2">
-            <button onClick={() => cameraRef.current?.click()} disabled={uploading} className="text-xs px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors flex items-center gap-1.5 disabled:opacity-50">
+            <button onClick={() => cameraRef.current?.click()} disabled={uploading}
+              className="text-xs px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors flex items-center gap-1.5 disabled:opacity-50">
               {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
               {uploading ? 'Uploading...' : 'Camera'}
             </button>
-            <button onClick={() => fileRef.current?.click()} disabled={uploading} className="text-xs px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors flex items-center gap-1.5 disabled:opacity-50">
+            <button onClick={() => fileRef.current?.click()} disabled={uploading}
+              className="text-xs px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors flex items-center gap-1.5 disabled:opacity-50">
               <ImageIcon className="w-3 h-3" /> Gallery
             </button>
           </div>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+          <input ref={fileRef}   type="file" accept="image/*"          className="hidden" onChange={handlePhotoUpload} />
           <input ref={cameraRef} type="file" accept="image/*" capture="user" className="hidden" onChange={handlePhotoUpload} />
         </div>
       </div>
 
       {/* Locked fields */}
-      <LockedField label="Full Name" value={data.full_name} />
+      <LockedField label="Full Name"     value={data.full_name} />
       <LockedField label="Email Address" value={data.email} />
-      <LockedField label="Phone Number" value={data.phone} />
+      <LockedField label="Phone Number"  value={data.phone} />
 
-      {/* Address — editable so users can tailor it per CV */}
+      {/* Editable location */}
       <div className="space-y-1.5">
-        <Label className="text-sm font-medium">{addressLabel}</Label>
-        <Input
-          value={data.address}
-          onChange={e => set('address', e.target.value)}
-          placeholder={cvType === 'educator' ? 'e.g. Greenfield High, Western Cape' : 'e.g. Cape Town, Western Cape'}
-          className="rounded-xl"
-        />
+        <Label className="text-sm font-medium">Location</Label>
+        <Input value={data.address} onChange={e => set('address', e.target.value)}
+          placeholder="e.g. Cape Town, Western Cape" className="rounded-xl" />
       </div>
 
-      {/* ID / Passport — optional, user chooses to include */}
+      {/* ID / Passport */}
       <div className="space-y-1.5">
-        <Label className="text-sm font-medium">
-          {idLabel} <span className="text-muted-foreground font-normal">(optional)</span>
-        </Label>
-        <Input
-          value={data.id_number ?? ''}
-          onChange={e => set('id_number', e.target.value)}
-          placeholder="Leave blank to omit from your CV"
-          className="rounded-xl"
-        />
+        <Label className="text-sm font-medium">ID / Passport Number <span className="text-muted-foreground font-normal">(optional)</span></Label>
+        <Input value={data.id_number ?? ''} onChange={e => set('id_number', e.target.value)}
+          placeholder="Leave blank to omit from your CV" className="rounded-xl" />
         <p className="text-xs text-muted-foreground">Only include this if you want it printed on your CV.</p>
       </div>
 
-      {/* Professional Summary — editable, with AI generation */}
+      {/* Professional Summary */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <Label className="text-sm font-medium">Professional Summary</Label>
-          <button
-            type="button"
-            onClick={generateSummary}
-            disabled={generatingSummary}
-            className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50"
-          >
+          <button type="button" onClick={generateSummary} disabled={generatingSummary}
+            className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50">
             {generatingSummary
               ? <><Loader2 className="w-3 h-3 animate-spin" /> Generating…</>
-              : <><Sparkles className="w-3 h-3" /> Generate with AI</>
-            }
+              : <><Sparkles className="w-3 h-3" /> Generate with AI</>}
           </button>
         </div>
-        <Textarea
-          value={data.bio}
-          onChange={e => set('bio', e.target.value)}
-          placeholder={summaryPlaceholder}
-          rows={4}
-          className="rounded-xl"
-        />
-        <p className="text-xs text-muted-foreground">
-          Tap "Generate with AI" for a suggested summary, then edit to personalise it.
-        </p>
+        <Textarea value={data.bio} onChange={e => set('bio', e.target.value)}
+          placeholder="A brief overview of your professional background, experience, and career goals..."
+          rows={4} className="rounded-xl" />
+        <p className="text-xs text-muted-foreground">Tap "Generate with AI" for a suggested summary, then edit to personalise it.</p>
       </div>
 
       <p className="text-xs text-muted-foreground bg-muted rounded-xl px-3 py-2">
