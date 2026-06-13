@@ -88,7 +88,13 @@ function StepStepper({ steps, current, onSelect }: { steps: string[]; current: n
 }
 
 /* ── Upload / AI Zone ───────────────────────────────────────── */
-function CVUploadZone({ onDataExtracted }: { onDataExtracted: (data: CVData) => void }) {
+function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoading }: {
+  onDataExtracted: (data: CVData) => void;
+  deduct: (type: 'cv_usage' | 'letter_usage', refId?: string) => Promise<boolean>;
+  onAiUsed: () => void;
+  balance: number;
+  creditsLoading: boolean;
+}) {
   const [uploading,  setUploading]  = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [freeText,   setFreeText]   = useState('');
@@ -108,6 +114,11 @@ function CVUploadZone({ onDataExtracted }: { onDataExtracted: (data: CVData) => 
     const allowed = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
     if (!allowed.includes(file.type))   { toast.error('Please upload a PDF or DOCX file'); return; }
     if (file.size > 10 * 1024 * 1024)  { toast.error('File too large (max 10MB)');         return; }
+
+    // Deduct 1 credit before calling AI — prevents free abuse of CV import
+    const ok = await deduct('letter_usage', `cv_import_${Date.now()}`);
+    if (!ok) return; // insufficient credits — toast already shown
+
     setUploading(true);
     const formData = new FormData();
     formData.append('cvFile', file);
@@ -117,7 +128,8 @@ function CVUploadZone({ onDataExtracted }: { onDataExtracted: (data: CVData) => 
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error || 'Failed to process CV');
       mergeAndEmit(result.data, defaultData());
-      toast.success('CV imported and restructured by AI!');
+      onAiUsed(); // AI used — reduces CV download cost by 1
+      toast.success('CV imported! 1 credit used. Review and complete your details.');
     } catch (err: any) {
       toast.error(err.message || 'AI processing failed. Please try again.');
     } finally { setUploading(false); }
@@ -125,6 +137,11 @@ function CVUploadZone({ onDataExtracted }: { onDataExtracted: (data: CVData) => 
 
   const processFreeText = async () => {
     if (!freeText.trim()) { toast.error('Please type something about yourself first.'); return; }
+
+    // Deduct 1 credit before calling AI
+    const ok = await deduct('letter_usage', `cv_freetext_${Date.now()}`);
+    if (!ok) return; // insufficient credits — toast already shown
+
     setUploading(true);
     try {
       const res    = await fetch('/.netlify/functions/enhance-cv', {
@@ -135,7 +152,8 @@ function CVUploadZone({ onDataExtracted }: { onDataExtracted: (data: CVData) => 
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error || 'AI processing failed');
       mergeAndEmit(result.data, defaultData());
-      toast.success('AI has structured your information into CV sections!');
+      onAiUsed(); // AI used — reduces CV download cost by 1
+      toast.success('AI has structured your info! 1 credit used. Review and complete your details.');
     } catch (err: any) {
       toast.error(err.message || 'AI processing failed. Please try again.');
     } finally { setUploading(false); }
@@ -144,7 +162,8 @@ function CVUploadZone({ onDataExtracted }: { onDataExtracted: (data: CVData) => 
   return (
     <div className="px-4 pb-4">
       <p className="text-xs text-muted-foreground mb-3">
-        Speed up your CV — import an existing CV or describe yourself and our AI will fill in the sections for you.
+        Speed up your CV — import an existing CV or describe yourself and our AI will fill in the sections for you.{' '}
+        <span className="font-medium text-primary">1 credit per AI action.</span>
       </p>
       <div className="flex gap-1 bg-muted p-1 rounded-xl mb-3">
         <button onClick={() => setActiveTab('upload')}
@@ -162,8 +181,8 @@ function CVUploadZone({ onDataExtracted }: { onDataExtracted: (data: CVData) => 
           className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${dragActive ? 'border-primary bg-primary/5' : 'border-border bg-card'}`}
           onDragOver={e => { e.preventDefault(); setDragActive(true); }}
           onDragLeave={() => setDragActive(false)}
-          onDrop={e => { e.preventDefault(); setDragActive(false); const f = e.dataTransfer.files?.[0]; if (f) processFile(f); }}
-          onClick={() => document.getElementById('cv-upload-input')?.click()}
+          onDrop={e => { e.preventDefault(); setDragActive(false); if (balance < 1) { toast.error('Not enough credits to use AI import.'); return; } const f = e.dataTransfer.files?.[0]; if (f) processFile(f); }}
+          onClick={() => { if (balance < 1) { toast.error('Not enough credits to use AI import.'); return; } document.getElementById('cv-upload-input')?.click(); }}
         >
           <input id="cv-upload-input" type="file" accept=".pdf,.doc,.docx" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = ''; }} disabled={uploading} />
@@ -199,11 +218,11 @@ function CVUploadZone({ onDataExtracted }: { onDataExtracted: (data: CVData) => 
               disabled={uploading}
             />
           </div>
-          <button onClick={processFreeText} disabled={uploading || !freeText.trim()}
+          <button onClick={processFreeText} disabled={uploading || !freeText.trim() || (!creditsLoading && balance < 1)}
             className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl py-3 text-sm font-semibold transition-all disabled:opacity-50 hover:bg-primary/90">
             {uploading
               ? <><Loader2 className="w-4 h-4 animate-spin" /> AI is structuring your info…</>
-              : <><Loader2 className="w-4 h-4" /> Structure with AI</>}
+              : <><Loader2 className="w-4 h-4" /> Structure with AI · 1 credit</>}
           </button>
         </div>
       )}
@@ -215,7 +234,7 @@ function CVUploadZone({ onDataExtracted }: { onDataExtracted: (data: CVData) => 
 export default function CVBuilderPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { balance, loading: creditsLoading } = useCredits();
+  const { balance, loading: creditsLoading, deduct } = useCredits();
 
   const [initialState] = useState(() => {
     const lastMeta: Record<string, unknown> = (() => {
@@ -393,7 +412,7 @@ export default function CVBuilderPage() {
         <p className="text-sm text-muted-foreground">Build a professional CV in minutes</p>
       </div>
 
-      {step === 0 && <CVUploadZone onDataExtracted={handleAIDataExtracted} />}
+      {step === 0 && <CVUploadZone onDataExtracted={handleAIDataExtracted} deduct={deduct} onAiUsed={() => setAiUsed(true)} balance={balance} creditsLoading={creditsLoading} />}
 
       <motion.div key="builder" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
         <div className="px-4 pb-2">
