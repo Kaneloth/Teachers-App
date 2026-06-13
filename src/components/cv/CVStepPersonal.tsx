@@ -6,6 +6,7 @@ import { Lock, Camera, X, Loader2, ImageIcon, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { useCredits } from '@/hooks/useCredits';
 
 function publicStorageUrl(bucket: string, path: string): string {
   const base = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, '');
@@ -25,10 +26,12 @@ interface PersonalData {
 interface Props {
   data: PersonalData;
   onChange: (d: PersonalData) => void;
+  onAiUsed?: () => void;  // called when AI summary is successfully generated
 }
 
-export default function CVStepPersonal({ data, onChange }: Props) {
+export default function CVStepPersonal({ data, onChange, onAiUsed }: Props) {
   const { user } = useAuth();
+  const { balance, loading: creditsLoading, deduct } = useCredits();
   const [uploading,         setUploading]         = useState(false);
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const fileRef   = useRef<HTMLInputElement>(null);
@@ -58,6 +61,12 @@ export default function CVStepPersonal({ data, onChange }: Props) {
   const set = (field: keyof PersonalData, value: string) => onChange({ ...data, [field]: value });
 
   const generateSummary = async () => {
+    // Deduct 1 credit BEFORE calling the AI to prevent abuse.
+    // If AI succeeds, CV download cost is reduced from 3 → 2 credits (onAiUsed).
+    const aiRef = `ai_summary_${Date.now()}`;
+    const ok = await deduct('letter_usage', aiRef); // 1 credit = same cost as a letter
+    if (!ok) return; // insufficient credits — toast already shown
+
     setGeneratingSummary(true);
     try {
       const res = await fetch('/.netlify/functions/enhance-cv', {
@@ -68,7 +77,8 @@ export default function CVStepPersonal({ data, onChange }: Props) {
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error || 'AI failed');
       set('bio', result.summary);
-      toast.success('Professional summary generated!');
+      if (onAiUsed) onAiUsed(); // notify parent — reduces download cost by 1
+      toast.success('Professional summary generated! 1 credit used.');
     } catch (err: any) {
       toast.error('Could not generate summary: ' + (err?.message ?? 'Unknown error'));
     } finally { setGeneratingSummary(false); }
@@ -173,11 +183,12 @@ export default function CVStepPersonal({ data, onChange }: Props) {
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <Label className="text-sm font-medium">Professional Summary</Label>
-          <button type="button" onClick={generateSummary} disabled={generatingSummary}
+          <button type="button" onClick={generateSummary}
+            disabled={generatingSummary || (!creditsLoading && balance < 1)}
             className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50">
             {generatingSummary
               ? <><Loader2 className="w-3 h-3 animate-spin" /> Generating…</>
-              : <><Sparkles className="w-3 h-3" /> Generate with AI</>}
+              : <><Sparkles className="w-3 h-3" /> Generate with AI · 1 credit</>}
           </button>
         </div>
         <Textarea value={data.bio} onChange={e => set('bio', e.target.value)}

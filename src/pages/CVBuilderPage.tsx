@@ -258,6 +258,7 @@ export default function CVBuilderPage() {
   const [data,             setData]             = useState<CVData>(initialState.draft?.data ?? defaultData());
   const [draftSavedAt,     setDraftSavedAt]     = useState<string | null>(initialState.draft?.savedAt ?? null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [aiUsed,           setAiUsed]           = useState(false); // AI summary used — reduces CV download cost
 
   // Auto‑save draft
   useEffect(() => {
@@ -308,6 +309,7 @@ export default function CVBuilderPage() {
     setStep(0);
     setDraftSavedAt(null);
     setShowResetConfirm(false);
+    setAiUsed(false);
     try { localStorage.removeItem(DRAFT_KEY); } catch {}
     toast.success('CV cleared — start fresh!');
   };
@@ -408,14 +410,14 @@ export default function CVBuilderPage() {
         <div className="px-4">
           <AnimatePresence mode="wait">
             <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
-              {step === 0 && <CVStepPersonal data={data.personal} onChange={personal => setData(d => ({ ...d, personal }))} />}
+              {step === 0 && <CVStepPersonal data={data.personal} onChange={personal => setData(d => ({ ...d, personal }))} onAiUsed={() => setAiUsed(true)} />}
               {step === 1 && <CVStepEducation data={data.education} onChange={education => setData(d => ({ ...d, education }))} />}
               {step === 2 && <CVStepExperience data={data.experience} onChange={experience => setData(d => ({ ...d, experience }))} />}
               {step === 3 && <CVStepSkills data={data.skills} onChange={skills => setData(d => ({ ...d, skills }))} />}
               {step === 4 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} />}
               {step === 5 && <CVStepReferences data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
               {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} isFree={isFree} />}
-              {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} isFree={isFree} />}
+              {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} isFree={isFree} aiUsed={aiUsed} />}
             </motion.div>
           </AnimatePresence>
         </div>
