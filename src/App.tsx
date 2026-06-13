@@ -8,7 +8,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import ScrollToTop from '@/components/ScrollToTop';
 import AppLayout from '@/components/AppLayout';
 import AuthLayout from '@/components/AuthLayout';
-import PublicLayout from '@/components/PublicLayout';  // ✅ new import
+// No PublicLayout needed – About is now a landing section
 
 import LandingPage from '@/pages/LandingPage';
 import Login from '@/pages/Login';
@@ -29,8 +29,7 @@ import CareerToolsPage from '@/pages/CareerToolsPage';
 import CoverLettersPage from '@/pages/CoverLettersPage';
 import GuidesPage from '@/pages/GuidesPage';
 import SettingsPage from '@/pages/SettingsPage';
-import AboutPage from '@/pages/AboutPage';
-import PublicLayout from '@/components/PublicLayout';
+// AboutPage import removed
 import NotFound from '@/pages/not-found';
 
 const queryClient = new QueryClient();
@@ -44,13 +43,8 @@ export default function App() {
           <BrowserRouter basename={base}>
             <ScrollToTop />
             <Routes>
-              {/* Public landing (no header) */}
+              {/* Public landing (includes About section) */}
               <Route path="/" element={<LandingPage />} />
-
-              {/* Public pages with header (no authentication required) */}
-              <Route element={<PublicLayout />}>
-                <Route path="/about" element={<AboutPage />} />
-              </Route>
 
               {/* Auth routes (landing‑style, no header) */}
               <Route element={<AuthLayout />}>
