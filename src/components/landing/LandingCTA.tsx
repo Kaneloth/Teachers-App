@@ -6,9 +6,9 @@ export default function LandingCTA() {
     <section id="contact" className="bg-[#0d9488] py-20 px-6">
       <div className="max-w-3xl mx-auto text-center">
         <p className="text-white/60 text-sm font-semibold uppercase tracking-widest mb-3">📱 Free to Download · Works on Any Device</p>
-        <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">Get the Crosssa App Today</h2>
+        <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">Start Your Journey Today</h2>
         <p className="text-white/80 text-lg mb-8 max-w-xl mx-auto">
-          Your teaching career, in your pocket. Sign up in 2 minutes and start connecting with educators, finding vacancies, and building your CV — free.
+          Join hundreds of South African educators and job seekers. Build your CV, find transfer matches, and land your next opportunity – all free.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link to="/register" className="inline-flex items-center justify-center gap-2 bg-white text-[#0d9488] font-bold px-8 py-3.5 rounded-xl hover:bg-[#f0fdfa] transition-colors shadow-lg text-base">
