@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Loader2, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Loader2, RotateCcw, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
+import { useCredits } from '@/hooks/useCredits';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import CVStepPersonal from '@/components/cv/CVStepPersonal';
@@ -214,6 +215,7 @@ function CVUploadZone({ onDataExtracted }: { onDataExtracted: (data: CVData) => 
 export default function CVBuilderPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { balance, loading: creditsLoading } = useCredits();
 
   const [initialState] = useState(() => {
     const lastMeta: Record<string, unknown> = (() => {
@@ -355,6 +357,10 @@ export default function CVBuilderPage() {
           </button>
           <FileText className="w-5 h-5 text-primary" />
           <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
+          <div className="ml-auto flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold">
+            <Coins className="w-3 h-3" />
+            {creditsLoading ? '…' : balance}
+          </div>
         </div>
         <div className="px-4">
           <LastCVBanner
@@ -375,6 +381,10 @@ export default function CVBuilderPage() {
         </button>
         <FileText className="w-5 h-5 text-primary" />
         <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
+        <div className="ml-auto flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold">
+          <Coins className="w-3 h-3" />
+          {creditsLoading ? '…' : balance}
+        </div>
       </div>
 
       <div className="px-4 pb-4 pt-1">

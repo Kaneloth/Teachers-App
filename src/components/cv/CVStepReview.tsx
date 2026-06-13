@@ -1,12 +1,13 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Download, FileText, CheckCircle2, RefreshCw, Eye, List } from 'lucide-react';
+import { Download, FileText, CheckCircle2, RefreshCw, Eye, List, Coins, AlertCircle } from 'lucide-react';
 import CVTemplateRenderer from './CVTemplateRenderer';
 import { exportElementAsPDF } from '@/utils/cvExport';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { useCredits } from '@/hooks/useCredits';
 
 // Builds correct public storage URL — getPublicUrl() sometimes omits /public/
 function publicStorageUrl(bucket: string, path: string): string {
@@ -27,7 +28,25 @@ interface Props { data: CVData; onGenerated?: (url: string) => void; isFree?: bo
 
 export default function CVStepReview({ data, onGenerated, isFree = false }: Props) {
   const { user } = useAuth();
+  const { balance, loading: creditsLoading, deduct } = useCredits();
+  const [showInsufficientModal, setShowInsufficientModal] = useState(false);
+  const [hasPurchased, setHasPurchased] = useState(false);
   const [view, setView] = useState<'preview' | 'summary'>('preview');
+
+  // Check if the user has ever bought credits (purchase entry in ledger).
+  // If yes → no watermark. If only signup_bonus credits → watermark applies.
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('credit_ledger')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .in('type', ['purchase', 'monthly_pro'])
+      .then(({ count }) => setHasPurchased((count ?? 0) > 0));
+  }, [user]);
+
+  // Watermark = user has never paid (only has free signup credits)
+  const shouldWatermark = !hasPurchased;
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -38,9 +57,17 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
 
   const handleGenerate = async () => {
     if (!exportRef.current) return;
+
+    // ── Credit check — deduct 3 credits before generating ────────────────
+    const ok = await deduct('cv_usage', fileName);
+    if (!ok) {
+      if (balance < 3) setShowInsufficientModal(true);
+      return;
+    }
+
     setSending(true);
     try {
-      const pdfBlob = await exportElementAsPDF(exportRef.current, fileName, { ...data, watermark: isFree });
+      const pdfBlob = await exportElementAsPDF(exportRef.current, fileName, { ...data, watermark: shouldWatermark });
 
       // ── 1. Trigger immediate device download ─────────────────────────────
       const blobUrl = URL.createObjectURL(pdfBlob);
@@ -192,14 +219,81 @@ export default function CVStepReview({ data, onGenerated, isFree = false }: Prop
         </div>
       </div>
 
+      {/* Credit balance indicator */}
+      <div className="flex items-center justify-between bg-muted rounded-xl px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <Coins className="w-4 h-4 text-primary" />
+          <span className="text-sm text-foreground font-medium">
+            {creditsLoading ? '…' : balance} credit{balance !== 1 ? 's' : ''} available
+          </span>
+        </div>
+        <span className="text-xs text-muted-foreground">CV costs 3 credits</span>
+      </div>
+
+      {/* Watermark notice for free users */}
+      {!hasPurchased && (
+        <div className="flex items-start gap-2 bg-muted border border-border rounded-xl px-3 py-2.5">
+          <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+          <p className="text-xs text-muted-foreground">
+            Your CV will include a <strong>free watermark</strong> in the footer.{' '}
+            <a href="/credits" className="text-primary underline font-medium">Buy credits</a>{' '}
+            to remove it — watermark is removed automatically on any paid download.
+          </p>
+        </div>
+      )}
+
+      {/* Insufficient credits warning */}
+      {!creditsLoading && balance < 3 && (
+        <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2.5">
+          <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Not enough credits</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+              You have {balance} credit{balance !== 1 ? 's' : ''} but need 3 to generate a CV.
+            </p>
+          </div>
+        </div>
+      )}
+
       <Button
         onClick={handleGenerate}
-        disabled={sending}
+        disabled={sending || (!creditsLoading && balance < 3)}
         className="w-full h-12 rounded-xl text-base font-semibold gap-2"
       >
         <Download className="w-5 h-5" />
-        {sending ? 'Generating PDF...' : 'Download PDF'}
+        {sending ? 'Generating PDF...' : `Download PDF (3 credits)${shouldWatermark ? ' · Free watermark' : ''}`}
       </Button>
+
+      {/* Insufficient credits modal */}
+      {showInsufficientModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setShowInsufficientModal(false); }}>
+          <div className="bg-background rounded-2xl w-full max-w-sm shadow-xl p-6 space-y-4">
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-3">
+                <Coins className="w-7 h-7 text-amber-600 dark:text-amber-400" />
+              </div>
+              <h2 className="text-lg font-bold text-foreground">Not Enough Credits</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                You need 3 credits to download a CV. You currently have {balance}.
+              </p>
+            </div>
+            <div className="bg-muted rounded-xl p-3 space-y-1 text-xs text-muted-foreground">
+              <p>• Single CV pack — R19 for 6 credits</p>
+              <p>• Standard pack — R49 for 30 credits</p>
+              <p>• Pro pack — R79 for 60 credits</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 rounded-xl"
+                onClick={() => setShowInsufficientModal(false)}>Cancel</Button>
+              <Button className="flex-1 rounded-xl gap-1.5"
+                onClick={() => { setShowInsufficientModal(false); window.location.href = '/credits'; }}>
+                <Coins className="w-4 h-4" /> Buy Credits
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

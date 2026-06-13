@@ -11,6 +11,19 @@
 [functions."enhance-cv"]
   timeout = 26
 
+[functions."grant-signup-credits"]
+  timeout = 10
+
+[functions."deduct-credits"]
+  timeout = 10
+
+[functions."purchase-credits"]
+  timeout = 10
+
+[functions."monthly-pro-credits"]
+  timeout = 60
+  schedule = "0 2 1 * *"
+
 # Ensure the sitemap is served correctly (before the catch-all rule)
 [[redirects]]
   from   = "/sitemap.xml"
