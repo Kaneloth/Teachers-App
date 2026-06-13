@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, Loader2, RotateCcw, Lock, Check, Zap, Sparkles, FileText, Coins, AlertCircle } from 'lucide-react';
+import { Download, Loader2, RotateCcw, Check, Sparkles, FileText, Coins, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,16 +9,6 @@ import { toast } from 'sonner';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
 import { supabase } from '@/lib/supabase';
-import SubscriptionModal from '@/components/SubscriptionModal';
-
-/* ── Subscription helpers ────────────────────────────────────── */
-const PRO_PLANS = ['monthly', 'semi', 'annual'];
-
-function hasActiveAccess(plan: string | null | undefined, end: string | null | undefined): boolean {
-  if (!plan || plan === 'free') return false;
-  if (!end) return false;
-  return new Date(end) > new Date();
-}
 
 /* ── Template definitions ────────────────────────────────────── */
 interface Template {
@@ -228,124 +218,12 @@ ${name || '[Your Name]'}`,
 
 const CATEGORY_KEYS = Object.keys(TEMPLATES);
 
-/* ── Gate (locked state) ─────────────────────────────────────── */
-function CoverLetterGate({
-  profileType,
-  onUpgradePro,
-}: {
-  profileType: 'educator' | 'general';
-  onUpgradePro: () => void;
-}) {
-  const BENEFITS = [
-    'All 8 professional letter templates',
-    'Edit & customise per application',
-    'Download as Word (.docx)',
-    'All CV templates (no watermark)',
-  ];
-
-  return (
-    <div className="px-4 pt-10 pb-10 max-w-sm mx-auto">
-      {/* Icon */}
-      <div className="flex flex-col items-center text-center mb-6">
-        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-          <Lock className="w-7 h-7 text-primary" />
-        </div>
-        <h2 className="text-xl font-bold text-foreground mb-1">Cover Letters</h2>
-        <p className="text-sm text-muted-foreground">
-          Unlock professional cover letter templates with a subscription or the R99 add-on.
-        </p>
-      </div>
-
-      {/* Benefits */}
-      <div className="bg-card rounded-2xl border border-border p-4 mb-4 space-y-2.5">
-        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-          What's included
-        </p>
-        {BENEFITS.map(b => (
-          <div key={b} className="flex items-center gap-2.5">
-            <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
-              <Check className="w-3 h-3 text-green-500" />
-            </div>
-            <span className="text-sm text-foreground">{b}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* R99 Add-on card */}
-      <div className="bg-card rounded-2xl border border-border p-4 mb-3">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div>
-            <p className="font-bold text-foreground text-sm">R99 Add-on</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              12 months · Cover letters + all CV templates
-            </p>
-          </div>
-          <span className="text-xl font-extrabold text-primary shrink-0">R99</span>
-        </div>
-        <Button variant="outline" className="w-full rounded-xl h-10 text-sm font-semibold" asChild>
-          <a href="mailto:support@crosssa.co.za?subject=R99%20Add-on%20Purchase">
-            Get Add-on
-          </a>
-        </Button>
-        <p className="text-[11px] text-muted-foreground text-center mt-2">
-          Contact us to activate · renews annually
-        </p>
-      </div>
-
-      {/* Pro card — educators only */}
-      {profileType === 'educator' && (
-        <div className="bg-primary/5 rounded-2xl border border-primary/25 p-4">
-          <div className="flex items-start justify-between gap-3 mb-1">
-            <div>
-              <p className="font-bold text-foreground text-sm flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-primary" /> Pro Subscription
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Cover letters + transfer matching + ad-free
-              </p>
-            </div>
-            <div className="text-right shrink-0">
-              <p className="text-xl font-extrabold text-primary leading-none">R35</p>
-              <p className="text-[10px] text-muted-foreground">/month</p>
-            </div>
-          </div>
-          <p className="text-[11px] text-muted-foreground mb-3">
-            Monthly · Semi-annual · Annual · Educator role only
-          </p>
-          <Button className="w-full rounded-xl h-10 text-sm font-semibold gap-1.5" onClick={onUpgradePro}>
-            <Zap className="w-3.5 h-3.5" /> Upgrade to Pro
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ── Main component ──────────────────────────────────────────── */
 export default function CoverLettersPage() {
   const { user } = useAuth();
+
+  /* ── Credits ───────────────────────────────────────────────── */
   const { balance, loading: creditsLoading, deduct } = useCredits();
-
-  /* ── Subscription / access state ───────────────────────────── */
-  const [accessLoading, setAccessLoading] = useState(true);
-  const [hasAccess,     setHasAccess]     = useState(false);
-  const [profileType,   setProfileType]   = useState<'educator' | 'general'>('general');
-  const [showSubModal,  setShowSubModal]  = useState(false);
-
-  useEffect(() => {
-    if (!user) { setAccessLoading(false); return; }
-
-    Promise.all([
-      supabase.from('profiles').select('subscription_plan, subscription_end').eq('id', user.id).single(),
-      supabase.from('educators').select('profile_type').eq('user_id', user.id).maybeSingle(),
-    ]).then(([{ data: profile }, { data: educator }]) => {
-      const plan = profile?.subscription_plan ?? (user.user_metadata?.subscription_plan as string | undefined) ?? 'free';
-      const end  = profile?.subscription_end  ?? (user.user_metadata?.subscription_end  as string | undefined) ?? null;
-      setHasAccess(hasActiveAccess(plan, end));
-      setProfileType((educator?.profile_type as 'educator' | 'general') ?? 'general');
-      setAccessLoading(false);
-    });
-  }, [user]);
 
   /* ── Letter state ───────────────────────────────────────────── */
   const [category,   setCategory]  = useState<string>('education');
@@ -421,10 +299,10 @@ export default function CoverLettersPage() {
   const handleDownload = async () => {
     if (!body.trim()) { toast.error('Letter body is empty.'); return; }
 
-    // ── Credit check — deduct 1 credit before generating ─────────────────
+    // ── Deduct 1 credit before generating ────────────────────────────────
     const letterRef = `letter_${category}_${Date.now()}`;
     const ok = await deduct('letter_usage', letterRef);
-    if (!ok) return;  // useCredits already showed the toast
+    if (!ok) return;  // useCredits already showed the insufficient-credits toast
 
     setGenerating(true);
     try {
@@ -474,28 +352,6 @@ export default function CoverLettersPage() {
   };
 
   const tpl = TEMPLATES[category];
-
-  /* ── Loading ────────────────────────────────────────────────── */
-  if (accessLoading) {
-    return (
-      <div className="flex justify-center py-24">
-        <div className="w-5 h-5 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  /* ── Gate ───────────────────────────────────────────────────── */
-  if (!hasAccess) {
-    return (
-      <>
-        <CoverLetterGate
-          profileType={profileType}
-          onUpgradePro={() => setShowSubModal(true)}
-        />
-        <SubscriptionModal open={showSubModal} onClose={() => setShowSubModal(false)} />
-      </>
-    );
-  }
 
   /* ── Full content ───────────────────────────────────────────── */
   return (
@@ -616,12 +472,10 @@ export default function CoverLettersPage() {
           {!creditsLoading && balance < 1 && (
             <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2.5">
               <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Not enough credits</p>
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                  You need 1 credit to download a cover letter. <a href="/credits" className="underline font-medium">Buy credits</a>
-                </p>
-              </div>
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                You need 1 credit to download a cover letter.{' '}
+                <a href="/credits" className="underline font-medium">Buy credits</a>
+              </p>
             </div>
           )}
 
