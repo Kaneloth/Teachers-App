@@ -19,7 +19,7 @@ export default function LandingFooter() {
             <div>
               <p className="text-white font-semibold mb-3">Platform</p>
               <ul className="space-y-2">
-				<li><Link to="/about" className="hover:text-white transition-colors">About Us</Link></li>
+                <li><Link to="/#about" className="hover:text-white transition-colors">About Us</Link></li>
                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
                 <li><a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a></li>
                 <li><Link to="/vacancies" className="hover:text-white transition-colors">Vacancies</Link></li>
@@ -33,26 +33,25 @@ export default function LandingFooter() {
               </ul>
             </div>
             <div>
-  <p className="text-white font-semibold mb-3">Legal</p>
-  <ul className="space-y-2">
-    <li>
-      <a href="/PAIA%20Manual.html" target="_blank" rel="noopener noreferrer" className="hover:underline">
-        PAIA Manual
-      </a>
-    </li>
-    <li>
-      <a href="/Privacy%20Policy.html" target="_blank" rel="noopener noreferrer" className="hover:underline">
-        Privacy Policy
-      </a>
-    </li>
-    <li>
-      <a href="/Terms%20and%20Conditions.html" target="_blank" rel="noopener noreferrer" className="hover:underline">
-        Terms of Service
-      </a>
-    </li>
-  </ul>
-</div>
-		
+              <p className="text-white font-semibold mb-3">Legal</p>
+              <ul className="space-y-2">
+                <li>
+                  <a href="/PAIA%20Manual.html" target="_blank" rel="noopener noreferrer" className="hover:underline">
+                    PAIA Manual
+                  </a>
+                </li>
+                <li>
+                  <a href="/Privacy%20Policy.html" target="_blank" rel="noopener noreferrer" className="hover:underline">
+                    Privacy Policy
+                  </a>
+                </li>
+                <li>
+                  <a href="/Terms%20and%20Conditions.html" target="_blank" rel="noopener noreferrer" className="hover:underline">
+                    Terms of Service
+                  </a>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
