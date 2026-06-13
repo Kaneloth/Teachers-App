@@ -2,6 +2,13 @@ import { Link } from 'react-router-dom';
 import { GraduationCap } from 'lucide-react';
 
 export default function LandingNav() {
+  const scrollToSection = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <nav className="bg-[#0d9488] sticky top-0 z-50 shadow-sm">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -10,15 +17,15 @@ export default function LandingNav() {
           <span className="text-white text-xl font-bold tracking-tight">Crosssa</span>
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm text-white/90">
-          <a href="#features" className="hover:text-white transition-colors">Features</a>
+          <button onClick={() => scrollToSection('features')} className="hover:text-white transition-colors cursor-pointer">Features</button>
           <span className="text-white/30">|</span>
-          <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
+          <button onClick={() => scrollToSection('how-it-works')} className="hover:text-white transition-colors cursor-pointer">How It Works</button>
           <span className="text-white/30">|</span>
-          <a href="#testimonials" className="hover:text-white transition-colors">Testimonials</a>
+          <button onClick={() => scrollToSection('testimonials')} className="hover:text-white transition-colors cursor-pointer">Testimonials</button>
           <span className="text-white/30">|</span>
-          <Link to="/about" className="hover:text-white transition-colors">About</Link>
+          <button onClick={() => scrollToSection('about')} className="hover:text-white transition-colors cursor-pointer">About</button>
           <span className="text-white/30">|</span>
-          <a href="#contact" className="hover:text-white transition-colors">Contact</a>
+          <button onClick={() => scrollToSection('contact')} className="hover:text-white transition-colors cursor-pointer">Contact</button>
         </div>
         <div className="flex items-center gap-3">
           <Link to="/login" className="text-sm font-medium text-white/80 hover:text-white transition-colors hidden sm:block">
