@@ -21,11 +21,86 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+      /* Install button styling (optional) */
+      .install-banner {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #0d9488;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 40px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 1000;
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: opacity 0.2s;
+      }
+      .install-banner button {
+        background: white;
+        border: none;
+        color: #0d9488;
+        padding: 6px 14px;
+        border-radius: 30px;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .install-banner button:hover {
+        background: #f0fdfa;
+      }
+      @media (max-width: 640px) {
+        .install-banner { width: 90%; justify-content: space-between; }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     
+    <!-- PWA Install Prompt Logic -->
+    <script>
+      let deferredPrompt;
+      const installBanner = document.createElement('div');
+      installBanner.className = 'install-banner';
+      installBanner.style.display = 'none';
+      installBanner.innerHTML = `
+        <span>📱 Install Crosssa App</span>
+        <button id="install-btn">Install</button>
+      `;
+      document.body.appendChild(installBanner);
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        installBanner.style.display = 'flex';
+      });
+
+      installBanner.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          installBanner.style.display = 'none';
+        }
+        deferredPrompt = null;
+      });
+
+      // Hide banner after app is installed (optional: listen for appinstalled)
+      window.addEventListener('appinstalled', () => {
+        installBanner.style.display = 'none';
+        deferredPrompt = null;
+      });
+    </script>
+
     <!-- Service Worker Registration -->
     <script>
       if ('serviceWorker' in navigator) {
