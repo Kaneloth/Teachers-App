@@ -1,5 +1,4 @@
 import { GraduationCap } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 export default function LandingFooter() {
   return (
@@ -19,17 +18,17 @@ export default function LandingFooter() {
             <div>
               <p className="text-white font-semibold mb-3">Platform</p>
               <ul className="space-y-2">
-                <li><Link to="/#about" className="hover:text-white transition-colors">About Us</Link></li>
+                <li><a href="/#about" className="hover:text-white transition-colors">About Us</a></li>
                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
                 <li><a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a></li>
-                <li><Link to="/vacancies" className="hover:text-white transition-colors">Vacancies</Link></li>
+                <li><a href="/vacancies" className="hover:text-white transition-colors">Vacancies</a></li>
               </ul>
             </div>
             <div>
               <p className="text-white font-semibold mb-3">Account</p>
               <ul className="space-y-2">
-                <li><Link to="/register" className="hover:text-white transition-colors">Sign Up Free</Link></li>
-                <li><Link to="/login" className="hover:text-white transition-colors">Sign In</Link></li>
+                <li><a href="/register" className="hover:text-white transition-colors">Sign Up Free</a></li>
+                <li><a href="/login" className="hover:text-white transition-colors">Sign In</a></li>
               </ul>
             </div>
             <div>
