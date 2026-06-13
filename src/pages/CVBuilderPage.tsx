@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ArrowLeft, FileText, GraduationCap, Briefcase, Save, Clock, Upload, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, FileText, GraduationCap, Briefcase, Save, Clock, Upload, Loader2, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -367,6 +367,7 @@ export default function CVBuilderPage() {
   }, [user]);
 
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(initialState.draft?.savedAt ?? null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   // Auto‑save draft to localStorage
   useEffect(() => {
@@ -399,6 +400,16 @@ export default function CVBuilderPage() {
     setCvType(t);
     setData(defaultData(t));
     setStep(0);
+  };
+
+  const handleReset = () => {
+    if (!cvType) return;
+    setData(defaultData(cvType));
+    setStep(0);
+    setDraftSavedAt(null);
+    setShowResetConfirm(false);
+    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    toast.success('CV cleared — start fresh!');
   };
 
   const handleBack = () => {
@@ -563,7 +574,7 @@ export default function CVBuilderPage() {
               {step === 4 && <CVStepReferences cvType={cvType} data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
               {step === 5 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} />}
               {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} isFree={isFree} />}
-              {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} isFree={isFree} />}
+              {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} isFree={isFree} cvType={cvType ?? 'general'} />}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -581,7 +592,7 @@ export default function CVBuilderPage() {
           )}
         </div>
 
-        <div className="px-4 pb-6 pt-1">
+        <div className="px-4 pb-2 pt-1">
           <Button
             variant="ghost"
             onClick={() => navigate(-1)}
@@ -589,6 +600,42 @@ export default function CVBuilderPage() {
           >
             <Save className="w-4 h-4" /> Save &amp; Exit — continue later
           </Button>
+        </div>
+
+        {/* Reset CV */}
+        <div className="px-4 pb-6">
+          {!showResetConfirm ? (
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              className="w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors py-1"
+            >
+              <RotateCcw className="w-3 h-3" /> Reset CV &amp; clear all fields
+            </button>
+          ) : (
+            <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-3 space-y-2">
+              <p className="text-xs text-center text-destructive font-medium">
+                This will clear all your CV data. Are you sure?
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowResetConfirm(false)}
+                  className="flex-1 rounded-lg text-xs h-8"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleReset}
+                  className="flex-1 rounded-lg text-xs h-8 gap-1"
+                >
+                  <RotateCcw className="w-3 h-3" /> Yes, clear all
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </motion.div>
     </div>

@@ -268,6 +268,7 @@ export async function exportElementAsPDF(
   const refs    = (data.references   || []).filter((r:any)=>r.name);
   const customs = (data.custom_sections||[]).filter((s:any)=>s.title);
   const tmpl    = data.template || 'classic';
+  const isEdu    = data.cvType !== 'general';  // false = general CV, true = educator (default)
   const wm      = !!data.watermark;
   const owner   = pr.full_name || 'Applicant';
 
@@ -275,23 +276,23 @@ export async function exportElementAsPDF(
   reset(pdf);
 
   const dispatch: Record<string, ()=>void> = {
-    classic:      ()=>drawClassic(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    modern:       ()=>drawModern(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    professional: ()=>drawProfessional(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    minimal:      ()=>drawMinimal(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    sidebar:      ()=>drawSidebar(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    bold:         ()=>drawBold(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    executive:    ()=>drawExecutive(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    corporate:    ()=>drawCorporate(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    stylish:      ()=>drawStylish(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    boxed:        ()=>drawBoxed(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    traditional:  ()=>drawTraditional(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    navy:         ()=>drawNavy(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    timeline:     ()=>drawTimeline(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    shaded:       ()=>drawShaded(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    teal:         ()=>drawTeal(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    crimson:      ()=>drawCrimson(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
-    sage:         ()=>drawSage(pdf,pr,edu,exp,sk,refs,customs,wm,owner),
+    classic:      ()=>drawClassic(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    modern:       ()=>drawModern(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    professional: ()=>drawProfessional(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    minimal:      ()=>drawMinimal(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    sidebar:      ()=>drawSidebar(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    bold:         ()=>drawBold(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    executive:    ()=>drawExecutive(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    corporate:    ()=>drawCorporate(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    stylish:      ()=>drawStylish(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    boxed:        ()=>drawBoxed(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    traditional:  ()=>drawTraditional(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    navy:         ()=>drawNavy(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    timeline:     ()=>drawTimeline(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    shaded:       ()=>drawShaded(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    teal:         ()=>drawTeal(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    crimson:      ()=>drawCrimson(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    sage:         ()=>drawSage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -321,7 +322,7 @@ export async function exportElementAsPDF(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // ── 1. CLASSIC — Dark full-width banner, single column, left accent bars ───────
-function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#1e2a3a'); const [ar,ag,ab]=accent;
   fill(p,ar,ag,ab); p.rect(0,0,PW,30,'F');
   tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(18); p.text(owner.toUpperCase(),ML,13);
@@ -331,10 +332,10 @@ function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   reset(p); let y=MT+20;
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,PW,5,'F');reset(p);return MT+7;};
   const GXW=():[ number,number]=>[ML,PW-ML-MR];
-  if(pr.bio){y=sectionHeading(p,'Professional Summary',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
+  if(pr.bio){y=sectionHeading(p,isEdu?'Professional Summary':'Professional Summary',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
   if(edu.length){y=sectionHeading(p,'Education',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW);
     for(const e of edu){if(y+12>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.qualification||'',ML,y);y+=LINE_H;p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text([e.institution,e.year].filter(Boolean).join('  ·  '),ML,y);y+=LINE_H+ITEM_GAP;}}
-  if(exp.length){y=sectionHeading(p,'Teaching Experience',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW);
+  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW);
     for(const e of exp){if(y+14>BOTTOM)y=np();
       fill(p,ar,ag,ab);p.rect(ML,y-3.2,2.5,14,'F');reset(p);
       p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',ML+5,y);y+=LINE_H;
@@ -350,7 +351,7 @@ function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 }
 
 // ── 2. MODERN — Teal left sidebar with avatar circle ─────────────────────────
-function drawModern(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawModern(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#0d9488'); const [ar,ag,ab]=accent;
   const SB=52; const cx=ML+SB+8; const cmw=PW-MR-cx;
   fill(p,ar,ag,ab); p.rect(0,0,ML+SB+2,PH,'F');
@@ -370,12 +371,12 @@ function drawModern(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   if(sk.soft_skills?.length){sy=sidebarLabel(p,'Skills',sx,sy,smw,[255,255,255],[180,220,215]);p.setFont(F,'normal');p.setFontSize(7.5);tc(p,224,253,244);for(const s of sk.soft_skills){const ls=p.splitTextToSize(`– ${s}`,smw) as string[];ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=4;});}}
   reset(p);let y=MT+8;
   tc(p,ar,ag,ab);p.setFont(F,'bold');p.setFontSize(15);p.text(owner.toUpperCase(),cx,y);y+=6;
-  tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text('EDUCATOR',cx,y);y+=3;
+  tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',cx,y);y+=3;
   hLine(p,cx,y,cmw,ar,ag,ab,0.5);y+=6;
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,6,PH,'F');reset(p);return MT+4;};
   const GXW=():[ number,number]=>[cx,cmw];
-  if(pr.bio){y=sectionHeading(p,'About Me',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,cx,y,cmw,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
-  if(exp.length){y=sectionHeading(p,'Teaching Experience',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);
+  if(pr.bio){y=sectionHeading(p,isEdu?'About Me':'About Me',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,cx,y,cmw,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
+  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);
     for(const e of exp){if(y+14>BOTTOM)y=np();fill(p,ar,ag,ab);p.rect(cx,y-3,2,11,'F');reset(p);
       p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',cx+4,y);y+=LINE_H;
       p.setFont(F,'bold');p.setFontSize(8.5);tc(p,ar,ag,ab);p.text(e.school||'',cx+4,y);
@@ -389,19 +390,19 @@ function drawModern(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
 }
 
 // ── 3. PROFESSIONAL — Green gradient banner, two-column body ──────────────────
-function drawProfessional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawProfessional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#1e4d2b'); const [ar,ag,ab]=accent; const LIGHT:RGB=[45,122,71];
   fill(p,ar,ag,ab);p.rect(0,0,PW,35,'F');fill(p,...LIGHT);p.rect(PW/2,0,PW/2,35,'F');fill(p,ar,ag,ab);p.rect(0,0,PW/2+10,35,'F');
   tc(p,255,255,255);p.setFont(F,'bold');p.setFontSize(18);p.text(owner.toUpperCase(),ML,14);
-  p.setFont(F,'normal');p.setFontSize(8);tc(p,180,220,190);p.text('EDUCATOR',ML,21);
+  p.setFont(F,'normal');p.setFontSize(8);tc(p,180,220,190);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',ML,21);
   hLine(p,ML,24,PW-ML-MR,255,255,255,0.2);
   p.setFont(F,'normal');p.setFontSize(7.5);tc(p,200,240,210);
   p.text([pr.email,pr.phone,pr.address,pr.id_number?`ID: ${pr.id_number}`:null].filter(Boolean).join('   ·   '),ML,30);
   reset(p);let y=MT+28;
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,PW,5,'F');reset(p);return MT+7;};
-  if(pr.bio){y=sectionHeading(p,'Professional Profile',ML,y,PW-ML-MR,accent,'underline',BOTTOM,np);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np);y+=ITEM_GAP+2;}
+  if(pr.bio){y=sectionHeading(p,isEdu?'Professional Profile':'Professional Profile',ML,y,PW-ML-MR,accent,'underline',BOTTOM,np);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np);y+=ITEM_GAP+2;}
   const c1=ML;const c2=ML+(PW-ML-MR)/2+4;const cw=(PW-ML-MR)/2-4;let y1=y;let y2=y;
-  if(exp.length){y1=sectionHeading(p,'Teaching Experience',c1,y1,cw,accent,'underline',BOTTOM,np);
+  if(exp.length){y1=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',c1,y1,cw,accent,'underline',BOTTOM,np);
     for(const e of exp){if(y1+14>BOTTOM)y1=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',c1,y1);y1+=LINE_H;
       p.setFont(F,'bold');p.setFontSize(8.5);tc(p,...LIGHT);p.text(e.school||'',c1,y1);const ds=[e.from,e.to].filter(Boolean).join(' – ');if(ds){tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,c1+cw-p.getTextWidth(ds),y1);}y1+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y1=bulletLine(p,l,c1,y1,cw,accent,BOTTOM,np);
@@ -417,7 +418,7 @@ function drawProfessional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],cus
 }
 
 // ── 4. MINIMAL — Centred header, left-date column layout ─────────────────────
-function drawMinimal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawMinimal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#111827'); const [ar,ag,ab]=accent;
   tc(p,ar,ag,ab);p.setFont(F,'bold');p.setFontSize(18);const nw=p.getTextWidth(owner.toUpperCase());p.text(owner.toUpperCase(),(PW-nw)/2,MT+8);
   p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);const ctxt=[pr.address,pr.phone,pr.email].filter(Boolean).join('   ·   ');const cw=p.getTextWidth(ctxt);p.text(ctxt,(PW-cw)/2,MT+14);
@@ -425,7 +426,7 @@ function drawMinimal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   const DX=ML;const DW=28;const CX=ML+DW+6;const CMW=PW-MR-CX;
   const np=()=>{p.addPage();reset(p);return MT;};const GXW=():[ number,number]=>[CX,CMW];
   if(pr.bio){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(8);tc(p,156,163,175);p.text('SUMMARY',DX,y);p.setFont(F,'normal');p.setFontSize(9);tc(p,75,85,99);y=wrapped(p,pr.bio,CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
-  if(exp.length){hLine(p,ML,y,PW-ML-MR,ar,ag,ab,0.4);y+=4;p.setFont(F,'bold');p.setFontSize(8);tc(p,156,163,175);p.text('EXPERIENCE',DX,y);y+=LINE_H;
+  if(exp.length){hLine(p,ML,y,PW-ML-MR,ar,ag,ab,0.4);y+=4;p.setFont(F,'bold');p.setFontSize(8);tc(p,156,163,175);p.text(isEdu?'EXPERIENCE':'EXPERIENCE',DX,y);y+=LINE_H;
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'normal');p.setFontSize(8);tc(p,156,163,175);p.text([e.from,e.to].filter(Boolean).join('–'),DX,y);
       p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',CX,y);y+=LINE_H;p.setFont(F,'normal');p.setFontSize(9);tc(p,107,114,128);p.text(e.school||'',CX,y);y+=LINE_H;
       if(e.description){tc(p,55,65,81);for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,CX,y,CMW,accent,BOTTOM,np,GXW);}y+=ITEM_GAP+1;}}
@@ -440,7 +441,7 @@ function drawMinimal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 }
 
 // ── 5. SIDEBAR — Blue left sidebar with initials circle ───────────────────────
-function drawSidebar(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawSidebar(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const BLUE=hex('#3b5998'); const [sr,sg,sb]=BLUE;
   const SB=55;const cx=ML+SB+8;const cmw=PW-MR-cx;
   fill(p,sr,sg,sb);p.rect(0,0,ML+SB+2,PH,'F');
@@ -449,7 +450,7 @@ function drawSidebar(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   const ini=owner.split(' ').map((n:string)=>n[0]||'').join('').slice(0,2).toUpperCase();
   tc(p,sr,sg,sb);p.setFont(F,'bold');p.setFontSize(10);p.text(ini,sx+smw/2-p.getTextWidth(ini)/2,sy+10);sy+=24;
   tc(p,255,255,255);p.setFont(F,'bold');p.setFontSize(9);const nw=p.getTextWidth(owner);p.text(owner,sx+smw/2-Math.min(nw,smw)/2,sy);sy+=5;
-  p.setFont(F,'normal');p.setFontSize(7);tc(p,200,210,240);p.text('EDUCATOR',sx+smw/2-p.getTextWidth('EDUCATOR')/2,sy);sy+=8;
+  p.setFont(F,'normal');p.setFontSize(7);tc(p,200,210,240);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',(()=>{const t=isEdu?'EDUCATOR':'PROFESSIONAL';return sx+smw/2-p.getTextWidth(t)/2;})(),sy);sy+=8;
   sy=sidebarLabel(p,'Contact',sx,sy,smw,[255,255,255],[180,195,240]);
   p.setFont(F,'normal');p.setFontSize(7);tc(p,210,220,255);
   if(pr.email){const ls=p.splitTextToSize(pr.email,smw) as string[];ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=3.5;});sy+=1;}
@@ -460,10 +461,10 @@ function drawSidebar(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   if(sk.languages?.length){sy=sidebarLabel(p,'Languages',sx,sy,smw,[255,255,255],[180,195,240]);p.setFont(F,'normal');p.setFontSize(7);tc(p,210,220,255);for(const l of sk.languages){p.text(`– ${l}`,sx,sy);sy+=3.5;}sy+=3;}
   if(sk.soft_skills?.length){sy=sidebarLabel(p,'Skills',sx,sy,smw,[255,255,255],[180,195,240]);p.setFont(F,'normal');p.setFontSize(7);tc(p,210,220,255);for(const s of sk.soft_skills){const ls=p.splitTextToSize(`– ${s}`,smw) as string[];ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=3.5;});}}
   reset(p);let y=MT+8;tc(p,sr,sg,sb);p.setFont(F,'bold');p.setFontSize(16);p.text(owner.toUpperCase(),cx,y);y+=6;
-  tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text('EDUCATOR',cx,y);y+=3;hLine(p,cx,y,cmw,sr,sg,sb,0.5);y+=6;
+  tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',cx,y);y+=3;hLine(p,cx,y,cmw,sr,sg,sb,0.5);y+=6;
   const np=()=>{p.addPage();reset(p);fill(p,sr,sg,sb);p.rect(0,0,6,PH,'F');reset(p);return MT+4;};const GXW=():[ number,number]=>[cx,cmw];
-  if(pr.bio){y=sectionHeading(p,'About Me',cx,y,cmw,BLUE,'bar',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,cx,y,cmw,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
-  if(exp.length){y=sectionHeading(p,'Work History',cx,y,cmw,BLUE,'bar',BOTTOM,np,GXW);
+  if(pr.bio){y=sectionHeading(p,isEdu?'About Me':'About Me',cx,y,cmw,BLUE,'bar',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,cx,y,cmw,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
+  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work History',cx,y,cmw,BLUE,'bar',BOTTOM,np,GXW);
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',cx,y);y+=LINE_H;
       p.setFont(F,'bold');p.setFontSize(8.5);tc(p,sr,sg,sb);p.text(e.school||'',cx,y);const ds=[e.from,e.to].filter(Boolean).join(' – ');if(ds){tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,cx+cmw-p.getTextWidth(ds),y);}y+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,cx,y,cmw,BLUE,BOTTOM,np,GXW);
@@ -475,10 +476,10 @@ function drawSidebar(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 }
 
 // ── 6. BOLD — Pink banner, main left column + narrow right skill panel ─────────
-function drawBold(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawBold(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#c2185b');const [ar,ag,ab]=accent;
   fill(p,ar,ag,ab);p.rect(0,0,PW,32,'F');tc(p,255,255,255);p.setFont(F,'bold');p.setFontSize(18);p.text(owner.toUpperCase(),ML,12);
-  p.setFont(F,'normal');p.setFontSize(8);tc(p,255,180,210);p.text('EDUCATOR',ML,18);
+  p.setFont(F,'normal');p.setFontSize(8);tc(p,255,180,210);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',ML,18);
   fill(p,255,255,255);p.rect(ML,20,PW-ML-MR,0.4,'F');
   p.setFont(F,'normal');p.setFontSize(7.5);tc(p,255,210,230);p.text([pr.email,pr.phone,pr.address].filter(Boolean).join('   |   '),ML,27);
   reset(p);
@@ -503,17 +504,17 @@ function drawBold(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
 }
 
 // ── 7. EXECUTIVE — Burgundy gradient banner, two-col body ─────────────────────
-function drawExecutive(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawExecutive(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#6b1a1a');const [ar,ag,ab]=accent;const LIGHT:RGB=[139,36,36];
   fill(p,ar,ag,ab);p.rect(0,0,PW,35,'F');fill(p,...LIGHT);p.rect(PW*0.6,0,PW*0.4,35,'F');fill(p,ar,ag,ab);p.rect(0,0,PW*0.6+8,35,'F');
   tc(p,255,255,255);p.setFont(F,'bold');p.setFontSize(18);p.text(owner.toUpperCase(),ML,14);
-  p.setFont(F,'normal');p.setFontSize(8);tc(p,200,160,160);p.text('EDUCATOR',ML,20);hLine(p,ML,23,PW-ML-MR,255,255,255,0.2);
+  p.setFont(F,'normal');p.setFontSize(8);tc(p,200,160,160);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',ML,20);hLine(p,ML,23,PW-ML-MR,255,255,255,0.2);
   p.setFont(F,'normal');p.setFontSize(7.5);tc(p,220,190,190);p.text([pr.email,pr.phone,pr.address,pr.id_number?`ID: ${pr.id_number}`:null].filter(Boolean).join('   ·   '),ML,30);
   reset(p);let y=MT+28;
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,PW,5,'F');reset(p);return MT+7;};
   if(pr.bio){y=sectionHeading(p,'Executive Profile',ML,y,PW-ML-MR,accent,'underline',BOTTOM,np);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np);y+=ITEM_GAP+2;}
   const c1=ML;const c2=ML+(PW-ML-MR)/2+4;const cw=(PW-ML-MR)/2-4;let y1=y;let y2=y;
-  if(exp.length){y1=sectionHeading(p,'Teaching Experience',c1,y1,cw,accent,'underline',BOTTOM,np);
+  if(exp.length){y1=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',c1,y1,cw,accent,'underline',BOTTOM,np);
     for(const e of exp){if(y1+14>BOTTOM)y1=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',c1,y1);y1+=LINE_H;
       p.setFont(F,'bold');p.setFontSize(8.5);tc(p,...LIGHT);p.text(e.school||'',c1,y1);const ds=[e.from,e.to].filter(Boolean).join(' – ');if(ds){tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,c1+cw-p.getTextWidth(ds),y1);}y1+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y1=bulletLine(p,l,c1,y1,cw,accent,BOTTOM,np);
@@ -528,7 +529,7 @@ function drawExecutive(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custom
 }
 
 // ── 8. CORPORATE — Dark navy left sidebar (square avatar), right content ───────
-function drawCorporate(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawCorporate(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#1a2a4a');const [ar,ag,ab]=accent;const SB=55;const cx=ML+SB+8;const cmw=PW-MR-cx;
   fill(p,ar,ag,ab);p.rect(0,0,ML+SB+2,PH,'F');
   let sy=MT+4;const sx=ML+1;const smw=SB-4;
@@ -545,10 +546,10 @@ function drawCorporate(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custom
   if(sk.soft_skills?.length){sy=sidebarLabel(p,'Skills',sx,sy,smw,[255,255,255],[80,100,140]);p.setFont(F,'normal');p.setFontSize(7);tc(p,190,210,240);for(const s of sk.soft_skills){const ls=p.splitTextToSize(`– ${s}`,smw) as string[];ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=3.5;});}sy+=3;}
   if(sk.languages?.length){sy=sidebarLabel(p,'Languages',sx,sy,smw,[255,255,255],[80,100,140]);p.setFont(F,'normal');p.setFontSize(7);tc(p,190,210,240);for(const l of sk.languages){p.text(`– ${l}`,sx,sy);sy+=3.5;}}
   reset(p);let y=MT+8;p.setFont(F,'bold');p.setFontSize(16);tc(p,ar,ag,ab);p.text(owner.toUpperCase(),cx,y);y+=6;
-  hLine(p,cx,y,cmw,ar,ag,ab,1.2);y+=4;p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);p.text('EDUCATOR',cx,y);y+=5;
+  hLine(p,cx,y,cmw,ar,ag,ab,1.2);y+=4;p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',cx,y);y+=5;
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,6,PH,'F');reset(p);return MT+4;};const GXW=():[ number,number]=>[cx,cmw];
   if(pr.bio){y=sectionHeading(p,'Professional Summary',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,cx,y,cmw,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
-  if(exp.length){y=sectionHeading(p,'Work Experience',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);
+  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',cx,y);y+=LINE_H;
       p.setFont(F,'bold');p.setFontSize(8.5);tc(p,ar,ag,ab);p.text(e.school||'',cx,y);const ds=[e.from,e.to].filter(Boolean).join(' – ');if(ds){tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,cx+cmw-p.getTextWidth(ds),y);}y+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,cx,y,cmw,accent,BOTTOM,np,GXW);
@@ -560,7 +561,7 @@ function drawCorporate(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custom
 }
 
 // ── 9. STYLISH — Coral, date+school left col, main content, right skill dots ───
-function drawStylish(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawStylish(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#e05c6b');const [ar,ag,ab]=accent;
   tc(p,17,24,39);p.setFont(F,'bold');p.setFontSize(20);p.text(owner,ML,MT+8);
   hLine(p,ML,MT+11,PW-ML-MR,ar,ag,ab,1.2);
@@ -569,7 +570,7 @@ function drawStylish(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   const DX=ML;const DW=28;const CX=ML+DW+6;const RCX=PW-MR-50;const MCW=RCX-CX-6;let y=MT+22;
   const np=()=>{p.addPage();reset(p);return MT;};const GXW=():[ number,number]=>[CX,MCW];
   if(pr.bio){p.setFont(F,'bold');p.setFontSize(8);tc(p,ar,ag,ab);p.text('PROFILE',DX,y);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,CX,y,MCW,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
-  if(exp.length){hLine(p,ML,y,PW-ML-MR,ar,ag,ab,0.6);y+=4;p.setFont(F,'bold');p.setFontSize(8);tc(p,ar,ag,ab);p.text('EMPLOYMENT HISTORY',DX,y);y+=LINE_H+1;
+  if(exp.length){hLine(p,ML,y,PW-ML-MR,ar,ag,ab,0.6);y+=4;p.setFont(F,'bold');p.setFontSize(8);tc(p,ar,ag,ab);p.text(isEdu?'EMPLOYMENT HISTORY':'WORK HISTORY',DX,y);y+=LINE_H+1;
     for(const e of exp){if(y+14>BOTTOM)y=np();
       p.setFont(F,'normal');p.setFontSize(8);tc(p,ar,ag,ab);const dStr=[e.from,e.to].filter(Boolean).join('–');
       const dl=p.splitTextToSize(dStr,DW) as string[];dl.forEach((l:string,i:number)=>p.text(l,DX,y+i*LINE_H));
@@ -591,7 +592,7 @@ function drawStylish(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 }
 
 // ── 10. BOXED — Grey left sidebar, boxed-name centred header ─────────────────
-function drawBoxed(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawBoxed(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#374151');const [ar,ag,ab]=accent;const SBW=52;const CX=ML+SBW+4;const CMW=PW-MR-CX;
   fill(p,248,248,248);p.rect(0,0,ML+SBW+2,PH,'F');dc(p,229,231,235);p.setLineWidth(0.3);p.line(ML+SBW+2,0,ML+SBW+2,PH);
   let sy=MT+8;const sx=ML+1;const smw=SBW-4;
@@ -611,7 +612,7 @@ function drawBoxed(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
   const np=()=>{p.addPage();reset(p);fill(p,248,248,248);p.rect(0,0,ML+SBW+2,PH,'F');dc(p,229,231,235);p.setLineWidth(0.3);p.line(ML+SBW+2,0,ML+SBW+2,PH);reset(p);return MT;};const GXW=():[ number,number]=>[CX,CMW];
   const bH=(t:string)=>{p.setFont(F,'bold');p.setFontSize(8.5);tc(p,ar,ag,ab);p.text(t,CX,y);hLine(p,CX,y+1.5,CMW,ar,ag,ab,0.5);y+=6;};
   if(pr.bio){bH('PROFILE');p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
-  if(exp.length){bH('EMPLOYMENT HISTORY');
+  if(exp.length){bH(isEdu?'EMPLOYMENT HISTORY':'WORK HISTORY');
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);const ds=[e.from,e.to].filter(Boolean).join(' — ');
       p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,CX,y);if(ds){tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,CX+CMW-p.getTextWidth(ds),y);}y+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,CX,y,CMW,accent,BOTTOM,np,GXW);
@@ -623,7 +624,7 @@ function drawBoxed(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
 }
 
 // ── 11. TRADITIONAL — Centred name, left-date + vertical rule ─────────────────
-function drawTraditional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawTraditional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#374151');const [ar,ag,ab]=accent;
   tc(p,17,24,39);p.setFont(F,'bold');p.setFontSize(16);const nw=p.getTextWidth(owner);p.text(owner,(PW-nw)/2,MT+8);
   p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);const ctxt=[pr.address,pr.phone,pr.email].filter(Boolean).join('   ·   ');const cw=p.getTextWidth(ctxt);p.text(ctxt,(PW-cw)/2,MT+14);
@@ -634,7 +635,7 @@ function drawTraditional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],cust
     const tl=p.splitTextToSize(t.toUpperCase(),DW) as string[];tl.forEach((l:string,i:number)=>p.text(l,DX,y+i*LINE_H));
     dc(p,229,231,235);p.setLineWidth(0.4);p.line(VX,y-2,VX,y+6);hLine(p,CX,y,CMW,229,231,235,0.4);y+=tl.length*LINE_H+1;};
   if(pr.bio){tHead('PROFILE');p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);dc(p,229,231,235);p.setLineWidth(0.4);p.line(VX,y-2,VX,y+30);y=wrapped(p,pr.bio,CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
-  if(exp.length){tHead('EMPLOYMENT\nHISTORY');
+  if(exp.length){tHead(isEdu?'EMPLOYMENT\nHISTORY':'WORK\nHISTORY');
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);p.text([e.from,e.to].filter(Boolean).join(' — '),DX,y);
       dc(p,229,231,235);p.setLineWidth(0.3);p.line(VX,y-3,VX,y+14);p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,CX,y);y+=LINE_H;
       if(e.description){p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,CX,y,CMW,accent,BOTTOM,np,GXW);}y+=ITEM_GAP+1;}}
@@ -649,7 +650,7 @@ function drawTraditional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],cust
 }
 
 // ── 12. NAVY — Dark right sidebar with progress bars ──────────────────────────
-function drawNavy(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawNavy(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#1a2a4a');const [ar,ag,ab]=accent;const RSBW=52;const CMW=PW-ML-RSBW-8;const RSBX=PW-RSBW;
   fill(p,ar,ag,ab);p.rect(RSBX-2,0,RSBW+2,PH,'F');
   let rsy=MT+6;const rsw=RSBW-8;const rsx=RSBX+2;
@@ -662,11 +663,11 @@ function drawNavy(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   if(allSk.length){nsbH('Skills');for(const s of allSk.slice(0,8)){if(rsy>=BOTTOM-8)break;const ls=p.splitTextToSize(s,rsw) as string[];ls.forEach((l:string)=>{p.setFont(F,'normal');p.setFontSize(6.5);tc(p,200,215,230);p.text(l,rsx,rsy);rsy+=3.5;});fill(p,80,100,140);p.rect(rsx,rsy-1,rsw*0.7,1.5,'F');rsy+=4;}rsy+=3;}
   if(sk.languages?.length){nsbH('Languages');for(const l of sk.languages){if(rsy>=BOTTOM-6)break;p.setFont(F,'normal');p.setFontSize(6.5);tc(p,200,215,230);p.text(l,rsx,rsy);fill(p,80,100,140);p.rect(rsx,rsy+1,rsw*0.8,1.5,'F');rsy+=6;}}
   reset(p);let y=MT+8;p.setFont(F,'bold');p.setFontSize(18);tc(p,ar,ag,ab);p.text(owner,ML,y);y+=6;
-  p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);p.text('EDUCATOR',ML,y);y+=3;
+  p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',ML,y);y+=3;
   hLine(p,ML,y,CMW,ar,ag,ab,1.5);hLine(p,ML,y+3,CMW,ar,ag,ab,0.3);y+=7;
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(RSBX-2,0,RSBW+2,PH,'F');reset(p);return MT+4;};const GXW=():[ number,number]=>[ML,CMW];
   if(pr.bio){y=sectionHeading(p,'Profile',ML,y,CMW,accent,'bar',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
-  if(exp.length){y=sectionHeading(p,'Employment History',ML,y,CMW,accent,'bar',BOTTOM,np,GXW);
+  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Employment History',ML,y,CMW,accent,'bar',BOTTOM,np,GXW);
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,ML,y);y+=LINE_H;
       p.setFont(F,'normal');p.setFontSize(8);tc(p,156,163,175);p.text([e.from,e.to].filter(Boolean).join(' — '),ML,y);y+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML,y,CMW,accent,BOTTOM,np,GXW);
@@ -678,7 +679,7 @@ function drawNavy(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
 }
 
 // ── 13. TIMELINE — Mini left sidebar, centred header, timeline dots ────────────
-function drawTimeline(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawTimeline(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#374151');const [ar,ag,ab]=accent;const SBW=44;const CX=ML+SBW+6;const CMW=PW-MR-CX;
   dc(p,229,231,235);p.setLineWidth(0.4);p.line(ML+SBW+4,MT,ML+SBW+4,BOTTOM);
   let sy=MT+4;const sx=ML;const smw=SBW-2;
@@ -696,7 +697,7 @@ function drawTimeline(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
   hLine(p,CX,y,CMW,ar,ag,ab,1.5);hLine(p,CX,y+3,CMW,ar,ag,ab,0.3);y+=8;
   const np=()=>{p.addPage();reset(p);dc(p,229,231,235);p.setLineWidth(0.4);p.line(ML+SBW+4,MT,ML+SBW+4,BOTTOM);reset(p);return MT+4;};const GXW=():[ number,number]=>[CX,CMW];
   if(pr.bio){p.setFont(F,'bold');p.setFontSize(9);tc(p,ar,ag,ab);p.text('◆ PROFILE',CX,y);y+=HEADING_GAP;p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
-  if(exp.length){p.setFont(F,'bold');p.setFontSize(9);tc(p,ar,ag,ab);p.text('◆ EMPLOYMENT HISTORY',CX,y);y+=HEADING_GAP;
+  if(exp.length){p.setFont(F,'bold');p.setFontSize(9);tc(p,ar,ag,ab);p.text('◆ '+(isEdu?'EMPLOYMENT HISTORY':'WORK HISTORY'),CX,y);y+=HEADING_GAP;
     for(const e of exp){if(y+14>BOTTOM)y=np();
       fill(p,ar,ag,ab);p.circle(CX+3,y-1,2.5,'F');dc(p,229,231,235);p.setLineWidth(0.5);p.line(CX+3,y+2,CX+3,y+14);
       p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',CX+9,y);y+=LINE_H;
@@ -711,7 +712,7 @@ function drawTimeline(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
 }
 
 // ── 14. SHADED — Centred header, shaded section bars, ❖ entry markers ─────────
-function drawShaded(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawShaded(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#374151');const [ar,ag,ab]=accent;
   fill(p,243,244,246);p.rect(0,0,PW,28,'F');
   tc(p,17,24,39);p.setFont(F,'bold');p.setFontSize(16);const nw=p.getTextWidth(owner.toUpperCase());p.text(owner.toUpperCase(),(PW-nw)/2,MT+8);
@@ -722,7 +723,7 @@ function drawShaded(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   const np=()=>{p.addPage();reset(p);return MT;};const GXW=():[ number,number]=>[ML,PW-ML-MR];
   const shdH=(t:string)=>{if(y+12>BOTTOM)y=np();fill(p,243,244,246);p.rect(ML-2,y-4,PW-ML-MR+4,7,'F');tc(p,ar,ag,ab);p.setFont(F,'bold');p.setFontSize(9);p.text(t.toUpperCase(),ML+2,y);y+=HEADING_GAP+1;};
   if(pr.bio){shdH('PROFILE');p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
-  if(exp.length){shdH('EMPLOYMENT HISTORY');
+  if(exp.length){shdH(isEdu?'EMPLOYMENT HISTORY':'WORK HISTORY');
     for(const e of exp){if(y+14>BOTTOM)y=np();tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(10);p.text('❖',ML,y);
       p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,ML+5,y);
       const ds=[e.from,e.to].filter(Boolean).join(' — ');if(ds){tc(p,156,163,175);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,PW-MR-p.getTextWidth(ds),y);}y+=LINE_H;
@@ -740,11 +741,11 @@ function drawShaded(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
 }
 
 // ── 15. TEAL — Full-width teal header, left skill sidebar, right content ───────
-function drawTeal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawTeal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#06b6d4');const [ar,ag,ab]=accent;
   fill(p,ar,ag,ab);p.rect(0,0,PW,28,'F');
   tc(p,17,24,39);p.setFont(F,'bold');p.setFontSize(18);p.text(owner,ML,13);
-  p.setFont(F,'normal');p.setFontSize(8);tc(p,14,116,144);p.text('EDUCATOR',ML,19);
+  p.setFont(F,'normal');p.setFontSize(8);tc(p,14,116,144);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',ML,19);
   p.setFont(F,'normal');p.setFontSize(7.5);tc(p,14,80,100);p.text([pr.address,pr.phone,pr.email].filter(Boolean).join('   ·   '),ML,24);
   reset(p);
   const LSBW=52;const RCX=ML+LSBW+6;const RCMW=PW-MR-RCX;
@@ -757,7 +758,7 @@ function drawTeal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   reset(p);let y=30;
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,PW,5,'F');dc(p,241,245,249);p.setLineWidth(0.3);p.line(ML+LSBW+4,5,ML+LSBW+4,PH);reset(p);return MT+7;};const GXW=():[ number,number]=>[RCX,RCMW];
   if(pr.bio){y=sectionHeading(p,'Profile',RCX,y,RCMW,accent,'tag-underline',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,RCX,y,RCMW,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
-  if(exp.length){y=sectionHeading(p,'Employment History',RCX,y,RCMW,accent,'tag-underline',BOTTOM,np,GXW);
+  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Employment History',RCX,y,RCMW,accent,'tag-underline',BOTTOM,np,GXW);
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,RCX,y);y+=LINE_H;
       p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);p.text([e.from,e.to].filter(Boolean).join(' — '),RCX,y);y+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,RCX,y,RCMW,accent,BOTTOM,np,GXW);
@@ -769,17 +770,17 @@ function drawTeal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
 }
 
 // ── 16. CRIMSON — Red banner, italic section headings, right skill bars ────────
-function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#c0392b');const [ar,ag,ab]=accent;
   fill(p,ar,ag,ab);p.rect(0,0,PW,28,'F');tc(p,255,255,255);p.setFont(F,'bolditalic');p.setFontSize(18);p.text(owner,ML,12);
-  p.setFont(F,'normal');p.setFontSize(8);tc(p,255,180,160);p.text('EDUCATOR',ML,18);reset(p);
+  p.setFont(F,'normal');p.setFontSize(8);tc(p,255,180,160);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',ML,18);reset(p);
   hLine(p,0,28,PW,229,231,235,0.5);p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);
   let ci=ML;for(const item of [pr.email,pr.address,pr.phone].filter(Boolean) as string[]){if(ci+p.getTextWidth(item)+10>PW-MR)break;p.text(item,ci,34);ci+=p.getTextWidth(item)+10;}
   reset(p);
   const RCX=PW-MR-52;const RCW=52;const MCW=RCX-ML-6;let y=38;
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,PW,5,'F');reset(p);return MT+7;};const GXW=():[ number,number]=>[ML,MCW];
   if(pr.bio){y=sectionHeading(p,'Profile',ML,y,MCW,accent,'italic-underline',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,MCW,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
-  if(exp.length){y=sectionHeading(p,'Employment History',ML,y,MCW,accent,'italic-underline',BOTTOM,np,GXW);
+  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Employment History',ML,y,MCW,accent,'italic-underline',BOTTOM,np,GXW);
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,ML,y);y+=LINE_H;
       p.setFont(F,'italic');p.setFontSize(8);tc(p,156,163,175);p.text([e.from,e.to].filter(Boolean).join(' — '),ML,y);y+=LINE_H;
       if(e.description){p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML,y,MCW,accent,BOTTOM,np,GXW);}y+=ITEM_GAP+1;}}
@@ -795,7 +796,7 @@ function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 }
 
 // ── 17. SAGE — Soft green card header, chip-style skill badges ────────────────
-function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string) {
+function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#7fa37f');const SAGE_BG:RGB=[232,240,232];const [ar,ag,ab]=accent;
   fill(p,...SAGE_BG);p.roundedRect(ML-2,MT-4,PW-ML-MR+4,26,3,3,'F');
   tc(p,26,46,26);p.setFont(F,'bold');p.setFontSize(16);p.text(owner,ML+2,MT+7);
@@ -803,7 +804,7 @@ function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   hLine(p,ML,MT+18,PW-ML-MR,ar,ag,ab,0.6);reset(p);let y=MT+24;
   const np=()=>{p.addPage();reset(p);return MT;};const GXW=():[ number,number]=>[ML,PW-ML-MR];
   if(pr.bio){p.setFont(F,'normal');p.setFontSize(9.5);tc(p,75,108,75);p.text('Educator',ML,y);y+=5;p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
-  if(exp.length){y=sectionHeading(p,'Career Experience',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
+  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Career Experience',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'normal');p.setFontSize(11);tc(p,ar,ag,ab);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,ML,y);const ds=[e.from,e.to].filter(Boolean).join(' — ');if(ds){tc(p,156,163,175);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,PW-MR-p.getTextWidth(ds),y);}y+=LINE_H;
       if(e.description){p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML,y,PW-ML-MR,accent,BOTTOM,np,GXW);}y+=ITEM_GAP+1;}}
   if(edu.length){y=sectionHeading(p,'Education',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);

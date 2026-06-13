@@ -71,8 +71,8 @@ export default function CVStepPersonal({ data, onChange, cvType }: Props) {
         onChange({
           full_name: profile?.full_name || user.user_metadata?.full_name || '',
           email: user.email || '',
-          phone: profile?.phone || '',
-          address: location,
+          phone: profile?.phone || user.user_metadata?.phone || '',
+          address: location || '',  // no school fallback for general CVs
           bio: profile?.bio || data.bio || '',
           id_number: data.id_number ?? '',
         });
