@@ -8,6 +8,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import ScrollToTop from '@/components/ScrollToTop';
 import AppLayout from '@/components/AppLayout';
 import AuthLayout from '@/components/AuthLayout';
+import PublicLayout from '@/components/PublicLayout';  // ✅ new import
 
 import LandingPage from '@/pages/LandingPage';
 import Login from '@/pages/Login';
@@ -32,7 +33,6 @@ import AboutPage from '@/pages/AboutPage';
 import NotFound from '@/pages/not-found';
 
 const queryClient = new QueryClient();
-
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 export default function App() {
@@ -43,12 +43,15 @@ export default function App() {
           <BrowserRouter basename={base}>
             <ScrollToTop />
             <Routes>
-              {/* Public landing */}
+              {/* Public landing (no header) */}
               <Route path="/" element={<LandingPage />} />
-			  
-			  <Route path="/about" element={<AboutPage />} />
 
-              {/* Auth routes */}
+              {/* Public pages with header (no authentication required) */}
+              <Route element={<PublicLayout />}>
+                <Route path="/about" element={<AboutPage />} />
+              </Route>
+
+              {/* Auth routes (landing‑style, no header) */}
               <Route element={<AuthLayout />}>
                 <Route path="/login"           element={<Login />} />
                 <Route path="/register"        element={<Register />} />
@@ -61,7 +64,7 @@ export default function App() {
                 <Route path="/onboarding" element={<Onboarding />} />
               </Route>
 
-              {/* Main app (requires auth + app chrome) */}
+              {/* Main app (requires auth + full app chrome) */}
               <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
                 <Route element={<AppLayout />}>
                   <Route path="/home"          element={<Home />} />
