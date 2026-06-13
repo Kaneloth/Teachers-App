@@ -21,7 +21,7 @@ import LastCVBanner from '@/components/cv/LastCVBanner';
 // Kept for backward compatibility with saved drafts / last CV data
 export type CVType = 'educator' | 'general';
 
-const STEPS = ['Personal', 'Education', 'Experience', 'Skills', 'References', 'Extras', 'Template', 'Review'];
+const STEPS = ['Personal', 'Education', 'Experience', 'Skills', 'Extras', 'References', 'Template', 'Review'];
 
 const DRAFT_KEY   = 'crosssa_cv_draft';
 const LAST_CV_KEY = 'crosssa_last_cv';
@@ -402,8 +402,8 @@ export default function CVBuilderPage() {
               {step === 1 && <CVStepEducation data={data.education} onChange={education => setData(d => ({ ...d, education }))} />}
               {step === 2 && <CVStepExperience data={data.experience} onChange={experience => setData(d => ({ ...d, experience }))} />}
               {step === 3 && <CVStepSkills data={data.skills} onChange={skills => setData(d => ({ ...d, skills }))} />}
-              {step === 4 && <CVStepReferences data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
-              {step === 5 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} />}
+              {step === 4 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} />}
+              {step === 5 && <CVStepReferences data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
               {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} isFree={isFree} />}
               {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} isFree={isFree} />}
             </motion.div>
