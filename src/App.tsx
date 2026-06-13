@@ -30,6 +30,7 @@ import CoverLettersPage from '@/pages/CoverLettersPage';
 import GuidesPage from '@/pages/GuidesPage';
 import SettingsPage from '@/pages/SettingsPage';
 import AboutPage from '@/pages/AboutPage';
+import PublicLayout from '@/components/PublicLayout';
 import NotFound from '@/pages/not-found';
 
 const queryClient = new QueryClient();
