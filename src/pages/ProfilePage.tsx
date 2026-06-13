@@ -78,7 +78,6 @@ interface Profile {
   profile_type: 'educator' | 'general';
 }
 
-/* ── Shared primitives ───────────────────────────────────────── */
 function SectionCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="bg-card rounded-2xl border border-border px-4 py-4 space-y-3.5">
@@ -97,7 +96,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-/* ── Identity verification helpers ──────────────────────────── */
+/* ── Identity verification helpers (unchanged) ──────────────────────────── */
 type DocType    = 'id' | 'passport';
 type VerifyState = 'idle' | 'verified' | 'unverified' | 'error';
 
@@ -175,7 +174,6 @@ function VerifyBadge({ state, message }: { state: VerifyState; message: string }
   );
 }
 
-/* ── Identity Verification section ──────────────────────────── */
 function IdentityVerificationSection() {
   const { user } = useAuth();
   const meta = user?.user_metadata ?? {};
@@ -804,30 +802,7 @@ export default function ProfilePage() {
         )}
 
         <div className="px-4 space-y-3">
-          <div className="bg-card rounded-2xl border border-border p-4">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Profile Type</p>
-            <div className="grid grid-cols-2 bg-muted rounded-xl p-1 gap-1">
-              <button
-                type="button"
-                onClick={() => setProfileField('profile_type', 'educator')}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${isEducator ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <GraduationCap className="w-4 h-4" /> Educator
-              </button>
-              <button
-                type="button"
-                onClick={() => setProfileField('profile_type', 'general')}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${!isEducator ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <User className="w-4 h-4" /> General
-              </button>
-            </div>
-            {!isEducator && (
-              <p className="text-xs text-muted-foreground mt-2.5 px-1">
-                As a general user you won't appear in search or match results. Switch to Educator to be discoverable.
-              </p>
-            )}
-          </div>
+          {/* Role switcher removed – users cannot change their role here */}
 
           {isEducator && (
             <div className="bg-card rounded-2xl border border-border flex items-center gap-3 px-4 py-3.5">
