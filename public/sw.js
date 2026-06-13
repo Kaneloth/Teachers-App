@@ -1,60 +1,95 @@
-const CACHE_NAME = 'crosssa-v6';
+const CACHE_NAME = 'crosssa-v7';
 const OFFLINE_URL = '/offline.html';
 
+// App shell — everything needed to run the app without a network connection.
+// Vite hashes JS/CSS filenames on every build, so we cache the entry points
+// that are STABLE (index.html, offline.html, manifest, icons) and rely on
+// a network-first strategy for the hashed bundles so they always stay fresh.
+const PRECACHE_URLS = [
+  '/',
+  '/index.html',
+  '/offline.html',
+  '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+];
+
+// ── Install: pre-cache the stable shell ───────────────────────────────────────
 self.addEventListener('install', (event) => {
-  console.log('[SW] Install event');
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('[SW] Caching offline page');
-        return cache.add(OFFLINE_URL);
-      })
-      .then(() => {
-        console.log('[SW] Offline page cached');
-        self.skipWaiting();
-      })
-      .catch((err) => console.error('[SW] Cache add failed', err))
+      .then((cache) => cache.addAll(PRECACHE_URLS))
+      .then(() => self.skipWaiting())
+      .catch((err) => console.error('[SW] Pre-cache failed', err))
   );
 });
 
+// ── Activate: delete old caches ───────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activate event');
   event.waitUntil(
-    caches.keys().then((keyList) => {
-      return Promise.all(keyList.map((key) => {
-        if (key !== CACHE_NAME) {
-          console.log('[SW] Deleting old cache', key);
-          return caches.delete(key);
-        }
-      }));
-    }).then(() => {
-      console.log('[SW] Claiming clients');
-      return self.clients.claim();
-    })
+    caches.keys()
+      .then((keys) => Promise.all(
+        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
   );
 });
 
+// ── Fetch strategy ─────────────────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
-  const url = event.request.url;
-  console.log('[SW] Fetch', url);
-  if (event.request.mode === 'navigate') {
-    console.log('[SW] Navigation request, trying network then offline fallback');
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Only handle same-origin requests (ignore Supabase, fonts, analytics, etc.)
+  if (url.origin !== self.location.origin) return;
+
+  // Skip non-GET requests (POST to Supabase, etc.)
+  if (request.method !== 'GET') return;
+
+  // ── Navigation requests (page loads) ──────────────────────────────────────
+  // Network-first: try to get a fresh page; fall back to cached index.html so
+  // the React SPA can handle the route, or finally the offline page.
+  if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch((error) => {
-        console.error('[SW] Network failed, returning offline page', error);
-        return caches.match(OFFLINE_URL);
-      })
-    );
-  } else {
-    event.respondWith(
-      caches.match(event.request).then((response) => {
-        if (response) {
-          console.log('[SW] Cache hit', url);
+      fetch(request)
+        .then((response) => {
+          // Cache a fresh copy of index.html on every successful load
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
           return response;
-        }
-        console.log('[SW] Cache miss, fetching', url);
-        return fetch(event.request);
+        })
+        .catch(() =>
+          // Offline: serve cached index.html (SPA handles the route) or offline page
+          caches.match('/index.html').then((r) => r || caches.match(OFFLINE_URL))
+        )
+    );
+    return;
+  }
+
+  // ── Hashed JS/CSS bundles (Vite build output) ────────────────────────────
+  // These filenames contain a content hash, so cache-first is safe.
+  // Once cached they never go stale; new deploys produce new filenames.
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) return cached;
+        return fetch(request).then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        });
       })
     );
+    return;
   }
+
+  // ── Everything else (icons, manifest, favicon) ────────────────────────────
+  // Cache-first with network fallback.
+  event.respondWith(
+    caches.match(request).then((cached) => cached || fetch(request))
+  );
 });
