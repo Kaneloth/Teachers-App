@@ -28,6 +28,7 @@ import CareerToolsPage from '@/pages/CareerToolsPage';
 import CoverLettersPage from '@/pages/CoverLettersPage';
 import GuidesPage from '@/pages/GuidesPage';
 import SettingsPage from '@/pages/SettingsPage';
+import AboutPage from '@/pages/AboutPage';
 import NotFound from '@/pages/not-found';
 
 const queryClient = new QueryClient();
@@ -44,6 +45,8 @@ export default function App() {
             <Routes>
               {/* Public landing */}
               <Route path="/" element={<LandingPage />} />
+			  
+			  <Route path="/about" element={<AboutPage />} />
 
               {/* Auth routes */}
               <Route element={<AuthLayout />}>

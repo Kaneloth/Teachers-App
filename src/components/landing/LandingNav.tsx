@@ -16,6 +16,8 @@ export default function LandingNav() {
           <span className="text-white/30">|</span>
           <a href="#testimonials" className="hover:text-white transition-colors">Testimonials</a>
           <span className="text-white/30">|</span>
+          <Link to="/about" className="hover:text-white transition-colors">About</Link>
+          <span className="text-white/30">|</span>
           <a href="#contact" className="hover:text-white transition-colors">Contact</a>
         </div>
         <div className="flex items-center gap-3">
