@@ -23,15 +23,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
-      /* Install button styling (optional) */
+      /* Install banner — bottom right, dismissible */
       .install-banner {
         position: fixed;
         bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
+        right: 20px;
         background: #0d9488;
         color: white;
-        padding: 12px 20px;
+        padding: 10px 16px;
         border-radius: 40px;
         display: flex;
         gap: 12px;
@@ -39,26 +38,40 @@
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         z-index: 1000;
         font-family: 'Inter', sans-serif;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 500;
         cursor: pointer;
         transition: opacity 0.2s;
+        max-width: 90vw;
       }
       .install-banner button {
         background: white;
         border: none;
         color: #0d9488;
-        padding: 6px 14px;
+        padding: 4px 12px;
         border-radius: 30px;
         font-weight: bold;
         cursor: pointer;
-        font-size: 13px;
+        font-size: 12px;
       }
-      .install-banner button:hover {
-        background: #f0fdfa;
+      .install-banner .close-btn {
+        background: transparent;
+        color: rgba(255,255,255,0.7);
+        padding: 0;
+        font-size: 18px;
+        line-height: 1;
+        margin-left: 4px;
+      }
+      .install-banner .close-btn:hover {
+        color: white;
       }
       @media (max-width: 640px) {
-        .install-banner { width: 90%; justify-content: space-between; }
+        .install-banner {
+          bottom: 70px; /* avoid overlapping bottom navigation */
+          right: 16px;
+          padding: 8px 12px;
+          font-size: 12px;
+        }
       }
     </style>
   </head>
@@ -66,7 +79,7 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     
-    <!-- PWA Install Prompt Logic -->
+    <!-- PWA Install Prompt Logic with dismissible banner -->
     <script>
       let deferredPrompt;
       const installBanner = document.createElement('div');
@@ -75,28 +88,40 @@
       installBanner.innerHTML = `
         <span>📱 Install Crosssa App</span>
         <button id="install-btn">Install</button>
+        <button class="close-btn" id="close-banner">✕</button>
       `;
       document.body.appendChild(installBanner);
 
-      window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        installBanner.style.display = 'flex';
-      });
+      // Check if user has already dismissed the banner
+      const bannerDismissed = localStorage.getItem('crosssa_install_banner_dismissed');
+      if (!bannerDismissed) {
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          deferredPrompt = e;
+          installBanner.style.display = 'flex';
+        });
+      }
 
-      installBanner.addEventListener('click', async () => {
-        if (!deferredPrompt) return;
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === 'accepted') {
+      installBanner.addEventListener('click', async (e) => {
+        if (e.target.id === 'close-banner') {
           installBanner.style.display = 'none';
+          localStorage.setItem('crosssa_install_banner_dismissed', 'true');
+          return;
         }
-        deferredPrompt = null;
+        if (e.target.id === 'install-btn' && deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+            installBanner.style.display = 'none';
+            localStorage.setItem('crosssa_install_banner_dismissed', 'true');
+          }
+          deferredPrompt = null;
+        }
       });
 
-      // Hide banner after app is installed (optional: listen for appinstalled)
       window.addEventListener('appinstalled', () => {
         installBanner.style.display = 'none';
+        localStorage.setItem('crosssa_install_banner_dismissed', 'true');
         deferredPrompt = null;
       });
     </script>
