@@ -7,6 +7,7 @@ const urlsToCache = [
   '/offline.html',
   '/manifest.json',
   '/index.html',
+  '/src/main.tsx',
   '/static/js/main.chunk.js',
   '/static/js/0.chunk.js',
   '/static/js/bundle.js'
@@ -23,12 +24,16 @@ self.addEventListener('install', event => {
 
 // Fetch event – serve from cache, fallback to network, then offline page
 self.addEventListener('fetch', event => {
+  // Skip cross-origin requests
+  if (!event.request.url.startsWith(self.location.origin)) return;
+
   event.respondWith(
     caches.match(event.request)
-      .then(response => {
-        if (response) return response;
+      .then(cachedResponse => {
+        if (cachedResponse) return cachedResponse;
+        
         return fetch(event.request).catch(() => {
-          // If offline and request is for a page, show offline page
+          // If offline and request is for a page (HTML navigation), show offline page
           if (event.request.mode === 'navigate') {
             return caches.match('/offline.html');
           }
