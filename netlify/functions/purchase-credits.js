@@ -1,9 +1,13 @@
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('[credits] Missing Supabase env vars — set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or VITE_ equivalents) in Netlify.');
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const PACKAGES = {
   single:   { credits: 6,   price_zar: 19,  label: 'Single CV Pack' },
@@ -12,7 +16,7 @@ const PACKAGES = {
   business: { credits: 200, price_zar: 199, label: 'Business Credit Pack' },
 };
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
@@ -46,16 +50,11 @@ exports.handler = async (event) => {
   }
 
   // TODO: replace with your Paystack / Yoco / PayFast verification
-  // You already have paystack-sdk-node installed — example:
-  //
   // const Paystack = require('paystack-sdk-node');
   // const paystack = new Paystack(process.env.PAYSTACK_SECRET_KEY);
   // const verification = await paystack.transaction.verify(payment_ref);
   // if (verification.data.status !== 'success') {
   //   return { statusCode: 402, body: JSON.stringify({ error: 'payment_not_verified' }) };
-  // }
-  // if (verification.data.amount !== pkg.price_zar * 100) {
-  //   return { statusCode: 402, body: JSON.stringify({ error: 'amount_mismatch' }) };
   // }
 
   const { data: newBalance, error: creditErr } = await supabase.rpc('add_credits', {
@@ -67,7 +66,7 @@ exports.handler = async (event) => {
   });
 
   if (creditErr) {
-    console.error('purchase-credits: add_credits failed:', creditErr);
+    console.error('[purchase-credits] add_credits failed:', creditErr);
     return { statusCode: 500, body: JSON.stringify({ error: creditErr.message }) };
   }
 

@@ -1,15 +1,21 @@
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Fall back to VITE_-prefixed vars if the plain server-side ones
+// haven't been added to Netlify env vars yet.
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('[credits] Missing Supabase env vars — set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or VITE_ equivalents) in Netlify.');
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const FREE_CREDITS   = 6;
 const IP_WINDOW_DAYS = 30;
 const IP_MAX_GRANTS  = 2;
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
@@ -28,12 +34,17 @@ exports.handler = async (event) => {
   }
 
   // Guard: only grant once per user ever
-  const { data: existing } = await supabase
+  const { data: existing, error: existingErr } = await supabase
     .from('credit_ledger')
     .select('id')
     .eq('user_id', user_id)
     .eq('type', 'signup_bonus')
     .maybeSingle();
+
+  if (existingErr) {
+    console.error('[grant-signup-credits] existing check failed:', existingErr);
+    return { statusCode: 500, body: JSON.stringify({ error: existingErr.message }) };
+  }
 
   if (existing) {
     return { statusCode: 200, body: JSON.stringify({ granted: 0, reason: 'already_granted' }) };
@@ -101,10 +112,11 @@ exports.handler = async (event) => {
   });
 
   if (error) {
-    console.error('grant-signup-credits: add_credits failed', error);
+    console.error('[grant-signup-credits] add_credits failed:', error);
     return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
   }
 
+  console.log(`[grant-signup-credits] Granted ${FREE_CREDITS} credits to ${user_id} (ip=${ip})`);
   return {
     statusCode: 200,
     body: JSON.stringify({ granted: FREE_CREDITS, reason: 'clean_identity' }),
@@ -119,4 +131,5 @@ async function recordNoGrant(user_id, ip, reason) {
     description: `Signup bonus denied: ${reason}`,
     ref_id:      `ip=${ip}`,
   });
+  console.warn(`[grant-signup-credits] Denied bonus to ${user_id} — reason: ${reason}`);
 }

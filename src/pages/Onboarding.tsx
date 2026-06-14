@@ -70,10 +70,30 @@ export default function Onboarding() {
   /* ── Skip for now ─────────────────────────────────────────────
      Even when skipping, every new user gets a user code and welcome
      email so they are properly registered in the system.          */
+  // ── Skip remaining details (role must already be chosen) ────────────────
+  // Even when skipping the detail form, we still persist a minimal
+  // `educators` row recording the chosen profile_type, so the rest of
+  // the app knows whether this user is an educator or general user.
   const handleSkip = async () => {
-    if (!user) { navigate('/home'); return; }
-    // Only assign if not already done (guard against double-tap).
+    if (!user || !profileType) { navigate('/home'); return; }
+
     if (!user.user_metadata?.user_code) {
+      const { data: existing } = await supabase
+        .from('educators')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!existing) {
+        await supabase.from('educators').insert([{
+          user_id:             user.id,
+          full_name:           user.user_metadata?.full_name || '',
+          profile_type:        profileType,
+          is_actively_looking: false,
+          preferred_provinces: [],
+        }]);
+      }
+
       const userCode = generateUserCode();
       await supabase.auth.updateUser({ data: { user_code: userCode } });
       supabase.functions
@@ -191,10 +211,6 @@ export default function Onboarding() {
               </div>
             </button>
           </div>
-
-          <p className="text-center text-xs text-muted-foreground mt-6">
-            <button onClick={handleSkip} className="hover:underline">Skip for now</button>
-          </p>
         </div>
       </div>
     );

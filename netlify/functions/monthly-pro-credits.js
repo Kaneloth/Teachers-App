@@ -1,25 +1,27 @@
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('[credits] Missing Supabase env vars — set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or VITE_ equivalents) in Netlify.');
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const MONTHLY_PRO_CREDITS = 10;
 
 // Schedule is declared in netlify.toml:
 //   [functions."monthly-pro-credits"]
 //   schedule = "0 2 1 * *"
-// No npm package needed — Netlify reads it directly from netlify.toml.
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   const now = new Date();
   const monthLabel = now.toLocaleString('en-ZA', { month: 'long', year: 'numeric' });
   const yearMonth  = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   console.log(`[monthly-pro-credits] Running for ${monthLabel}`);
 
-  // Fetch all active Pro subscribers
   const { data: proUsers, error: fetchErr } = await supabase
     .from('profiles')
     .select('id')
@@ -44,7 +46,6 @@ exports.handler = async (event) => {
   for (const user of proUsers) {
     const ref_id = `monthly_pro:${yearMonth}:${user.id}`;
 
-    // Idempotency — skip if already granted this month
     const { data: alreadyGranted } = await supabase
       .from('credit_ledger')
       .select('id')
