@@ -55,3 +55,27 @@ export function generateSignature(fields, passphrase) {
   const str = buildSignatureString(fields, passphrase);
   return crypto.createHash('md5').update(str).digest('hex');
 }
+
+/**
+ * ITN (webhook) signature verification uses a DIFFERENT algorithm than the
+ * outgoing payment request: PayFast's official pfValidSignature() includes
+ * EVERY posted field (even empty ones like custom_str3="", custom_int1="",
+ * name_last="") in the signature string — it only excludes 'signature'
+ * itself. The outgoing-request algorithm (buildSignatureString above)
+ * skips empty values, which is correct for payfast-initiate but WRONG for
+ * verifying ITNs.
+ */
+export function buildITNSignatureString(fields, passphrase) {
+  const parts = [];
+  for (const [key, value] of Object.entries(fields)) {
+    if (key === 'signature') continue;
+    parts.push(`${key}=${pfEncode(value ?? '')}`);
+  }
+  let str = parts.join('&');
+  if (passphrase) str += `&passphrase=${pfEncode(passphrase)}`;
+  return str;
+}
+
+export function generateITNSignature(fields, passphrase) {
+  return crypto.createHash('md5').update(buildITNSignatureString(fields, passphrase)).digest('hex');
+}

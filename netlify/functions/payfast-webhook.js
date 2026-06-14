@@ -24,7 +24,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { generateSignature, buildSignatureString, PAYFAST_VALIDATE_URL } from './lib/payfast.js';
+import { generateITNSignature, buildITNSignatureString, PAYFAST_VALIDATE_URL } from './lib/payfast.js';
 import { PACKAGES } from './lib/packages.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -47,11 +47,11 @@ export const handler = async (event) => {
 
   // ── 1. Verify signature ─────────────────────────────────────────────────────
   const receivedSig = fields.signature;
-  const expectedSig = generateSignature(fields, PASSPHRASE);
+  const expectedSig = generateITNSignature(fields, PASSPHRASE);
 
   // ── TEMPORARY DEBUG LOGGING ──────────────────────────────────────────────
   // Remove this block once the signature mismatch is resolved.
-  const debugString = buildSignatureString(fields, PASSPHRASE)
+  const debugString = buildITNSignatureString(fields, PASSPHRASE)
     .replace(/&passphrase=.*$/, PASSPHRASE ? '&passphrase=***MASKED***' : '');
   console.log('[payfast-webhook] DEBUG all_received_fields=' + JSON.stringify(fields));
   console.log('[payfast-webhook] DEBUG passphrase_set=' + (PASSPHRASE ? `yes (length ${PASSPHRASE.length})` : 'no'));
