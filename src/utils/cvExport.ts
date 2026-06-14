@@ -97,7 +97,7 @@ function bulletLine(p: any, t: string, x: number, y: number, maxW: number,
 }
 
 // ── Section heading styles ─────────────────────────────────────────────────────
-type HeadingStyle = 'bar' | 'underline' | 'shaded' | 'italic-underline' | 'tag-underline' | 'dot-prefix';
+type HeadingStyle = 'bar' | 'underline' | 'shaded' | 'italic-underline' | 'tag-underline' | 'dot-prefix' | 'center-lines';
 
 function sectionHeading(p: any, title: string, x: number, y: number, maxW: number,
                         accent: RGB, style: HeadingStyle,
@@ -128,6 +128,17 @@ function sectionHeading(p: any, title: string, x: number, y: number, maxW: numbe
     p.text('◆ '+title.toUpperCase(), x, y);
     const tw = p.getTextWidth('◆ '+title.toUpperCase());
     hLine(p, x+tw+3, y-1.5, maxW-tw-3, 209,213,219, 0.3);
+  } else if (style === 'center-lines') {
+    tc(p,30,41,59); p.setFont('times','bold'); p.setFontSize(11);
+    const tw = p.getTextWidth(title);
+    const cx = PW/2;
+    p.text(title, cx-tw/2, y);
+    const gap = 6;
+    const leftW  = (cx-tw/2-gap) - x;
+    const rightX = cx+tw/2+gap;
+    const rightW = (x+maxW) - rightX;
+    if (leftW>0)  hLine(p, x, y-1.5, leftW, 203,213,225, 0.3);
+    if (rightW>0) hLine(p, rightX, y-1.5, rightW, 203,213,225, 0.3);
   } else { // 'bar' (default)
     fill(p,ar,ag,ab); p.rect(x, y-3.2, 2.5, 3.8, 'F');
     tc(p,ar,ag,ab); p.setFont(F,'bold'); p.setFontSize(9);
@@ -163,15 +174,19 @@ function drawFooter(p: any, owner: string, pg: number, total: number,
 // ── References page ────────────────────────────────────────────────────────────
 function refsPage(p: any, refs: any[], accent: RGB, headStyle: HeadingStyle,
                   addPage: ()=>number, bottom: number,
-                  owner: string, watermark: boolean) {
+                  owner: string, watermark: boolean, bg?: RGB) {
   const validRefs = refs.filter(r=>r.name);
   if (!validRefs.length) return;
   p.addPage();
   reset(p);
-  const [ar,ag,ab] = accent;
-  fill(p,ar,ag,ab); p.rect(0,0,PW,5,'F'); reset(p);
+  if (bg) {
+    fill(p,bg[0],bg[1],bg[2]); p.rect(0,0,PW,PH,'F'); reset(p);
+  } else {
+    const [ar,ag,ab] = accent;
+    fill(p,ar,ag,ab); p.rect(0,0,PW,5,'F'); reset(p);
+  }
   let y = MT+5;
-  const np = ()=>{ p.addPage(); reset(p); return MT; };
+  const np = ()=>{ p.addPage(); reset(p); if (bg) { fill(p,bg[0],bg[1],bg[2]); p.rect(0,0,PW,PH,'F'); reset(p); } return MT; };
   y = sectionHeading(p,'References',ML,y,PW-ML-MR,accent,headStyle,bottom,np);
   y += 2;
   const half = (PW-ML-MR-8)/2;
@@ -247,6 +262,7 @@ function getAccent(tmpl: string): RGB {
     sidebar:'#3b5998', bold:'#c2185b', executive:'#6b1a1a', corporate:'#1a2a4a',
     stylish:'#e05c6b', boxed:'#374151', traditional:'#374151', navy:'#1a2a4a',
     timeline:'#374151', shaded:'#374151', teal:'#06b6d4', crimson:'#c0392b', sage:'#7fa37f',
+    elegant:'#475569',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -293,6 +309,7 @@ export async function exportElementAsPDF(
     teal:         ()=>drawTeal(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     crimson:      ()=>drawCrimson(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     sage:         ()=>drawSage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    elegant:      ()=>drawElegant(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -814,4 +831,137 @@ function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
     let tx=ML;for(const s of allSk){const sw=chipTag(p,tx,y,s,accent);tx+=sw;if(tx>PW-MR-20){tx=ML;y+=7;}}y+=8;}
   y=drawCustom(p,customs,accent,'tag-underline',ML,y,PW-ML-MR,BOTTOM,np,GXW);
   refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm);
+}
+
+// ── 18. ELEGANT — Centered serif layout on soft lavender background ─────────
+// Mirrors ElegantTemplate in CVTemplateRenderer.tsx: full-page light-blue
+// background, centered header (name / role / contact), and section headings
+// flanked by horizontal divider lines extending to the page margins.
+function drawElegant(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
+  const accent = hex('#475569');           // slate-600 — footer line, bullets
+  const BG     = hex('#EAF0FB');           // page background
+  const INK    = hex('#1e293b');           // slate-800 — name, headings
+  const MUTED  = hex('#64748b');           // slate-500 — meta info, dates
+  const BODY   = hex('#374151');           // slate-700 — body text
+  const LINE   = [203,213,225] as RGB;     // slate-300 — divider lines
+
+  const paintBg = () => { fill(p,BG[0],BG[1],BG[2]); p.rect(0,0,PW,PH,'F'); };
+  paintBg();
+
+  let y = MT + 6;
+  const np = () => { p.addPage(); paintBg(); return MT + 6; };
+  const GXW = ():[number,number] => [ML, PW-ML-MR];
+
+  // ── Header: centered name / subtitle / contact ────────────────────────────
+  p.setFont('times','bold'); p.setFontSize(20); tc(p,INK[0],INK[1],INK[2]);
+  const name = owner.toUpperCase();
+  let tw = p.getTextWidth(name);
+  p.text(name, (PW-tw)/2, y);
+  y += 7;
+
+  // Subtitle = most recent role (users can type "Role A / Role B")
+  const subtitle = (exp[0]?.role || '').toUpperCase();
+  if (subtitle) {
+    p.setFont('times','normal'); p.setFontSize(9); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+    tw = p.getTextWidth(subtitle);
+    p.text(subtitle, (PW-tw)/2, y);
+    y += 5.5;
+  }
+
+  const contact = [pr.address, pr.phone, pr.email, pr.id_number?`ID: ${pr.id_number}`:null].filter(Boolean).join('   |   ');
+  if (contact) {
+    p.setFont('times','normal'); p.setFontSize(8.5); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+    tw = p.getTextWidth(contact);
+    p.text(contact, (PW-tw)/2, y);
+    y += 6;
+  }
+
+  // ── Professional summary ──────────────────────────────────────────────────
+  if (pr.bio) {
+    y = sectionHeading(p,'Professional summary',ML,y,PW-ML-MR,accent,'center-lines',BOTTOM,np,GXW);
+    p.setFont('times','normal'); p.setFontSize(9.5); tc(p,BODY[0],BODY[1],BODY[2]);
+    y = wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);
+    y += ITEM_GAP;
+  }
+
+  // ── Work experience ───────────────────────────────────────────────────────
+  if (exp.length) {
+    y = sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',ML,y,PW-ML-MR,accent,'center-lines',BOTTOM,np,GXW);
+    for (const e of exp) {
+      if (y+14>BOTTOM) y = np();
+      p.setFont('times','bold'); p.setFontSize(10.5); tc(p,INK[0],INK[1],INK[2]);
+      p.text(e.role||'', ML, y);
+      const ds=[e.from,e.to].filter(Boolean).join(' – ');
+      if (ds) { p.setFont('times','normal'); p.setFontSize(8.5); tc(p,MUTED[0],MUTED[1],MUTED[2]); p.text(ds, PW-MR-p.getTextWidth(ds), y); }
+      y += LINE_H;
+      if (e.school) {
+        p.setFont('times','normal'); p.setFontSize(9); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+        p.text(e.school, ML, y); y += LINE_H;
+      }
+      if (e.description) for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))
+        y = bulletLine(p,l,ML,y,PW-MR-ML,accent,BOTTOM,np,GXW);
+      y += ITEM_GAP+1;
+    }
+  }
+
+  // ── Education — centered "Qualification | Institution | Year" ────────────
+  if (edu.length) {
+    y = sectionHeading(p,'Education',ML,y,PW-ML-MR,accent,'center-lines',BOTTOM,np,GXW);
+    const sep = '   |   ';
+    p.setFont('times','normal'); p.setFontSize(8.5);
+    const sepW = p.getTextWidth(sep);
+    for (const e of edu) {
+      if (y+LINE_H>BOTTOM) y = np();
+      const parts: {t:string,bold:boolean}[] = [];
+      if (e.qualification) parts.push({t:e.qualification,bold:true});
+      if (e.institution)   parts.push({t:e.institution,bold:false});
+      if (e.year)          parts.push({t:e.year,bold:false});
+      let total = 0;
+      const widths: number[] = parts.map((part,i)=>{
+        p.setFont('times',part.bold?'bold':'normal'); p.setFontSize(9.5);
+        const w = p.getTextWidth(part.t);
+        total += w; if (i<parts.length-1) total += sepW;
+        return w;
+      });
+      let cx = (PW-total)/2;
+      parts.forEach((part,i)=>{
+        p.setFont('times',part.bold?'bold':'normal'); p.setFontSize(9.5);
+        if (part.bold) tc(p,INK[0],INK[1],INK[2]); else tc(p,MUTED[0],MUTED[1],MUTED[2]);
+        p.text(part.t, cx, y);
+        cx += widths[i];
+        if (i<parts.length-1) { p.setFont('times','normal'); tc(p,LINE[0],LINE[1],LINE[2]); p.text(sep, cx, y); cx += sepW; }
+      });
+      y += LINE_H+1;
+    }
+    y += ITEM_GAP;
+  }
+
+  // ── Skills and Attributes — two-column, "• item" ──────────────────────────
+  const allSkills = [...(sk.subjects||[]), ...(sk.soft_skills||[]), ...(sk.languages||[])];
+  if (allSkills.length) {
+    y = sectionHeading(p,'Skills and Attributes',ML,y,PW-ML-MR,accent,'center-lines',BOTTOM,np,GXW);
+    p.setFont('times','normal'); p.setFontSize(9);
+    const colGap = 8;
+    const colW   = (PW-ML-MR-colGap)/2;
+    const col2x  = ML+colW+colGap;
+    let leftY = y, rightY = y;
+    for (let i=0; i<allSkills.length; i++) {
+      const isLeft = i%2===0;
+      const cx = isLeft ? ML : col2x;
+      let cy = isLeft ? leftY : rightY;
+      const lines = p.splitTextToSize(String(allSkills[i]), colW-5) as string[];
+      if (cy+lines.length*LINE_H>BOTTOM) { y = np(); leftY = y; rightY = y; cy = y; }
+      tc(p,MUTED[0],MUTED[1],MUTED[2]); p.text('•', cx, cy);
+      tc(p,BODY[0],BODY[1],BODY[2]);
+      lines.forEach((line:string,li:number)=>p.text(line, cx+4, cy+li*LINE_H));
+      const used = lines.length*LINE_H;
+      if (isLeft) leftY = cy+used; else rightY = cy+used;
+    }
+    y = Math.max(leftY,rightY) + ITEM_GAP;
+  }
+
+  y = drawCustom(p,customs,accent,'center-lines',ML,y,PW-ML-MR,BOTTOM,np,GXW);
+
+  // References page keeps the same lavender background
+  refsPage(p,refs,accent,'center-lines',np,BOTTOM,owner,wm,BG);
 }
