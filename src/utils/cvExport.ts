@@ -214,12 +214,12 @@ function refsPage(p: any, refs: any[], accent: RGB, headStyle: HeadingStyle,
 function drawCustom(p: any, sections: any[], accent: RGB, headStyle: HeadingStyle,
                     x: number, y: number, maxW: number,
                     bottom: number, newPage: ()=>number,
-                    getXW?: ()=>[number,number]): number {
+                    getXW?: ()=>[number,number], font: string = F): number {
   if (!sections?.filter((s:any)=>s.title).length) return y;
   for (const sec of sections) {
     if (!sec.title) continue;
     y = sectionHeading(p, sec.title, x, y, maxW, accent, headStyle, bottom, newPage, getXW);
-    p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
+    p.setFont(font,'normal'); p.setFontSize(9); tc(p,55,65,81);
     if (sec.type==='text' && sec.content) {
       y = wrapped(p, sec.content, x, y, maxW, bottom, newPage, getXW);
     } else if (sec.type==='bullets' && sec.content) {
@@ -229,9 +229,9 @@ function drawCustom(p: any, sections: any[], accent: RGB, headStyle: HeadingStyl
       const cw = maxW/sec.columns.length;
       const [ar,ag,ab]=accent; fill(p,ar,ag,ab); tc(p,255,255,255);
       p.rect(x, y-4, maxW, 6, 'F');
-      p.setFont(F,'bold'); p.setFontSize(8);
+      p.setFont(font,'bold'); p.setFontSize(8);
       sec.columns.forEach((col:string,ci:number)=>p.text(col, x+ci*cw+1, y));
-      y+=6; p.setFont(F,'normal'); p.setFontSize(8.5);
+      y+=6; p.setFont(font,'normal'); p.setFontSize(8.5);
       for (let ri=0; ri<sec.rows.length; ri++) {
         if (y+6>bottom) y=newPage();
         if (ri%2===0) { fill(p,249,250,251); p.rect(x,y-4,maxW,6,'F'); }
@@ -960,7 +960,7 @@ function drawElegant(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
     y = Math.max(leftY,rightY) + ITEM_GAP;
   }
 
-  y = drawCustom(p,customs,accent,'center-lines',ML,y,PW-ML-MR,BOTTOM,np,GXW);
+  y = drawCustom(p,customs,accent,'center-lines',ML,y,PW-ML-MR,BOTTOM,np,GXW,'times');
 
   // References page keeps the same lavender background
   refsPage(p,refs,accent,'center-lines',np,BOTTOM,owner,wm,BG);
