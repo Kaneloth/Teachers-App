@@ -17,6 +17,7 @@
  */
 
 import { requireAdmin } from './lib/requireAdmin.js';
+import { logAdminAction } from './lib/auditLog.js';
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -88,6 +89,13 @@ export const handler = async (event) => {
   }
 
   console.log(`[admin-update-user] ${adminUser.email} updated user ${target_user_id}:`, results);
+
+  await logAdminAction(supabase, {
+    admin: adminUser,
+    action: 'user_update',
+    target_user_id,
+    details: results,
+  });
 
   return { statusCode: 200, body: JSON.stringify({ success: true, updated: results }) };
 };

@@ -17,6 +17,7 @@
  */
 
 import { requireAdmin } from './lib/requireAdmin.js';
+import { logAdminAction } from './lib/auditLog.js';
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -89,6 +90,12 @@ export const handler = async (event) => {
       });
       if (error) return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
       newBalance = data;
+      await logAdminAction(supabase, {
+        admin: auth.user,
+        action: 'credit_adjustment',
+        target_user_id,
+        details: { amount, description: desc, new_balance: newBalance },
+      });
     } else {
       // Negative adjustment — insert directly (bypasses deduct_credits'
       // insufficient-balance check, since admins may need to correct to
@@ -104,6 +111,12 @@ export const handler = async (event) => {
 
       const { data: balance } = await supabase.rpc('get_credit_balance', { p_user_id: target_user_id });
       newBalance = balance;
+      await logAdminAction(supabase, {
+        admin: auth.user,
+        action: 'credit_adjustment',
+        target_user_id,
+        details: { amount, description: desc, new_balance: newBalance },
+      });
     }
 
     console.log(`[admin-adjust-credits] ${auth.user.email} adjusted user ${target_user_id} by ${amount} → new balance ${newBalance}`);
