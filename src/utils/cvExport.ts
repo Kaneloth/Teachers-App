@@ -179,10 +179,10 @@ function refsPage(p: any, refs: any[], accent: RGB, headStyle: HeadingStyle,
   if (!validRefs.length) return;
   p.addPage();
   reset(p);
+  const [ar,ag,ab] = accent;
   if (bg) {
     fill(p,bg[0],bg[1],bg[2]); p.rect(0,0,PW,PH,'F'); reset(p);
   } else {
-    const [ar,ag,ab] = accent;
     fill(p,ar,ag,ab); p.rect(0,0,PW,5,'F'); reset(p);
   }
   let y = MT+5;
