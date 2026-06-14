@@ -34,10 +34,15 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false);
   const [profileType, setProfileType] = useState<ProfileType | null>(null);
 
-  // If this user already completed onboarding (has a user_code) — e.g. an
-  // existing user who logged in via Google — skip straight to /home.
+  // If this user has explicitly completed onboarding before, skip straight
+  // to /home. We deliberately do NOT check `user_code` here — a database
+  // trigger (handle_new_user) sets user_code automatically for every new
+  // signup (email AND Google), so checking it would redirect brand-new
+  // users away before they ever see the role selector. `onboarding_completed`
+  // is only ever set by this component, once the user has actually chosen
+  // a role and either finished or skipped the detail form.
   useEffect(() => {
-    if (user?.user_metadata?.user_code) {
+    if (user?.user_metadata?.onboarding_completed === true) {
       navigate('/home', { replace: true });
     }
   }, [user, navigate]);
@@ -77,25 +82,34 @@ export default function Onboarding() {
   const handleSkip = async () => {
     if (!user || !profileType) { navigate('/home'); return; }
 
-    if (!user.user_metadata?.user_code) {
-      const { data: existing } = await supabase
-        .from('educators')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
+    // Ensure a minimal educators row exists recording the chosen profile_type
+    const { data: existing } = await supabase
+      .from('educators')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-      if (!existing) {
-        await supabase.from('educators').insert([{
-          user_id:             user.id,
-          full_name:           user.user_metadata?.full_name || '',
-          profile_type:        profileType,
-          is_actively_looking: false,
-          preferred_provinces: [],
-        }]);
-      }
+    if (!existing) {
+      await supabase.from('educators').insert([{
+        user_id:             user.id,
+        full_name:           user.user_metadata?.full_name || '',
+        profile_type:        profileType,
+        is_actively_looking: false,
+        preferred_provinces: [],
+      }]);
+    }
 
-      const userCode = generateUserCode();
-      await supabase.auth.updateUser({ data: { user_code: userCode } });
+    // user_code may already exist (set automatically by a DB trigger on
+    // signup) — only generate a new one if it's genuinely missing.
+    const userCode = user.user_metadata?.user_code ?? generateUserCode();
+    const isNewCode = !user.user_metadata?.user_code;
+
+    // onboarding_completed is the flag this component actually relies on.
+    await supabase.auth.updateUser({
+      data: { user_code: userCode, onboarding_completed: true },
+    });
+
+    if (isNewCode) {
       supabase.functions
         .invoke('sendWelcomeEmail', {
           body: {
@@ -106,6 +120,7 @@ export default function Onboarding() {
         })
         .catch(() => {});
     }
+
     navigate('/home');
   };
 
@@ -126,12 +141,15 @@ export default function Onboarding() {
       }]);
       if (error) throw error;
 
-      const userCode = generateUserCode();
-      await supabase.auth.updateUser({ data: { user_code: userCode } });
+      const userCode  = user?.user_metadata?.user_code ?? generateUserCode();
+      const isNewCode = !user?.user_metadata?.user_code;
+      await supabase.auth.updateUser({ data: { user_code: userCode, onboarding_completed: true } });
 
-      supabase.functions
-        .invoke('sendWelcomeEmail', { body: { email: user?.email ?? '', full_name: genForm.full_name || user?.user_metadata?.full_name || '', user_code: userCode } })
-        .catch(() => {});
+      if (isNewCode) {
+        supabase.functions
+          .invoke('sendWelcomeEmail', { body: { email: user?.email ?? '', full_name: genForm.full_name || user?.user_metadata?.full_name || '', user_code: userCode } })
+          .catch(() => {});
+      }
 
       toast.success('Profile created! Welcome to Crosssa!');
       navigate('/home');
@@ -154,12 +172,15 @@ export default function Onboarding() {
       }]);
       if (error) throw error;
 
-      const userCode = generateUserCode();
-      await supabase.auth.updateUser({ data: { user_code: userCode } });
+      const userCode  = user?.user_metadata?.user_code ?? generateUserCode();
+      const isNewCode = !user?.user_metadata?.user_code;
+      await supabase.auth.updateUser({ data: { user_code: userCode, onboarding_completed: true } });
 
-      supabase.functions
-        .invoke('sendWelcomeEmail', { body: { email: user?.email ?? '', full_name: form.full_name || user?.user_metadata?.full_name || '', user_code: userCode } })
-        .catch(() => {});
+      if (isNewCode) {
+        supabase.functions
+          .invoke('sendWelcomeEmail', { body: { email: user?.email ?? '', full_name: form.full_name || user?.user_metadata?.full_name || '', user_code: userCode } })
+          .catch(() => {});
+      }
 
       toast.success('Profile created! Welcome to Crosssa!');
       navigate('/home');
