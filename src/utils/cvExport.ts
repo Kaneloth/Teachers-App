@@ -96,8 +96,46 @@ function bulletLine(p: any, t: string, x: number, y: number, maxW: number,
   return y;
 }
 
+// Centered multi-line text (e.g. a long contact-info line that wraps).
+// Caller must have already set font/size/colour before calling.
+function centeredWrapped(p: any, t: string, y: number, maxW: number,
+                         bottom: number, newPage: ()=>number, lh=LINE_H): number {
+  const lines = p.splitTextToSize(t, maxW) as string[];
+  for (const line of lines) {
+    if (y+lh > bottom) y = newPage();
+    const tw = p.getTextWidth(line);
+    p.text(line, (PW-tw)/2, y); y += lh;
+  }
+  return y;
+}
+
+// Render a sequence of {text, style} segments as wrapped text, switching
+// font style (normal/italic/bold) per-segment — used for "Skill (description)"
+// lists where the description is italicised inline.
+interface RichSeg { text: string; style: 'normal'|'italic'|'bold'; color?: RGB }
+function richInline(p: any, segs: RichSeg[], x: number, y: number, maxW: number,
+                    bottom: number, newPage: ()=>number,
+                    getXW?: ()=>[number,number], font='times', size=9,
+                    normalColor: RGB=[55,65,81], italicColor: RGB=[100,116,139]): number {
+  let cx = x;
+  p.setFontSize(size);
+  for (const seg of segs) {
+    p.setFont(font, seg.style);
+    const w = p.getTextWidth(seg.text);
+    if (cx + w > x+maxW && cx > x) {
+      y += LINE_H; cx = x;
+      if (y+LINE_H > bottom) { y = newPage(); if (getXW) { [x,maxW]=getXW(); } cx = x; }
+    }
+    const c = seg.color || (seg.style==='italic' ? italicColor : normalColor);
+    tc(p,c[0],c[1],c[2]);
+    p.text(seg.text, cx, y);
+    cx += w;
+  }
+  return y + LINE_H;
+}
+
 // ── Section heading styles ─────────────────────────────────────────────────────
-type HeadingStyle = 'bar' | 'underline' | 'shaded' | 'italic-underline' | 'tag-underline' | 'dot-prefix' | 'center-lines';
+type HeadingStyle = 'bar' | 'underline' | 'shaded' | 'italic-underline' | 'tag-underline' | 'dot-prefix' | 'center-lines' | 'double-line';
 
 function sectionHeading(p: any, title: string, x: number, y: number, maxW: number,
                         accent: RGB, style: HeadingStyle,
@@ -128,6 +166,13 @@ function sectionHeading(p: any, title: string, x: number, y: number, maxW: numbe
     p.text('◆ '+title.toUpperCase(), x, y);
     const tw = p.getTextWidth('◆ '+title.toUpperCase());
     hLine(p, x+tw+3, y-1.5, maxW-tw-3, 209,213,219, 0.3);
+  } else if (style === 'double-line') {
+    tc(p,30,41,59); p.setFont('times','bold'); p.setFontSize(11);
+    const txt = title.toUpperCase();
+    const tw = p.getTextWidth(txt);
+    p.text(txt, (PW/2)-tw/2, y);
+    hLine(p, x, y+2.2, maxW, 71,85,105, 0.35);
+    hLine(p, x, y+3.4, maxW, 71,85,105, 0.35);
   } else if (style === 'center-lines') {
     tc(p,30,41,59); p.setFont('times','bold'); p.setFontSize(11);
     const tw = p.getTextWidth(title);
@@ -263,6 +308,7 @@ function getAccent(tmpl: string): RGB {
     stylish:'#e05c6b', boxed:'#374151', traditional:'#374151', navy:'#1a2a4a',
     timeline:'#374151', shaded:'#374151', teal:'#06b6d4', crimson:'#c0392b', sage:'#7fa37f',
     elegant:'#475569',
+    heritage:'#334155',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -310,6 +356,7 @@ export async function exportElementAsPDF(
     crimson:      ()=>drawCrimson(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     sage:         ()=>drawSage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     elegant:      ()=>drawElegant(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    heritage:     ()=>drawHeritage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -964,4 +1011,122 @@ function drawElegant(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 
   // References page keeps the same lavender background
   refsPage(p,refs,accent,'center-lines',np,BOTTOM,owner,wm,BG);
+}
+
+// ── 19. HERITAGE — Formal centered layout, top contact bar, double rules ────
+// Mirrors HeritageTemplate in CVTemplateRenderer.tsx: light lavender
+// background, double horizontal rule + centered contact info at the very
+// top, title-case name, italic role subtitle, and section headings in
+// uppercase with a double rule beneath. Skills render as an inline
+// "Name (description)" list with italicised descriptions.
+function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
+  const accent = hex('#334155');           // slate-700 — rules, footer
+  const BG     = hex('#EAF0FB');           // page background
+  const INK    = hex('#1e293b');           // slate-800 — name, headings
+  const MUTED  = hex('#64748b');           // slate-500 — meta info, dates
+  const BODY   = hex('#374151');           // slate-700 — body text
+  const [acR,acG,acB] = accent;
+
+  const paintBg = () => { fill(p,BG[0],BG[1],BG[2]); p.rect(0,0,PW,PH,'F'); };
+  paintBg();
+
+  let y = MT + 4;
+  const np = () => { p.addPage(); paintBg(); return MT + 4; };
+  const GXW = ():[number,number] => [ML, PW-ML-MR];
+
+  // ── Top double rule + centered contact info ───────────────────────────────
+  hLine(p, ML, y,     PW-ML-MR, acR,acG,acB, 0.35);
+  hLine(p, ML, y+1.2, PW-ML-MR, acR,acG,acB, 0.35);
+  y += 5;
+
+  const contact = [pr.address, pr.email, pr.phone, pr.id_number?`ID: ${pr.id_number}`:null]
+    .filter(Boolean).join('   •   ').toUpperCase();
+  if (contact) {
+    p.setFont('times','normal'); p.setFontSize(8); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+    y = centeredWrapped(p, contact, y, PW-ML-MR, BOTTOM, np);
+    y += 3;
+  }
+
+  // ── Name (title case) + subtitle (most recent role, italic) ──────────────
+  p.setFont('times','bold'); p.setFontSize(22); tc(p,INK[0],INK[1],INK[2]);
+  let tw = p.getTextWidth(owner);
+  p.text(owner, (PW-tw)/2, y);
+  y += 7;
+
+  const subtitle = exp[0]?.role || '';
+  if (subtitle) {
+    p.setFont('times','italic'); p.setFontSize(10); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+    tw = p.getTextWidth(subtitle);
+    p.text(subtitle, (PW-tw)/2, y);
+    y += 6;
+  }
+
+  // ── Professional summary ──────────────────────────────────────────────────
+  if (pr.bio) {
+    y = sectionHeading(p,'Professional summary',ML,y,PW-ML-MR,accent,'double-line',BOTTOM,np,GXW);
+    p.setFont('times','normal'); p.setFontSize(9.5); tc(p,BODY[0],BODY[1],BODY[2]);
+    y = wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);
+    y += ITEM_GAP;
+  }
+
+  // ── Work experience ───────────────────────────────────────────────────────
+  if (exp.length) {
+    y = sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',ML,y,PW-ML-MR,accent,'double-line',BOTTOM,np,GXW);
+    for (const e of exp) {
+      if (y+14>BOTTOM) y = np();
+      p.setFont('times','bold'); p.setFontSize(10); tc(p,INK[0],INK[1],INK[2]);
+      p.text((e.role||'').toUpperCase(), ML, y);
+      const ds=[e.from,e.to].filter(Boolean).join(' — ');
+      if (ds) { p.setFont('times','bold'); p.setFontSize(9); tc(p,INK[0],INK[1],INK[2]); p.text(ds, PW-MR-p.getTextWidth(ds), y); }
+      y += LINE_H;
+      if (e.school) {
+        p.setFont('times','italic'); p.setFontSize(9); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+        y = wrapped(p,e.school,ML,y,PW-ML-MR,BOTTOM,np,GXW);
+      }
+      if (e.description) for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))
+        y = bulletLine(p,l,ML,y,PW-MR-ML,accent,BOTTOM,np,GXW);
+      y += ITEM_GAP+1;
+    }
+  }
+
+  // ── Education ──────────────────────────────────────────────────────────────
+  if (edu.length) {
+    y = sectionHeading(p,'Education',ML,y,PW-ML-MR,accent,'double-line',BOTTOM,np,GXW);
+    for (const e of edu) {
+      if (y+10>BOTTOM) y = np();
+      p.setFont('times','bold'); p.setFontSize(10); tc(p,INK[0],INK[1],INK[2]);
+      p.text((e.qualification||'').toUpperCase(), ML, y);
+      if (e.year) { p.setFont('times','bold'); p.setFontSize(9); tc(p,INK[0],INK[1],INK[2]); p.text(e.year, PW-MR-p.getTextWidth(e.year), y); }
+      y += LINE_H;
+      if (e.institution) {
+        p.setFont('times','italic'); p.setFontSize(9); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+        y = wrapped(p,e.institution,ML,y,PW-ML-MR,BOTTOM,np,GXW);
+      }
+      y += ITEM_GAP;
+    }
+  }
+
+  // ── Skills and Attributes — inline "Name (description)" list ─────────────
+  const allSkills = [...(sk.subjects||[]), ...(sk.soft_skills||[]), ...(sk.languages||[])];
+  if (allSkills.length) {
+    y = sectionHeading(p,'Skills and Attributes',ML,y,PW-ML-MR,accent,'double-line',BOTTOM,np,GXW);
+    const segs: RichSeg[] = [];
+    allSkills.forEach((raw, i) => {
+      const [name, desc] = String(raw).split('|').map((s:string)=>s.trim());
+      if (desc) {
+        segs.push({text: `${name} (`, style:'normal'});
+        segs.push({text: `${desc})`, style:'italic'});
+      } else {
+        segs.push({text: name, style:'normal'});
+      }
+      segs.push({text: i<allSkills.length-1 ? ', ' : '.', style:'normal'});
+    });
+    y = richInline(p, segs, ML, y, PW-ML-MR, BOTTOM, np, GXW, 'times', 9, [55,65,81], [100,116,139]);
+    y += ITEM_GAP;
+  }
+
+  y = drawCustom(p,customs,accent,'double-line',ML,y,PW-ML-MR,BOTTOM,np,GXW,'times');
+
+  // References page keeps the same lavender background
+  refsPage(p,refs,accent,'double-line',np,BOTTOM,owner,wm,BG);
 }

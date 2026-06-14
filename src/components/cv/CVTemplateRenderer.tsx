@@ -78,6 +78,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'traditional': "Georgia, 'Times New Roman', serif",
     'crimson': "Georgia, 'Times New Roman', serif",
     'elegant': "Georgia, 'Times New Roman', serif",
+    'heritage': "Georgia, 'Times New Roman', serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -112,6 +113,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'crimson'      ? <CrimsonTemplate      {...T} /> :
     template === 'sage'         ? <SageTemplate         {...T} /> :
     template === 'elegant'      ? <ElegantTemplate      {...T} /> :
+    template === 'heritage'     ? <HeritageTemplate     {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -1771,4 +1773,154 @@ function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ex
 // the page-slicer in cvExport.ts treats this as one logical page.
 function forExportMinHeight(wrapperStyle: React.CSSProperties): string {
   return wrapperStyle.width === '794px' ? `${A4_PAGE_H_PX}px` : 'auto';
+}
+
+/* ── Heritage Template ──────────────────────────────────────────────────── */
+// Formal centered layout on a soft lavender background. Contact info sits
+// inside a double rule at the very top, the name is title-case, the most
+// recent role is shown as an italic subtitle, and every section heading is
+// uppercase with a double rule beneath it. Skills render as an inline
+// "Name (description)" list with italicised descriptions.
+const HERITAGE_BG    = '#EAF0FB';
+const HERITAGE_INK   = '#1e293b';   // slate-800 — name, headings
+const HERITAGE_MUTED = '#64748b';   // slate-500 — meta info, dates
+const HERITAGE_BODY  = '#374151';   // slate-700 — body text
+const HERITAGE_RULE  = '#334155';   // slate-700 — double rules
+
+function HeritageHeading({ title }: { title: string }) {
+  return (
+    <div style={{ textAlign: 'center', margin: '20px 0 12px' }}>
+      <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: '14px', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: HERITAGE_INK }}>
+        {title}
+      </span>
+      <div style={{ height: '3px', borderTop: `1px solid ${HERITAGE_RULE}`, borderBottom: `1px solid ${HERITAGE_RULE}`, marginTop: '5px' }} />
+    </div>
+  );
+}
+
+function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, expLabel = 'Work Experience' }: any) {
+  const { personal, skills } = data;
+  const subtitle = validExp[0]?.role || '';
+  const contactParts = [
+    personal.address,
+    personal.email,
+    personal.phone,
+    personal.id_number ? `ID: ${personal.id_number}` : null,
+  ].filter(Boolean);
+
+  const allSkills = [
+    ...(skills?.subjects || []),
+    ...(skills?.soft_skills || []),
+    ...(skills?.languages || []),
+  ];
+
+  return (
+    <div style={{ ...wrapperStyle, background: HERITAGE_BG }}>
+      <div
+        className="cv-content-page"
+        style={{
+          width: '794px',
+          minHeight: forExportMinHeight(wrapperStyle),
+          boxSizing: 'border-box',
+          position: 'relative',
+          background: HERITAGE_BG,
+          padding: '36px 56px',
+          fontFamily: "Georgia, 'Times New Roman', serif",
+          color: HERITAGE_BODY,
+        }}
+      >
+        {/* Top double rule + centered contact */}
+        <div style={{ height: '3px', borderTop: `1px solid ${HERITAGE_RULE}`, borderBottom: `1px solid ${HERITAGE_RULE}` }} />
+        {contactParts.length > 0 && (
+          <div style={{ marginTop: '8px', textAlign: 'center', fontSize: '10px', letterSpacing: '0.5px', textTransform: 'uppercase', color: HERITAGE_MUTED }}>
+            {contactParts.join('   •   ')}
+          </div>
+        )}
+
+        {/* Name + subtitle */}
+        <div style={{ textAlign: 'center', marginTop: '14px' }}>
+          {personal.photo_url && (
+            <img src={personal.photo_url} alt="Profile" style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${HERITAGE_RULE}`, marginBottom: '8px' }} />
+          )}
+          <div style={{ fontSize: '28px', fontWeight: 700, color: HERITAGE_INK }}>
+            {personal.full_name || 'Your Name'}
+          </div>
+          {subtitle && (
+            <div style={{ marginTop: '4px', fontSize: '12px', fontStyle: 'italic', color: HERITAGE_MUTED }}>
+              {subtitle}
+            </div>
+          )}
+        </div>
+
+        {/* Professional Summary */}
+        {personal.bio && (
+          <>
+            <HeritageHeading title="Professional summary" />
+            <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.7', color: HERITAGE_BODY }}>{personal.bio}</p>
+          </>
+        )}
+
+        {/* Work Experience */}
+        {validExp.length > 0 && (
+          <>
+            <HeritageHeading title={expLabel} />
+            {validExp.map((e: any, i: number) => (
+              <div key={i} style={{ marginBottom: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px' }}>
+                  <span style={{ fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', color: HERITAGE_INK }}>{e.role}</span>
+                  {(e.from || e.to) && (
+                    <span style={{ fontWeight: 700, fontSize: '11px', color: HERITAGE_INK, whiteSpace: 'nowrap' }}>
+                      {[e.from, e.to].filter(Boolean).join(' — ')}
+                    </span>
+                  )}
+                </div>
+                {e.school && <div style={{ fontSize: '11px', fontStyle: 'italic', color: HERITAGE_MUTED, marginTop: '2px' }}>{e.school}</div>}
+                {renderDescription(e.description, HERITAGE_INK)}
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Education */}
+        {validEdu.length > 0 && (
+          <>
+            <HeritageHeading title="Education" />
+            {validEdu.map((e: any, i: number) => (
+              <div key={i} style={{ marginBottom: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px' }}>
+                  <span style={{ fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', color: HERITAGE_INK }}>{e.qualification}</span>
+                  {e.year && <span style={{ fontWeight: 700, fontSize: '11px', color: HERITAGE_INK, whiteSpace: 'nowrap' }}>{e.year}</span>}
+                </div>
+                {e.institution && <div style={{ fontSize: '11px', fontStyle: 'italic', color: HERITAGE_MUTED, marginTop: '2px' }}>{e.institution}</div>}
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Skills and Attributes — inline "Name (description)" */}
+        {allSkills.length > 0 && (
+          <>
+            <HeritageHeading title="Skills and Attributes" />
+            <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.8', color: HERITAGE_BODY }}>
+              {allSkills.map((s, i) => {
+                const [name, desc] = String(s).split('|').map(x => x.trim());
+                return (
+                  <span key={i}>
+                    {name}
+                    {desc && <> (<span style={{ fontStyle: 'italic', color: HERITAGE_MUTED }}>{desc}</span>)</>}
+                    {i < allSkills.length - 1 ? ', ' : '.'}
+                  </span>
+                );
+              })}
+            </p>
+          </>
+        )}
+
+        {renderCustomSections(data.custom_sections, HERITAGE_INK, HERITAGE_RULE)}
+
+        {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
+      </div>
+      {renderReferencesPage(data.references, HERITAGE_INK, watermark, HERITAGE_RULE)}
+    </div>
+  );
 }
