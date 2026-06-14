@@ -24,7 +24,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { generateSignature, PAYFAST_VALIDATE_URL } from './lib/payfast.js';
+import { generateSignature, buildSignatureString, PAYFAST_VALIDATE_URL } from './lib/payfast.js';
 import { PACKAGES } from './lib/packages.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -48,6 +48,17 @@ export const handler = async (event) => {
   // ── 1. Verify signature ─────────────────────────────────────────────────────
   const receivedSig = fields.signature;
   const expectedSig = generateSignature(fields, PASSPHRASE);
+
+  // ── TEMPORARY DEBUG LOGGING ──────────────────────────────────────────────
+  // Remove this block once the signature mismatch is resolved.
+  const debugString = buildSignatureString(fields, PASSPHRASE)
+    .replace(/&passphrase=.*$/, PASSPHRASE ? '&passphrase=***MASKED***' : '');
+  console.log('[payfast-webhook] DEBUG all_received_fields=' + JSON.stringify(fields));
+  console.log('[payfast-webhook] DEBUG passphrase_set=' + (PASSPHRASE ? `yes (length ${PASSPHRASE.length})` : 'no'));
+  console.log('[payfast-webhook] DEBUG signature_string=' + debugString);
+  console.log('[payfast-webhook] DEBUG expected_signature=' + expectedSig);
+  console.log('[payfast-webhook] DEBUG received_signature=' + receivedSig);
+  // ── END TEMPORARY DEBUG LOGGING ───────────────────────────────────────────
 
   if (receivedSig !== expectedSig) {
     console.error('[payfast-webhook] SIGNATURE MISMATCH — possible forged request');
