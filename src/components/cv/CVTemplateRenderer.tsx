@@ -77,6 +77,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'executive': "Georgia, 'Times New Roman', serif",
     'traditional': "Georgia, 'Times New Roman', serif",
     'crimson': "Georgia, 'Times New Roman', serif",
+    'elegant': "Georgia, 'Times New Roman', serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -110,6 +111,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'teal'         ? <TealTemplate         {...T} /> :
     template === 'crimson'      ? <CrimsonTemplate      {...T} /> :
     template === 'sage'         ? <SageTemplate         {...T} /> :
+    template === 'elegant'      ? <ElegantTemplate      {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -1621,4 +1623,152 @@ function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
       {renderReferencesPage(data.references, sage, watermark)}
     </div>
   );
+}
+
+/* ── Elegant Template ───────────────────────────────────────────────────── */
+// Centered, formal layout on a soft lavender-blue background. Serif
+// typography throughout, with section headings flanked by horizontal
+// divider lines extending to the page margins.
+const ELEGANT_BG     = '#EAF0FB';
+const ELEGANT_INK    = '#1e293b';   // slate-800 — headings, names
+const ELEGANT_MUTED  = '#64748b';   // slate-500 — meta info, dates
+const ELEGANT_BODY   = '#374151';   // slate-700 — body text
+const ELEGANT_LINE   = '#cbd5e1';   // slate-300 — divider lines
+
+function ElegantHeading({ title }: { title: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: '22px 0 14px' }}>
+      <div style={{ flex: 1, height: '1px', background: ELEGANT_LINE }} />
+      <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: '14px', fontWeight: 700, color: ELEGANT_INK, whiteSpace: 'nowrap' }}>
+        {title}
+      </span>
+      <div style={{ flex: 1, height: '1px', background: ELEGANT_LINE }} />
+    </div>
+  );
+}
+
+function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, expLabel = 'Work Experience' }: any) {
+  const { personal, skills } = data;
+  // Subtitle is drawn from the most recent role — users can type multiple
+  // roles separated by "/" (e.g. "ICT Coordinator / Educator").
+  const subtitle = validExp[0]?.role || '';
+  const contactParts = [
+    personal.address,
+    personal.phone,
+    personal.email,
+    personal.id_number ? `ID: ${personal.id_number}` : null,
+  ].filter(Boolean);
+
+  const allSkills = [
+    ...(skills?.subjects || []),
+    ...(skills?.soft_skills || []),
+    ...(skills?.languages || []),
+  ];
+
+  return (
+    <div style={{ ...wrapperStyle, background: ELEGANT_BG }}>
+      <div
+        className="cv-content-page"
+        style={{
+          width: '794px',
+          minHeight: forExportMinHeight(wrapperStyle),
+          boxSizing: 'border-box',
+          position: 'relative',
+          background: ELEGANT_BG,
+          padding: '40px 56px',
+          fontFamily: "Georgia, 'Times New Roman', serif",
+          color: ELEGANT_BODY,
+        }}
+      >
+        {/* Header */}
+        <div style={{ textAlign: 'center' }}>
+          {personal.photo_url && (
+            <img src={personal.photo_url} alt="Profile" style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${ELEGANT_LINE}`, marginBottom: '10px' }} />
+          )}
+          <div style={{ fontSize: '26px', fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: ELEGANT_INK }}>
+            {personal.full_name || 'Your Name'}
+          </div>
+          {subtitle && (
+            <div style={{ marginTop: '6px', fontSize: '11px', letterSpacing: '1.5px', textTransform: 'uppercase', color: ELEGANT_MUTED }}>
+              {subtitle}
+            </div>
+          )}
+          {contactParts.length > 0 && (
+            <div style={{ marginTop: '10px', fontSize: '11px', color: ELEGANT_MUTED }}>
+              {contactParts.join('   |   ')}
+            </div>
+          )}
+        </div>
+
+        {/* Professional Summary */}
+        {personal.bio && (
+          <>
+            <ElegantHeading title="Professional summary" />
+            <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.7', color: ELEGANT_BODY }}>{personal.bio}</p>
+          </>
+        )}
+
+        {/* Work Experience */}
+        {validExp.length > 0 && (
+          <>
+            <ElegantHeading title={expLabel} />
+            {validExp.map((e: any, i: number) => (
+              <div key={i} style={{ marginBottom: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px' }}>
+                  <span style={{ fontWeight: 700, fontSize: '13px', color: ELEGANT_INK }}>{e.role}</span>
+                  {(e.from || e.to) && (
+                    <span style={{ fontSize: '11px', color: ELEGANT_MUTED, whiteSpace: 'nowrap' }}>
+                      {[e.from, e.to].filter(Boolean).join(' – ')}
+                    </span>
+                  )}
+                </div>
+                {e.school && <div style={{ fontSize: '12px', color: ELEGANT_MUTED, marginTop: '2px' }}>{e.school}</div>}
+                {renderDescription(e.description, ELEGANT_INK)}
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Education */}
+        {validEdu.length > 0 && (
+          <>
+            <ElegantHeading title="Education" />
+            {validEdu.map((e: any, i: number) => (
+              <div key={i} style={{ textAlign: 'center', fontSize: '12px', marginBottom: '8px' }}>
+                <span style={{ fontWeight: 700, color: ELEGANT_INK }}>{e.qualification}</span>
+                {e.institution && <><span style={{ color: ELEGANT_LINE }}> {' | '} </span><span style={{ color: ELEGANT_MUTED }}>{e.institution}</span></>}
+                {e.year && <><span style={{ color: ELEGANT_LINE }}> {' | '} </span><span style={{ color: ELEGANT_MUTED }}>{e.year}</span></>}
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Skills and Attributes */}
+        {allSkills.length > 0 && (
+          <>
+            <ElegantHeading title="Skills and Attributes" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: '24px', rowGap: '4px' }}>
+              {allSkills.map((s, i) => (
+                <div key={i} style={{ fontSize: '12px', color: ELEGANT_BODY, display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                  <span style={{ color: ELEGANT_MUTED, flexShrink: 0 }}>•</span>
+                  <span>{s}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {renderCustomSections(data.custom_sections, ELEGANT_INK, ELEGANT_LINE)}
+
+        {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
+      </div>
+      {renderReferencesPage(data.references, ELEGANT_INK, watermark, ELEGANT_LINE)}
+    </div>
+  );
+}
+
+// Matches the A4_PAGE_H_PX convention used by other full-page templates so
+// the page-slicer in cvExport.ts treats this as one logical page.
+function forExportMinHeight(wrapperStyle: React.CSSProperties): string {
+  return wrapperStyle.width === '794px' ? `${A4_PAGE_H_PX}px` : 'auto';
 }
