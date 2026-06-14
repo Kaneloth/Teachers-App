@@ -31,22 +31,13 @@ export function pfEncode(value) {
 }
 
 /**
- * Generate the MD5 signature PayFast expects.
- *
- * `fields` must be a plain object whose key ORDER matches the order PayFast
- * expects (for outgoing payment forms, follow PayFast's documented field
- * order; for incoming ITN webhooks, use the order the fields were received
- * in — JS objects built from URLSearchParams preserve insertion order).
- *
- * Algorithm: concatenate "key=urlencoded(value)" pairs with '&', skipping
- * empty/undefined values and the 'signature' field itself, then append
- * "&passphrase=urlencoded(passphrase)" if a passphrase is configured,
- * then MD5-hash the resulting string.
- */
-/**
  * Build the raw string that gets MD5-hashed for the PayFast signature.
  * Exposed separately so it can be logged for debugging without exposing
  * the passphrase itself.
+ *
+ * Algorithm: concatenate "key=urlencoded(value)" pairs with '&', skipping
+ * empty/undefined values and the 'signature' field itself, then append
+ * "&passphrase=urlencoded(passphrase)" if a passphrase is configured.
  */
 export function buildSignatureString(fields, passphrase) {
   const parts = [];
