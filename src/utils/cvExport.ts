@@ -173,6 +173,7 @@ function sectionHeading(p: any, title: string, x: number, y: number, maxW: numbe
     p.text(txt, (PW/2)-tw/2, y);
     hLine(p, x, y+2.2, maxW, 71,85,105, 0.35);
     hLine(p, x, y+3.4, maxW, 71,85,105, 0.35);
+    return y + HEADING_GAP + 3; // extra clearance so body text doesn't overlap the rules
   } else if (style === 'center-lines') {
     tc(p,30,41,59); p.setFont('times','bold'); p.setFontSize(11);
     const tw = p.getTextWidth(title);
@@ -1055,7 +1056,7 @@ function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
 
   const subtitle = exp[0]?.role || '';
   if (subtitle) {
-    p.setFont('times','italic'); p.setFontSize(10); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+    p.setFont('times','normal'); p.setFontSize(10); tc(p,MUTED[0],MUTED[1],MUTED[2]);
     tw = p.getTextWidth(subtitle);
     p.text(subtitle, (PW-tw)/2, y);
     y += 6;
@@ -1080,7 +1081,7 @@ function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
       if (ds) { p.setFont('times','bold'); p.setFontSize(9); tc(p,INK[0],INK[1],INK[2]); p.text(ds, PW-MR-p.getTextWidth(ds), y); }
       y += LINE_H;
       if (e.school) {
-        p.setFont('times','italic'); p.setFontSize(9); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+        p.setFont('times','normal'); p.setFontSize(9); tc(p,MUTED[0],MUTED[1],MUTED[2]);
         y = wrapped(p,e.school,ML,y,PW-ML-MR,BOTTOM,np,GXW);
       }
       if (e.description) for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))
@@ -1099,7 +1100,7 @@ function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
       if (e.year) { p.setFont('times','bold'); p.setFontSize(9); tc(p,INK[0],INK[1],INK[2]); p.text(e.year, PW-MR-p.getTextWidth(e.year), y); }
       y += LINE_H;
       if (e.institution) {
-        p.setFont('times','italic'); p.setFontSize(9); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+        p.setFont('times','normal'); p.setFontSize(9); tc(p,MUTED[0],MUTED[1],MUTED[2]);
         y = wrapped(p,e.institution,ML,y,PW-ML-MR,BOTTOM,np,GXW);
       }
       y += ITEM_GAP;
@@ -1115,7 +1116,7 @@ function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
       const [name, desc] = String(raw).split('|').map((s:string)=>s.trim());
       if (desc) {
         segs.push({text: `${name} (`, style:'normal'});
-        segs.push({text: `${desc})`, style:'italic'});
+        segs.push({text: `${desc})`, style:'normal', color: MUTED});
       } else {
         segs.push({text: name, style:'normal'});
       }

@@ -1846,7 +1846,7 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
             {personal.full_name || 'Your Name'}
           </div>
           {subtitle && (
-            <div style={{ marginTop: '4px', fontSize: '12px', fontStyle: 'italic', color: HERITAGE_MUTED }}>
+            <div style={{ marginTop: '4px', fontSize: '12px', color: HERITAGE_MUTED }}>
               {subtitle}
             </div>
           )}
@@ -1874,7 +1874,7 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
                     </span>
                   )}
                 </div>
-                {e.school && <div style={{ fontSize: '11px', fontStyle: 'italic', color: HERITAGE_MUTED, marginTop: '2px' }}>{e.school}</div>}
+                {e.school && <div style={{ fontSize: '11px', color: HERITAGE_MUTED, marginTop: '2px' }}>{e.school}</div>}
                 {renderDescription(e.description, HERITAGE_INK)}
               </div>
             ))}
@@ -1891,7 +1891,7 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
                   <span style={{ fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', color: HERITAGE_INK }}>{e.qualification}</span>
                   {e.year && <span style={{ fontWeight: 700, fontSize: '11px', color: HERITAGE_INK, whiteSpace: 'nowrap' }}>{e.year}</span>}
                 </div>
-                {e.institution && <div style={{ fontSize: '11px', fontStyle: 'italic', color: HERITAGE_MUTED, marginTop: '2px' }}>{e.institution}</div>}
+                {e.institution && <div style={{ fontSize: '11px', color: HERITAGE_MUTED, marginTop: '2px' }}>{e.institution}</div>}
               </div>
             ))}
           </>
@@ -1907,7 +1907,7 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
                 return (
                   <span key={i}>
                     {name}
-                    {desc && <> (<span style={{ fontStyle: 'italic', color: HERITAGE_MUTED }}>{desc}</span>)</>}
+                    {desc && <> (<span style={{ color: HERITAGE_MUTED }}>{desc}</span>)</>}
                     {i < allSkills.length - 1 ? ', ' : '.'}
                   </span>
                 );
