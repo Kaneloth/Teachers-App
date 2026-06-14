@@ -1037,8 +1037,8 @@ function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
 
   // ── Top double rule + centered contact info ───────────────────────────────
   hLine(p, ML, y,     PW-ML-MR, acR,acG,acB, 0.35);
-  hLine(p, ML, y+1.2, PW-ML-MR, acR,acG,acB, 0.35);
-  y += 5;
+  hLine(p, ML, y+0.8, PW-ML-MR, acR,acG,acB, 0.35);
+  y += 6;
 
   const contact = [pr.address, pr.email, pr.phone, pr.id_number?`ID: ${pr.id_number}`:null]
     .filter(Boolean).join('   •   ').toUpperCase();

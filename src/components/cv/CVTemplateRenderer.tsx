@@ -1830,7 +1830,7 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
         }}
       >
         {/* Top double rule + centered contact */}
-        <div style={{ height: '3px', borderTop: `1px solid ${HERITAGE_RULE}`, borderBottom: `1px solid ${HERITAGE_RULE}` }} />
+        <div style={{ height: '2px', borderTop: `1px solid ${HERITAGE_RULE}`, borderBottom: `1px solid ${HERITAGE_RULE}` }} />
         {contactParts.length > 0 && (
           <div style={{ marginTop: '8px', textAlign: 'center', fontSize: '10px', letterSpacing: '0.5px', textTransform: 'uppercase', color: HERITAGE_MUTED }}>
             {contactParts.join('   •   ')}
