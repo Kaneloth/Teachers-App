@@ -33,6 +33,12 @@
 [functions."admin-update-user"]
   timeout = 10
 
+[functions."payfast-initiate"]
+  timeout = 15
+
+[functions."payfast-webhook"]
+  timeout = 20
+
 # Ensure the sitemap is served correctly (before the catch-all rule)
 [[redirects]]
   from   = "/sitemap.xml"
