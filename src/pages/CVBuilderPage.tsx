@@ -256,24 +256,26 @@ export default function CVBuilderPage() {
   const lastCVPdfUrl              = freshMeta.last_cv_pdf_url as string | undefined;
   const lastCVGeneratedAt         = freshMeta.last_cv_generated_at as string | undefined;
 
-  const [dbPlan, setDbPlan] = useState<string | null>(null);
-  const [dbEnd,  setDbEnd]  = useState<string | null>(null);
-  useEffect(() => {
-    if (!user) return;
-    supabase.from('profiles').select('subscription_plan, subscription_end').eq('id', user.id).single()
-      .then(({ data }) => { setDbPlan(data?.subscription_plan ?? null); setDbEnd(data?.subscription_end ?? null); });
-  }, [user]);
-
   const isAdmin = !!(user?.user_metadata?.is_admin);
 
-  const isFree = (() => {
-    if (isAdmin) return false; // admins bypass all subscription gates
-    const plan = dbPlan ?? (freshMeta.subscription_plan as string | undefined) ?? 'free';
-    const end  = dbEnd  ?? (freshMeta.subscription_end  as string | undefined) ?? null;
-    if (!plan || plan === 'free') return true;
-    if (!end) return true;
-    return new Date(end) <= new Date();
-  })();
+  // Has this user ever bought credits (one-off pack or monthly Pro grant)?
+  // If yes → all 17 templates unlock permanently, regardless of current
+  // balance. If no → only the free Classic template is available.
+  const [hasPurchased, setHasPurchased] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('credit_ledger')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .in('type', ['purchase', 'monthly_pro'])
+      .then(({ count }) => setHasPurchased((count ?? 0) > 0));
+  }, [user]);
+
+  // isFree gates the template picker (CVStepTemplate): true = only Classic
+  // template available. Admins and anyone who has ever purchased credits
+  // get every template unlocked.
+  const isFree = !hasPurchased && !isAdmin;
 
   const [showBuilder,      setShowBuilder]      = useState(initialState.showBuilder);
   const [step,             setStep]             = useState(initialState.draft?.step ?? 0);

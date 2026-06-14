@@ -72,7 +72,7 @@ interface Props { selected: string; onChange: (id: string) => void; isFree?: boo
 export default function CVStepTemplate({ selected, onChange, isFree = false }: Props) {
   const handleSelect = (id: string) => {
     if (isFree && id !== FREE_TEMPLATE) {
-      toast.info('Upgrade to Pro to unlock all 17 templates.', { duration: 3000 });
+      toast.info('Buy any credit pack to unlock all 17 templates.', { duration: 3000 });
       return;
     }
     onChange(id);
@@ -85,7 +85,7 @@ export default function CVStepTemplate({ selected, onChange, isFree = false }: P
         <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2">
           <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
           <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug">
-            Free plan includes the <strong>Classic</strong> template. Upgrade to Pro to unlock all 17 templates.
+            Free credits include the <strong>Classic</strong> template. Buy any credit pack to unlock all 17 templates — permanently.
           </p>
         </div>
       )}
@@ -135,7 +135,7 @@ export default function CVStepTemplate({ selected, onChange, isFree = false }: P
                   <div className="absolute inset-0 bg-black/25 flex items-center justify-center z-10">
                     <div className="bg-white/90 rounded-lg px-2 py-1 flex items-center gap-1 shadow-sm">
                       <Lock className="w-3 h-3 text-slate-600" />
-                      <span className="text-[10px] font-semibold text-slate-700">Pro only</span>
+                      <span className="text-[10px] font-semibold text-slate-700">Buy credits to unlock</span>
                     </div>
                   </div>
                 )}
