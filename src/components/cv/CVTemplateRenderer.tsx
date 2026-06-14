@@ -1789,11 +1789,11 @@ const HERITAGE_RULE  = '#334155';   // slate-700 — double rules
 
 function HeritageHeading({ title }: { title: string }) {
   return (
-    <div style={{ textAlign: 'center', margin: '20px 0 12px' }}>
+    <div style={{ textAlign: 'center', margin: '26px 0 16px' }}>
       <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: '14px', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: HERITAGE_INK }}>
         {title}
       </span>
-      <div style={{ height: '3px', borderTop: `1px solid ${HERITAGE_RULE}`, borderBottom: `1px solid ${HERITAGE_RULE}`, marginTop: '5px' }} />
+      <div style={{ height: '2px', borderTop: `1px solid ${HERITAGE_RULE}`, borderBottom: `1px solid ${HERITAGE_RULE}`, marginTop: '7px' }} />
     </div>
   );
 }

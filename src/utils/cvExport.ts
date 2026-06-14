@@ -171,9 +171,9 @@ function sectionHeading(p: any, title: string, x: number, y: number, maxW: numbe
     const txt = title.toUpperCase();
     const tw = p.getTextWidth(txt);
     p.text(txt, (PW/2)-tw/2, y);
-    hLine(p, x, y+2.2, maxW, 71,85,105, 0.35);
-    hLine(p, x, y+3.4, maxW, 71,85,105, 0.35);
-    return y + HEADING_GAP + 3; // extra clearance so body text doesn't overlap the rules
+    hLine(p, x, y+3,   maxW, 71,85,105, 0.35);
+    hLine(p, x, y+3.8, maxW, 71,85,105, 0.35);
+    return y + HEADING_GAP + 5; // extra clearance before & after the rules
   } else if (style === 'center-lines') {
     tc(p,30,41,59); p.setFont('times','bold'); p.setFontSize(11);
     const tw = p.getTextWidth(title);
