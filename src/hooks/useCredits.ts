@@ -26,13 +26,19 @@ export function useCredits(): CreditState {
   const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
 
+  const isAdmin = !!(user?.user_metadata?.is_admin);
+
   const fetchBalance = useCallback(async () => {
     if (!user) { setBalance(0); setLoading(false); return; }
+
+    // Admins have unlimited credits — skip the network call entirely.
+    if (isAdmin) { setBalance(999999); setLoading(false); return; }
+
     setLoading(true);
     const { data, error } = await supabase.rpc('get_credit_balance', { p_user_id: user.id });
     if (!error) setBalance(data ?? 0);
     setLoading(false);
-  }, [user]);
+  }, [user, isAdmin]);
 
   useEffect(() => { fetchBalance(); }, [fetchBalance]);
 
@@ -45,6 +51,9 @@ export function useCredits(): CreditState {
     type: 'cv_usage' | 'letter_usage',
     refId?: string,
   ): Promise<boolean> => {
+    // Admins bypass the credit system entirely — no deduction, no API call.
+    if (isAdmin) return true;
+
     if (!session?.access_token) {
       toast.error('Please sign in to generate your CV.');
       return false;
@@ -93,7 +102,7 @@ export function useCredits(): CreditState {
       toast.error('Network error. Please check your connection and try again.');
       return false;
     }
-  }, [session]);
+  }, [session, isAdmin]);
 
   return { balance, loading, deduct, refetch: fetchBalance };
 }

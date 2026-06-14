@@ -46,7 +46,8 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
   }, [user]);
 
   // Watermark = user has never paid (only has free signup credits)
-  const shouldWatermark = !hasPurchased;
+  const isAdmin = !!(user?.user_metadata?.is_admin);
+  const shouldWatermark = !hasPurchased && !isAdmin;
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -234,7 +235,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
       </div>
 
       {/* Watermark notice for free users */}
-      {!hasPurchased && (
+      {!hasPurchased && !isAdmin && (
         <div className="flex items-start gap-2 bg-muted border border-border rounded-xl px-3 py-2.5">
           <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
           <p className="text-xs text-muted-foreground">

@@ -24,6 +24,15 @@
   timeout = 60
   schedule = "0 2 1 * *"
 
+[functions."admin-list-users"]
+  timeout = 15
+
+[functions."admin-adjust-credits"]
+  timeout = 10
+
+[functions."admin-update-user"]
+  timeout = 10
+
 # Ensure the sitemap is served correctly (before the catch-all rule)
 [[redirects]]
   from   = "/sitemap.xml"

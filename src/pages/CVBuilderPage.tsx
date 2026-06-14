@@ -264,7 +264,10 @@ export default function CVBuilderPage() {
       .then(({ data }) => { setDbPlan(data?.subscription_plan ?? null); setDbEnd(data?.subscription_end ?? null); });
   }, [user]);
 
+  const isAdmin = !!(user?.user_metadata?.is_admin);
+
   const isFree = (() => {
+    if (isAdmin) return false; // admins bypass all subscription gates
     const plan = dbPlan ?? (freshMeta.subscription_plan as string | undefined) ?? 'free';
     const end  = dbEnd  ?? (freshMeta.subscription_end  as string | undefined) ?? null;
     if (!plan || plan === 'free') return true;

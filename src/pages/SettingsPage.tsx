@@ -4,7 +4,7 @@ import {
   ArrowLeft, Bell, Moon, Type, Shield, FileText, Headphones,
   Lock, ChevronRight, ChevronDown, Star, Zap,
   Search, AlertTriangle, CheckCircle, UserX, Ban, X,
-  Save, Loader2, Fingerprint,
+  Save, Loader2, Fingerprint, Coins, Crown, Plus, Minus, History,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -559,6 +559,425 @@ function statusBadge(status: string) {
   return <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">active</span>;
 }
 
+
+/* ── Users sub-tab (all users — general + educator) ────────────────────── */
+
+interface AdminUser {
+  id: string;
+  email: string;
+  full_name: string;
+  profile_type: 'educator' | 'general' | null;
+  account_status: string;
+  current_school: string | null;
+  is_admin: boolean;
+  subscription_plan: string;
+  subscription_end: string | null;
+  deleted_at: string | null;
+  credit_balance: number;
+  created_at: string;
+  last_sign_in_at: string | null;
+}
+
+function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: () => void; onSaved: (u: AdminUser) => void }) {
+  const { session } = useAuth();
+  const [accountStatus, setAccountStatus]     = useState(user.account_status || 'active');
+  const [subscriptionPlan, setSubscriptionPlan] = useState(user.subscription_plan || 'free');
+  const [subscriptionEnd, setSubscriptionEnd] = useState(
+    user.subscription_end ? user.subscription_end.slice(0, 10) : ''
+  );
+  const [isAdminFlag, setIsAdminFlag] = useState(user.is_admin);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch('/.netlify/functions/admin-update-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({
+          target_user_id:    user.id,
+          account_status:    accountStatus,
+          subscription_plan: subscriptionPlan,
+          subscription_end:  subscriptionEnd ? new Date(subscriptionEnd).toISOString() : null,
+          is_admin:          isAdminFlag,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || 'Update failed');
+
+      toast.success('User updated');
+      onSaved({
+        ...user,
+        account_status:    accountStatus,
+        subscription_plan: subscriptionPlan,
+        subscription_end:  subscriptionEnd ? new Date(subscriptionEnd).toISOString() : null,
+        is_admin:          isAdminFlag,
+      });
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to update user');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+      <div className="bg-card rounded-2xl border border-border w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border">
+          <div className="min-w-0">
+            <h2 className="text-base font-bold text-foreground truncate">{user.full_name || user.email}</h2>
+            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted transition-colors shrink-0">
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {/* Profile type + credit balance (read-only info) */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-muted rounded-xl px-3 py-2">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Profile Type</p>
+              <p className="text-sm font-semibold text-foreground capitalize">{user.profile_type || '—'}</p>
+            </div>
+            <div className="bg-muted rounded-xl px-3 py-2">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Credit Balance</p>
+              <p className="text-sm font-semibold text-foreground flex items-center gap-1">
+                <Coins className="w-3.5 h-3.5 text-primary" /> {user.credit_balance}
+              </p>
+            </div>
+          </div>
+
+          {/* Account status */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Account Status</Label>
+            <div className="flex gap-2 flex-wrap">
+              <button onClick={() => setAccountStatus('active')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-medium transition-all ${accountStatus === 'active' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
+                <CheckCircle className="w-3.5 h-3.5" /> Active
+              </button>
+              <button onClick={() => setAccountStatus('suspended')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-medium transition-all ${accountStatus === 'suspended' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-border text-muted-foreground'}`}>
+                <UserX className="w-3.5 h-3.5" /> Suspend
+              </button>
+              <button onClick={() => setAccountStatus('banned')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-medium transition-all ${accountStatus === 'banned' ? 'border-destructive bg-destructive/10 text-destructive' : 'border-border text-muted-foreground'}`}>
+                <Ban className="w-3.5 h-3.5" /> Ban
+              </button>
+            </div>
+          </div>
+
+          {/* Subscription */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Subscription Plan</Label>
+            <div className="flex gap-2 flex-wrap">
+              {['free', 'monthly', 'semi', 'annual'].map(p => (
+                <button key={p} onClick={() => setSubscriptionPlan(p)}
+                  className={`px-3 py-1.5 rounded-xl border text-sm font-medium capitalize transition-all ${subscriptionPlan === p ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {subscriptionPlan !== 'free' && (
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Subscription End Date</Label>
+              <Input type="date" value={subscriptionEnd} onChange={e => setSubscriptionEnd(e.target.value)} className="rounded-xl" />
+            </div>
+          )}
+
+          {/* Admin flag */}
+          <div className="flex items-center justify-between bg-muted/50 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <Crown className="w-4 h-4 text-amber-500 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">Admin Access</p>
+                <p className="text-xs text-muted-foreground">Grants full dashboard authority</p>
+              </div>
+            </div>
+            <Switch checked={isAdminFlag} onCheckedChange={setIsAdminFlag} />
+          </div>
+        </div>
+
+        <div className="flex gap-3 px-5 pb-5 pt-2">
+          <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl">Cancel</Button>
+          <Button onClick={handleSave} disabled={saving} className="flex-1 rounded-xl gap-2">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> Save Changes</>}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UsersSubTab() {
+  const { session } = useAuth();
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [editing, setEditing] = useState<AdminUser | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/.netlify/functions/admin-list-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ search }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to load users');
+      setUsers(result.users ?? []);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to load users');
+    } finally {
+      setLoading(false);
+    }
+  }, [session, search]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') load(); }}
+          placeholder="Search by name or email..."
+          className="pl-9 rounded-2xl h-11"
+        />
+      </div>
+
+      {!loading && (
+        <p className="text-xs text-muted-foreground px-1">{users.length} user{users.length !== 1 ? 's' : ''}</p>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : users.length === 0 ? (
+        <p className="text-center text-sm text-muted-foreground py-10">No users found</p>
+      ) : (
+        <div className="space-y-0 rounded-2xl border border-border overflow-hidden bg-card">
+          {users.map((u, i) => (
+            <div key={u.id}>
+              {i > 0 && <div className="border-t border-border mx-4" />}
+              <button onClick={() => setEditing(u)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors">
+                <div className={`w-9 h-9 rounded-full ${avatarColor(u.full_name || u.email || '?')} flex items-center justify-center shrink-0`}>
+                  <span className="text-white text-xs font-bold">{initials(u.full_name || u.email || '?')}</span>
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-semibold text-foreground truncate">{u.full_name || u.email}</p>
+                    {u.is_admin && <Crown className="w-3 h-3 text-amber-500 shrink-0" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {u.email} · <span className="capitalize">{u.profile_type || 'unset'}</span> · {u.credit_balance} cr
+                  </p>
+                </div>
+                {statusBadge(u.account_status)}
+                <ChevronRight className="w-4 h-4 text-muted-foreground ml-1 shrink-0" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <EditUserModal
+          user={editing}
+          onClose={() => setEditing(null)}
+          onSaved={updated => {
+            setUsers(list => list.map(u => u.id === updated.id ? updated : u));
+            setEditing(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── Credits sub-tab ──────────────────────────────────────────────────── */
+
+interface LedgerEntry {
+  id: string;
+  amount: number;
+  type: string;
+  description: string | null;
+  ref_id: string | null;
+  created_at: string;
+}
+
+function CreditsSubTab() {
+  const { session } = useAuth();
+  const [email, setEmail] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [adjustAmount, setAdjustAmount] = useState('');
+  const [adjustReason, setAdjustReason] = useState('');
+  const [adjusting, setAdjusting] = useState(false);
+
+  const search = async () => {
+    if (!email.trim()) { toast.error('Enter an email address'); return; }
+    setLoading(true);
+    try {
+      const res = await fetch('/.netlify/functions/admin-adjust-credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ action: 'view', target_email: email.trim() }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'User not found');
+      setUserId(result.user_id);
+      setBalance(result.balance);
+      setLedger(result.ledger ?? []);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to load credits');
+      setUserId(null);
+      setBalance(null);
+      setLedger([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const adjust = async (sign: 1 | -1) => {
+    const amt = parseInt(adjustAmount, 10);
+    if (!userId) return;
+    if (!amt || amt <= 0) { toast.error('Enter a positive number of credits'); return; }
+
+    setAdjusting(true);
+    try {
+      const res = await fetch('/.netlify/functions/admin-adjust-credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({
+          action: 'adjust',
+          target_user_id: userId,
+          amount: amt * sign,
+          description: adjustReason || undefined,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || 'Adjustment failed');
+
+      toast.success(`${sign > 0 ? 'Added' : 'Removed'} ${amt} credits`);
+      setBalance(result.new_balance);
+      setAdjustAmount('');
+      setAdjustReason('');
+      await search(); // refresh ledger
+    } catch (e: any) {
+      toast.error(e.message || 'Adjustment failed');
+    } finally {
+      setAdjusting(false);
+    }
+  };
+
+  const fmtDate = (d: string) => new Date(d).toLocaleString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  return (
+    <div className="space-y-3">
+      {/* Search */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') search(); }}
+            placeholder="user@example.com"
+            type="email"
+            className="pl-9 rounded-2xl h-11"
+          />
+        </div>
+        <Button onClick={search} disabled={loading} className="rounded-2xl h-11 px-4">
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Look up'}
+        </Button>
+      </div>
+
+      {balance !== null && (
+        <>
+          {/* Balance card */}
+          <div className="bg-card rounded-2xl border border-border p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Coins className="w-4.5 h-4.5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">Current Balance</p>
+                <p className="text-xs text-muted-foreground truncate max-w-[180px]">{email}</p>
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-primary">{balance}</p>
+          </div>
+
+          {/* Adjust form */}
+          <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
+            <Label className="text-sm font-semibold">Manual Adjustment</Label>
+            <div className="flex gap-2">
+              <Input
+                value={adjustAmount}
+                onChange={e => setAdjustAmount(e.target.value.replace(/\D/g, ''))}
+                placeholder="Amount"
+                inputMode="numeric"
+                className="rounded-xl w-28"
+              />
+              <Input
+                value={adjustReason}
+                onChange={e => setAdjustReason(e.target.value)}
+                placeholder="Reason (optional)"
+                className="rounded-xl flex-1"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => adjust(-1)} disabled={adjusting} className="flex-1 rounded-xl gap-1.5">
+                <Minus className="w-4 h-4" /> Remove
+              </Button>
+              <Button onClick={() => adjust(1)} disabled={adjusting} className="flex-1 rounded-xl gap-1.5">
+                <Plus className="w-4 h-4" /> Add
+              </Button>
+            </div>
+          </div>
+
+          {/* Ledger history */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 px-1 flex items-center gap-1.5">
+              <History className="w-3.5 h-3.5" /> Transaction History
+            </p>
+            {ledger.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-8">No transactions yet</p>
+            ) : (
+              <div className="space-y-0 rounded-2xl border border-border overflow-hidden bg-card">
+                {ledger.map((entry, i) => (
+                  <div key={entry.id}>
+                    {i > 0 && <div className="border-t border-border mx-4" />}
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground capitalize">{entry.type.replace(/_/g, ' ')}</p>
+                        <p className="text-xs text-muted-foreground truncate">{entry.description || '—'}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{fmtDate(entry.created_at)}</p>
+                      </div>
+                      <span className={`text-sm font-bold shrink-0 ml-3 ${entry.amount > 0 ? 'text-primary' : 'text-destructive'}`}>
+                        {entry.amount > 0 ? '+' : ''}{entry.amount}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* Edit modal */
 function EditEducatorModal({ educator, onClose, onSaved }: { educator: Educator; onClose: () => void; onSaved: (updated: Educator) => void }) {
   const [form, setForm] = useState({ ...educator });
@@ -772,8 +1191,11 @@ function IDVerificationSubTab() {
 }
 
 /* Admin tab wrapper */
+const ADMIN_SUBTABS = ['Users', 'Credits', 'Educators', 'ID Verification'] as const;
+type AdminSubTab = typeof ADMIN_SUBTABS[number];
+
 function AdminTab() {
-  const [sub, setSub] = useState<'Educators' | 'ID Verification'>('Educators');
+  const [sub, setSub] = useState<AdminSubTab>('Users');
 
   return (
     <div className="space-y-3">
@@ -784,15 +1206,18 @@ function AdminTab() {
       </div>
 
       {/* Sub-tabs */}
-      <div className="grid grid-cols-2 bg-muted rounded-2xl p-1">
-        {(['Educators', 'ID Verification'] as const).map(t => (
+      <div className="grid grid-cols-4 bg-muted rounded-2xl p-1">
+        {ADMIN_SUBTABS.map(t => (
           <button key={t} onClick={() => setSub(t)}
-            className={`py-2.5 rounded-xl text-sm font-medium transition-all ${sub === t ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
+            className={`py-2.5 rounded-xl text-xs font-medium transition-all ${sub === t ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
           >{t}</button>
         ))}
       </div>
 
-      {sub === 'Educators' ? <EducatorsSubTab /> : <IDVerificationSubTab />}
+      {sub === 'Users'         && <UsersSubTab />}
+      {sub === 'Credits'       && <CreditsSubTab />}
+      {sub === 'Educators'     && <EducatorsSubTab />}
+      {sub === 'ID Verification' && <IDVerificationSubTab />}
     </div>
   );
 }
