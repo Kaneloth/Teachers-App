@@ -19,9 +19,15 @@ export const PAYFAST_VALIDATE_URL = `https://${PAYFAST_HOST}/eng/query/validate`
 
 export const SITE_URL = process.env.SITE_URL || 'https://crosssa.co.za';
 
-// PayFast requires PHP-style urlencoding: spaces become '+' not '%20'.
+// PayFast requires PHP-style urlencoding: spaces become '+', and PHP's
+// urlencode() encodes everything except A-Z a-z 0-9 - _ . — including
+// ! ~ * ' ( ) which JS's encodeURIComponent leaves un-encoded by default.
+// Without this extra step, a passphrase or field value containing any of
+// those characters produces a signature mismatch with PayFast.
 export function pfEncode(value) {
-  return encodeURIComponent(String(value)).replace(/%20/g, '+');
+  return encodeURIComponent(String(value))
+    .replace(/%20/g, '+')
+    .replace(/[!'()*~]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
 }
 
 /**
@@ -37,7 +43,12 @@ export function pfEncode(value) {
  * "&passphrase=urlencoded(passphrase)" if a passphrase is configured,
  * then MD5-hash the resulting string.
  */
-export function generateSignature(fields, passphrase) {
+/**
+ * Build the raw string that gets MD5-hashed for the PayFast signature.
+ * Exposed separately so it can be logged for debugging without exposing
+ * the passphrase itself.
+ */
+export function buildSignatureString(fields, passphrase) {
   const parts = [];
   for (const [key, value] of Object.entries(fields)) {
     if (key === 'signature') continue;
@@ -46,5 +57,10 @@ export function generateSignature(fields, passphrase) {
   }
   let str = parts.join('&');
   if (passphrase) str += `&passphrase=${pfEncode(passphrase)}`;
+  return str;
+}
+
+export function generateSignature(fields, passphrase) {
+  const str = buildSignatureString(fields, passphrase);
   return crypto.createHash('md5').update(str).digest('hex');
 }

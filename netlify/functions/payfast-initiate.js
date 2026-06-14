@@ -14,7 +14,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { generateSignature, PAYFAST_PROCESS_URL, SITE_URL } from './lib/payfast.js';
+import { generateSignature, buildSignatureString, PAYFAST_PROCESS_URL, PAYFAST_MODE, SITE_URL } from './lib/payfast.js';
 import { PACKAGES } from './lib/packages.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -75,6 +75,17 @@ export const handler = async (event) => {
   };
 
   const signature = generateSignature(fields, PASSPHRASE);
+
+  // ── TEMPORARY DEBUG LOGGING ──────────────────────────────────────────────
+  // Remove this block once the signature mismatch is resolved.
+  const debugString = buildSignatureString(fields, PASSPHRASE)
+    .replace(/&passphrase=.*$/, PASSPHRASE ? '&passphrase=***MASKED***' : '');
+  console.log('[payfast-initiate] DEBUG mode=' + PAYFAST_MODE);
+  console.log('[payfast-initiate] DEBUG merchant_id=' + MERCHANT_ID);
+  console.log('[payfast-initiate] DEBUG passphrase_set=' + (PASSPHRASE ? `yes (length ${PASSPHRASE.length})` : 'no'));
+  console.log('[payfast-initiate] DEBUG signature_string=' + debugString);
+  console.log('[payfast-initiate] DEBUG signature=' + signature);
+  // ── END TEMPORARY DEBUG LOGGING ───────────────────────────────────────────
 
   console.log(`[payfast-initiate] user=${user.id} package=${body.package_id} m_payment_id=${m_payment_id}`);
 
