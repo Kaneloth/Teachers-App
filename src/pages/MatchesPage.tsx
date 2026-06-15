@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
-import { Users, MapPin, BookOpen, ShieldCheck, Lock, Zap, ArrowLeft, ArrowLeftRight } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Users, MapPin, BookOpen, ShieldCheck, Lock, Zap, ArrowLeft, ArrowLeftRight, Search as SearchIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import SubscriptionModal from '@/components/SubscriptionModal';
+import SearchFilters, { Filters, DEFAULT_FILTERS } from '@/components/search/SearchFilters';
 import { calculateMatch, qualifiesForMatchesPage, isTownSwapMatch } from '@/components/search/EducatorCard';
 
 interface Educator {
@@ -22,8 +24,10 @@ interface Educator {
   is_actively_looking?: boolean;
   is_sace_verified?: boolean;
   user_id?: string;
+  profile_type?: string;
   score?: number;
   isDistrictSwap?: boolean;
+  distance_km?: number;
 }
 
 interface Props {
@@ -37,13 +41,18 @@ export default function MatchesPage({ embedded = false }: Props) {
   const [matches, setMatches] = useState<Educator[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPro, setIsPro] = useState(false);
+  const [proChecked, setProChecked] = useState(false);
   const [showSubModal, setShowSubModal] = useState(false);
 
+  // Pro-only: search bar + advanced filters (town/radius/province/subject/phase/active)
+  const [query, setQuery] = useState('');
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+
+  /* ── Subscription check (dual source) + own profile ──────────────────── */
   useEffect(() => {
     if (!user) return;
 
-    const fetchData = async () => {
-      /* ── Subscription check (dual source) ─────────────────────── */
+    (async () => {
       const metaPlan = user.user_metadata?.subscription_plan as string | undefined;
       const metaEnd  = user.user_metadata?.subscription_end  as string | undefined;
       const isProMeta = metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date();
@@ -63,49 +72,109 @@ export default function MatchesPage({ embedded = false }: Props) {
           new Date(profile.subscription_end) > new Date();
         setIsPro(!!proFromDb);
       }
+      setProChecked(true);
 
-      /* ── Fetch & score matches ─────────────────────────────────── */
       const { data: mine } = await supabase
         .from('educators')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (!mine) { setLoading(false); return; }
-      setMyProfile(mine);
+      setMyProfile(mine ?? null);
+      if (!mine) setLoading(false);
+    })();
+  }, [user]);
 
+  /* ── Fetch & score matches ─────────────────────────────────────────────
+     Free: ≥85% / town-swap only (existing "top matches" behaviour).
+     Pro:  ALL educators of all match percentages, with the same
+           town/radius/province/subject/phase/active filters as Search. */
+  const fetchMatches = useCallback(async () => {
+    if (!user || !myProfile || !proChecked) return;
+    setLoading(true);
+
+    let results: Educator[] = [];
+
+    if (isPro) {
+      const useRadius = filters.radiusKm > 0 && filters.townLat != null && filters.townLng != null;
+
+      if (useRadius) {
+        const { data, error } = await supabase.rpc('nearby_educators', {
+          search_lat: filters.townLat,
+          search_lng: filters.townLng,
+          radius_km:  filters.radiusKm,
+          exclude_user_id: user.id,
+        });
+
+        if (error) console.error('[MatchesPage] nearby_educators error:', error);
+
+        results = (data || []).map((r: any) => ({ ...r.educator, distance_km: r.distance_km }));
+        results = results.filter(e => e.profile_type === 'educator' || e.profile_type == null);
+
+        if (filters.phase)      results = results.filter(e => e.phase === filters.phase);
+        if (filters.activeOnly) results = results.filter(e => e.is_actively_looking);
+        if (filters.subject)    results = results.filter(e => e.subjects?.includes(filters.subject));
+
+      } else {
+        let q = supabase.from('educators').select('*')
+          .neq('user_id', user.id)
+          .or('profile_type.eq.educator,profile_type.is.null');
+
+        if (filters.province) q = q.eq('current_province', filters.province);
+        if (filters.phase)      q = q.eq('phase', filters.phase);
+        if (filters.activeOnly) q = q.eq('is_actively_looking', true);
+        if (filters.subject)    q = q.contains('subjects', [filters.subject]);
+
+        const { data } = await q.limit(50);
+        results = data || [];
+
+        if (filters.town.trim()) {
+          const lowerTown = filters.town.trim().toLowerCase();
+          results = results.filter(e => e.town?.toLowerCase().includes(lowerTown));
+        }
+      }
+
+      if (query.trim()) {
+        const lower = query.toLowerCase();
+        results = results.filter(e =>
+          e.full_name?.toLowerCase().includes(lower) ||
+          e.current_province?.toLowerCase().includes(lower) ||
+          e.subjects?.some(s => s.toLowerCase().includes(lower))
+        );
+      }
+
+    } else {
       const { data: all } = await supabase
         .from('educators')
         .select('*')
         .neq('user_id', user.id)
         .or('profile_type.eq.educator,profile_type.is.null');
 
-      if (!all) { setLoading(false); return; }
+      results = all || [];
+    }
 
-      const scored = all
-        .map(e => {
-          const score = calculateMatch(
-            { phase: mine.phase, current_province: mine.current_province, town: mine.town, subjects: mine.subjects },
-            { phase: e.phase,    current_province: e.current_province,    town: e.town,    subjects: e.subjects }
-          );
-          return {
-            ...e,
-            score,
-            isDistrictSwap: isTownSwapMatch(mine, e),
-          };
-        })
-        // Matches page: 85–100% with the weighted formula, OR a direct
-        // district-swap opportunity (shared subject + reciprocal district
-        // preference) regardless of overall score.
-        .filter(e => qualifiesForMatchesPage(mine, e, e.score))
-        .sort((a, b) => b.score - a.score);
+    const scored = results.map(e => {
+      const score = calculateMatch(
+        { phase: myProfile.phase, current_province: myProfile.current_province, town: myProfile.town, subjects: myProfile.subjects },
+        { phase: e.phase,         current_province: e.current_province,         town: e.town,         subjects: e.subjects }
+      );
+      return { ...e, score, isDistrictSwap: isTownSwapMatch(myProfile, e) };
+    });
 
-      setMatches(scored);
-      setLoading(false);
-    };
+    const final = isPro
+      // Pro: everyone, sorted by match strength.
+      ? scored.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      // Free: 85–100% with the weighted formula, OR a direct town-swap
+      // opportunity (shared subject + reciprocal town preference)
+      // regardless of overall score.
+      : scored.filter(e => qualifiesForMatchesPage(myProfile, e, e.score ?? 0))
+              .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
-    fetchData();
-  }, [user]);
+    setMatches(final);
+    setLoading(false);
+  }, [user, myProfile, isPro, proChecked, filters, query]);
+
+  useEffect(() => { fetchMatches(); }, [fetchMatches]);
 
   if (loading) {
     return (
@@ -124,9 +193,32 @@ export default function MatchesPage({ embedded = false }: Props) {
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Transfer Matches</h1>
-            <p className="text-sm text-muted-foreground">Educators who match your transfer preferences</p>
+            <h1 className="text-xl font-bold text-foreground">{isPro ? 'Educators' : 'Transfer Matches'}</h1>
+            <p className="text-sm text-muted-foreground">
+              {isPro ? 'All educators, sorted by match — use filters to narrow your search.' : 'Educators who match your transfer preferences'}
+            </p>
           </div>
+        </div>
+      )}
+
+      {/* Pro: search bar + advanced filters (town/radius/province/subject/phase/active) */}
+      {isPro && (
+        <div className="flex items-center gap-2 sticky top-0 z-10 bg-background pt-1 pb-1">
+          <div className="relative flex-1">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search educators..."
+              className="pl-9 rounded-xl bg-muted/40 border-border"
+            />
+          </div>
+          <SearchFilters
+            filters={filters}
+            onFiltersChange={setFilters}
+            isPro={isPro}
+            onProGate={() => setShowSubModal(true)}
+          />
         </div>
       )}
 
@@ -157,13 +249,27 @@ export default function MatchesPage({ embedded = false }: Props) {
       ) : matches.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No high matches yet</p>
-          <p className="text-sm mt-1 max-w-xs mx-auto">
-            Your closest transfer matches will appear here as more educators join. In the meantime, browse the Search page to find educators near you.
-          </p>
+          {isPro ? (
+            <>
+              <p className="font-medium">No educators found</p>
+              <p className="text-sm mt-1 max-w-xs mx-auto">Try adjusting your search or filters.</p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium">No high matches yet</p>
+              <p className="text-sm mt-1 max-w-xs mx-auto">
+                Your closest transfer matches will appear here as more educators join.
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
+          {isPro && (
+            <p className="text-xs text-muted-foreground px-1">
+              {matches.length} educator{matches.length !== 1 ? 's' : ''} found
+            </p>
+          )}
           {matches.map((ed, i) => (
             <MatchCard key={ed.id} ed={ed} myProfile={myProfile} index={i} />
           ))}
@@ -235,8 +341,14 @@ function MatchCard({
                 <BookOpen className="w-3 h-3 shrink-0" />
                 {ed.phase} · {ed.subjects?.slice(0, 2).join(', ')}
               </div>
+              {ed.distance_km != null && (
+                <div className="flex items-center gap-1.5 text-xs text-primary font-medium">
+                  <MapPin className="w-3 h-3 shrink-0" />
+                  {ed.distance_km < 1 ? '<1 km away' : `${Math.round(ed.distance_km)} km away`}
+                </div>
+              )}
             </div>
-            {/* District swap callout — explains why this match appears even
+            {/* Town swap callout — explains why this match appears even
                 if the % is below the usual 85% threshold */}
             {ed.isDistrictSwap && (
               <div className="flex items-center gap-1.5 text-[11px] font-medium text-primary mt-1.5">
