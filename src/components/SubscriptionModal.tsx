@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
-import { handleUpgrade } from '@/lib/payment';
 
 const BILLING = [
   { id: 'monthly',     label: 'Monthly',     badge: null,      save: null,       sub: 'R59/mo',                price: 'R59', perMonth: 59  },
@@ -41,7 +40,7 @@ interface Props {
 }
 
 export default function SubscriptionModal({ open, onClose }: Props) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [profile, setProfile] = useState<{ subscription_plan: string; subscription_end: string | null } | null>(null);
   const [billing, setBilling] = useState<'monthly' | 'semi_annual' | 'annual'>('semi_annual');
   const [subscribing, setSubscribing] = useState(false);
@@ -73,15 +72,34 @@ export default function SubscriptionModal({ open, onClose }: Props) {
   const selected = BILLING.find(b => b.id === billing)!;
 
   const handleSubscribe = async () => {
-    if (!user) return;
+    if (!user || !session?.access_token) return;
     setSubscribing(true);
     try {
-      await handleUpgrade(billing);
-      onClose(); // Close modal – page will redirect to Paystack
-    } catch (error) {
-      toast.error('Payment initiation failed. Please try again.');
-      console.error(error);
-    } finally {
+      const res = await fetch('/.netlify/functions/payfast-initiate-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ plan: billing }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not start subscription');
+
+      // Build a hidden form and submit it — this redirects the browser to
+      // PayFast's payment page (POST, as PayFast requires).
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = data.action_url;
+      Object.entries(data.fields as Record<string, string>).forEach(([key, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+      });
+      document.body.appendChild(form);
+      form.submit();
+      // Don't reset `subscribing` or close the modal — the page is navigating away.
+    } catch (error: any) {
+      toast.error(error.message || 'Payment initiation failed. Please try again.');
       setSubscribing(false);
     }
   };

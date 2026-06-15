@@ -43,7 +43,8 @@ export default function CreditBalance({ showBuyButton = false, variant = 'chip' 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = params.get('payment');
-    if (!status) return;
+    const subStatus = params.get('subscription');
+    if (!status && !subStatus) return;
 
     if (status === 'success') {
       toast.success('Payment received! Your credits will appear shortly.');
@@ -52,10 +53,15 @@ export default function CreditBalance({ showBuyButton = false, variant = 'chip' 
       return () => clearTimeout(t);
     } else if (status === 'cancelled') {
       toast.info('Payment cancelled — no credits were charged.');
+    } else if (subStatus === 'success') {
+      toast.success('Subscription activated! Refresh to see your new Pro features.');
+    } else if (subStatus === 'cancelled') {
+      toast.info('Subscription checkout cancelled — you have not been charged.');
     }
 
     // Clean the query param so a page refresh doesn't re-show the toast.
     params.delete('payment');
+    params.delete('subscription');
     const newUrl = window.location.pathname + (params.toString() ? `?${params}` : '');
     window.history.replaceState({}, '', newUrl);
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -36,6 +36,9 @@
 [functions."payfast-initiate"]
   timeout = 15
 
+[functions."payfast-initiate-subscription"]
+  timeout = 15
+
 [functions."payfast-webhook"]
   timeout = 20
 
