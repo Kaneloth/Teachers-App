@@ -658,8 +658,11 @@ export default function ProfilePage() {
   // selection when it changes, since the previous town may not be in the
   // new province's list.
   const handleProvinceChange = (v: string) => {
-    setProfileField('current_province', v);
-    setProfileField('town', '');
+    if (!profile) return;
+    // Merge both changes into a single setProfile call — setProfileField
+    // uses the stale `profile` closure, so two sequential calls here would
+    // have the second overwrite the first (current_province would be lost).
+    setProfile({ ...profile, current_province: v, town: '' });
     setTownOther(false);
     setCustomTownText('');
     setTownCoords(null);
