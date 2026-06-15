@@ -15,29 +15,16 @@ import {
   Loader2, Camera, Flame, Save, ArrowLeft, RefreshCw, X, Plus,
   Phone, Mail, Users, CreditCard, BookOpen, Upload, ImagePlus,
   CheckCircle2, AlertCircle, XCircle, ShieldCheck, ShieldVerified, Copy,
-  GraduationCap, User, Lock,
+  GraduationCap, User, Lock, MapPin,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import BlockButton from '@/components/BlockButton';
 import { isBlocked } from '@/lib/blockUtils';
+import { geocodeLocation } from '@/lib/geocode';
 
 const PROVINCES = ['Gauteng','KwaZulu-Natal','Western Cape','Eastern Cape','Mpumalanga','Limpopo','North West','Free State','Northern Cape'];
 const PHASES    = ['Foundation','Intermediate','Senior','FET'];
-
-const DISTRICTS_BY_PROVINCE: Record<string, string[]> = {
-  'Eastern Cape':  ['Alfred Nzo East','Alfred Nzo West','Amatole East','Amatole West','Buffalo City','Chris Hani East','Chris Hani West','Joe Gqabi','Nelson Mandela Bay','OR Tambo Coastal','OR Tambo Inland','Sarah Baartman'],
-  'Free State':    ['Fezile Dabi','Lejweleputswa','Motheo','Thabo Mofutsanyana','Xhariep'],
-  'Gauteng':       ['Ekurhuleni North','Ekurhuleni South','Gauteng North','Gauteng West','Johannesburg Central','Johannesburg East','Johannesburg North','Johannesburg South','Sedibeng East','Sedibeng West','Tshwane North','Tshwane South','Tshwane West'],
-  'KwaZulu-Natal': ['Amajuba','Harry Gwala','Ilembe','King Cetshwayo','Pinetown','Ugu','Umgungundlovu','Umkhanyakude','Umzinyathi','Uthukela','Uthungulu','Zululand'],
-  'Limpopo':       ['Capricorn North','Capricorn South','Mopani East','Mopani West','Sekhukhune East','Sekhukhune South','Vhembe East','Vhembe West','Waterberg','Mogalakwena'],
-  'Mpumalanga':    ['Bohlabela','Ehlanzeni','Gert Sibande','Nkangala'],
-  'North West':    ['Bojanala','Dr Kenneth Kaunda','Dr Ruth Segomotsi Mompati','Ngaka Modiri Molema'],
-  'Northern Cape': ['Frances Baard','John Taolo Gaetsewe','Namakwa','Pixley-ka-Seme','ZF Mgcawu'],
-  'Western Cape':  ['Metro Central','Metro East','Metro North','Metro South','Cape Winelands','Eden and Central Karoo','Overberg','West Coast'],
-};
-
-const ALL_DISTRICTS = Object.values(DISTRICTS_BY_PROVINCE).flat().sort();
 
 const SUBJECTS = [
   'Accounting','Afrikaans FAL','Afrikaans HL','Agricultural Sciences',
@@ -440,11 +427,20 @@ export default function ProfilePage() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [subjectToAdd, setSubjectToAdd] = useState('');
   const [provinceToAdd, setProvinceToAdd] = useState('');
-  const [townOther, setTownOther] = useState(false);
-  const [customTownText, setCustomTownText] = useState('');
-  const [selectedDistrict, setSelectedDistrict] = useState('');
-  const [districtOther, setDistrictOther] = useState(false);
-  const [customDistrict, setCustomDistrict] = useState('');
+
+  // ── Current town geocoding (Current Position) ─────────────────────────────
+  const [townGeocoding, setTownGeocoding] = useState(false);
+  const [townCoords, setTownCoords] = useState<{ latitude: number; longitude: number; displayName: string } | null>(null);
+  const [townGeocodeTarget, setTownGeocodeTarget] = useState('');
+  const lastGeocodedTownRef = useRef('');
+
+  // ── Preferred town input (Transfer Preferences) ────────────────────────────
+  const [prefTownInput, setPrefTownInput] = useState('');
+  const [prefTownGeocoding, setPrefTownGeocoding] = useState(false);
+  const [prefTownCoords, setPrefTownCoords] = useState<{ latitude: number; longitude: number; displayName: string } | null>(null);
+  const [prefTownGeocodeTarget, setPrefTownGeocodeTarget] = useState('');
+  const lastGeocodedPrefTownRef = useRef('');
+
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -491,25 +487,20 @@ export default function ProfilePage() {
     }
 
     if (data) {
-      let townValue = data.town ?? '';
-      let isTownOther = false;
-      let customTown = '';
-      if (targetId === user.id && data.current_province) {
-        const provinceDistricts = DISTRICTS_BY_PROVINCE[data.current_province] ?? [];
-        isTownOther = townValue !== '' && !provinceDistricts.includes(townValue);
-        if (isTownOther) {
-          customTown = townValue;
-          townValue = '__other__';
-        }
-      }
       setProfile({
         ...data,
-        town: townValue,
+        town: data.town ?? '',
         years_experience: String(data.years_experience ?? ''),
       });
-      if (isOwnProfile && isTownOther) {
-        setTownOther(true);
-        setCustomTownText(customTown);
+      // Show the "Searching near: ..." confirmation immediately for an
+      // existing town, so the user can see at a glance whether it's
+      // recognized — without them needing to re-type it.
+      if (isOwnProfile && data.town) {
+        lastGeocodedTownRef.current = data.town;
+        setTownGeocoding(true);
+        geocodeLocation(data.town).then(coords => {
+          setTownCoords(coords ?? null);
+        }).finally(() => setTownGeocoding(false));
       }
     } else {
       setProfile(null);
@@ -598,27 +589,63 @@ export default function ProfilePage() {
   const removeProvince = (p: string) => {
     if (profile) setProfileField('preferred_provinces', profile.preferred_provinces.filter(x => x !== p));
   };
-  const addDistrict = () => {
-    const val = districtOther ? customDistrict.trim() : selectedDistrict;
+
+  // ── Current town: geocode on blur/Enter (debounced — not every keystroke) ──
+  useEffect(() => {
+    const target = townGeocodeTarget.trim();
+    if (target === lastGeocodedTownRef.current.trim()) return;
+
+    if (target.length < 3) {
+      lastGeocodedTownRef.current = target;
+      setTownCoords(null);
+      return;
+    }
+
+    let cancelled = false;
+    setTownGeocoding(true);
+    geocodeLocation(target).then(coords => {
+      if (cancelled) return;
+      lastGeocodedTownRef.current = target;
+      setTownCoords(coords ?? null);
+    }).finally(() => { if (!cancelled) setTownGeocoding(false); });
+
+    return () => { cancelled = true; };
+  }, [townGeocodeTarget]);
+
+  // ── Preferred town input: geocode on blur/Enter ────────────────────────────
+  useEffect(() => {
+    const target = prefTownGeocodeTarget.trim();
+    if (target === lastGeocodedPrefTownRef.current.trim()) return;
+
+    if (target.length < 3) {
+      lastGeocodedPrefTownRef.current = target;
+      setPrefTownCoords(null);
+      return;
+    }
+
+    let cancelled = false;
+    setPrefTownGeocoding(true);
+    geocodeLocation(target).then(coords => {
+      if (cancelled) return;
+      lastGeocodedPrefTownRef.current = target;
+      setPrefTownCoords(coords ?? null);
+    }).finally(() => { if (!cancelled) setPrefTownGeocoding(false); });
+
+    return () => { cancelled = true; };
+  }, [prefTownGeocodeTarget]);
+
+  const addPreferredTown = () => {
+    const val = prefTownInput.trim();
     if (val && profile && !profile.preferred_districts.includes(val)) {
       setProfileField('preferred_districts', [...profile.preferred_districts, val]);
     }
-    setSelectedDistrict('');
-    setDistrictOther(false);
-    setCustomDistrict('');
+    setPrefTownInput('');
+    setPrefTownCoords(null);
+    setPrefTownGeocodeTarget('');
+    lastGeocodedPrefTownRef.current = '';
   };
-  const removeDistrict = (d: string) => {
+  const removePreferredTown = (d: string) => {
     if (profile) setProfileField('preferred_districts', profile.preferred_districts.filter(x => x !== d));
-  };
-  const handleTownSelect = (v: string) => {
-    if (v === '__other__') {
-      setTownOther(true);
-      setProfileField('town', '__other__');
-    } else {
-      setTownOther(false);
-      setCustomTownText('');
-      setProfileField('town', v);
-    }
   };
 
   const daysSinceSave = lastSaved
@@ -647,10 +674,10 @@ export default function ProfilePage() {
     try {
       const { id: _id, is_sace_verified: _sv, ...rest } = profile;
       const yearsExp = profile.years_experience ? parseInt(profile.years_experience, 10) : null;
-      const resolvedTown = rest.town === '__other__' ? customTownText.trim() : rest.town;
+      const townText = rest.town.trim();
       const payload = {
         ...rest,
-        town: resolvedTown,
+        town: townText,
         user_id: user.id,
         years_experience: (yearsExp !== null && !isNaN(yearsExp)) ? yearsExp : null,
         available_from: profile.available_from || null,
@@ -663,6 +690,29 @@ export default function ProfilePage() {
         if (error) throw error;
         if (data) setProfileField('id', data.id);
       }
+
+      // Geocode the current town and persist coordinates for radius search.
+      // Reuse the coords already resolved during editing if the text hasn't
+      // changed since; otherwise geocode fresh at save time. Non-fatal if
+      // geocoding fails — text-match search (town name) still works.
+      if (townText) {
+        try {
+          const coords = (lastGeocodedTownRef.current === townText && townCoords)
+            ? townCoords
+            : await geocodeLocation(townText);
+          if (coords) {
+            const { error: geoErr } = await supabase.rpc('set_educator_geo_location', {
+              p_user_id: user.id,
+              p_lng:     coords.longitude,
+              p_lat:     coords.latitude,
+            });
+            if (geoErr) console.error('[ProfilePage] set_educator_geo_location error:', geoErr);
+          }
+        } catch (geoErr) {
+          console.error('[ProfilePage] geocode error:', geoErr);
+        }
+      }
+
       const now = new Date();
       await supabase.auth.updateUser({ data: { profile_last_saved: now.toISOString() } });
       setLastSaved(now);
@@ -867,34 +917,32 @@ export default function ProfilePage() {
                   <SelectContent>{PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
-              <Field label="Education District">
-                {profile.current_province ? (
-                  <>
-                    <Select value={profile.town} onValueChange={handleTownSelect}>
-                      <SelectTrigger className="rounded-xl">
-                        <SelectValue placeholder="Select district" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-48 overflow-y-auto">
-                        {(DISTRICTS_BY_PROVINCE[profile.current_province] ?? []).map(d => (
-                          <SelectItem key={d} value={d}>{d}</SelectItem>
-                        ))}
-                        <SelectItem value="__other__">Other (type below)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {townOther && (
-                      <Input
-                        value={customTownText}
-                        onChange={e => setCustomTownText(e.target.value)}
-                        placeholder="Type your district name"
-                        className="rounded-xl mt-2"
-                        autoFocus
-                      />
-                    )}
-                  </>
+              <Field label="Town">
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    value={profile.town}
+                    onChange={e => setProfileField('town', e.target.value)}
+                    onBlur={e => setTownGeocodeTarget(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') setTownGeocodeTarget(e.currentTarget.value); }}
+                    placeholder="e.g. Polokwane"
+                    className="rounded-xl pl-9"
+                  />
+                </div>
+                {townGeocoding ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Looking up "{profile.town}"…
+                  </p>
+                ) : townCoords ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
+                    <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
+                    Found: {townCoords.latitude.toFixed(4)}°, {townCoords.longitude.toFixed(4)}°
+                    {townCoords.displayName ? ` — ${townCoords.displayName}` : ''}
+                  </p>
+                ) : profile.town.trim().length >= 3 ? (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">Place not found — check the spelling.</p>
                 ) : (
-                  <div className="flex h-9 w-full items-center rounded-xl border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
-                    Select a province first
-                  </div>
+                  <p className="text-xs text-muted-foreground mt-1.5">Used for distance-based search and matching.</p>
                 )}
               </Field>
               <Field label="School">
@@ -958,51 +1006,49 @@ export default function ProfilePage() {
                 </div>
               </Field>
 
-              <Field label="Preferred Education Districts">
+              <Field label="Preferred Town(s)">
                 {profile.preferred_districts.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {profile.preferred_districts.map(d => (
                       <span key={d} className="flex items-center gap-1 text-xs bg-primary/10 text-primary border border-primary/20 rounded-full pl-2.5 pr-1.5 py-0.5">
                         {d}
-                        <button onClick={() => removeDistrict(d)} className="hover:text-destructive transition-colors"><X className="w-3 h-3" /></button>
+                        <button onClick={() => removePreferredTown(d)} className="hover:text-destructive transition-colors"><X className="w-3 h-3" /></button>
                       </span>
                     ))}
                   </div>
                 )}
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Select a district</Label>
-                    <div className="flex gap-2 mt-1">
-                      <Select value={districtOther ? '__other__' : selectedDistrict} onValueChange={v => {
-                        if (v === '__other__') { setDistrictOther(true); setSelectedDistrict(''); }
-                        else { setDistrictOther(false); setSelectedDistrict(v); }
-                      }}>
-                        <SelectTrigger className="rounded-xl flex-1">
-                          <SelectValue placeholder="Choose district" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-48 overflow-y-auto">
-                          {ALL_DISTRICTS.filter(d => !profile.preferred_districts.includes(d)).map(d => (
-                            <SelectItem key={d} value={d}>{d}</SelectItem>
-                          ))}
-                          <SelectItem value="__other__">Other (type below)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button type="button" size="icon" variant="outline" onClick={addDistrict}
-                        disabled={districtOther ? !customDistrict.trim() : !selectedDistrict}
-                        className="rounded-xl shrink-0 h-10 w-10"><Plus className="w-4 h-4" /></Button>
-                    </div>
-                    {districtOther && (
-                      <Input
-                        value={customDistrict}
-                        onChange={e => setCustomDistrict(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addDistrict(); } }}
-                        placeholder="Type district name, then press +"
-                        className="rounded-xl mt-2"
-                        autoFocus
-                      />
-                    )}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      value={prefTownInput}
+                      onChange={e => setPrefTownInput(e.target.value)}
+                      onBlur={e => setPrefTownGeocodeTarget(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); setPrefTownGeocodeTarget(e.currentTarget.value); addPreferredTown(); }
+                      }}
+                      placeholder="e.g. Polokwane"
+                      className="rounded-xl pl-9"
+                    />
                   </div>
+                  <Button type="button" size="icon" variant="outline" onClick={addPreferredTown}
+                    disabled={!prefTownInput.trim()}
+                    className="rounded-xl shrink-0 h-10 w-10"><Plus className="w-4 h-4" /></Button>
                 </div>
+                {prefTownGeocoding ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Looking up "{prefTownInput}"…
+                  </p>
+                ) : prefTownCoords ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
+                    <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
+                    Found: {prefTownCoords.displayName || `${prefTownCoords.latitude.toFixed(4)}°, ${prefTownCoords.longitude.toFixed(4)}°`}
+                  </p>
+                ) : prefTownInput.trim().length >= 3 ? (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">Place not found — check the spelling.</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1.5">Add one or more towns you'd consider transferring to.</p>
+                )}
               </Field>
 
               <Field label="Available From">
@@ -1085,7 +1131,7 @@ export default function ProfilePage() {
           <>
             <SectionCard label="Current Position">
               <Field label="Province"><p className="text-sm">{profile.current_province || '—'}</p></Field>
-              <Field label="Education District"><p className="text-sm">{profile.town || '—'}</p></Field>
+              <Field label="Town"><p className="text-sm">{profile.town || '—'}</p></Field>
               <Field label="School"><p className="text-sm">{profile.current_school || '—'}</p></Field>
             </SectionCard>
 
@@ -1109,7 +1155,7 @@ export default function ProfilePage() {
                   )) : <span className="text-sm text-muted-foreground">—</span>}
                 </div>
               </Field>
-              <Field label="Preferred Districts">
+              <Field label="Preferred Town(s)">
                 <div className="flex flex-wrap gap-1.5">
                   {profile.preferred_districts.length ? profile.preferred_districts.map(d => (
                     <span key={d} className="text-xs bg-primary/10 text-primary border border-primary/20 rounded-full px-2.5 py-0.5">{d}</span>
