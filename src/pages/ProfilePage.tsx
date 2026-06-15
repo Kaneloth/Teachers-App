@@ -26,6 +26,55 @@ import { geocodeLocation } from '@/lib/geocode';
 const PROVINCES = ['Gauteng','KwaZulu-Natal','Western Cape','Eastern Cape','Mpumalanga','Limpopo','North West','Free State','Northern Cape'];
 const PHASES    = ['Foundation','Intermediate','Senior','FET'];
 
+// Town list per province — used for the Current Position "Town" dropdown.
+// Source: Skootlink onboarding (SA_PROVINCE_CITIES). An "Other" option is
+// always appended so users in towns not listed here can type their own.
+const TOWNS_BY_PROVINCE: Record<string, string[]> = {
+  'Eastern Cape': [
+    'Aliwal North', 'Bhisho', 'East London', 'Gqeberha (Port Elizabeth)',
+    'Grahamstown', 'Humansdorp', 'Jeffreys Bay', "King William's Town",
+    'Mthatha', 'Port Alfred', 'Queenstown', 'Stutterheim',
+  ],
+  'Free State': [
+    'Bethlehem', 'Bloemfontein', 'Ficksburg', 'Harrismith', 'Kroonstad',
+    'Parys', 'Phuthaditjhaba', 'Sasolburg', 'Virginia', 'Welkom',
+  ],
+  'Gauteng': [
+    'Alberton', 'Benoni', 'Boksburg', 'Carletonville', 'Centurion',
+    'Edenvale', 'Fourways', 'Germiston', 'Johannesburg', 'Kempton Park',
+    'Midrand', 'Pretoria', 'Randburg', 'Randfontein', 'Roodepoort',
+    'Sandton', 'Soweto', 'Springs', 'Vanderbijlpark', 'Vereeniging',
+  ],
+  'KwaZulu-Natal': [
+    'Ballito', 'Durban', 'Empangeni', 'Kloof', 'Ladysmith', 'Margate',
+    'Newcastle', 'Pietermaritzburg', 'Pinetown', 'Port Shepstone',
+    'Richards Bay', 'Stanger', 'Ulundi', 'Umhlanga', 'Vryheid', 'Westville',
+  ],
+  'Limpopo': [
+    'Bela-Bela', 'Giyani', 'Louis Trichardt', 'Modimolle', 'Mokopane',
+    'Musina', 'Phalaborwa', 'Polokwane', 'Thohoyandou', 'Tzaneen',
+  ],
+  'Mpumalanga': [
+    'Barberton', 'Ermelo', 'Graskop', 'Hazyview', 'Komatipoort',
+    'Malelane', 'Mbombela (Nelspruit)', 'Middelburg', 'Piet Retief',
+    'Sabie', 'Secunda', 'Witbank (eMalahleni)',
+  ],
+  'North West': [
+    'Brits', 'Hartbeespoort', 'Klerksdorp', 'Lichtenburg', 'Mahikeng',
+    'Potchefstroom', 'Rustenburg', 'Wolmaransstad', 'Zeerust',
+  ],
+  'Northern Cape': [
+    'Colesberg', 'De Aar', 'Kathu', 'Kimberley', 'Kuruman',
+    'Pofadder', 'Springbok', 'Upington',
+  ],
+  'Western Cape': [
+    'Beaufort West', 'Bellville', 'Cape Town', 'Durbanville', 'George',
+    'Hermanus', 'Knysna', 'Malmesbury', 'Mossel Bay', 'Oudtshoorn',
+    'Paarl', 'Saldanha', 'Somerset West', 'Stellenbosch', 'Strand',
+    'Swellendam', 'Vredenburg', 'Worcester',
+  ],
+};
+
 const SUBJECTS = [
   'Accounting','Afrikaans FAL','Afrikaans HL','Agricultural Sciences',
   'Agricultural Management Practices','Agricultural Technology','Business Studies',
@@ -428,7 +477,9 @@ export default function ProfilePage() {
   const [subjectToAdd, setSubjectToAdd] = useState('');
   const [provinceToAdd, setProvinceToAdd] = useState('');
 
-  // ── Current town geocoding (Current Position) ─────────────────────────────
+  // ── Current town: dropdown (filtered by province) + "Other" free text ─────
+  const [townOther, setTownOther] = useState(false);
+  const [customTownText, setCustomTownText] = useState('');
   const [townGeocoding, setTownGeocoding] = useState(false);
   const [townCoords, setTownCoords] = useState<{ latitude: number; longitude: number; displayName: string } | null>(null);
   const [townGeocodeTarget, setTownGeocodeTarget] = useState('');
@@ -487,18 +538,31 @@ export default function ProfilePage() {
     }
 
     if (data) {
+      const province = data.current_province || '';
+      const townsForProvince = TOWNS_BY_PROVINCE[province] ?? [];
+      const townValue = data.town ?? '';
+      const isOther = townValue !== '' && !townsForProvince.includes(townValue);
+
       setProfile({
         ...data,
-        town: data.town ?? '',
+        // The '__other__' marker drives the edit-mode Select for OWN profile
+        // only; read-only views of other users' profiles show the real text.
+        town: (isOwnProfile && isOther) ? '__other__' : townValue,
         years_experience: String(data.years_experience ?? ''),
       });
-      // Show the "Searching near: ..." confirmation immediately for an
-      // existing town, so the user can see at a glance whether it's
-      // recognized — without them needing to re-type it.
-      if (isOwnProfile && data.town) {
-        lastGeocodedTownRef.current = data.town;
+
+      if (isOwnProfile && isOther) {
+        setTownOther(true);
+        setCustomTownText(townValue);
+      }
+
+      // Show the "Found: ..." confirmation immediately for an existing town,
+      // so the user can see at a glance whether it's recognized — without
+      // them needing to re-select/re-type it.
+      if (isOwnProfile && townValue) {
+        lastGeocodedTownRef.current = townValue;
         setTownGeocoding(true);
-        geocodeLocation(data.town).then(coords => {
+        geocodeLocation(townValue).then(coords => {
           setTownCoords(coords ?? null);
         }).finally(() => setTownGeocoding(false));
       }
@@ -590,6 +654,36 @@ export default function ProfilePage() {
     if (profile) setProfileField('preferred_provinces', profile.preferred_provinces.filter(x => x !== p));
   };
 
+  // Current province determines which towns are offered — reset the town
+  // selection when it changes, since the previous town may not be in the
+  // new province's list.
+  const handleProvinceChange = (v: string) => {
+    setProfileField('current_province', v);
+    setProfileField('town', '');
+    setTownOther(false);
+    setCustomTownText('');
+    setTownCoords(null);
+    setTownGeocodeTarget('');
+    lastGeocodedTownRef.current = '';
+  };
+
+  // Town dropdown: a listed town geocodes immediately (discrete choice, no
+  // debounce needed); "Other" reveals a free-text input geocoded on blur.
+  const handleTownSelect = (v: string) => {
+    if (v === '__other__') {
+      setTownOther(true);
+      setCustomTownText('');
+      setProfileField('town', '__other__');
+      setTownCoords(null);
+      lastGeocodedTownRef.current = '';
+    } else {
+      setTownOther(false);
+      setCustomTownText('');
+      setProfileField('town', v);
+      setTownGeocodeTarget(v);
+    }
+  };
+
   // ── Current town: geocode on blur/Enter (debounced — not every keystroke) ──
   useEffect(() => {
     const target = townGeocodeTarget.trim();
@@ -674,7 +768,7 @@ export default function ProfilePage() {
     try {
       const { id: _id, is_sace_verified: _sv, ...rest } = profile;
       const yearsExp = profile.years_experience ? parseInt(profile.years_experience, 10) : null;
-      const townText = rest.town.trim();
+      const townText = (rest.town === '__other__' ? customTownText : rest.town).trim();
       const payload = {
         ...rest,
         town: townText,
@@ -912,26 +1006,48 @@ export default function ProfilePage() {
           {isEducator && (
             <SectionCard label="Current Position">
               <Field label="Province">
-                <Select value={profile.current_province} onValueChange={v => setProfileField('current_province', v)}>
+                <Select value={profile.current_province} onValueChange={handleProvinceChange}>
                   <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select province" /></SelectTrigger>
                   <SelectContent>{PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
               <Field label="Town">
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    value={profile.town}
-                    onChange={e => setProfileField('town', e.target.value)}
-                    onBlur={e => setTownGeocodeTarget(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') setTownGeocodeTarget(e.currentTarget.value); }}
-                    placeholder="e.g. Polokwane"
-                    className="rounded-xl pl-9"
-                  />
-                </div>
+                {profile.current_province ? (
+                  <>
+                    <Select value={townOther ? '__other__' : profile.town} onValueChange={handleTownSelect}>
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue placeholder="Select town" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-48 overflow-y-auto">
+                        {(TOWNS_BY_PROVINCE[profile.current_province] ?? []).map(t => (
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                        ))}
+                        <SelectItem value="__other__">Other (type below)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {townOther && (
+                      <div className="relative mt-2">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          value={customTownText}
+                          onChange={e => setCustomTownText(e.target.value)}
+                          onBlur={e => setTownGeocodeTarget(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') setTownGeocodeTarget(e.currentTarget.value); }}
+                          placeholder="Type your town name"
+                          className="rounded-xl pl-9"
+                          autoFocus
+                        />
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex h-9 w-full items-center rounded-xl border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
+                    Select a province first
+                  </div>
+                )}
                 {townGeocoding ? (
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Looking up "{profile.town}"…
+                    <Loader2 className="w-3 h-3 animate-spin" /> Looking up "{townOther ? customTownText : profile.town}"…
                   </p>
                 ) : townCoords ? (
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
@@ -939,7 +1055,7 @@ export default function ProfilePage() {
                     Found: {townCoords.latitude.toFixed(4)}°, {townCoords.longitude.toFixed(4)}°
                     {townCoords.displayName ? ` — ${townCoords.displayName}` : ''}
                   </p>
-                ) : profile.town.trim().length >= 3 ? (
+                ) : townOther && customTownText.trim().length >= 3 ? (
                   <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">Place not found — check the spelling.</p>
                 ) : (
                   <p className="text-xs text-muted-foreground mt-1.5">Used for distance-based search and matching.</p>
