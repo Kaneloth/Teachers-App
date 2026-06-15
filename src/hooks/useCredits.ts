@@ -59,7 +59,7 @@ export function useCredits(): CreditState {
       return false;
     }
 
-    const cost = type === 'cv_usage' ? 3 : 1;
+    const cost = type === 'cv_usage' ? 6 : 1;
 
     // Optimistic UI — immediately decrement so the button feels instant
     setBalance(prev => prev - cost);

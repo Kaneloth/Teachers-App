@@ -11,7 +11,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const FREE_CREDITS   = 6;
+const FREE_CREDITS   = 8;
 const IP_WINDOW_DAYS = 30;
 const IP_MAX_GRANTS  = 2;
 
@@ -107,7 +107,7 @@ export const handler = async (event) => {
     p_user_id:     user_id,
     p_amount:      FREE_CREDITS,
     p_type:        'signup_bonus',
-    p_description: 'Welcome bonus — 6 free credits',
+    p_description: 'Welcome bonus — 8 free credits',
     p_ref_id:      null,
   });
 

@@ -17,10 +17,10 @@ import { toast } from 'sonner';
 
 // ── Credit packages (mirror your screenshot) ────────────────────────────────
 const PACKAGES = [
-  { id: 'single',   label: 'Single CV',            price: 19,  credits: 6,   note: 'enough for 2 CVs + 2 letters' },
-  { id: 'standard', label: 'Standard Credit Pack', price: 49,  credits: 30,  note: '10 CVs + 10 letters', popular: true },
-  { id: 'pro_pack', label: 'Pro Credit Pack',       price: 79,  credits: 60,  note: '20 CVs + 20 letters' },
-  { id: 'business', label: 'Business Credit Pack',  price: 199, credits: 200, note: 'for recruitment agencies' },
+  { id: 'single',   label: 'Single CV',            price: 19,  credits: 8,   note: '1 CV + 2 letters' },
+  { id: 'standard', label: 'Standard Credit Pack', price: 49,  credits: 30,  note: '4 CVs + 6 letters', popular: true },
+  { id: 'pro_pack', label: 'Pro Credit Pack',       price: 79,  credits: 60,  note: '8 CVs + 12 letters' },
+  { id: 'business', label: 'Business Credit Pack',  price: 199, credits: 200, note: '30 CVs + 20 letters' },
 ] as const;
 
 type PackageId = typeof PACKAGES[number]['id'];
@@ -110,7 +110,7 @@ function CreditCard({ balance, loading, onBuy }: { balance: number; loading: boo
           </div>
           <div>
             <p className="text-sm font-semibold text-foreground">Your Credits</p>
-            <p className="text-xs text-muted-foreground">CV = 3 credits · Letter = 1 credit</p>
+            <p className="text-xs text-muted-foreground">CV = 6 credits · Letter = 1 credit</p>
           </div>
         </div>
         <div className="text-right">
@@ -120,12 +120,12 @@ function CreditCard({ balance, loading, onBuy }: { balance: number; loading: boo
           <p className="text-xs text-muted-foreground">available</p>
         </div>
       </div>
-      {balance < 3 && !loading && (
+      {balance < 6 && !loading && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2">
           <p className="text-xs text-amber-700 dark:text-amber-300">
             {balance === 0
               ? 'You have no credits. Purchase a pack to generate CVs and cover letters.'
-              : `You have ${balance} credit${balance > 1 ? 's' : ''} — enough for ${balance} cover letter${balance > 1 ? 's' : ''} but not a CV (needs 3).`}
+              : `You have ${balance} credit${balance > 1 ? 's' : ''} — enough for ${balance} cover letter${balance > 1 ? 's' : ''} but not a CV (needs 6).`}
           </p>
         </div>
       )}
@@ -183,7 +183,7 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
             <h2 className="font-bold text-foreground">Buy Credits</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">CV = 3 credits · Cover letter = 1 credit</p>
+            <p className="text-xs text-muted-foreground mt-0.5">CV = 6 credits · Cover letter = 1 credit</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
             <X className="w-4 h-4 text-muted-foreground" />

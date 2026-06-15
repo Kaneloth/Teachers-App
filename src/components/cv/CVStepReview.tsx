@@ -60,9 +60,9 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
     if (!exportRef.current) return;
 
     // ── Credit check ─────────────────────────────────────────────────────
-    // If AI summary was used (1 credit already spent), only deduct 2 more.
-    // Otherwise deduct the full 3 credits.
-    const remainingCost = aiUsed ? 2 : 3;
+    // If AI summary was used (1 credit already spent), only deduct 5 more.
+    // Otherwise deduct the full 6 credits.
+    const remainingCost = aiUsed ? 5 : 6;
     const ok = await deduct('cv_usage', fileName);
     if (!ok) {
       if (balance < remainingCost) setShowInsufficientModal(true);
@@ -231,7 +231,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
             {creditsLoading ? '…' : balance} credit{balance !== 1 ? 's' : ''} available
           </span>
         </div>
-        <span className="text-xs text-muted-foreground">{aiUsed ? 'CV costs 2 more credits (1 used on AI)' : 'CV costs 3 credits'}</span>
+        <span className="text-xs text-muted-foreground">{aiUsed ? 'CV costs 5 more credits (1 used on AI)' : 'CV costs 6 credits'}</span>
       </div>
 
       {/* Watermark notice for free users */}
@@ -247,13 +247,13 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
       )}
 
       {/* Insufficient credits warning */}
-      {!creditsLoading && balance < (aiUsed ? 2 : 3) && (
+      {!creditsLoading && balance < (aiUsed ? 5 : 6) && (
         <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2.5">
           <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
             <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Not enough credits</p>
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-              You have {balance} credit{balance !== 1 ? 's' : ''} but need 3 to generate a CV.
+              You have {balance} credit{balance !== 1 ? 's' : ''} but need {aiUsed ? 5 : 6} to generate a CV.
             </p>
           </div>
         </div>
@@ -261,11 +261,11 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
 
       <Button
         onClick={handleGenerate}
-        disabled={sending || (!creditsLoading && balance < (aiUsed ? 2 : 3))}
+        disabled={sending || (!creditsLoading && balance < (aiUsed ? 5 : 6))}
         className="w-full h-12 rounded-xl text-base font-semibold gap-2"
       >
         <Download className="w-5 h-5" />
-        {sending ? 'Generating PDF...' : `Download PDF (${aiUsed ? 2 : 3} credits)${shouldWatermark ? ' · Free watermark' : ''}`}
+        {sending ? 'Generating PDF...' : `Download PDF (${aiUsed ? 5 : 6} credits)${shouldWatermark ? ' · Free watermark' : ''}`}
       </Button>
 
       {/* Insufficient credits modal */}
@@ -279,7 +279,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
               </div>
               <h2 className="text-lg font-bold text-foreground">Not Enough Credits</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                You need {aiUsed ? 2 : 3} credits to download a CV. You currently have {balance}.
+                You need {aiUsed ? 5 : 6} credits to download a CV. You currently have {balance}.
               </p>
             </div>
             <div className="bg-muted rounded-xl p-3 space-y-1 text-xs text-muted-foreground">
