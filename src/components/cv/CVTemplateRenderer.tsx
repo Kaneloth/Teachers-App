@@ -1343,16 +1343,21 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
               <div style={{ background: '#f3f4f6', padding: '6px 10px', marginBottom: '12px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>EMPLOYMENT HISTORY</div>
               {validExp.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                    <span style={{ color: '#6b7280', fontSize: '13px' }}>•</span>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                    <span style={{
+                      flexShrink: 0, width: '15px', height: '15px', borderRadius: '50%',
+                      background: '#374151', color: '#fff', fontSize: '9px', fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginTop: '1px',
+                    }}>{i + 1}</span>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{e.role}{e.school ? `, ${e.school}` : ''}</span>
                         <span style={{ fontSize: '10px', color: '#9ca3af' }}>{[e.from, e.to].filter(Boolean).join(' — ')}</span>
                       </div>
+                      {renderDescription(e.description, '#374151')}
                     </div>
                   </div>
-                  {renderDescription(e.description, '#374151')}
                 </div>
               ))}
             </div>
@@ -1361,8 +1366,13 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
             <div style={{ marginBottom: '20px' }}>
               <div style={{ background: '#f3f4f6', padding: '6px 10px', marginBottom: '12px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>EDUCATION</div>
               {validEdu.map((e: any, i: number) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '12px' }}>
-                  <span style={{ color: '#6b7280', fontSize: '13px' }}>•</span>
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '12px' }}>
+                  <span style={{
+                    flexShrink: 0, width: '15px', height: '15px', borderRadius: '50%',
+                    background: '#374151', color: '#fff', fontSize: '9px', fontWeight: 700,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginTop: '1px',
+                  }}>{i + 1}</span>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{e.qualification}</div>

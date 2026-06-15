@@ -147,7 +147,7 @@ function sectionHeading(p: any, title: string, x: number, y: number, maxW: numbe
   if (style === 'shaded') {
     fill(p,243,244,246); p.rect(x-2, y-4, maxW+4, 7, 'F');
     tc(p,55,65,81); p.setFont(F,'bold'); p.setFontSize(9);
-    p.text(title.toUpperCase(), x+2, y);
+    p.text(title.toUpperCase(), x+2, y+1.5); // +1.5 vertically centers the cap-height text within the 7mm-tall bar
   } else if (style === 'underline') {
     tc(p,ar,ag,ab); p.setFont(F,'bold'); p.setFontSize(9.5);
     p.text(title.toUpperCase(), x, y);
@@ -794,22 +794,33 @@ function drawShaded(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
     if(y+18>BOTTOM)y=np();
     y+=6;  // clearance above the bar so it doesn't overlap the previous line/divider
     fill(p,243,244,246);p.rect(ML-2,y-4,PW-ML-MR+4,7,'F');
-    tc(p,ar,ag,ab);p.setFont(F,'bold');p.setFontSize(9);p.text(t.toUpperCase(),ML+2,y);
+    tc(p,ar,ag,ab);p.setFont(F,'bold');p.setFontSize(9);p.text(t.toUpperCase(),ML+2,y+1.5); // +1.5 vertically centers the cap-height text within the 7mm-tall bar
     y+=HEADING_GAP+3;  // clearance below the bar before content starts
+  };
+  // Numbered "step" circle badge for entry headings (Employment History /
+  // Education) — bigger and more prominent than the small square bullets
+  // used for description points below, similar to Word's numbered-circle
+  // list style.
+  const TEXT_X = ML+7;
+  const numberBadge=(n:number,by:number)=>{
+    const cx=ML+2.3, cy=by-1.6, r=2.3;
+    fill(p,ar,ag,ab); p.circle(cx,cy,r,'F');
+    tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(6.5);
+    const s=String(n); const tw=p.getTextWidth(s);
+    p.text(s, cx-tw/2, cy+1.1);
   };
   if(pr.bio){shdH('PROFILE');p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
   if(exp.length){shdH(isEdu?'EMPLOYMENT HISTORY':'WORK HISTORY');
-    // jsPDF's standard Helvetica font (WinAnsi/CP1252 encoding) doesn't
-    // support the ❖ glyph and silently substitutes another character
-    // (renders as "V"); "•" (bullet, CP1252 0x95) is supported.
-    for(const e of exp){if(y+14>BOTTOM)y=np();tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(10);p.text('•',ML,y);
-      p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,ML+5,y);
+    let expIdx=0;
+    for(const e of exp){if(y+14>BOTTOM)y=np();expIdx++;numberBadge(expIdx,y);
+      p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,TEXT_X,y);
       const ds=[e.from,e.to].filter(Boolean).join(' — ');if(ds){tc(p,156,163,175);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,PW-MR-p.getTextWidth(ds),y);}y+=LINE_H;
-      if(e.description){p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML+5,y,PW-ML-MR-5,accent,BOTTOM,np);}y+=ITEM_GAP+1;}}
+      if(e.description){p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,TEXT_X,y,PW-ML-MR-(TEXT_X-ML),accent,BOTTOM,np);}y+=ITEM_GAP+1;}}
   if(edu.length){shdH('EDUCATION');
-    for(const e of edu){if(y+12>BOTTOM)y=np();tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(10);p.text('•',ML,y);
-      p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.qualification||'',ML+5,y);const ds=e.year||'';if(ds){tc(p,156,163,175);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,PW-MR-p.getTextWidth(ds),y);}y+=LINE_H;
-      p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text(e.institution||'',ML+5,y);y+=LINE_H+ITEM_GAP;}}
+    let eduIdx=0;
+    for(const e of edu){if(y+12>BOTTOM)y=np();eduIdx++;numberBadge(eduIdx,y);
+      p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.qualification||'',TEXT_X,y);const ds=e.year||'';if(ds){tc(p,156,163,175);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,PW-MR-p.getTextWidth(ds),y);}y+=LINE_H;
+      p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text(e.institution||'',TEXT_X,y);y+=LINE_H+ITEM_GAP;}}
   // ── Skills — grouped by category (Key Skills / Professional Skills / Languages) ──
   const shadedSkillGroups = ([
     ['Key Skills',          sk.subjects    || []],
