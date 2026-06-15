@@ -42,6 +42,9 @@
 [functions."payfast-webhook"]
   timeout = 20
 
+[functions."geocode"]
+  timeout = 10
+
 # Ensure the sitemap is served correctly (before the catch-all rule)
 [[redirects]]
   from   = "/sitemap.xml"
