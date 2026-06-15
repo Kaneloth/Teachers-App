@@ -263,7 +263,11 @@ function drawCustom(p: any, sections: any[], accent: RGB, headStyle: HeadingStyl
                     getXW?: ()=>[number,number], font: string = F): number {
   if (!sections?.filter((s:any)=>s.title).length) return y;
   for (const sec of sections) {
-    if (!sec.title) continue;
+    const hasContent =
+      (sec.type === 'text'    && !!(sec.content && sec.content.trim())) ||
+      (sec.type === 'bullets' && !!(sec.content && (sec.content as string).split('\n').map((l:string)=>l.trim()).filter(Boolean).length)) ||
+      (sec.type === 'table'   && !!(sec.columns?.length && sec.rows?.length));
+    if (!sec.title || !hasContent) continue;
     y = sectionHeading(p, sec.title, x, y, maxW, accent, headStyle, bottom, newPage, getXW);
     p.setFont(font,'normal'); p.setFontSize(9); tc(p,55,65,81);
     if (sec.type==='text' && sec.content) {
@@ -984,28 +988,42 @@ function drawElegant(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
     y += ITEM_GAP;
   }
 
-  // ── Skills and Attributes — two-column, "• item" ──────────────────────────
-  const allSkills = [...(sk.subjects||[]), ...(sk.soft_skills||[]), ...(sk.languages||[])];
-  if (allSkills.length) {
+  // ── Skills and Attributes — grouped by category, two-column "• item" ──────
+  const elegantSkillGroups = ([
+    ['Key Skills',          sk.subjects    || []],
+    ['Professional Skills', sk.soft_skills || []],
+    ['Languages',           sk.languages   || []],
+  ] as [string, string[]][]).filter(([, items]) => items.length);
+
+  if (elegantSkillGroups.length) {
     y = sectionHeading(p,'Skills and Attributes',ML,y,PW-ML-MR,accent,'center-lines',BOTTOM,np,GXW);
-    p.setFont('times','normal'); p.setFontSize(9);
     const colGap = 8;
     const colW   = (PW-ML-MR-colGap)/2;
     const col2x  = ML+colW+colGap;
-    let leftY = y, rightY = y;
-    for (let i=0; i<allSkills.length; i++) {
-      const isLeft = i%2===0;
-      const cx = isLeft ? ML : col2x;
-      let cy = isLeft ? leftY : rightY;
-      const lines = p.splitTextToSize(String(allSkills[i]), colW-5) as string[];
-      if (cy+lines.length*LINE_H>BOTTOM) { y = np(); leftY = y; rightY = y; cy = y; }
-      tc(p,MUTED[0],MUTED[1],MUTED[2]); p.text('•', cx, cy);
-      tc(p,BODY[0],BODY[1],BODY[2]);
-      lines.forEach((line:string,li:number)=>p.text(line, cx+4, cy+li*LINE_H));
-      const used = lines.length*LINE_H;
-      if (isLeft) leftY = cy+used; else rightY = cy+used;
+
+    for (let g=0; g<elegantSkillGroups.length; g++) {
+      const [label, items] = elegantSkillGroups[g];
+      if (y+LINE_H>BOTTOM) y = np();
+      p.setFont('times','bolditalic'); p.setFontSize(9.5); tc(p,accent[0],accent[1],accent[2]);
+      p.text(label, ML, y);
+      y += LINE_H;
+
+      p.setFont('times','normal'); p.setFontSize(9);
+      let leftY = y, rightY = y;
+      for (let i=0; i<items.length; i++) {
+        const isLeft = i%2===0;
+        const cx = isLeft ? ML : col2x;
+        let cy = isLeft ? leftY : rightY;
+        const lines = p.splitTextToSize(String(items[i]), colW-5) as string[];
+        if (cy+lines.length*LINE_H>BOTTOM) { y = np(); leftY = y; rightY = y; cy = y; }
+        tc(p,MUTED[0],MUTED[1],MUTED[2]); p.text('•', cx, cy);
+        tc(p,BODY[0],BODY[1],BODY[2]);
+        lines.forEach((line:string,li:number)=>p.text(line, cx+4, cy+li*LINE_H));
+        const used = lines.length*LINE_H;
+        if (isLeft) leftY = cy+used; else rightY = cy+used;
+      }
+      y = Math.max(leftY,rightY) + ITEM_GAP + (g < elegantSkillGroups.length-1 ? 1 : 0);
     }
-    y = Math.max(leftY,rightY) + ITEM_GAP;
   }
 
   y = drawCustom(p,customs,accent,'center-lines',ML,y,PW-ML-MR,BOTTOM,np,GXW,'times');
@@ -1107,23 +1125,36 @@ function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
     }
   }
 
-  // ── Skills and Attributes — inline "Name (description)" list ─────────────
-  const allSkills = [...(sk.subjects||[]), ...(sk.soft_skills||[]), ...(sk.languages||[])];
-  if (allSkills.length) {
+  // ── Skills and Attributes — grouped inline lists, no italics ─────────────
+  const heritageSkillGroups = ([
+    ['Key Skills',          sk.subjects    || []],
+    ['Professional Skills', sk.soft_skills || []],
+    ['Languages',           sk.languages   || []],
+  ] as [string, string[]][]).filter(([, items]) => items.length);
+
+  if (heritageSkillGroups.length) {
     y = sectionHeading(p,'Skills and Attributes',ML,y,PW-ML-MR,accent,'double-line',BOTTOM,np,GXW);
-    const segs: RichSeg[] = [];
-    allSkills.forEach((raw, i) => {
-      const [name, desc] = String(raw).split('|').map((s:string)=>s.trim());
-      if (desc) {
-        segs.push({text: `${name} (`, style:'normal'});
-        segs.push({text: `${desc})`, style:'normal', color: MUTED});
-      } else {
-        segs.push({text: name, style:'normal'});
-      }
-      segs.push({text: i<allSkills.length-1 ? ', ' : '.', style:'normal'});
-    });
-    y = richInline(p, segs, ML, y, PW-ML-MR, BOTTOM, np, GXW, 'times', 9, [55,65,81], [100,116,139]);
-    y += ITEM_GAP;
+    for (let g=0; g<heritageSkillGroups.length; g++) {
+      const [label, items] = heritageSkillGroups[g];
+      if (y+LINE_H>BOTTOM) y = np();
+      p.setFont('times','bold'); p.setFontSize(9); tc(p,accent[0],accent[1],accent[2]);
+      p.text(label.toUpperCase(), ML, y);
+      y += LINE_H;
+
+      const segs: RichSeg[] = [];
+      items.forEach((raw, i) => {
+        const [name, desc] = String(raw).split('|').map((s:string)=>s.trim());
+        if (desc) {
+          segs.push({text: `${name} (`, style:'normal'});
+          segs.push({text: `${desc})`, style:'normal', color: MUTED});
+        } else {
+          segs.push({text: name, style:'normal'});
+        }
+        segs.push({text: i<items.length-1 ? ', ' : '.', style:'normal'});
+      });
+      y = richInline(p, segs, ML, y, PW-ML-MR, BOTTOM, np, GXW, 'times', 9, [55,65,81], [100,116,139]);
+      y += ITEM_GAP + (g < heritageSkillGroups.length-1 ? 1 : 0);
+    }
   }
 
   y = drawCustom(p,customs,accent,'double-line',ML,y,PW-ML-MR,BOTTOM,np,GXW,'times');

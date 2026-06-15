@@ -143,7 +143,9 @@ function renderCustomSections(sections: CustomSection[] | undefined, color: stri
       {sections.filter(s => s.title).map((s, idx) => {
         let content: React.ReactNode = null;
         if (s.type === 'text') {
-          content = <p style={{ color: '#374151', margin: 0, fontSize: '12px', lineHeight: '1.6' }}>{s.content}</p>;
+          content = (s.content && s.content.trim())
+            ? <p style={{ color: '#374151', margin: 0, fontSize: '12px', lineHeight: '1.6' }}>{s.content}</p>
+            : null;
         } else if (s.type === 'bullets') {
           const lines = (s.content || '').split('\n').map(l => l.trim()).filter(Boolean);
           content = lines.length ? (
@@ -1661,11 +1663,11 @@ function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ex
     personal.id_number ? `ID: ${personal.id_number}` : null,
   ].filter(Boolean);
 
-  const allSkills = [
-    ...(skills?.subjects || []),
-    ...(skills?.soft_skills || []),
-    ...(skills?.languages || []),
-  ];
+  const elegantSkillGroups = [
+    { label: 'Key Skills',          items: skills?.subjects    || [] },
+    { label: 'Professional Skills', items: skills?.soft_skills || [] },
+    { label: 'Languages',           items: skills?.languages   || [] },
+  ].filter(g => g.items.length > 0);
 
   return (
     <div style={{ ...wrapperStyle, background: ELEGANT_BG }}>
@@ -1745,18 +1747,28 @@ function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ex
           </>
         )}
 
-        {/* Skills and Attributes */}
-        {allSkills.length > 0 && (
+        {/* Skills and Attributes — grouped by category */}
+        {elegantSkillGroups.length > 0 && (
           <>
             <ElegantHeading title="Skills and Attributes" />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: '24px', rowGap: '4px' }}>
-              {allSkills.map((s, i) => (
-                <div key={i} style={{ fontSize: '12px', color: ELEGANT_BODY, display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                  <span style={{ color: ELEGANT_MUTED, flexShrink: 0 }}>•</span>
-                  <span>{s}</span>
+            {elegantSkillGroups.map((group, gi) => (
+              <div key={group.label} style={{ marginBottom: gi < elegantSkillGroups.length - 1 ? '10px' : 0 }}>
+                <div style={{
+                  fontSize: '11px', fontWeight: 700, fontStyle: 'italic',
+                  color: ELEGANT_INK, marginBottom: '4px',
+                }}>
+                  {group.label}
                 </div>
-              ))}
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: '24px', rowGap: '4px' }}>
+                  {group.items.map((s: string, i: number) => (
+                    <div key={i} style={{ fontSize: '12px', color: ELEGANT_BODY, display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                      <span style={{ color: ELEGANT_MUTED, flexShrink: 0 }}>•</span>
+                      <span>{s}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </>
         )}
 
@@ -1808,11 +1820,11 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
     personal.id_number ? `ID: ${personal.id_number}` : null,
   ].filter(Boolean);
 
-  const allSkills = [
-    ...(skills?.subjects || []),
-    ...(skills?.soft_skills || []),
-    ...(skills?.languages || []),
-  ];
+  const heritageSkillGroups = [
+    { label: 'Key Skills',          items: skills?.subjects    || [] },
+    { label: 'Professional Skills', items: skills?.soft_skills || [] },
+    { label: 'Languages',           items: skills?.languages   || [] },
+  ].filter(g => g.items.length > 0);
 
   return (
     <div style={{ ...wrapperStyle, background: HERITAGE_BG }}>
@@ -1897,22 +1909,32 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
           </>
         )}
 
-        {/* Skills and Attributes — inline "Name (description)" */}
-        {allSkills.length > 0 && (
+        {/* Skills and Attributes — grouped, inline "Name (description)" */}
+        {heritageSkillGroups.length > 0 && (
           <>
             <HeritageHeading title="Skills and Attributes" />
-            <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.8', color: HERITAGE_BODY }}>
-              {allSkills.map((s, i) => {
-                const [name, desc] = String(s).split('|').map(x => x.trim());
-                return (
-                  <span key={i}>
-                    {name}
-                    {desc && <> (<span style={{ color: HERITAGE_MUTED }}>{desc}</span>)</>}
-                    {i < allSkills.length - 1 ? ', ' : '.'}
-                  </span>
-                );
-              })}
-            </p>
+            {heritageSkillGroups.map((group, gi) => (
+              <div key={group.label} style={{ marginBottom: gi < heritageSkillGroups.length - 1 ? '8px' : 0 }}>
+                <div style={{
+                  fontSize: '10px', fontWeight: 700, textTransform: 'uppercase',
+                  letterSpacing: '0.5px', color: HERITAGE_INK, marginBottom: '3px',
+                }}>
+                  {group.label}
+                </div>
+                <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.8', color: HERITAGE_BODY }}>
+                  {group.items.map((s: string, i: number) => {
+                    const [name, desc] = String(s).split('|').map(x => x.trim());
+                    return (
+                      <span key={i}>
+                        {name}
+                        {desc && <> (<span style={{ color: HERITAGE_MUTED }}>{desc}</span>)</>}
+                        {i < group.items.length - 1 ? ', ' : '.'}
+                      </span>
+                    );
+                  })}
+                </p>
+              </div>
+            ))}
           </>
         )}
 
