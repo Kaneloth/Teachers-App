@@ -254,6 +254,15 @@
     @apply border-border;
   }
 
+  /* Modern Android Chrome (76+) ignores the viewport meta tag's
+     user-scalable=no / maximum-scale for pinch-zoom (an intentional
+     accessibility override). touch-action: manipulation is the CSS-level
+     equivalent that Chrome DOES respect — it disables pinch-zoom and
+     double-tap-zoom while still allowing normal scrolling/panning. */
+  html, body {
+    touch-action: manipulation;
+  }
+
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
