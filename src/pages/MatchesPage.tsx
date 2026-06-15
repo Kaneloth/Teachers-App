@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Users, MapPin, BookOpen, ShieldCheck, Lock, Zap, ArrowLeft } from 'lucide-react';
+import { Users, MapPin, BookOpen, ShieldCheck, Lock, Zap, ArrowLeft, ArrowLeftRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
@@ -15,16 +15,40 @@ interface Educator {
   avatar_url?: string;
   current_province?: string;
   preferred_provinces?: string[];
+  preferred_districts?: string[];
   subjects?: string[];
   phase?: string;
+  town?: string;
   is_actively_looking?: boolean;
   is_sace_verified?: boolean;
   user_id?: string;
   score?: number;
+  isDistrictSwap?: boolean;
 }
 
 interface Props {
   embedded?: boolean;
+}
+
+/**
+ * "District swap" exception — included on the Matches page even if the
+ * weighted match score is below the normal 85% threshold, because it
+ * represents a direct transfer-exchange opportunity:
+ *   - Both educators share at least one subject, AND
+ *   - My current district is one of THEIR preferred districts, OR
+ *   - Their current district is one of MY preferred districts
+ * (i.e. each could plausibly move to where the other currently is).
+ */
+function isDistrictSwapMatch(mine: Educator, them: Educator): boolean {
+  const mySubjects   = new Set((mine.subjects || []).map(s => s.toLowerCase()));
+  const theirSubjects = new Set((them.subjects || []).map(s => s.toLowerCase()));
+  const sharesSubject = [...mySubjects].some(s => theirSubjects.has(s));
+  if (!sharesSubject) return false;
+
+  const iWantTheirDistrict = !!(them.town && (mine.preferred_districts || []).includes(them.town));
+  const theyWantMyDistrict = !!(mine.town && (them.preferred_districts || []).includes(mine.town));
+
+  return iWantTheirDistrict || theyWantMyDistrict;
 }
 
 export default function MatchesPage({ embedded = false }: Props) {
@@ -80,15 +104,21 @@ export default function MatchesPage({ embedded = false }: Props) {
       if (!all) { setLoading(false); return; }
 
       const scored = all
-        .map(e => ({
-          ...e,
-          score: calculateMatch(
+        .map(e => {
+          const score = calculateMatch(
             { phase: mine.phase, current_province: mine.current_province, town: mine.town, subjects: mine.subjects },
             { phase: e.phase,    current_province: e.current_province,    town: e.town,    subjects: e.subjects }
-          ),
-        }))
-        // Matches page: 85–100 % with the weighted formula
-        .filter(e => e.score >= 85)
+          );
+          return {
+            ...e,
+            score,
+            isDistrictSwap: isDistrictSwapMatch(mine, e),
+          };
+        })
+        // Matches page: 85–100% with the weighted formula, OR a direct
+        // district-swap opportunity (shared subject + reciprocal district
+        // preference) regardless of overall score.
+        .filter(e => e.score >= 85 || e.isDistrictSwap)
         .sort((a, b) => b.score - a.score);
 
       setMatches(scored);
@@ -227,6 +257,14 @@ function MatchCard({
                 {ed.phase} · {ed.subjects?.slice(0, 2).join(', ')}
               </div>
             </div>
+            {/* District swap callout — explains why this match appears even
+                if the % is below the usual 85% threshold */}
+            {ed.isDistrictSwap && (
+              <div className="flex items-center gap-1.5 text-[11px] font-medium text-primary mt-1.5">
+                <ArrowLeftRight className="w-3 h-3 shrink-0" />
+                Direct district swap opportunity
+              </div>
+            )}
             <div className="flex flex-wrap gap-1 mt-2">
               {(ed.subjects || [])
                 .filter((s: string) => (myProfile.subjects || []).includes(s))
