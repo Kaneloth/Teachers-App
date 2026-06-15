@@ -11,9 +11,12 @@ export default function LandingAbout() {
             Built by an Educator, for Educators & Job Seekers
           </h2>
           <p className="text-lg text-[#475569] max-w-3xl mx-auto">
-            Crosssa was born from a real struggle: trying to find a cross‑transfer match as an educator. 
-            I built this platform to solve that problem – and to give every job seeker access to professional career tools, without the high price tag.
-          </p>
+		  
+		  Crosssa was born from a real struggle: trying to find a cross‑transfer match as an educator. We built this platform to solve 
+		  that problem – and soon realised we could also offer professional career tools to every job seeker, without the high price tag. 
+		  Crosssa is a proud product of <strong className="text-[#0d9488]"> Skootlink (Pty) Ltd </strong>  – a registered South African company that also operates a platform for 
+		  vehicle‑owner to driver rentals in the gig economy.
+		  </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-12 items-center mb-20">
