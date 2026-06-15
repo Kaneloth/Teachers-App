@@ -145,9 +145,11 @@ function sectionHeading(p: any, title: string, x: number, y: number, maxW: numbe
   y += SECTION_GAP * 0.6;
   const [ar,ag,ab] = accent;
   if (style === 'shaded') {
+    y += 6; // clearance above the bar so it doesn't overlap the previous line/divider
     fill(p,243,244,246); p.rect(x-2, y-4, maxW+4, 7, 'F');
     tc(p,55,65,81); p.setFont(F,'bold'); p.setFontSize(9);
     p.text(title.toUpperCase(), x+2, y+1.5); // +1.5 vertically centers the cap-height text within the 7mm-tall bar
+    return y + HEADING_GAP + 3; // clearance below the bar before content starts
   } else if (style === 'underline') {
     tc(p,ar,ag,ab); p.setFont(F,'bold'); p.setFontSize(9.5);
     p.text(title.toUpperCase(), x, y);
@@ -220,7 +222,7 @@ function drawFooter(p: any, owner: string, pg: number, total: number,
 // ── References page ────────────────────────────────────────────────────────────
 function refsPage(p: any, refs: any[], accent: RGB, headStyle: HeadingStyle,
                   addPage: ()=>number, bottom: number,
-                  owner: string, watermark: boolean, bg?: RGB) {
+                  owner: string, watermark: boolean, bg?: RGB, topStrip: boolean = true) {
   const validRefs = refs.filter(r=>r.name);
   if (!validRefs.length) return;
   p.addPage();
@@ -228,10 +230,13 @@ function refsPage(p: any, refs: any[], accent: RGB, headStyle: HeadingStyle,
   const [ar,ag,ab] = accent;
   if (bg) {
     fill(p,bg[0],bg[1],bg[2]); p.rect(0,0,PW,PH,'F'); reset(p);
-  } else {
+  } else if (topStrip) {
+    // Only draw the accent-colored top strip if the template's first page
+    // actually has a colored sidebar/top bar — otherwise it introduces a
+    // jarring band of color that doesn't appear anywhere else in the CV.
     fill(p,ar,ag,ab); p.rect(0,0,PW,5,'F'); reset(p);
   }
-  let y = MT+5;
+  let y = (bg || topStrip) ? MT+5 : MT;
   const np = ()=>{ p.addPage(); reset(p); if (bg) { fill(p,bg[0],bg[1],bg[2]); p.rect(0,0,PW,PH,'F'); reset(p); } return MT; };
   y = sectionHeading(p,'References',ML,y,PW-ML-MR,accent,headStyle,bottom,np);
   y += 2;
@@ -839,7 +844,7 @@ function drawShaded(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
     }
   }
   y=drawCustom(p,customs,accent,'shaded',ML,y,PW-ML-MR,BOTTOM,np,GXW);
-  refsPage(p,refs,accent,'shaded',np,BOTTOM,owner,wm);
+  refsPage(p,refs,accent,'shaded',np,BOTTOM,owner,wm,undefined,false);
 }
 
 // ── 15. TEAL — Full-width teal header, left skill sidebar, right content ───────
