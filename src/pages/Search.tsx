@@ -5,8 +5,9 @@ import { Search as SearchIcon, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
-import EducatorCard, { calculateMatch, MyProfile } from '@/components/search/EducatorCard';
-import SearchFilters, { Filters } from '@/components/search/SearchFilters';
+import EducatorCard, { qualifiesForMatchesPage, MyProfile } from '@/components/search/EducatorCard';
+import SearchFilters, { Filters, DEFAULT_FILTERS } from '@/components/search/SearchFilters';
+import SubscriptionModal from '@/components/SubscriptionModal';
 
 interface Educator {
   id: string;
@@ -17,9 +18,12 @@ interface Educator {
   current_province?: string;
   town?: string;
   preferred_provinces?: string[];
+  preferred_districts?: string[];
   subjects?: string[];
   phase?: string;
   user_id?: string;
+  profile_type?: string;
+  distance_km?: number;
 }
 
 interface Props {
@@ -33,9 +37,10 @@ export default function Search({ embedded = false }: Props) {
   const [educators, setEducators] = useState<Educator[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filters, setFilters] = useState<Filters>({ province: '', subject: '', phase: '', activeOnly: false });
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
   const [isPro, setIsPro] = useState(false);
+  const [showSubModal, setShowSubModal] = useState(false);
 
   /* ── Fetch current user's profile + subscription status ─────── */
   useEffect(() => {
@@ -61,9 +66,10 @@ export default function Search({ embedded = false }: Props) {
         });
     }
 
+    // preferred_districts is needed for the town-swap exclusion check below.
     supabase
       .from('educators')
-      .select('phase, current_province, town, subjects')
+      .select('phase, current_province, town, subjects, preferred_districts')
       .eq('user_id', user.id)
       .limit(1)
       .then(({ data }) => {
@@ -79,18 +85,58 @@ export default function Search({ embedded = false }: Props) {
   /* ── Fetch educators ────────────────────────────────────────── */
   const fetchEducators = useCallback(async () => {
     setLoading(true);
-    let q = supabase.from('educators').select('*');
 
-    if (user?.id) q = q.neq('user_id', user.id);
-    q = q.or('profile_type.eq.educator,profile_type.is.null');
+    // Radius search is Pro-only and requires a geocoded town (set by
+    // SearchFilters once the user types/blurs a valid place name).
+    const useRadius = isPro && filters.radiusKm > 0 && filters.townLat != null && filters.townLng != null;
 
-    if (filters.province) q = q.eq('current_province', filters.province);
-    if (filters.phase)      q = q.eq('phase', filters.phase);
-    if (filters.activeOnly) q = q.eq('is_actively_looking', true);
-    if (filters.subject)    q = q.contains('subjects', [filters.subject]);
+    let results: Educator[] = [];
 
-    const { data } = await q.limit(50);
-    let results: Educator[] = data || [];
+    if (useRadius) {
+      const { data, error } = await supabase.rpc('nearby_educators', {
+        search_lat: filters.townLat,
+        search_lng: filters.townLng,
+        radius_km:  filters.radiusKm,
+        exclude_user_id: user?.id ?? null,
+      });
+
+      if (error) {
+        console.error('[Search] nearby_educators error:', error);
+      }
+
+      results = (data || []).map((r: any) => ({ ...r.educator, distance_km: r.distance_km }));
+      results = results.filter(e => e.profile_type === 'educator' || e.profile_type == null);
+
+      // The RPC only does the geo-radius filter — apply the remaining
+      // filters client-side. Province is deliberately NOT applied here:
+      // SearchFilters disables/clears province whenever radius search is
+      // active, since the two would otherwise silently contradict each
+      // other (e.g. "within 45km of Polokwane" + "KZN").
+      if (filters.phase)      results = results.filter(e => e.phase === filters.phase);
+      if (filters.activeOnly) results = results.filter(e => e.is_actively_looking);
+      if (filters.subject)    results = results.filter(e => e.subjects?.includes(filters.subject));
+
+    } else {
+      let q = supabase.from('educators').select('*');
+
+      if (user?.id) q = q.neq('user_id', user.id);
+      q = q.or('profile_type.eq.educator,profile_type.is.null');
+
+      if (filters.province) q = q.eq('current_province', filters.province);
+      if (filters.phase)      q = q.eq('phase', filters.phase);
+      if (filters.activeOnly) q = q.eq('is_actively_looking', true);
+      if (filters.subject)    q = q.contains('subjects', [filters.subject]);
+
+      const { data } = await q.limit(50);
+      results = data || [];
+
+      // Town free-text filter (all users, non-radius mode) — matches
+      // educators whose current town contains this text.
+      if (filters.town.trim()) {
+        const lowerTown = filters.town.trim().toLowerCase();
+        results = results.filter(e => e.town?.toLowerCase().includes(lowerTown));
+      }
+    }
 
     /* Overlay verified status from profiles table */
     if (results.length > 0) {
@@ -110,7 +156,7 @@ export default function Search({ embedded = false }: Props) {
       }));
     }
 
-    /* Text search filter */
+    /* Text search filter (search bar) */
     if (query.trim()) {
       const lower = query.toLowerCase();
       results = results.filter(e =>
@@ -120,17 +166,19 @@ export default function Search({ embedded = false }: Props) {
       );
     }
 
-    /* Free users only see matches ≤75% — top matches are a Pro benefit.
-       Rings/percentages are hidden on the card itself (see EducatorCard). */
-    if (!isPro && myProfile) {
-      results = results.filter(e =>
-        calculateMatch(myProfile, {
-          phase: e.phase,
-          current_province: e.current_province,
-          town: e.town,
-          subjects: e.subjects,
-        }) <= 75
-      );
+    /* Exclude anyone who already qualifies for the Matches page (≥85% match
+       or a town-swap opportunity) — avoids the same person being listed on
+       both Search and Matches. Applies to all users: for free users this
+       also means their best matches are reserved for the Pro-gated Matches
+       page, consistent with "Pro unlocks your highest-quality matches". */
+    if (myProfile) {
+      results = results.filter(e => !qualifiesForMatchesPage(myProfile, {
+        phase: e.phase,
+        current_province: e.current_province,
+        town: e.town,
+        subjects: e.subjects,
+        preferred_districts: e.preferred_districts,
+      }));
     }
 
     setEducators(results);
@@ -180,6 +228,7 @@ export default function Search({ embedded = false }: Props) {
           filters={filters}
           onFiltersChange={setFilters}
           isPro={isPro}
+          onProGate={() => setShowSubModal(true)}
         />
       </div>
 
@@ -207,11 +256,14 @@ export default function Search({ embedded = false }: Props) {
                 myProfile={myProfile ?? undefined}
                 isPro={isPro}
                 index={i}
+                distanceKm={ed.distance_km}
               />
             ))}
           </div>
         </>
       )}
+
+      <SubscriptionModal open={showSubModal} onClose={() => setShowSubModal(false)} />
     </div>
   );
 }

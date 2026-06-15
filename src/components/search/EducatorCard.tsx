@@ -85,9 +85,10 @@ interface Props {
   myProfile?: MyProfile;
   isPro?: boolean;
   index?: number;
+  distanceKm?: number;
 }
 
-export default function EducatorCard({ educator, myProfile, isPro = false, index = 0 }: Props) {
+export default function EducatorCard({ educator, myProfile, isPro = false, index = 0, distanceKm }: Props) {
   const match   = myProfile ? calculateMatch(myProfile, educator) : 0;
   const initial = educator.full_name?.[0]?.toUpperCase() || '?';
 
@@ -139,6 +140,12 @@ export default function EducatorCard({ educator, myProfile, isPro = false, index
               <Navigation className="w-3 h-3 shrink-0" />
               <span className="truncate">Wants: {wants}</span>
             </div>
+            {distanceKm != null && (
+              <div className="flex items-center gap-1.5 text-xs text-primary font-medium">
+                <MapPin className="w-3 h-3 shrink-0" />
+                <span>{distanceKm < 1 ? '<1 km away' : `${Math.round(distanceKm)} km away`}</span>
+              </div>
+            )}
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Monitor className="w-3 h-3 shrink-0" />
               <span className="truncate">{subjectsStr}</span>
