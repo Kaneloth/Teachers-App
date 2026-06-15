@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
-import { SlidersHorizontal, Lock, MapPin } from 'lucide-react';
+import { SlidersHorizontal, Lock, MapPin, Loader2, CheckCircle2 } from 'lucide-react';
+import { geocodeLocation } from '@/lib/geocode';
 
 const PROVINCES = ['Gauteng', 'KwaZulu-Natal', 'Western Cape', 'Eastern Cape', 'Mpumalanga', 'Limpopo', 'North West', 'Free State', 'Northern Cape'];
 const SUBJECTS = [
@@ -37,8 +38,11 @@ export const RADIUS_DEFAULT = 50;
 
 export interface Filters {
   province: string;
-  town: string;       // free-text town/area name — available to all users
-  radiusKm: number;    // Pro-only proximity radius around `town`; 0 = off
+  town: string;            // free-text town/area name — available to all users
+  townLat?: number;        // geocoded coordinates for `town`, if resolved
+  townLng?: number;
+  townDisplayName?: string;
+  radiusKm: number;         // Pro-only proximity radius around `town`; 0 = off
   subject: string;
   phase: string;
   activeOnly: boolean;
@@ -58,6 +62,41 @@ interface Props {
 export default function SearchFilters({ filters, onFiltersChange, isPro = false, onProGate }: Props) {
   const [open, setOpen] = useState(false);
   const [local, setLocal] = useState<Filters>(filters);
+  const [geocoding, setGeocoding] = useState(false);
+  // geocodeTarget only changes on blur/Enter — keeps geocoding off every keystroke.
+  const [geocodeTarget, setGeocodeTarget] = useState(filters.town);
+  const lastGeocodedRef = useRef(filters.town);
+
+  // Geocode only when the user commits a change to the town field (blur/Enter).
+  useEffect(() => {
+    const target = geocodeTarget.trim();
+    if (target === lastGeocodedRef.current.trim()) return; // no change since last geocode
+
+    if (target.length < 3) {
+      lastGeocodedRef.current = target;
+      setLocal(p => ({ ...p, townLat: undefined, townLng: undefined, townDisplayName: undefined }));
+      return;
+    }
+
+    let cancelled = false;
+    setGeocoding(true);
+    geocodeLocation(target).then(coords => {
+      if (cancelled) return;
+      lastGeocodedRef.current = target;
+      if (coords) {
+        setLocal(p => ({
+          ...p,
+          townLat: coords.latitude,
+          townLng: coords.longitude,
+          townDisplayName: coords.displayName,
+        }));
+      } else {
+        setLocal(p => ({ ...p, townLat: undefined, townLng: undefined, townDisplayName: undefined }));
+      }
+    }).finally(() => { if (!cancelled) setGeocoding(false); });
+
+    return () => { cancelled = true; };
+  }, [geocodeTarget]);
 
   const handleApply = () => {
     // Free users can't apply a radius — strip it defensively even if it was
@@ -66,7 +105,11 @@ export default function SearchFilters({ filters, onFiltersChange, isPro = false,
     setOpen(false);
   };
   const handleReset = () => {
-    setLocal(DEFAULT_FILTERS); onFiltersChange(DEFAULT_FILTERS); setOpen(false);
+    setLocal(DEFAULT_FILTERS);
+    setGeocodeTarget('');
+    lastGeocodedRef.current = '';
+    onFiltersChange(DEFAULT_FILTERS);
+    setOpen(false);
   };
 
   const activeCount = [
@@ -92,16 +135,31 @@ export default function SearchFilters({ filters, onFiltersChange, isPro = false,
         </SheetHeader>
         <div className="space-y-6 pb-6">
 
-          {/* Province — available to all users */}
+          {/* Province — disabled while a town-radius search is active, since
+              radius search defines its own geographic area and combining it
+              with a province filter produces contradictory/empty results
+              (e.g. "within 45km of Polokwane" + "KZN" — Polokwane isn't in
+              KZN at all). */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">Province</Label>
-            <Select value={local.province} onValueChange={v => setLocal(p => ({ ...p, province: v }))}>
+            <Select
+              value={local.province}
+              onValueChange={v => setLocal(p => ({ ...p, province: v }))}
+              disabled={isPro && local.radiusKm > RADIUS_OFF && !!local.townLat}
+            >
               <SelectTrigger><SelectValue placeholder="All provinces" /></SelectTrigger>
               <SelectContent>{PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
             </Select>
+            {isPro && local.radiusKm > RADIUS_OFF && !!local.townLat && (
+              <p className="text-xs text-muted-foreground">
+                Ignored while searching by town radius — results are based on distance from {local.town}.
+              </p>
+            )}
           </div>
 
-          {/* Town — free text, available to all users */}
+          {/* Town — free text, available to all users; geocoded on blur so we
+              can confirm the place was identified correctly and (for Pro)
+              feed coordinates to the radius search. */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">Town</Label>
             <div className="relative">
@@ -109,13 +167,27 @@ export default function SearchFilters({ filters, onFiltersChange, isPro = false,
               <Input
                 value={local.town}
                 onChange={e => setLocal(p => ({ ...p, town: e.target.value }))}
+                onBlur={e => setGeocodeTarget(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') setGeocodeTarget(e.currentTarget.value); }}
                 placeholder="e.g. Polokwane"
                 className="pl-9"
               />
             </div>
-            {!isPro && (
+            {geocoding ? (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="w-3 h-3 animate-spin" /> Looking up "{local.town}"…
+              </p>
+            ) : local.townLat != null && local.townLng != null ? (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
+                Searching near: {local.townLat.toFixed(4)}°, {local.townLng.toFixed(4)}°
+                {local.townDisplayName ? ` — ${local.townDisplayName}` : ''}
+              </p>
+            ) : local.town.trim().length >= 3 ? (
+              <p className="text-xs text-amber-600 dark:text-amber-400">Place not found — check the spelling.</p>
+            ) : !isPro ? (
               <p className="text-xs text-muted-foreground">Matches educators whose town contains this text.</p>
-            )}
+            ) : null}
           </div>
 
           {/* Radius slider — Pro only */}
@@ -131,7 +203,11 @@ export default function SearchFilters({ filters, onFiltersChange, isPro = false,
                 <div className="flex items-center gap-3">
                   <Switch
                     checked={local.radiusKm > RADIUS_OFF}
-                    onCheckedChange={v => setLocal(p => ({ ...p, radiusKm: v ? RADIUS_DEFAULT : RADIUS_OFF }))}
+                    onCheckedChange={v => setLocal(p => ({
+                      ...p,
+                      radiusKm: v ? RADIUS_DEFAULT : RADIUS_OFF,
+                      province: v ? '' : p.province, // radius supersedes province — avoid a silently-ignored filter
+                    }))}
                   />
                   <span className="text-xs text-muted-foreground">
                     {local.radiusKm > RADIUS_OFF ? `Within ${local.radiusKm} km of this town` : 'Off — exact town match only'}
