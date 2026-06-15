@@ -193,9 +193,9 @@ export default function MatchesPage({ embedded = false }: Props) {
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-foreground">{isPro ? 'Educators' : 'Transfer Matches'}</h1>
+            <h1 className="text-xl font-bold text-foreground">{isPro ? 'Find Your Matches' : 'Transfer Matches'}</h1>
             <p className="text-sm text-muted-foreground">
-              {isPro ? 'All educators, sorted by match — use filters to narrow your search.' : 'Educators who match your transfer preferences'}
+              {isPro ? 'All educators, sorted by match — use filters to refine your search.' : 'Educators who match your transfer preferences'}
             </p>
           </div>
         </div>

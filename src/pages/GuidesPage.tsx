@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Download, ChevronDown, ChevronRight, FileText, CheckCircle2, AlertCircle, X, Lock, Zap } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Download, ChevronDown, ChevronRight, FileText, CheckCircle2, AlertCircle, X, Lock, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
@@ -496,6 +497,7 @@ const STEPS = [
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function GuidesPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [profile, setProfile] = useState<EducatorProfile>({
     full_name: '', current_school: '', current_province: '',
@@ -573,10 +575,10 @@ export default function GuidesPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 pb-24 pt-4">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-2">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-          <BookOpen className="w-5 h-5 text-primary" />
-        </div>
+      <div className="flex items-center gap-2 mb-2">
+        <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors shrink-0">
+          <ArrowLeft className="w-5 h-5 text-foreground" />
+        </button>
         <div>
           <h1 className="text-lg font-bold text-foreground">Transfer Guides</h1>
           <p className="text-xs text-muted-foreground">Provincial DoE Cross-Transfer Process & Templates</p>

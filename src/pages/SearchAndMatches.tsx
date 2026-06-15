@@ -54,11 +54,11 @@ export default function SearchAndMatches() {
   }
 
   if (isPro) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <MatchesPage embedded />
-      </div>
-    );
+    // Non-embedded gives Pro users the page header (back arrow + "Find Your
+    // Matches" title) and the narrower max-w-lg container — matching the
+    // width of cards on other pages (e.g. Chats) instead of the wider
+    // max-w-2xl used by the two-tab layout below.
+    return <MatchesPage />;
   }
 
   return (
