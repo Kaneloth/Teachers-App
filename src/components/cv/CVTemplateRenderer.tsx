@@ -1344,7 +1344,7 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
               {validExp.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                    <span style={{ color: '#6b7280', fontSize: '13px' }}>❖</span>
+                    <span style={{ color: '#6b7280', fontSize: '13px' }}>•</span>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{e.role}{e.school ? `, ${e.school}` : ''}</span>
@@ -1362,7 +1362,7 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
               <div style={{ background: '#f3f4f6', padding: '6px 10px', marginBottom: '12px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>EDUCATION</div>
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '12px' }}>
-                  <span style={{ color: '#6b7280', fontSize: '13px' }}>❖</span>
+                  <span style={{ color: '#6b7280', fontSize: '13px' }}>•</span>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{e.qualification}</div>
@@ -1374,20 +1374,29 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
               ))}
             </div>
           )}
-          {(skills?.soft_skills?.length || skills?.subjects?.length) && (
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ background: '#f3f4f6', padding: '6px 10px', marginBottom: '12px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>SKILLS</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                {[...(skills.subjects || []), ...(skills.soft_skills || [])].map((s: string, i: number) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '12px', color: '#374151' }}>
-                    <span>{s}</span>
-                    <span style={{ flex: 1, borderBottom: '1.5px dotted #d1d5db', margin: '0 6px', minWidth: '20px' }} />
-                    <span style={{ fontWeight: '700', fontSize: '11px' }}>Expert</span>
+          {(() => {
+            const shadedSkillGroups = [
+              { label: 'Key Skills',          items: skills?.subjects    || [] },
+              { label: 'Professional Skills', items: skills?.soft_skills || [] },
+              { label: 'Languages',           items: skills?.languages   || [] },
+            ].filter(g => g.items.length > 0);
+            if (!shadedSkillGroups.length) return null;
+            return (
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ background: '#f3f4f6', padding: '6px 10px', marginBottom: '12px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>SKILLS</div>
+                {shadedSkillGroups.map((group, gi) => (
+                  <div key={group.label} style={{ marginBottom: gi < shadedSkillGroups.length - 1 ? '8px' : 0 }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#374151', marginBottom: '3px' }}>
+                      {group.label}
+                    </div>
+                    <p style={{ margin: 0, fontSize: '12px', lineHeight: '1.7', color: '#374151' }}>
+                      {group.items.join('  ·  ')}
+                    </p>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            );
+          })()}
           {renderCustomSections(data.custom_sections, '#374151')}
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}

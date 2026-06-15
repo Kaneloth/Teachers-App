@@ -780,7 +780,7 @@ function drawTimeline(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
   refsPage(p,refs,accent,'dot-prefix',np,BOTTOM,owner,wm);
 }
 
-// ── 14. SHADED — Centred header, shaded section bars, ❖ entry markers ─────────
+// ── 14. SHADED — Centred header, shaded section bars, • entry markers ─────────
 function drawShaded(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#374151');const [ar,ag,ab]=accent;
   fill(p,243,244,246);p.rect(0,0,PW,28,'F');
@@ -790,21 +790,43 @@ function drawShaded(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   p.setFont(F,'normal');p.setFontSize(8);tc(p,75,85,99);const ctxt=[pr.phone,pr.email].filter(Boolean).join('   ·   ');const cw=p.getTextWidth(ctxt);p.text(ctxt,(PW-cw)/2,MT+21);
   hLine(p,ML,MT+24,PW-ML-MR,229,231,235,0.4);reset(p);let y=MT+28;
   const np=()=>{p.addPage();reset(p);return MT;};const GXW=():[ number,number]=>[ML,PW-ML-MR];
-  const shdH=(t:string)=>{if(y+12>BOTTOM)y=np();fill(p,243,244,246);p.rect(ML-2,y-4,PW-ML-MR+4,7,'F');tc(p,ar,ag,ab);p.setFont(F,'bold');p.setFontSize(9);p.text(t.toUpperCase(),ML+2,y);y+=HEADING_GAP+1;};
+  const shdH=(t:string)=>{
+    if(y+18>BOTTOM)y=np();
+    y+=6;  // clearance above the bar so it doesn't overlap the previous line/divider
+    fill(p,243,244,246);p.rect(ML-2,y-4,PW-ML-MR+4,7,'F');
+    tc(p,ar,ag,ab);p.setFont(F,'bold');p.setFontSize(9);p.text(t.toUpperCase(),ML+2,y);
+    y+=HEADING_GAP+3;  // clearance below the bar before content starts
+  };
   if(pr.bio){shdH('PROFILE');p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
   if(exp.length){shdH(isEdu?'EMPLOYMENT HISTORY':'WORK HISTORY');
-    for(const e of exp){if(y+14>BOTTOM)y=np();tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(10);p.text('❖',ML,y);
+    // jsPDF's standard Helvetica font (WinAnsi/CP1252 encoding) doesn't
+    // support the ❖ glyph and silently substitutes another character
+    // (renders as "V"); "•" (bullet, CP1252 0x95) is supported.
+    for(const e of exp){if(y+14>BOTTOM)y=np();tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(10);p.text('•',ML,y);
       p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,ML+5,y);
       const ds=[e.from,e.to].filter(Boolean).join(' — ');if(ds){tc(p,156,163,175);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,PW-MR-p.getTextWidth(ds),y);}y+=LINE_H;
       if(e.description){p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML+5,y,PW-ML-MR-5,accent,BOTTOM,np);}y+=ITEM_GAP+1;}}
   if(edu.length){shdH('EDUCATION');
-    for(const e of edu){if(y+12>BOTTOM)y=np();tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(10);p.text('❖',ML,y);
+    for(const e of edu){if(y+12>BOTTOM)y=np();tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(10);p.text('•',ML,y);
       p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.qualification||'',ML+5,y);const ds=e.year||'';if(ds){tc(p,156,163,175);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,PW-MR-p.getTextWidth(ds),y);}y+=LINE_H;
       p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text(e.institution||'',ML+5,y);y+=LINE_H+ITEM_GAP;}}
-  if(sk.subjects?.length||sk.soft_skills?.length||sk.languages?.length){shdH('SKILLS');p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
-    const allSk=[...(sk.subjects||[]),...(sk.soft_skills||[])];
-    if(allSk.length){y=wrapped(p,allSk.join('  ·  '),ML,y,PW-ML-MR,BOTTOM,np,GXW);y+=ITEM_GAP;}
-    if(sk.languages?.length){p.setFont(F,'bold');tc(p,ar,ag,ab);p.text('Languages: ',ML,y);const lw=p.getTextWidth('Languages: ');p.setFont(F,'normal');tc(p,55,65,81);p.text(sk.languages.join(', '),ML+lw,y);y+=LINE_H+ITEM_GAP;}}
+  // ── Skills — grouped by category (Key Skills / Professional Skills / Languages) ──
+  const shadedSkillGroups = ([
+    ['Key Skills',          sk.subjects    || []],
+    ['Professional Skills', sk.soft_skills || []],
+    ['Languages',           sk.languages   || []],
+  ] as [string, string[]][]).filter(([, items]) => items.length);
+  if(shadedSkillGroups.length){
+    shdH('SKILLS');
+    for(let g=0; g<shadedSkillGroups.length; g++){
+      const [label, items] = shadedSkillGroups[g];
+      if(y+LINE_H>BOTTOM) y=np();
+      p.setFont(F,'bold');p.setFontSize(9);tc(p,ar,ag,ab);p.text(label.toUpperCase(),ML,y);y+=LINE_H;
+      p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
+      y=wrapped(p,items.join('  ·  '),ML,y,PW-ML-MR,BOTTOM,np,GXW);
+      y+=ITEM_GAP+(g<shadedSkillGroups.length-1?1:0);
+    }
+  }
   y=drawCustom(p,customs,accent,'shaded',ML,y,PW-ML-MR,BOTTOM,np,GXW);
   refsPage(p,refs,accent,'shaded',np,BOTTOM,owner,wm);
 }
