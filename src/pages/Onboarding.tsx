@@ -121,7 +121,11 @@ export default function Onboarding() {
         .catch(() => {});
     }
 
-    navigate('/home');
+    // Send straight to the profile editor — skipping the detail form means
+    // key fields (town, subjects, etc.) are still empty, which matters for
+    // search/matching.
+    toast('Add a few details to your profile to get better matches.');
+    navigate('/profile');
   };
 
   const toggleSubject  = (s: string) => set('subjects',            form.subjects.includes(s)            ? form.subjects.filter(x => x !== s)            : [...form.subjects, s]);
@@ -152,7 +156,8 @@ export default function Onboarding() {
       }
 
       toast.success('Profile created! Welcome to Crosssa!');
-      navigate('/home');
+      toast('Tip: add a profile photo and bio to help others recognize you.');
+      navigate('/profile');
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Failed to create profile');
     } finally {
@@ -183,7 +188,8 @@ export default function Onboarding() {
       }
 
       toast.success('Profile created! Welcome to Crosssa!');
-      navigate('/home');
+      toast('Add your current town to improve your search results and matches.');
+      navigate('/profile');
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Failed to create profile');
     } finally {
