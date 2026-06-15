@@ -22,7 +22,7 @@ export default function LandingAbout() {
   >
     Skootlink (Pty) Ltd
   </a>
-  – a registered South African company that also operates a platform for vehicle‑owner to driver rentals in the gig economy.
+   – a registered South African company that also operates a platform for vehicle‑owner to driver rentals in the gig economy.
 </p>
         </div>
 
