@@ -21,8 +21,8 @@ export default function LandingAbout() {
     className="text-[#0d9488] hover:underline font-medium"
   >
     Skootlink (Pty) Ltd 
-  </a> 
-   – a registered South African company that also operates a platform for vehicle‑owner to driver rentals in the gig economy.
+  </a> <span> – </span>
+    a registered South African company that also operates a platform for vehicle‑owner to driver rentals in the gig economy.
 </p>
         </div>
 
