@@ -54,7 +54,7 @@ export default function LandingFooter() {
           </div>
         </div>
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <p>© {new Date().getFullYear()} Crosssa. All rights reserved. Crosssa is a product of <span className="text-white/90 font-medium">Skootlink (Pty) Ltd</span>.</p>
+          <p>© {new Date().getFullYear()} Crosssa. All rights reserved. Crosssa is a product of <a href="https://skootlink.co.za/" target="_blank" rel="noopener noreferrer" className="text-white/90 font-medium hover:text-white hover:underline transition-colors">Skootlink (Pty) Ltd</a>.</p>
           <p>Built for South African educators 🇿🇦</p>
         </div>
       </div>
