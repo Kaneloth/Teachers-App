@@ -1,4 +1,4 @@
-const CACHE_NAME = 'crosssa-v7';
+const CACHE_NAME = 'crosssa-v8';
 const OFFLINE_URL = '/offline.html';
 
 // App shell — everything needed to run the app without a network connection.
@@ -51,7 +51,7 @@ self.addEventListener('fetch', (event) => {
   // the React SPA can handle the route, or finally the offline page.
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: 'no-store' })
         .then((response) => {
           // Cache a fresh copy of index.html on every successful load
           if (response.ok) {
