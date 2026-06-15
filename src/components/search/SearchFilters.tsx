@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
-import { SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal, Lock, MapPin } from 'lucide-react';
 
 const PROVINCES = ['Gauteng', 'KwaZulu-Natal', 'Western Cape', 'Eastern Cape', 'Mpumalanga', 'Limpopo', 'North West', 'Free State', 'Northern Cape'];
 const SUBJECTS = [
@@ -26,12 +28,25 @@ const PHASES = ['Foundation', 'Intermediate', 'Senior', 'FET'];
 
 export { PROVINCES };
 
+// 0 = radius search off. Pro-only feature — see `radiusKm` usage below.
+export const RADIUS_OFF = 0;
+export const RADIUS_MIN = 10;
+export const RADIUS_MAX = 200;
+export const RADIUS_STEP = 10;
+export const RADIUS_DEFAULT = 50;
+
 export interface Filters {
   province: string;
+  town: string;       // free-text town/area name — available to all users
+  radiusKm: number;    // Pro-only proximity radius around `town`; 0 = off
   subject: string;
   phase: string;
   activeOnly: boolean;
 }
+
+export const DEFAULT_FILTERS: Filters = {
+  province: '', town: '', radiusKm: RADIUS_OFF, subject: '', phase: '', activeOnly: false,
+};
 
 interface Props {
   filters: Filters;
@@ -44,13 +59,20 @@ export default function SearchFilters({ filters, onFiltersChange, isPro = false,
   const [open, setOpen] = useState(false);
   const [local, setLocal] = useState<Filters>(filters);
 
-  const handleApply = () => { onFiltersChange(local); setOpen(false); };
+  const handleApply = () => {
+    // Free users can't apply a radius — strip it defensively even if it was
+    // somehow set (e.g. they downgraded after setting it).
+    onFiltersChange(isPro ? local : { ...local, radiusKm: RADIUS_OFF });
+    setOpen(false);
+  };
   const handleReset = () => {
-    const reset: Filters = { province: '', subject: '', phase: '', activeOnly: false };
-    setLocal(reset); onFiltersChange(reset); setOpen(false);
+    setLocal(DEFAULT_FILTERS); onFiltersChange(DEFAULT_FILTERS); setOpen(false);
   };
 
-  const activeCount = [local.province, local.subject, local.phase, local.activeOnly].filter(Boolean).length;
+  const activeCount = [
+    local.province, local.town, local.subject, local.phase,
+    local.activeOnly, isPro && local.radiusKm > RADIUS_OFF,
+  ].filter(Boolean).length;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -77,6 +99,69 @@ export default function SearchFilters({ filters, onFiltersChange, isPro = false,
               <SelectTrigger><SelectValue placeholder="All provinces" /></SelectTrigger>
               <SelectContent>{PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
             </Select>
+          </div>
+
+          {/* Town — free text, available to all users */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Town</Label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={local.town}
+                onChange={e => setLocal(p => ({ ...p, town: e.target.value }))}
+                placeholder="e.g. Polokwane"
+                className="pl-9"
+              />
+            </div>
+            {!isPro && (
+              <p className="text-xs text-muted-foreground">Matches educators whose town contains this text.</p>
+            )}
+          </div>
+
+          {/* Radius slider — Pro only */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Search radius</Label>
+              {isPro && local.radiusKm > RADIUS_OFF && (
+                <span className="text-xs font-semibold text-primary">{local.radiusKm} km</span>
+              )}
+            </div>
+            {isPro ? (
+              <>
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={local.radiusKm > RADIUS_OFF}
+                    onCheckedChange={v => setLocal(p => ({ ...p, radiusKm: v ? RADIUS_DEFAULT : RADIUS_OFF }))}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {local.radiusKm > RADIUS_OFF ? `Within ${local.radiusKm} km of this town` : 'Off — exact town match only'}
+                  </span>
+                </div>
+                {local.radiusKm > RADIUS_OFF && (
+                  <Slider
+                    value={[local.radiusKm]}
+                    min={RADIUS_MIN}
+                    max={RADIUS_MAX}
+                    step={RADIUS_STEP}
+                    onValueChange={([v]) => setLocal(p => ({ ...p, radiusKm: v }))}
+                  />
+                )}
+                {local.radiusKm > RADIUS_OFF && !local.town && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">Enter a town above to search within this radius.</p>
+                )}
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={onProGate}
+                className="flex items-center gap-2 w-full bg-muted/50 border border-border rounded-xl px-3 py-2.5 text-left hover:border-primary/50 transition-colors"
+              >
+                <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Upgrade to Pro</span> to search educators within a radius of a town
+                </span>
+              </button>
+            )}
           </div>
 
           <div className="space-y-2">

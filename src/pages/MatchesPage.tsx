@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import SubscriptionModal from '@/components/SubscriptionModal';
-import { calculateMatch } from '@/components/search/EducatorCard';
+import { calculateMatch, qualifiesForMatchesPage, isTownSwapMatch } from '@/components/search/EducatorCard';
 
 interface Educator {
   id: string;
@@ -28,27 +28,6 @@ interface Educator {
 
 interface Props {
   embedded?: boolean;
-}
-
-/**
- * "District swap" exception — included on the Matches page even if the
- * weighted match score is below the normal 85% threshold, because it
- * represents a direct transfer-exchange opportunity:
- *   - Both educators share at least one subject, AND
- *   - My current district is one of THEIR preferred districts, OR
- *   - Their current district is one of MY preferred districts
- * (i.e. each could plausibly move to where the other currently is).
- */
-function isDistrictSwapMatch(mine: Educator, them: Educator): boolean {
-  const mySubjects   = new Set((mine.subjects || []).map(s => s.toLowerCase()));
-  const theirSubjects = new Set((them.subjects || []).map(s => s.toLowerCase()));
-  const sharesSubject = [...mySubjects].some(s => theirSubjects.has(s));
-  if (!sharesSubject) return false;
-
-  const iWantTheirDistrict = !!(them.town && (mine.preferred_districts || []).includes(them.town));
-  const theyWantMyDistrict = !!(mine.town && (them.preferred_districts || []).includes(mine.town));
-
-  return iWantTheirDistrict || theyWantMyDistrict;
 }
 
 export default function MatchesPage({ embedded = false }: Props) {
@@ -112,13 +91,13 @@ export default function MatchesPage({ embedded = false }: Props) {
           return {
             ...e,
             score,
-            isDistrictSwap: isDistrictSwapMatch(mine, e),
+            isDistrictSwap: isTownSwapMatch(mine, e),
           };
         })
         // Matches page: 85–100% with the weighted formula, OR a direct
         // district-swap opportunity (shared subject + reciprocal district
         // preference) regardless of overall score.
-        .filter(e => e.score >= 85 || e.isDistrictSwap)
+        .filter(e => qualifiesForMatchesPage(mine, e, e.score))
         .sort((a, b) => b.score - a.score);
 
       setMatches(scored);

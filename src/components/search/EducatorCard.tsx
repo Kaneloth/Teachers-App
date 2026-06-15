@@ -7,6 +7,7 @@ export interface MyProfile {
   current_province?: string;
   town?: string;
   subjects?: string[];
+  preferred_districts?: string[];
 }
 
 /**
@@ -30,6 +31,40 @@ export function calculateMatch(me: MyProfile, them: MyProfile): number {
   const districtScore = me.town && them.town && me.town === them.town ? 0.20 : 0;
 
   return Math.round((phaseScore + provinceScore + districtScore + subjectScore * 0.40) * 100);
+}
+
+/** Matches page shows scores ≥ this threshold, plus any town-swap matches. */
+export const MATCH_THRESHOLD = 85;
+
+/**
+ * "Town swap" exception — qualifies for the Matches page even below
+ * MATCH_THRESHOLD, because it represents a direct transfer-exchange
+ * opportunity:
+ *   - Both educators share at least one subject, AND
+ *   - My current town is one of THEIR preferred districts, OR
+ *   - Their current town is one of MY preferred districts
+ * (i.e. each could plausibly move to where the other currently is).
+ */
+export function isTownSwapMatch(mine: MyProfile, them: MyProfile): boolean {
+  const mySubjects    = new Set((mine.subjects || []).map(s => s.toLowerCase()));
+  const theirSubjects = new Set((them.subjects || []).map(s => s.toLowerCase()));
+  const sharesSubject = [...mySubjects].some(s => theirSubjects.has(s));
+  if (!sharesSubject) return false;
+
+  const iWantTheirTown = !!(them.town && (mine.preferred_districts || []).includes(them.town));
+  const theyWantMyTown = !!(mine.town && (them.preferred_districts || []).includes(mine.town));
+
+  return iWantTheirTown || theyWantMyTown;
+}
+
+/**
+ * Single source of truth for "does this educator belong on the Matches
+ * page" — used both to populate Matches and to EXCLUDE these educators
+ * from the general Search page (so the same person isn't listed twice).
+ */
+export function qualifiesForMatchesPage(mine: MyProfile, them: MyProfile, score?: number): boolean {
+  const s = score ?? calculateMatch(mine, them);
+  return s >= MATCH_THRESHOLD || isTownSwapMatch(mine, them);
 }
 
 interface Educator {
