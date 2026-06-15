@@ -29,6 +29,7 @@ import CareerToolsPage from '@/pages/CareerToolsPage';
 import CoverLettersPage from '@/pages/CoverLettersPage';
 import GuidesPage from '@/pages/GuidesPage';
 import SettingsPage from '@/pages/SettingsPage';
+import SupportPage from '@/pages/SupportPage';
 import CreditsPage from '@/pages/CreditsPage';
 // AboutPage import removed
 import NotFound from '@/pages/not-found';
@@ -76,6 +77,7 @@ export default function App() {
                   <Route path="/career-tools"  element={<CareerToolsPage />} />
                   <Route path="/cover-letters" element={<CoverLettersPage />} />
                   <Route path="/settings"      element={<SettingsPage />} />
+                  <Route path="/support"       element={<SupportPage />} />
                   <Route path="/credits"       element={<CreditsPage />} />
                 </Route>
               </Route>
