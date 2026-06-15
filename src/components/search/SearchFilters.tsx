@@ -61,11 +61,15 @@ interface Props {
 
 export default function SearchFilters({ filters, onFiltersChange, isPro = false, onProGate }: Props) {
   const [open, setOpen] = useState(false);
-  const [local, setLocal] = useState<Filters>(filters);
+  // Defensive merge — older callers may pass a `filters` object from before
+  // `town`/`radiusKm`/etc existed, which would leave those fields `undefined`
+  // and crash the `.trim()` calls below.
+  const initial: Filters = { ...DEFAULT_FILTERS, ...filters, town: filters.town ?? '' };
+  const [local, setLocal] = useState<Filters>(initial);
   const [geocoding, setGeocoding] = useState(false);
   // geocodeTarget only changes on blur/Enter — keeps geocoding off every keystroke.
-  const [geocodeTarget, setGeocodeTarget] = useState(filters.town);
-  const lastGeocodedRef = useRef(filters.town);
+  const [geocodeTarget, setGeocodeTarget] = useState(initial.town);
+  const lastGeocodedRef = useRef(initial.town);
 
   // Geocode only when the user commits a change to the town field (blur/Enter).
   useEffect(() => {
