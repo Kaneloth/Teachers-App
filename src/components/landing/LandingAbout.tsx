@@ -26,54 +26,7 @@ export default function LandingAbout() {
 </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-12 items-center mb-20">
-          <div>
-            <span className="text-xs font-semibold text-[#0d9488] uppercase tracking-widest">From the founder</span>
-            <h3 className="text-3xl font-extrabold text-[#0f172a] mt-2 mb-4">I'm an educator, just like you</h3>
-            <p className="text-[#475569] mb-4">
-              The idea for Crosssa came when I needed to find a transfer match myself. I realised how 
-              difficult, slow, and opaque the process is – educators have no direct way to find someone 
-              willing to exchange schools. So I decided to build a platform where educators can sign up, 
-              see each other, and message directly when they match.
-            </p>
-            <p className="text-[#475569] mb-4">
-              Along the way, I saw that many job seekers (including unemployed educators) struggle to 
-              create professional CVs and cover letters. That's why I added career tools that anyone can 
-              use – to help you take your career to the next level, whatever that level may be.
-            </p>
-            <p className="text-[#475569]">
-              Crosssa is my solo project, built from my own experience. No boardrooms, no investors 
-              pushing for profit – just an educator who believes that finding your next opportunity should 
-              be transparent, direct, and affordable.
-            </p>
-          </div>
-          <div className="bg-[#f8fafc] rounded-2xl p-6 border border-[#e2e8f0]">
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#ccfbf1] flex items-center justify-center text-[#0d9488] font-bold">✓</div>
-                <div>
-                  <p className="font-semibold text-[#0f172a]">Direct peer matching</p>
-                  <p className="text-sm text-[#64748b]">See other educators and message them directly – no middlemen, no "wait and hope".</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#ccfbf1] flex items-center justify-center text-[#0d9488] font-bold">✓</div>
-                <div>
-                  <p className="font-semibold text-[#0f172a]">Professional career tools</p>
-                  <p className="text-sm text-[#64748b]">CV builder and cover letter generator – simple, fast, and high quality.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#ccfbf1] flex items-center justify-center text-[#0d9488] font-bold">✓</div>
-                <div>
-                  <p className="font-semibold text-[#0f172a]">Free tier + fair approach</p>
-                  <p className="text-sm text-[#64748b]">No large upfront fees. Free credits to start, and reasonable prices for extra features.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        
         <div className="text-center mb-14">
           <h3 className="text-3xl font-extrabold text-[#0f172a] mb-4">What Makes Crosssa Different?</h3>
           <p className="text-[#64748b] max-w-2xl mx-auto">
