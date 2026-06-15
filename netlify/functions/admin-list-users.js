@@ -73,6 +73,7 @@ export const handler = async (event) => {
       id:                u.id,
       email:             u.email,
       full_name:         edu?.full_name || u.user_metadata?.full_name || '',
+      user_code:         u.user_metadata?.user_code || null,
       profile_type:      edu?.profile_type || null,
       account_status:    edu?.account_status || 'active',
       current_school:    edu?.current_school || null,
@@ -87,10 +88,14 @@ export const handler = async (event) => {
   });
 
   // ── 6. Filter by search ───────────────────────────────────────────────────
+  // Matches name, email, or Crosssa reference code (CR-DDDDLLL). The
+  // user_code is normalized to lowercase for comparison so "cr-1234abc",
+  // "CR-1234ABC", or just "1234abc" all match.
   if (search) {
     combined = combined.filter(u =>
       u.email?.toLowerCase().includes(search) ||
-      u.full_name?.toLowerCase().includes(search)
+      u.full_name?.toLowerCase().includes(search) ||
+      u.user_code?.toLowerCase().includes(search)
     );
   }
 

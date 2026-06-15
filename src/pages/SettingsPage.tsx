@@ -566,6 +566,7 @@ interface AdminUser {
   id: string;
   email: string;
   full_name: string;
+  user_code: string | null;
   profile_type: 'educator' | 'general' | null;
   account_status: string;
   current_school: string | null;
@@ -627,6 +628,9 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
           <div className="min-w-0">
             <h2 className="text-base font-bold text-foreground truncate">{user.full_name || user.email}</h2>
             <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+            {user.user_code && (
+              <p className="text-xs font-mono font-semibold text-primary mt-0.5">{user.user_code}</p>
+            )}
           </div>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted transition-colors shrink-0">
             <X className="w-4 h-4 text-muted-foreground" />
@@ -746,7 +750,7 @@ function UsersSubTab() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') load(); }}
-          placeholder="Search by name or email..."
+          placeholder="Search by name, email, or CR- code..."
           className="pl-9 rounded-2xl h-11"
         />
       </div>
@@ -778,6 +782,9 @@ function UsersSubTab() {
                   <p className="text-xs text-muted-foreground truncate">
                     {u.email} · <span className="capitalize">{u.profile_type || 'unset'}</span> · {u.credit_balance} cr
                   </p>
+                  {u.user_code && (
+                    <p className="text-[11px] font-mono text-primary/80 truncate">{u.user_code}</p>
+                  )}
                 </div>
                 {statusBadge(u.account_status)}
                 <ChevronRight className="w-4 h-4 text-muted-foreground ml-1 shrink-0" />
