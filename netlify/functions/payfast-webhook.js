@@ -197,8 +197,11 @@ async function handleSubscriptionPayment(fields, user_id, planId) {
   const newEnd = new Date(base);
   newEnd.setMonth(newEnd.getMonth() + plan.cycleMonths);
 
-  // Update profiles — subscription_plan, subscription_end, payfast_token
+  // Upsert profiles — subscription_plan, subscription_end, payfast_token.
+  // Using upsert (not update) because not every user has a profiles row yet
+  // — a plain .update() would silently affect zero rows for such users.
   const profileUpdate = {
+    id:                user_id,
     subscription_plan: planId,
     subscription_end:  newEnd.toISOString(),
   };
@@ -206,27 +209,39 @@ async function handleSubscriptionPayment(fields, user_id, planId) {
 
   const { error: profErr } = await supabase
     .from('profiles')
-    .update(profileUpdate)
-    .eq('id', user_id);
+    .upsert(profileUpdate, { onConflict: 'id' });
 
   if (profErr) {
-    console.error('[payfast-webhook] profiles update failed:', profErr);
+    console.error('[payfast-webhook] profiles upsert failed:', profErr);
     return { statusCode: 500, body: 'Error' };
   }
 
   // Mirror to user_metadata so client-side checks (which read user_metadata
   // directly) stay in sync immediately, and clear any prior cancellation flag.
-  const { error: metaErr } = await supabase.auth.admin.updateUserById(user_id, {
-    user_metadata: {
+  // IMPORTANT: fetch-and-merge rather than passing only the new keys —
+  // supabase.auth.admin.updateUserById's merge behavior for user_metadata
+  // has varied across versions, and a full replace here would silently wipe
+  // unrelated fields like is_admin, onboarding_completed, user_code, etc.
+  const { data: existingUserData, error: getUserErr } = await supabase.auth.admin.getUserById(user_id);
+  if (getUserErr) {
+    console.error('[payfast-webhook] could not fetch user for metadata merge:', getUserErr);
+    // profiles table was already updated successfully above — that's the
+    // source of truth, so don't fail the request over a metadata sync issue.
+  } else {
+    const mergedMetadata = {
+      ...(existingUserData?.user?.user_metadata || {}),
       subscription_plan: planId,
       subscription_end:  newEnd.toISOString(),
       subscription_cancelled: false,
-    },
-  });
-  if (metaErr) {
-    console.error('[payfast-webhook] user_metadata update failed:', metaErr);
-    // Don't fail the whole request — profiles table is the source of truth;
-    // metadata will resync next time the user's session refreshes.
+    };
+    const { error: metaErr } = await supabase.auth.admin.updateUserById(user_id, {
+      user_metadata: mergedMetadata,
+    });
+    if (metaErr) {
+      console.error('[payfast-webhook] user_metadata update failed:', metaErr);
+      // Don't fail the whole request — profiles table is the source of truth;
+      // metadata will resync next time the user's session refreshes.
+    }
   }
 
   // Record this payment for idempotency + audit trail
