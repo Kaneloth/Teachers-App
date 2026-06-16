@@ -44,7 +44,7 @@ export default function TestimonialForm({ source = 'public_form', onSubmitted, c
       if (error) throw error;
 
       setSubmitted(true);
-      toast.success('Thank you! Your review will appear once approved.');
+      toast.success('Thank you for sharing! We\'ll publish it shortly.');
       onSubmitted?.();
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Failed to submit your review. Please try again.');
@@ -60,7 +60,7 @@ export default function TestimonialForm({ source = 'public_form', onSubmitted, c
           <CheckCircle2 className="w-6 h-6 text-primary" />
         </div>
         <p className="font-semibold text-foreground">Thanks for sharing!</p>
-        <p className="text-sm text-muted-foreground mt-1">Your review is pending approval and will appear on our landing page soon.</p>
+        <p className="text-sm text-muted-foreground mt-1">We'll publish it on our landing page shortly.</p>
       </div>
     );
   }
