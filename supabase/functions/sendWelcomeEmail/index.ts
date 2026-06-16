@@ -13,14 +13,30 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { email, full_name, user_code } = await req.json();
+    const { email, full_name, user_code, profile_type } = await req.json();
     if (!email || !user_code) {
       return new Response(JSON.stringify({ error: 'Missing email or user_code' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const displayName = full_name || 'Educator';
+    const displayName = full_name || 'there';
+    const isEducator   = profile_type === 'educator';
+
+    // Tagline and body copy branch based on profile type — general users
+    // (job seekers) never see educator-transfer language, since none of
+    // that applies to them.
+    const tagline = isEducator
+      ? 'South African Educator Transfer Platform'
+      : 'A Platform for SA Educators &amp; Job Seekers';
+
+    const introLine = isEducator
+      ? "Your Crosssa account has been created successfully. We're excited to help you find your ideal transfer match across South Africa."
+      : "Your Crosssa account has been created successfully. We're excited to help you build a standout CV, write tailored cover letters, and find your next job opportunity.";
+
+    const whatsNextBody = isEducator
+      ? 'Complete your profile to start matching with educators who want to swap schools with you. The more detail you add, the better your matches will be.'
+      : 'Build your professional CV with our AI-assisted builder, generate a tailored cover letter, and browse the latest vacancies — all in one place.';
 
     const htmlBody = `
 <!DOCTYPE html>
@@ -34,7 +50,7 @@ serve(async (req) => {
         <tr>
           <td style="background:linear-gradient(135deg,#0d9488,#10b981);padding:32px 32px 24px;text-align:center;">
             <div style="font-size:28px;font-weight:800;color:#ffffff;letter-spacing:2px;">CROSSSA</div>
-            <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-top:4px;letter-spacing:1px;">South African Educator Transfer Platform</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-top:4px;letter-spacing:1px;">${tagline}</div>
           </td>
         </tr>
         <!-- Body -->
@@ -42,7 +58,7 @@ serve(async (req) => {
           <td style="padding:32px 32px 24px;">
             <h1 style="margin:0 0 12px;font-size:22px;color:#111827;">Welcome, ${displayName}! 🎉</h1>
             <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.6;">
-              Your Crosssa account has been created successfully. We're excited to help you find your ideal transfer match across South Africa.
+              ${introLine}
             </p>
 
             <!-- User Code box -->
@@ -60,7 +76,7 @@ serve(async (req) => {
 
             <p style="margin:0 0 20px;font-size:14px;color:#374151;line-height:1.6;">
               <strong>What's next?</strong><br>
-              Complete your profile to start matching with educators who want to swap schools with you. The more detail you add, the better your matches will be.
+              ${whatsNextBody}
             </p>
 
             <p style="margin:0;font-size:14px;color:#6b7280;line-height:1.6;">
@@ -71,7 +87,7 @@ serve(async (req) => {
         <!-- Footer -->
         <tr>
           <td style="background:#f9fafb;padding:20px 32px;text-align:center;border-top:1px solid #e5e7eb;">
-            <p style="margin:0;font-size:12px;color:#9ca3af;">© ${new Date().getFullYear()} Crosssa · South African Educator Transfer Platform</p>
+            <p style="margin:0;font-size:12px;color:#9ca3af;">© ${new Date().getFullYear()} Crosssa · ${tagline}</p>
           </td>
         </tr>
       </table>

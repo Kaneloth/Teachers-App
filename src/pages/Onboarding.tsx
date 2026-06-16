@@ -151,7 +151,7 @@ export default function Onboarding() {
 
       if (isNewCode) {
         supabase.functions
-          .invoke('sendWelcomeEmail', { body: { email: user?.email ?? '', full_name: genForm.full_name || user?.user_metadata?.full_name || '', user_code: userCode } })
+          .invoke('sendWelcomeEmail', { body: { email: user?.email ?? '', full_name: genForm.full_name || user?.user_metadata?.full_name || '', user_code: userCode, profile_type: 'general' } })
           .catch(() => {});
       }
 
@@ -183,7 +183,7 @@ export default function Onboarding() {
 
       if (isNewCode) {
         supabase.functions
-          .invoke('sendWelcomeEmail', { body: { email: user?.email ?? '', full_name: form.full_name || user?.user_metadata?.full_name || '', user_code: userCode } })
+          .invoke('sendWelcomeEmail', { body: { email: user?.email ?? '', full_name: form.full_name || user?.user_metadata?.full_name || '', user_code: userCode, profile_type: 'educator' } })
           .catch(() => {});
       }
 
