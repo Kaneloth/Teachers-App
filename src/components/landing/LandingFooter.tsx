@@ -1,5 +1,3 @@
-import { GraduationCap } from 'lucide-react';
-
 export default function LandingFooter() {
   return (
     <footer className="bg-[#0f172a] text-white/70 py-12 px-6">
@@ -7,7 +5,7 @@ export default function LandingFooter() {
         <div className="flex flex-col md:flex-row justify-between gap-8 pb-8 border-b border-white/10">
           <div className="max-w-xs">
             <div className="flex items-center gap-2 mb-3">
-              <GraduationCap className="w-6 h-6 text-[#0d9488]" />
+              <img src="/icons/icon-512.png" alt="Crosssa" className="w-7 h-7 rounded-lg" />
               <span className="text-white text-lg font-bold">Crosssa</span>
             </div>
             <p className="text-sm leading-relaxed">

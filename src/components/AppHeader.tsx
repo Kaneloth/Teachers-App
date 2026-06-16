@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { GraduationCap, User, Settings, LogOut, ShieldCheck } from 'lucide-react';
+import { User, Settings, LogOut, ShieldCheck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -33,7 +33,7 @@ export default function AppHeader() {
       <div className="flex items-center justify-between px-4 h-16 max-w-2xl mx-auto">
         {/* Logo — left-aligned */}
         <Link to="/home" className="flex items-center gap-2">
-          <GraduationCap className="w-6 h-6 text-primary" strokeWidth={2} />
+          <img src="/icons/icon-512.png" alt="Crosssa" className="w-7 h-7 rounded-lg" />
           <span className="text-xl font-extrabold text-foreground tracking-tight">Crosssa</span>
         </Link>
 
