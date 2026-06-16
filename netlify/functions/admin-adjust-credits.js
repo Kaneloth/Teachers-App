@@ -36,22 +36,31 @@ export const handler = async (event) => {
 
   // ── View a user's balance + ledger history ──────────────────────────────
   if (action === 'view') {
-    const { target_email, target_user_id } = body;
+    const { target_email, target_user_id, target_user_code } = body;
 
     let userId = target_user_id;
     if (!userId) {
-      if (!target_email) {
-        return { statusCode: 400, body: JSON.stringify({ error: 'target_email or target_user_id required' }) };
+      if (!target_email && !target_user_code) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'target_email, target_user_code, or target_user_id required' }) };
       }
-      // Look up user by email via admin API
+      // Look up user by email or CR- reference code via admin API.
       const { data: list, error: listErr } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
       if (listErr) return { statusCode: 500, body: JSON.stringify({ error: listErr.message }) };
-      const found = list.users.find(u => u.email?.toLowerCase() === target_email.toLowerCase());
+
+      const found = target_user_code
+        ? list.users.find(u => u.user_metadata?.user_code?.toLowerCase() === target_user_code.toLowerCase())
+        : list.users.find(u => u.email?.toLowerCase() === target_email.toLowerCase());
+
       if (!found) return { statusCode: 404, body: JSON.stringify({ error: 'User not found' }) };
       userId = found.id;
     }
 
     const { data: balance } = await supabase.rpc('get_credit_balance', { p_user_id: userId });
+
+    // Fetch the user's email/user_code for display, since the admin may
+    // have searched by CR- code (or vice versa) and the frontend needs
+    // both fields regardless of which one was used to find them.
+    const { data: userResult } = await supabase.auth.admin.getUserById(userId);
 
     const { data: ledger, error: ledgerErr } = await supabase
       .from('credit_ledger')
@@ -64,7 +73,13 @@ export const handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ user_id: userId, balance: balance ?? 0, ledger }),
+      body: JSON.stringify({
+        user_id:   userId,
+        email:     userResult?.user?.email ?? null,
+        user_code: userResult?.user?.user_metadata?.user_code ?? null,
+        balance:   balance ?? 0,
+        ledger,
+      }),
     };
   }
 

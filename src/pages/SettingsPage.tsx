@@ -821,8 +821,10 @@ interface LedgerEntry {
 
 function CreditsSubTab() {
   const { session } = useAuth();
-  const [email, setEmail] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState('');
+  const [userCode, setUserCode] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -831,22 +833,32 @@ function CreditsSubTab() {
   const [adjusting, setAdjusting] = useState(false);
 
   const search = async () => {
-    if (!email.trim()) { toast.error('Enter an email address'); return; }
+    const q = searchInput.trim();
+    if (!q) { toast.error('Enter an email address or CR- code'); return; }
     setLoading(true);
     try {
+      // A CR- code (e.g. "CR-1234ABC") doesn't contain "@"; an email
+      // always does — use that to decide which field to search by.
+      const isEmail = q.includes('@');
       const res = await fetch('/.netlify/functions/admin-adjust-credits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ action: 'view', target_email: email.trim() }),
+        body: JSON.stringify(
+          isEmail ? { action: 'view', target_email: q } : { action: 'view', target_user_code: q }
+        ),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'User not found');
       setUserId(result.user_id);
+      setUserEmail(result.email ?? q);
+      setUserCode(result.user_code ?? null);
       setBalance(result.balance);
       setLedger(result.ledger ?? []);
     } catch (e: any) {
       toast.error(e.message || 'Failed to load credits');
       setUserId(null);
+      setUserEmail('');
+      setUserCode(null);
       setBalance(null);
       setLedger([]);
     } finally {
@@ -895,11 +907,10 @@ function CreditsSubTab() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            value={email}
-            onChange={e => setEmail(e.target.value)}
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') search(); }}
-            placeholder="user@example.com"
-            type="email"
+            placeholder="user@example.com or CR- code"
             className="pl-9 rounded-2xl h-11"
           />
         </div>
@@ -918,7 +929,8 @@ function CreditsSubTab() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground">Current Balance</p>
-                <p className="text-xs text-muted-foreground truncate max-w-[180px]">{email}</p>
+                <p className="text-xs text-muted-foreground truncate max-w-[180px]">{userEmail}</p>
+                {userCode && <p className="text-xs font-mono font-semibold text-primary">{userCode}</p>}
               </div>
             </div>
             <p className="text-2xl font-bold text-primary">{balance}</p>
@@ -1435,11 +1447,12 @@ function AdminTab() {
         <p className="text-xs text-amber-800 font-medium">Admin panel — changes here affect real user accounts.</p>
       </div>
 
-      {/* Sub-tabs */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 bg-muted rounded-2xl p-1 gap-1">
+      {/* Sub-tabs — horizontal scroll instead of a grid, since a 2-row grid
+          gets cramped once there are more than ~4-5 sub-tabs. */}
+      <div className="flex gap-1 bg-muted rounded-2xl p-1 overflow-x-auto scrollbar-hide">
         {ADMIN_SUBTABS.map(t => (
           <button key={t} onClick={() => setSub(t)}
-            className={`py-2.5 rounded-xl text-xs font-medium transition-all ${sub === t ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
+            className={`shrink-0 px-3.5 py-2.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${sub === t ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
           >{t}</button>
         ))}
       </div>
