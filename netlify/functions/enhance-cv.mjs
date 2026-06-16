@@ -32,7 +32,7 @@ Your job is to take raw text (either from an uploaded CV or free-form user input
 3. Identify skills, qualifications, and languages from unstructured text across ALL professions
 4. Generate a professional, polished bio/summary appropriate to the person's actual profession
 5. Classify miscellaneous info (awards, training, publications, certifications) into custom_sections
-6. NEVER invent information — only use what is provided
+6. NEVER invent information. This is an absolute rule: do not add job titles, seniority levels (e.g. "Manager", "Senior", "Director"), years of experience, skills, achievements, or qualifications that are not explicitly present in the input text. If someone has no work experience, the experience array should be empty — do not fabricate a role to fill it. If information is sparse, the output should be sparse and honest, not padded with plausible-sounding invented detail.
 7. NEVER assume someone is an educator unless they explicitly mention teaching, schools, or education`;
 
 function buildStructurePrompt(inputText, cvType, isFreeText = false) {
@@ -71,11 +71,12 @@ RULES:
    - "I did budgets" → "Budget Management"
    - "I supervised staff" → "Staff Supervision"
 
-4. GENERATE a professional bio/summary (3-4 sentences) in first person, tailored to:
-   - The person's actual industry and role level
-   - Their years of experience
-   - Their key strengths and notable achievements
+4. GENERATE a professional bio/summary appropriate to:
+   - The person's actual industry and role level — based ONLY on what's in the input text above
+   - Their years of experience — ONLY if dates/duration are actually stated; never estimate or assume
+   - Their key strengths and notable achievements — ONLY ones explicitly mentioned
    - The South African job market context
+   Length should match how much real information is available: 1 sentence is correct and sufficient for someone with little/no stated experience. NEVER invent a job title, seniority level, years of experience, or achievement that isn't directly supported by the input text. A short, honest summary is always correct; an embellished one is always wrong.
 
 5. PRESERVE all bullet points in experience descriptions — join them with newlines.
 
@@ -152,26 +153,35 @@ function buildSummaryPrompt(cvData, userBlurb) {
 
   return `You are a professional CV writer specialising in South African CVs for ALL industries and professions.
 
-Write a compelling Professional Summary (bio) for a CV. It must be:
-- 3 to 4 sentences
+Write a Professional Summary (bio) for a CV. It must be:
+- 1 to 4 sentences — length depends ENTIRELY on how much real information is provided below. A person with little or no work history should get a SHORT summary (even just 1 sentence). Do not pad a short summary with invented detail to reach 3-4 sentences.
 - Written in first person ("I am...", "I have...")
-- Professional and confident in tone
-- Tailored to this person's ACTUAL profession and industry — not generic
-- Specific — mention role, years of experience, key skills/achievements where available
-- Appropriate for the South African job market
+- Professional and clear in tone
+- Based STRICTLY on the information given below — nothing else
 
 ${professionHint}
 
-INFORMATION ABOUT THE PERSON:
+ABSOLUTE RULE — DO NOT VIOLATE THIS UNDER ANY CIRCUMSTANCES:
+You must NEVER invent, assume, exaggerate, or upgrade ANY fact that is not explicitly present in the information below. This includes (but is not limited to):
+- Job titles or seniority levels (e.g. do not call someone a "Manager", "Director", "Senior X", or "Head of Y" unless that exact title or an unambiguous equivalent appears in their work experience below)
+- Years of experience (e.g. do not state "X years of experience" unless dates are given that actually support that number — and if no work experience is listed at all, do NOT claim any years of experience)
+- Skills, achievements, or responsibilities not listed below
+- Industry expertise beyond what the listed experience/education actually supports
+
+If the person has NO work experience listed (e.g. a recent graduate or first-time job seeker), the summary must reflect that honestly — for example, describing them as a motivated graduate or candidate eager to begin their career, based on their education/skills only. Do NOT describe them as experienced, do NOT invent a job title, and do NOT claim years of experience they do not have. A short, honest, well-written summary for someone with no experience is the correct and expected output — it is NOT a failure to be "compelling".
+
+When in doubt about whether a detail is supported by the information given, LEAVE IT OUT. Truthful and brief is always correct; impressive-sounding but fabricated is always wrong, even if it reads better.
+
+INFORMATION ABOUT THE PERSON (this is the ONLY source of facts you may use):
 Name: ${name}
-${expList   ? `Work Experience: ${expList}` : ''}
+${expList   ? `Work Experience: ${expList}` : 'Work Experience: None provided — do not imply or invent any work history.'}
 ${subjects  ? `Subjects/Specialisation: ${subjects}` : ''}
 ${softSkills ? `Key Skills: ${softSkills}` : ''}
 ${eduList   ? `Education: ${eduList}` : ''}
 ${userBlurb ? `In their own words: "${userBlurb}"` : ''}
-${cvData?.personal?.bio ? `Existing summary (improve this): "${cvData.personal.bio}"` : ''}
+${cvData?.personal?.bio ? `Existing summary (improve the WRITING of this without adding new unsupported facts): "${cvData.personal.bio}"` : ''}
 
-Return ONLY the summary paragraph. No labels, no JSON, no preamble. Just the 3-4 sentence professional summary.`;
+Return ONLY the summary paragraph. No labels, no JSON, no preamble. Just the summary, as short or as long as the real information above actually supports.`;
 }
 
 
@@ -231,7 +241,7 @@ INSTRUCTIONS:
    - "Yours sincerely," closing
    - Applicant name at the bottom
 7. Length: 3-4 paragraphs, professional and concise
-8. NEVER fabricate experience or qualifications not mentioned in the CV data
+8. NEVER fabricate experience, job titles, seniority, years of experience, or qualifications not explicitly present in the CV data above. If the applicant has limited experience or is early-career, write a genuine, honest letter that focuses on their real strengths (education, transferable skills, enthusiasm) rather than inventing achievements to sound more impressive. A short, honest letter is correct; an embellished one is not.
 9. If no CV data is provided, write a strong generic letter for the role based on the JD
 
 Return ONLY the letter text. No labels, no JSON, no preamble or postamble. Just the letter.`;
