@@ -51,8 +51,21 @@ export function useCredits(): CreditState {
     type: 'cv_usage' | 'letter_usage',
     refId?: string,
   ): Promise<boolean> => {
-    // Admins bypass the credit system entirely — no deduction, no API call.
-    if (isAdmin) return true;
+    // Admins bypass the credit system entirely — no deduction, no balance
+    // check. We still log a zero-cost ledger entry (fire-and-forget, never
+    // blocks generation) so admin activity isn't invisible to the ledger —
+    // this keeps the public "CVs Created" stat on the landing page honest,
+    // since it counts every credit_ledger row of this type.
+    if (isAdmin) {
+      if (session?.access_token) {
+        fetch('/.netlify/functions/log-admin-usage', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({ type, ref_id: refId }),
+        }).catch(() => {}); // never let logging failure affect the admin's flow
+      }
+      return true;
+    }
 
     if (!session?.access_token) {
       toast.error('Please sign in to generate your CV.');
