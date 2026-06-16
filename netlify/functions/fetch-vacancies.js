@@ -20,6 +20,9 @@
  *          Any logged-in user may trigger this (not admin-only) — the
  *          refresh button is exposed to all users so vacancies can be
  *          kept fresh even when the admin isn't available to do it.
+ *          Verified via a direct call to Supabase's auth REST endpoint
+ *          (no @supabase/supabase-js dependency needed, consistent with
+ *          the rest of this file's raw-fetch approach).
  *
  * Env vars:
  *   VITE_SUPABASE_URL              (required)
@@ -28,13 +31,32 @@
  *   ADZUNA_APP_KEY                 (optional — enables Adzuna source)
  */
 
-const { requireUser } = require('./lib/requireUser.js');
-
 const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
+
+/* ─── Auth: verify the caller's Supabase session JWT ────────────────────── */
+async function verifyUser(event) {
+  const jwt = (event.headers['authorization'] || event.headers['Authorization'] || '')
+    .replace('Bearer ', '').trim();
+  if (!jwt) return { error: 'Unauthorized — please log in' };
+
+  try {
+    const res = await fetch(`${process.env.VITE_SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        apikey: process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
+      },
+    });
+    if (!res.ok) return { error: 'Invalid or expired session — please log in again' };
+    const user = await res.json();
+    return { user };
+  } catch (e) {
+    return { error: `Auth check failed: ${e.message}` };
+  }
+}
 
 /* ─── Supabase upsert ───────────────────────────────────────────────────── */
 async function supabaseUpsert(rows) {
@@ -322,8 +344,10 @@ exports.handler = async (event) => {
   // Any logged-in user may trigger this — verified via their own Supabase
   // session JWT (no shared secret baked into frontend code, which would be
   // visible to anyone via browser dev tools since it's a VITE_-bundled var).
-  const auth = await requireUser(event);
-  if (auth.error) return { ...auth.error, headers: CORS_HEADERS };
+  const auth = await verifyUser(event);
+  if (auth.error) {
+    return { statusCode: 401, headers: CORS_HEADERS, body: JSON.stringify({ error: auth.error }) };
+  }
 
   if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
     return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Missing Supabase env vars' }) };
