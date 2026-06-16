@@ -1,7 +1,32 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle, GraduationCap, Briefcase } from 'lucide-react';
+import { ArrowRight, CheckCircle, GraduationCap, Briefcase, FileText, Users } from 'lucide-react';
+
+interface Stats {
+  users: number;
+  cvs: number;
+  vacancies: number;
+}
+
+function formatCount(n: number): string {
+  // Round down to the nearest clean number people round to in marketing
+  // copy (e.g. 1,247 -> "1,200+") rather than showing an oddly precise
+  // figure — still strictly true ("+") and avoids implying false precision.
+  if (n >= 1000) return `${Math.floor(n / 100) * 100}+`;
+  if (n >= 100)  return `${Math.floor(n / 10) * 10}+`;
+  return `${n}`;
+}
 
 export default function LandingHero() {
+  const [stats, setStats] = useState<Stats | null>(null);
+
+  useEffect(() => {
+    fetch('/.netlify/functions/landing-stats')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data) setStats(data); })
+      .catch(() => {}); // fail silently — card just omits the live numbers
+  }, []);
+
   return (
     <section className="bg-gradient-to-br from-[#f0fdfa] via-white to-[#f0fdf4] py-20 px-6">
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-12">
@@ -39,39 +64,38 @@ export default function LandingHero() {
           </div>
         </div>
 
-        {/* Right side - preview card */}
+        {/* Right side - real stats card (no fabricated names or activity —
+            every number here is a live count from the database) */}
         <div className="flex-1 flex justify-center">
           <div className="relative w-full max-w-sm">
-            <div className="bg-white rounded-3xl shadow-xl border border-[#e2e8f0] p-6 space-y-4">
-              <div className="flex items-center gap-3 pb-3 border-b border-[#f1f5f9]">
-                <div className="w-10 h-10 rounded-full bg-[#ccfbf1] flex items-center justify-center text-[#0d9488] font-bold text-sm">TP</div>
-                <div>
-                  <p className="text-sm font-semibold text-[#0f172a]">Thabo Pretorius</p>
-                  <p className="text-xs text-[#64748b]">Mathematics Educator · FET Phase</p>
-                </div>
-                <span className="ml-auto text-xs text-[#0d9488] bg-[#f0fdfa] px-2 py-0.5 rounded-full font-medium">Active</span>
+            <div className="bg-white rounded-3xl shadow-xl border border-[#e2e8f0] p-6">
+              <p className="text-xs font-semibold text-[#0d9488] uppercase tracking-widest mb-4">Real Numbers, No Fakes</p>
+              <div className="space-y-4">
+                <StatRow icon={Users}    label="Educators & Job Seekers" value={stats ? formatCount(stats.users) : '—'} />
+                <StatRow icon={FileText} label="CVs Created"             value={stats ? formatCount(stats.cvs) : '—'} />
+                <StatRow icon={Briefcase} label="Vacancies Listed"       value={stats ? formatCount(stats.vacancies) : '—'} />
               </div>
-              {[
-                { label: 'New Vacancy Match', desc: 'Maths Teacher · Gauteng · Post L1', time: '2m ago', dot: 'bg-[#0d9488]' },
-                { label: 'CV Generated', desc: 'Professional template ready to send', time: '1h ago', dot: 'bg-amber-400' },
-                { label: 'Connection Request', desc: 'Nomsa Dlamini wants to connect', time: '3h ago', dot: 'bg-blue-400' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${item.dot}`} />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-[#0f172a]">{item.label}</p>
-                    <p className="text-xs text-[#64748b]">{item.desc}</p>
-                  </div>
-                  <span className="text-[10px] text-[#94a3b8]">{item.time}</span>
-                </div>
-              ))}
             </div>
             <div className="absolute -bottom-4 -right-4 bg-[#0d9488] text-white text-xs font-semibold px-4 py-2 rounded-2xl shadow-lg">
-              1,200+ Educators & Job Seekers Joined
+              {stats ? formatCount(stats.users) : '...'} Educators & Job Seekers Joined
             </div>
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function StatRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-10 h-10 rounded-xl bg-[#ccfbf1] flex items-center justify-center shrink-0">
+        <Icon className="w-5 h-5 text-[#0d9488]" />
+      </div>
+      <div className="flex-1">
+        <p className="text-xs text-[#64748b]">{label}</p>
+      </div>
+      <p className="text-xl font-extrabold text-[#0f172a]">{value}</p>
+    </div>
   );
 }
