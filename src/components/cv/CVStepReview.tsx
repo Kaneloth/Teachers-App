@@ -8,6 +8,7 @@ import { exportElementAsPDF } from '@/utils/cvExport';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
+import TestimonialPromptModal from '@/components/TestimonialPromptModal';
 
 // Builds correct public storage URL — getPublicUrl() sometimes omits /public/
 function publicStorageUrl(bucket: string, path: string): string {
@@ -32,6 +33,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
   const [showInsufficientModal, setShowInsufficientModal] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [view, setView] = useState<'preview' | 'summary'>('preview');
+  const [showTestimonialPrompt, setShowTestimonialPrompt] = useState(false);
 
   // Check if the user has ever bought credits (purchase entry in ledger).
   // If yes → no watermark. If only signup_bonus credits → watermark applies.
@@ -104,6 +106,14 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
 
       setSent(true);
       toast.success('CV downloaded to your device!');
+
+      // Prompt for a testimonial a moment after the download completes —
+      // a natural high-satisfaction point. Once per browser session so
+      // it's not naggy on repeat "Download Again" clicks.
+      if (!sessionStorage.getItem('crosssa_testimonial_prompted')) {
+        sessionStorage.setItem('crosssa_testimonial_prompted', 'true');
+        setTimeout(() => setShowTestimonialPrompt(true), 1500);
+      }
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Failed to generate CV');
     } finally {
@@ -135,6 +145,13 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
             {sending ? 'Generating...' : 'Download Again'}
           </Button>
         </div>
+        <TestimonialPromptModal
+          open={showTestimonialPrompt}
+          onClose={() => setShowTestimonialPrompt(false)}
+          source="cv_download_prompt"
+          title="Got your CV! 🎉"
+          description="Mind sharing a quick review of your experience building it?"
+        />
       </div>
     );
   }
