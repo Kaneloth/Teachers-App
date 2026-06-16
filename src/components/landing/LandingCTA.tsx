@@ -3,7 +3,7 @@ import { ArrowRight } from 'lucide-react';
 
 export default function LandingCTA() {
   return (
-    <section id="contact" className="bg-[#0d9488] py-20 px-6">
+    <section className="bg-[#0d9488] py-20 px-6">
       <div className="max-w-3xl mx-auto text-center">
         <p className="text-white/60 text-sm font-semibold uppercase tracking-widest mb-3">📱 Free to Download · Works on Any Device</p>
         <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">Start Your Journey Today</h2>
