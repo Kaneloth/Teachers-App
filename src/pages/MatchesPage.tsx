@@ -40,6 +40,7 @@ export default function MatchesPage({ embedded = false }: Props) {
   const [myProfile, setMyProfile] = useState<Educator | null>(null);
   const [matches, setMatches] = useState<Educator[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const [proChecked, setProChecked] = useState(false);
   const [showSubModal, setShowSubModal] = useState(false);
@@ -172,11 +173,12 @@ export default function MatchesPage({ embedded = false }: Props) {
 
     setMatches(final);
     setLoading(false);
+    setHasLoadedOnce(true);
   }, [user, myProfile, isPro, proChecked, filters, query]);
 
   useEffect(() => { fetchMatches(); }, [fetchMatches]);
 
-  if (loading) {
+  if (loading && !hasLoadedOnce) {
     return (
       <div className="flex justify-center py-20">
         <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
@@ -205,7 +207,11 @@ export default function MatchesPage({ embedded = false }: Props) {
       {isPro && (
         <div className="flex items-center gap-2 sticky top-0 z-10 bg-background pt-1 pb-1">
           <div className="relative flex-1">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            {loading ? (
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+            ) : (
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            )}
             <Input
               value={query}
               onChange={e => setQuery(e.target.value)}
