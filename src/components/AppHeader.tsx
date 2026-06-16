@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { User, Settings, LogOut, ShieldCheck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
+import CreditBalance from '@/components/credits/CreditBalance';
 
 export default function AppHeader() {
   const { user, logout } = useAuth();
@@ -30,12 +31,19 @@ export default function AppHeader() {
 
   return (
     <header className="sticky top-0 z-40 bg-background border-b border-border">
-      <div className="flex items-center justify-between px-4 h-16 max-w-2xl mx-auto">
-        {/* Logo — left-aligned */}
-        <Link to="/home" className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 px-4 h-16 max-w-2xl mx-auto">
+        {/* Logo — left-aligned. Wordmark hidden on narrow screens so the
+            credit balance chip (added below) has room without crowding. */}
+        <Link to="/home" className="flex items-center gap-2 shrink-0">
           <img src="/icons/icon-512.png" alt="Crosssa" className="w-7 h-7 rounded-lg" />
-          <span className="text-xl font-extrabold text-foreground tracking-tight">Crosssa</span>
+          <span className="hidden sm:inline text-xl font-extrabold text-foreground tracking-tight">Crosssa</span>
         </Link>
+
+        {/* Credit balance — always visible, tap to top up. Previously this
+            only existed on the dedicated /credits page, which users had no
+            obvious way to discover; surfacing it here on every page is the
+            fix for "no clear button to buy credits". */}
+        <CreditBalance />
 
         {/* Avatar + dropdown */}
         <div className="relative" ref={ref}>
