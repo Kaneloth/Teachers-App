@@ -16,20 +16,24 @@
  *   - Education filter removed from Careers24 — all valid jobs are kept.
  *
  * Trigger: POST /.netlify/functions/fetch-vacancies
- * Auth:    Header  x-admin-secret: <ADMIN_SECRET>
+ * Auth:    Header  Authorization: Bearer <user's Supabase session JWT>
+ *          Any logged-in user may trigger this (not admin-only) — the
+ *          refresh button is exposed to all users so vacancies can be
+ *          kept fresh even when the admin isn't available to do it.
  *
  * Env vars:
  *   VITE_SUPABASE_URL              (required)
  *   VITE_SUPABASE_SERVICE_ROLE_KEY (required)
- *   ADMIN_SECRET                   (required)
  *   ADZUNA_APP_ID                  (optional — enables Adzuna source)
  *   ADZUNA_APP_KEY                 (optional — enables Adzuna source)
  */
 
+const { requireUser } = require('./lib/requireUser.js');
+
 const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, x-admin-secret',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
 /* ─── Supabase upsert ───────────────────────────────────────────────────── */
@@ -315,10 +319,11 @@ exports.handler = async (event) => {
     return { statusCode: 204, headers: CORS_HEADERS, body: '' };
   }
 
-  const secret = event.headers['x-admin-secret'];
-  if (!secret || secret !== process.env.ADMIN_SECRET) {
-    return { statusCode: 401, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Unauthorized' }) };
-  }
+  // Any logged-in user may trigger this — verified via their own Supabase
+  // session JWT (no shared secret baked into frontend code, which would be
+  // visible to anyone via browser dev tools since it's a VITE_-bundled var).
+  const auth = await requireUser(event);
+  if (auth.error) return { ...auth.error, headers: CORS_HEADERS };
 
   if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
     return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Missing Supabase env vars' }) };

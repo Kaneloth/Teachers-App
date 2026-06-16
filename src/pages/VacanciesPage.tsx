@@ -225,7 +225,7 @@ export default function VacanciesPage() {
       .from('vacancies')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(300);
+      .limit(1000);
     setVacancies(data || []);
     if (data?.length) setLastUpdated(new Date(data[0].created_at));
     setLoading(false);
@@ -236,12 +236,17 @@ export default function VacanciesPage() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      const adminSecret = import.meta.env.VITE_ADMIN_SECRET;
-      if (!adminSecret) throw new Error('VITE_ADMIN_SECRET not set');
+      // Authenticate with the current user's own Supabase session token —
+      // not a shared admin secret, which would otherwise be visible to
+      // anyone via browser dev tools (VITE_-prefixed env vars get bundled
+      // into the public JS). Any logged-in user can trigger a refresh.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) throw new Error('Please log in to refresh vacancies.');
 
       const res  = await fetch('/.netlify/functions/fetch-vacancies', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-secret': adminSecret },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || 'Unknown error');
