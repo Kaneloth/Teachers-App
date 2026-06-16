@@ -1,4 +1,5 @@
 import { Input } from '@/components/ui/input';
+import AutoGrowTextarea from '@/components/AutoGrowTextarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
@@ -23,8 +24,8 @@ export default function CVStepEducation({ data, onChange }: Props) {
             <h3 className="font-semibold text-sm text-foreground">Qualification {i + 1}</h3>
             {data.length > 1 && <button onClick={() => remove(i)} className="text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>}
           </div>
-          <Field label="Institution"><Input value={entry.institution} onChange={e => set(i, 'institution', e.target.value)} placeholder="e.g. UNISA" className="rounded-xl" /></Field>
-          <Field label="Qualification"><Input value={entry.qualification} onChange={e => set(i, 'qualification', e.target.value)} placeholder="e.g. B.Ed (FET)" className="rounded-xl" /></Field>
+          <Field label="Institution"><AutoGrowTextarea value={entry.institution} onChange={v => set(i, 'institution', v)} placeholder="e.g. UNISA" /></Field>
+          <Field label="Qualification"><AutoGrowTextarea value={entry.qualification} onChange={v => set(i, 'qualification', v)} placeholder="e.g. B.Ed (FET)" /></Field>
           <Field label="Year Completed"><Input value={entry.year} onChange={e => set(i, 'year', e.target.value)} placeholder="e.g. 2018" className="rounded-xl" /></Field>
         </div>
       ))}

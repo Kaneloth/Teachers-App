@@ -1,5 +1,6 @@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import AutoGrowTextarea from '@/components/AutoGrowTextarea';
 import { Textarea } from '@/components/ui/textarea';
 import { useEffect, useState, useRef } from 'react';
 import { Lock, Camera, X, Loader2, ImageIcon, Sparkles } from 'lucide-react';
@@ -167,8 +168,8 @@ export default function CVStepPersonal({ data, onChange, onAiUsed }: Props) {
       {/* Editable location */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium">Location</Label>
-        <Input value={data.address} onChange={e => set('address', e.target.value)}
-          placeholder="e.g. Cape Town, Western Cape" className="rounded-xl" />
+        <AutoGrowTextarea value={data.address} onChange={v => set('address', v)}
+          placeholder="e.g. Cape Town, Western Cape" />
       </div>
 
       {/* ID / Passport */}

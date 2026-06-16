@@ -1,4 +1,5 @@
 import { Input } from '@/components/ui/input';
+import AutoGrowTextarea from '@/components/AutoGrowTextarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2, X } from 'lucide-react';
@@ -37,13 +38,13 @@ export default function CVStepExperience({ data, onChange }: Props) {
             </div>
 
             <Field label="Company / Organisation">
-              <Input value={entry.school} onChange={e => set(i, 'school', e.target.value)}
-                placeholder="e.g. Acme Corporation, City of Joburg, WCED" className="rounded-xl" />
+              <AutoGrowTextarea value={entry.school} onChange={v => set(i, 'school', v)}
+                placeholder="e.g. Acme Corporation, City of Joburg, WCED" />
             </Field>
 
             <Field label="Job Title / Role">
-              <Input value={entry.role} onChange={e => set(i, 'role', e.target.value)}
-                placeholder="e.g. Software Developer, Accountant, Mathematics Educator" className="rounded-xl" />
+              <AutoGrowTextarea value={entry.role} onChange={v => set(i, 'role', v)}
+                placeholder="e.g. Software Developer, Accountant, Mathematics Educator" />
             </Field>
 
             <div className="grid grid-cols-2 gap-3">
@@ -60,14 +61,14 @@ export default function CVStepExperience({ data, onChange }: Props) {
               <p className="text-xs text-muted-foreground -mt-0.5">Each point will appear as a bullet on your CV</p>
               <div className="space-y-2">
                 {bullets.map((bullet, bi) => (
-                  <div key={bi} className="flex items-center gap-2">
-                    <span className="text-muted-foreground text-sm shrink-0 w-4 text-center">•</span>
-                    <Input value={bullet} onChange={e => editBullet(i, bullets, bi, e.target.value)}
+                  <div key={bi} className="flex items-start gap-2">
+                    <span className="text-muted-foreground text-sm shrink-0 w-4 text-center pt-2">•</span>
+                    <AutoGrowTextarea value={bullet} onChange={v => editBullet(i, bullets, bi, v)}
                       placeholder={bi === 0 ? 'e.g. Managed a team of 5 staff members' : 'Add another achievement or responsibility...'}
-                      className="rounded-xl flex-1 text-sm" />
+                      className="flex-1 text-sm" />
                     {bullets.length > 1 && (
                       <button onClick={() => remBullet(i, bullets, bi)}
-                        className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                        className="text-muted-foreground hover:text-destructive transition-colors shrink-0 pt-2">
                         <X className="w-4 h-4" />
                       </button>
                     )}
