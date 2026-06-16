@@ -11,10 +11,10 @@ export default function LandingCTA() {
           Join hundreds of South African educators and job seekers. Build your CV, find transfer matches, and land your next opportunity – all free.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link to="/register" className="inline-flex items-center justify-center gap-2 bg-white text-[#0d9488] font-bold px-8 py-3.5 rounded-xl hover:bg-[#f0fdfa] transition-colors shadow-lg text-base">
+          <Link to="/register" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 bg-white text-[#0d9488] font-bold px-8 py-3.5 rounded-xl hover:bg-[#f0fdfa] transition-colors shadow-lg text-base">
             Create Free Account <ArrowRight className="w-5 h-5" />
           </Link>
-          <Link to="/login" className="inline-flex items-center justify-center gap-2 border-2 border-white/60 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-white/10 transition-colors text-base">
+          <Link to="/login" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 border-2 border-white/60 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-white/10 transition-colors text-base">
             Sign In
           </Link>
         </div>

@@ -23,10 +23,10 @@ export default function LandingNav() {
         </div>
 
         <div className="flex items-center gap-3">
-          <a href="/login" className="text-sm font-medium text-white/80 hover:text-white transition-colors hidden sm:block">
+          <a href="/login" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-white/80 hover:text-white transition-colors hidden sm:block">
             Sign In
           </a>
-          <a href="/register" className="text-sm font-bold bg-white text-[#0d9488] hover:bg-[#f0fdfa] transition-all px-4 py-1.5 rounded-lg shadow">
+          <a href="/register" target="_blank" rel="noopener noreferrer" className="text-sm font-bold bg-white text-[#0d9488] hover:bg-[#f0fdfa] transition-all px-4 py-1.5 rounded-lg shadow">
             📱 Get the App
           </a>
         </div>

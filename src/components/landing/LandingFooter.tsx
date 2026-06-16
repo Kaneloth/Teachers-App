@@ -27,8 +27,8 @@ export default function LandingFooter() {
             <div>
               <p className="text-white font-semibold mb-3">Account</p>
               <ul className="space-y-2">
-                <li><a href="/register" className="hover:text-white transition-colors">Sign Up Free</a></li>
-                <li><a href="/login" className="hover:text-white transition-colors">Sign In</a></li>
+                <li><a href="/register" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Sign Up Free</a></li>
+                <li><a href="/login" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Sign In</a></li>
               </ul>
             </div>
             <div>
