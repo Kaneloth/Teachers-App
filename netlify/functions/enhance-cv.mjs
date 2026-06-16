@@ -77,6 +77,7 @@ RULES:
    - Their key strengths and notable achievements — ONLY ones explicitly mentioned
    - The South African job market context
    Length should match how much real information is available: 1 sentence is correct and sufficient for someone with little/no stated experience. NEVER invent a job title, seniority level, years of experience, or achievement that isn't directly supported by the input text. A short, honest summary is always correct; an embellished one is always wrong.
+   IMPORTANT: "don't invent" does not mean "stay vague" — if specific subjects, qualifications, or skills ARE mentioned in the input text (e.g. "Mathematics", "Accounting", "B.Com"), name them explicitly in the bio. Never substitute a real, given detail with a generic phrase like "my field of study" — that is just as inaccurate as fabrication, since it fails to represent what the person actually told you.
 
 5. PRESERVE all bullet points in experience descriptions — join them with newlines.
 
@@ -170,7 +171,13 @@ You must NEVER invent, assume, exaggerate, or upgrade ANY fact that is not expli
 
 If the person has NO work experience listed (e.g. a recent graduate or first-time job seeker), the summary must reflect that honestly — for example, describing them as a motivated graduate or candidate eager to begin their career, based on their education/skills only. Do NOT describe them as experienced, do NOT invent a job title, and do NOT claim years of experience they do not have. A short, honest, well-written summary for someone with no experience is the correct and expected output — it is NOT a failure to be "compelling".
 
-When in doubt about whether a detail is supported by the information given, LEAVE IT OUT. Truthful and brief is always correct; impressive-sounding but fabricated is always wrong, even if it reads better.
+CRITICAL — SPECIFICITY IS REQUIRED, NOT OPTIONAL:
+"Don't invent information" does NOT mean "stay vague". You MUST name the actual, specific details given below — never replace a real fact with a vague generic phrase. For example:
+- If the qualification is "B.Com in Accounting" or the subjects are "Mathematics, Accounting", say exactly that — NEVER write a vague substitute like "my field of study" or "my area of expertise" when the real subject/qualification name is sitting right there in the information below.
+- If a skill, subject, or qualification is explicitly listed, USE ITS ACTUAL NAME in the summary. Vagueness when specific real information is available is just as wrong as fabrication — both fail to represent the person accurately.
+- Being brief (for someone with little experience) and being specific (naming the real subjects/qualifications/skills they do have) are NOT in conflict — a one-sentence summary should still name the actual field of study or subjects if those are provided, rather than describing them in generic terms.
+
+When in doubt about whether a detail is supported by the information given, LEAVE IT OUT. Truthful and brief is always correct; impressive-sounding but fabricated is always wrong, even if it reads better. But when a detail IS supported and explicitly given, name it specifically — do not water it down into a vague paraphrase.
 
 INFORMATION ABOUT THE PERSON (this is the ONLY source of facts you may use):
 Name: ${name}
