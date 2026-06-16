@@ -203,7 +203,7 @@ function drawFooter(p: any, owner: string, pg: number, total: number,
   if (watermark) {
     fill(p,15,23,42); p.rect(0, PH-FOOTER_H, PW, FOOTER_H, 'F');
     tc(p,148,163,184); p.setFont(F,'normal'); p.setFontSize(6.5);
-    const wt='Created FREE at www.crosssa.co.za';
+    const wt='Created FREE at www.crosssa.co.za  –  Upgrade to remove this watermark';
     p.text(wt, (PW-p.getTextWidth(wt))/2, PH-3.2);
     tc(p,255,255,255); p.setFont(F,'italic'); p.setFontSize(6.5);
     p.text(`Resume of ${owner}`, ML, PH-3.2);
@@ -344,7 +344,23 @@ export async function exportElementAsPDF(
   const wm      = !!data.watermark;
   const owner   = pr.full_name || 'Applicant';
 
-  const pdf = new JsPDFClass({ format:'a4', unit:'mm', compress:true });
+  // Lock the document against editing/copying — printing only. Set at
+  // construction time via jsPDF's documented `encryption` option (the
+  // ONLY encryption API actually confirmed in jsPDF's own source —
+  // earlier code called a non-existent `.encrypt()` method, which always
+  // threw and was silently swallowed by an empty catch, producing fully
+  // unprotected/editable exports with no visible failure). PDF encryption
+  // is applied to whatever content streams exist at `pdf.output()` time,
+  // so setting this here at construction still covers every page and the
+  // footer, which are drawn afterward.
+  const pdf = new JsPDFClass({
+    format: 'a4', unit: 'mm', compress: true,
+    encryption: {
+      userPassword:  '',                        // no password needed to open/view
+      ownerPassword: 'crosssa-cv-owner-2025',    // internal key needed to change these restrictions
+      userPermissions: ['print'],                // printing only — no modify, copy, or annot-forms
+    },
+  } as any);
   reset(pdf);
 
   const dispatch: Record<string, ()=>void> = {
@@ -379,13 +395,6 @@ export async function exportElementAsPDF(
     reset(pdf);
     drawFooter(pdf, owner, pg, total, accent, wm);
   }
-
-  try {
-    (pdf as any).encrypt({
-      userPassword:'', ownerPassword:'crosssa-cv-owner-2025',
-      userPermissions:['print','print-high'],
-    });
-  } catch(_){}
 
   void filename;
   return pdf.output('blob');
