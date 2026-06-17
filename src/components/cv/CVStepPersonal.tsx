@@ -26,11 +26,23 @@ interface PersonalData {
 
 interface Props {
   data: PersonalData;
+  // Full CV data (experience/education/skills) — needed so "Generate with
+  // AI" can actually see what the user provided elsewhere in the CV.
+  // Previously this component only ever sent { personal: data } to the
+  // AI, meaning experience/education/skills were always missing from the
+  // prompt regardless of what the user had filled in — the AI was telling
+  // the truth when it said "details not provided", because they genuinely
+  // weren't being sent.
+  fullCvData?: {
+    education?: { institution: string; qualification: string; year: string }[];
+    experience?: { school: string; role: string; from: string; to: string; description: string }[];
+    skills?: { subjects: string[]; soft_skills: string[]; languages: string[] };
+  };
   onChange: (d: PersonalData) => void;
   onAiUsed?: () => void;  // called when AI summary is successfully generated
 }
 
-export default function CVStepPersonal({ data, onChange, onAiUsed }: Props) {
+export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed }: Props) {
   const { user } = useAuth();
   const { balance, loading: creditsLoading, deduct } = useCredits();
   const [uploading,         setUploading]         = useState(false);
@@ -73,7 +85,16 @@ export default function CVStepPersonal({ data, onChange, onAiUsed }: Props) {
       const res = await fetch('/.netlify/functions/enhance-cv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generate_summary', cvData: { personal: data }, userBlurb: data.bio || '' }),
+        body: JSON.stringify({
+          action: 'generate_summary',
+          cvData: {
+            personal:   data,
+            education:  fullCvData?.education  ?? [],
+            experience: fullCvData?.experience ?? [],
+            skills:     fullCvData?.skills      ?? { subjects: [], soft_skills: [], languages: [] },
+          },
+          userBlurb: data.bio || '',
+        }),
       });
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error || 'AI failed');
