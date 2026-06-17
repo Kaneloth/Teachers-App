@@ -26,7 +26,8 @@ const ICON = {
   graduationCap: '\uf19d',
   briefcase:     '\uf0b1',
   fileText:      '\uf0f6',
-  trophy:        '\uf091',
+  trophy:        '\uf091', // reserved for Awards & Achievements, not Skills
+  cogs:          '\uf085', // used for Skills
   globe:         '\uf0ac',
   user:          '\uf007',
   envelope:      '\uf0e0',
@@ -61,6 +62,26 @@ function drawIcon(p: any, glyph: string, x: number, y: number, size: number, col
   tc(p, r, g, b);
   p.text(glyph, x, y);
   p.setFont(F, 'normal'); // restore standard text font for whatever is drawn next
+}
+
+// Draws "icon  text" inline, returning the x position right after the
+// text — so callers can chain multiple icon+text items left to right
+// (e.g. envelope+email, then phone-icon+number, with a separator
+// between). Icon size/offset values (8pt, y-0.5) were tuned empirically
+// against this specific font so the glyph optically aligns with text of
+// the given fontSize rather than appearing to float above or sink below
+// the text baseline.
+function iconText(p: any, glyph: string | null, text: string, x: number, y: number,
+                  fontSize: number, color: RGB): number {
+  let cx = x;
+  if (glyph && iconFontRegistered) {
+    drawIcon(p, glyph, cx, y - 0.5, fontSize - 1, color);
+    cx += fontSize * 0.55 + 1.5; // room for the icon glyph before the text starts
+  }
+  p.setFont(F, 'normal'); p.setFontSize(fontSize);
+  const [r,g,b] = color; tc(p,r,g,b);
+  p.text(text, cx, y);
+  return cx + p.getTextWidth(text);
 }
 
 // ── Page geometry (mm) ────────────────────────────────────────────────────────
@@ -237,8 +258,8 @@ function sectionHeading(p: any, title: string, x: number, y: number, maxW: numbe
   } else { // 'bar' (default)
     let titleX = x + 4;
     if (icon && iconFontRegistered) {
-      drawIcon(p, icon, x, y+0.5, 6, accent);
-      titleX = x + 7; // extra room for the icon glyph
+      drawIcon(p, icon, x, y-0.5, 8, accent);
+      titleX = x + 6.5; // extra room for the icon glyph
     } else {
       fill(p,ar,ag,ab); p.rect(x, y-3.2, 2.5, 3.8, 'F'); // fallback plain tick if icon font failed to load
     }
@@ -327,7 +348,12 @@ function drawCustom(p: any, sections: any[], accent: RGB, headStyle: HeadingStyl
       (sec.type === 'bullets' && !!(sec.content && (sec.content as string).split('\n').map((l:string)=>l.trim()).filter(Boolean).length)) ||
       (sec.type === 'table'   && !!(sec.columns?.length && sec.rows?.length));
     if (!sec.title || !hasContent) continue;
-    y = sectionHeading(p, sec.title, x, y, maxW, accent, headStyle, bottom, newPage, getXW);
+    // Trophy icon specifically for Awards/Achievements-type custom
+    // sections — other custom section titles are user-defined free text
+    // (e.g. "Certifications", "Volunteer Work") with no single icon that
+    // would fit all of them, so they keep the plain bar marker.
+    const sectionIcon = /award|achievement|honour|honor|recognition/i.test(sec.title) ? ICON.trophy : undefined;
+    y = sectionHeading(p, sec.title, x, y, maxW, accent, headStyle, bottom, newPage, getXW, sectionIcon);
     p.setFont(font,'normal'); p.setFontSize(9); tc(p,55,65,81);
     if (sec.type==='text' && sec.content) {
       y = wrapped(p, sec.content, x, y, maxW, bottom, newPage, getXW);
@@ -465,8 +491,18 @@ function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   fill(p,ar,ag,ab); p.rect(0,0,PW,30,'F');
   tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(18); p.text(owner.toUpperCase(),ML,13);
   hLine(p,ML,16,PW-ML-MR,255,255,255,0.25);
-  p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,160,174,192);
-  p.text([pr.email,pr.phone,pr.address,pr.id_number?`ID: ${pr.id_number}`:null].filter(Boolean).join('   ·   '),ML,23);
+  p.setFont(F, 'normal'); p.setFontSize(7.5); tc(p,160,174,192);
+  {
+    // Envelope icon before the email specifically; phone/address/ID
+    // follow as plain text. Icon color matches the light gray-blue used
+    // for this contact line (it sits on the dark navy banner, so a dark
+    // icon color like `accent` would be invisible here).
+    const lightGray: RGB = [160,174,192];
+    let cx = ML;
+    if (pr.email) cx = iconText(p, ICON.envelope, pr.email, cx, 23, 7.5, lightGray);
+    const rest = [pr.phone, pr.address, pr.id_number?`ID: ${pr.id_number}`:null].filter(Boolean).join('   ·   ');
+    if (rest) { p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,lightGray[0],lightGray[1],lightGray[2]); p.text((pr.email?'   ·   ':'')+rest, cx, 23); }
+  }
   reset(p); let y=MT+20;
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,PW,5,'F');reset(p);return MT+7;};
   const GXW=():[ number,number]=>[ML,PW-ML-MR];
@@ -481,7 +517,7 @@ function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
       const ds=[e.from,e.to].filter(Boolean).join(' – ');if(ds){p.setFont(F,'normal');p.setFontSize(8);tc(p,156,163,175);p.text(ds,PW-MR-p.getTextWidth(ds),y);}y+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML+5,y,PW-MR-ML-5,accent,BOTTOM,np,()=>[ML+5,PW-MR-ML-5]);
       y+=ITEM_GAP+1;}}
-  if(sk.subjects?.length||sk.soft_skills?.length||sk.languages?.length){y=sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW,ICON.trophy);
+  if(sk.subjects?.length||sk.soft_skills?.length||sk.languages?.length){y=sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW,ICON.cogs);
     for(const [lbl,items] of [['Subjects',sk.subjects||[]],['Skills',sk.soft_skills||[]],['Languages',sk.languages||[]]] as [string,string[]][]){if(!items.length)continue;
       p.setFont(F,'bold');p.setFontSize(9);tc(p,55,65,81);p.text(`${lbl}:`,ML,y);const lw=p.getTextWidth(`${lbl}:`)+2;p.setFont(F,'normal');tc(p,55,65,81);y=wrapped(p,items.join('  ·  '),ML+lw,y,PW-ML-MR-lw,BOTTOM,np,()=>[ML,PW-ML-MR]);y+=ITEM_GAP;}}
   y=drawCustom(p,customs,accent,'bar',ML,y,PW-ML-MR,BOTTOM,np,GXW);
