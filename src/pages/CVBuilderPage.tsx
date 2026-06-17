@@ -362,6 +362,19 @@ export default function CVBuilderPage() {
     setDraftSavedAt(null);
     setStep(0);
     setShowBuilder(false);
+
+    // Also persist to Supabase auth user_metadata — CoverLettersPage.tsx
+    // reads last_cv_data from user_metadata (not localStorage) to give the
+    // AI cover letter generator real CV context (education, experience,
+    // skills). Without this call, that data only ever lived in
+    // localStorage, so the cover letter AI never actually had access to
+    // any user's real CV data — explaining generic letters that never
+    // named a real qualification regardless of prompt wording.
+    if (user) {
+      supabase.auth.updateUser({ data: { last_cv_data: data } }).catch((err) => {
+        console.error('[CVBuilderPage] Failed to save last_cv_data to user_metadata:', err);
+      });
+    }
   };
 
   const handleAIDataExtracted = (newData: CVData) => {
