@@ -382,13 +382,25 @@ function drawCustom(p: any, sections: any[], accent: RGB, headStyle: HeadingStyl
     const sectionIcon = resolvedKey && ICON_MAP[resolvedKey]
       ? ICON_MAP[resolvedKey]
       : (/award|achievement|honour|honor|recognition/i.test(sec.title) ? ICON.trophy : undefined);
-    y = sectionHeading(p, sec.title, x, y, maxW, accent, headStyle, bottom, newPage, getXW, sectionIcon);
+    // BUG FIX: x/maxW were the function's fixed parameters and were never
+    // updated even when content overflowed to a new page mid-loop —
+    // wrapped()/bulletLine()/sectionHeading() each correctly compute a
+    // fresh [x,maxW] internally via getXW() when THEY overflow, but that
+    // local reassignment was discarded the moment each call returned, so
+    // every custom section drawn AFTER a page break still used the
+    // stale, original (often sidebar-indented) x position — exactly the
+    // "huge white space on the left on page 2" symptom. Wrapping getXW
+    // here lets drawCustom track and reuse the corrected position for
+    // every subsequent call within this same function, not just within
+    // a single nested helper call.
+    const trackedGetXW = getXW ? (): [number, number] => { const r = getXW(); x = r[0]; maxW = r[1]; return r; } : undefined;
+    y = sectionHeading(p, sec.title, x, y, maxW, accent, headStyle, bottom, newPage, trackedGetXW, sectionIcon);
     p.setFont(font,'normal'); p.setFontSize(9); tc(p,55,65,81);
     if (sec.type==='text' && sec.content) {
-      y = wrapped(p, sec.content, x, y, maxW, bottom, newPage, getXW);
+      y = wrapped(p, sec.content, x, y, maxW, bottom, newPage, trackedGetXW);
     } else if (sec.type==='bullets' && sec.content) {
       for (const b of (sec.content as string).split('\n').map((l:string)=>l.trim()).filter(Boolean))
-        y = bulletLine(p, b, x, y, maxW, accent, bottom, newPage, getXW);
+        y = bulletLine(p, b, x, y, maxW, accent, bottom, newPage, trackedGetXW);
     } else if (sec.type==='table' && sec.columns?.length && sec.rows?.length) {
       const cw = maxW/sec.columns.length;
       const [ar,ag,ab]=accent; fill(p,ar,ag,ab); tc(p,255,255,255);
@@ -397,7 +409,7 @@ function drawCustom(p: any, sections: any[], accent: RGB, headStyle: HeadingStyl
       sec.columns.forEach((col:string,ci:number)=>p.text(col, x+ci*cw+1, y));
       y+=6; p.setFont(font,'normal'); p.setFontSize(8.5);
       for (let ri=0; ri<sec.rows.length; ri++) {
-        if (y+6>bottom) y=newPage();
+        if (y+6>bottom) { y=newPage(); if (trackedGetXW) trackedGetXW(); }
         if (ri%2===0) { fill(p,249,250,251); p.rect(x,y-4,maxW,6,'F'); }
         tc(p,55,65,81);
         sec.rows[ri].forEach((cell:string,ci:number)=>p.text(String(cell||''), x+ci*cw+1, y));
@@ -620,7 +632,14 @@ function drawModern(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   const SB=29.1; const cx=ML+SB+8; const cmw=PW-MR-cx;
   const mainCX = ML; const mainCMW = PW-ML-MR; // page 2+ content position
   fill(p,ar,ag,ab); p.rect(0,0,ML+SB+2,PH,'F');
-  let sy=MT+4; const sx=ML+1; const smw=SB-4;
+  // sx shifted left and smw given extra safety margin (was SB-4, now
+  // SB-7) — text was wrapping correctly by line count but individual
+  // wrapped lines (especially unbroken runs like email addresses) were
+  // still rendering right at/past the sidebar's edge, since
+  // splitTextToSize's width estimate doesn't perfectly match real
+  // rendered glyph widths. More margin avoids relying on that estimate
+  // being exact.
+  let sy=MT+4; const sx=ML+0.5; const smw=SB-7;
   // Sidebar elements stay horizontally centered relative to the new
   // (narrower) smw.
   p.setFillColor(220,245,242); p.circle(sx+smw/2,sy+8,10,'F');
@@ -731,7 +750,13 @@ function drawSidebar(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   const SB=30.8; const cx=ML+SB+8; const cmw=PW-MR-cx;
   const mainCX = ML; const mainCMW = PW-ML-MR; // page 2+ content position — normal full-width margin, no sidebar offset
   fill(p,sr,sg,sb);p.rect(0,0,ML+SB+2,PH,'F');
-  let sy=MT+4;const sx=ML+1;const smw=SB-4;
+  // sx shifted left and smw given extra safety margin (was SB-4, now
+  // SB-7) — same fix as Modern: text was wrapping by line count
+  // correctly, but individual wrapped lines (especially unbroken runs
+  // like email addresses) were still rendering right at/past the
+  // sidebar's edge, since splitTextToSize's width estimate doesn't
+  // perfectly match real rendered glyph widths.
+  let sy=MT+4;const sx=ML+0.5;const smw=SB-7;
   // All sidebar elements are horizontally centered within the new
   // (narrower) smw — same centering technique as before, just relative
   // to the reduced width so nothing runs into the sidebar's edge.
