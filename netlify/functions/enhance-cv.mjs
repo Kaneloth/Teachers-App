@@ -332,6 +332,59 @@ export const handler = async (event) => {
         };
       }
 
+      // ── Mode 4: Pick the best-fitting icon for an arbitrary, user-defined
+      // custom CV section title (e.g. "Training & Workshops",
+      // "Publications", "Volunteer Work") — these aren't standard CV
+      // sections, so a fixed keyword list can't cover every possible
+      // title. The model picks from a FIXED, CLOSED list of icon keys
+      // (matching exactly what's available in the embedded PDF icon
+      // font) — never free text — so the response can't reference an
+      // icon that doesn't actually exist.
+      if (body.action === 'pick_section_icon') {
+        const title = (body.title || '').trim();
+        if (!title) {
+          return { statusCode: 400, body: JSON.stringify({ error: 'Missing title' }) };
+        }
+        const AVAILABLE_ICONS = [
+          'graduationCap', 'briefcase', 'fileText', 'trophy', 'cogs',
+          'globe', 'user', 'envelope', 'phone', 'mapMarker', 'book', 'none',
+        ];
+        const prompt = `A CV/resume has a custom section titled: "${title}"
+
+Pick the ONE icon from this exact list that best represents this section's content. Reply with ONLY the icon key, nothing else — no punctuation, no explanation.
+
+Available icons:
+- graduationCap: education, qualifications, courses, training, certifications, learning
+- briefcase: work, employment, professional roles, internships
+- fileText: documents, summaries, written content, publications, reports
+- trophy: awards, achievements, honours, recognition, competitions won
+- cogs: skills, technical abilities, tools, competencies
+- globe: languages, international, travel, global experience
+- user: people, references, personal interests, volunteering involving people
+- envelope: contact-related content
+- phone: contact-related content
+- mapMarker: locations, places lived/worked
+- book: reading, research, academic publications, knowledge
+- none: nothing fits well — better to show no icon than a misleading one
+
+Reply with exactly one of: ${AVAILABLE_ICONS.join(', ')}`;
+
+        try {
+          const raw = await callGroq(prompt, false);
+          const key = raw.trim().replace(/[^a-zA-Z]/g, '');
+          const matched = AVAILABLE_ICONS.find(k => k.toLowerCase() === key.toLowerCase());
+          return {
+            statusCode: 200,
+            body: JSON.stringify({ success: true, icon: matched && matched !== 'none' ? matched : null }),
+          };
+        } catch (err) {
+          // Never let an icon-picking failure be treated as a real error
+          // by the caller — falling back to "no icon" (plain bar) is
+          // always a safe, non-broken result.
+          return { statusCode: 200, body: JSON.stringify({ success: true, icon: null }) };
+        }
+      }
+
       // ── Mode 3: Generate AI cover letter tailored to job description ────
       if (body.action === 'generate_cover_letter') {
         const { prompt, topQualPhrase } = buildCoverLetterPrompt(
