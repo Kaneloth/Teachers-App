@@ -36,17 +36,37 @@ const ICON = {
   book:          '\uf02d',
 };
 
-let iconFontRegistered = false;
+// IMPORTANT: do NOT use a module-level flag for "is the icon font
+// registered" — in serverless environments (Netlify Functions), a warm
+// container reuses the same loaded module across multiple separate
+// requests, so a module-level boolean would stay `true` from one
+// request's pdf instance and incorrectly skip registration on the NEXT
+// request's brand-new pdf instance, which never actually had the font
+// added to it. That mismatch caused icons to silently render as garbled
+// text on some CV generations and not others, depending on whether the
+// serverless container was "warm" from a previous request. Tracking
+// registration on the pdf object itself (a property unique to each
+// request's instance) avoids this entirely.
 function ensureIconFont(p: any) {
-  // Register once per jsPDF instance — addFont is relatively cheap but
-  // no need to repeat it for every section heading on every page.
-  if (iconFontRegistered) return;
+  if (p.__iconFontRegistered) return;
   try {
-    p.addFileToVFS('fa-subset.ttf', ICON_FONT_BASE64);
-    p.addFont('fa-subset.ttf', 'FAIcons', 'normal');
-    iconFontRegistered = true;
+    // Unique filename per call — defends against any caching jsPDF itself
+    // might do internally (separate from our own p.__iconFontRegistered
+    // instance flag) keyed by VFS filename. If such caching exists at a
+    // scope broader than the pdf instance (e.g. a module-level registry
+    // inside the jsPDF library), reusing the literal string
+    // 'fa-subset.ttf' across multiple requests in the same warm
+    // serverless container could collide with a stale/previous
+    // registration — exactly matching "works on the first generation in
+    // a container, breaks on the second." A unique name per call removes
+    // any possibility of that collision regardless of jsPDF's internals.
+    const vfsName = `fa-subset-${Date.now()}-${Math.random().toString(36).slice(2)}.ttf`;
+    p.addFileToVFS(vfsName, ICON_FONT_BASE64);
+    p.addFont(vfsName, 'FAIcons', 'normal');
+    p.__iconFontRegistered = true;
   } catch (err) {
     console.error('[cvExport] Failed to register icon font — section icons will be skipped:', err);
+    p.__iconFontRegistered = false;
   }
 }
 
@@ -55,7 +75,7 @@ function ensureIconFont(p: any) {
 // using the icon font by mistake. Safe to call even if the icon font
 // failed to register (silently does nothing).
 function drawIcon(p: any, glyph: string, x: number, y: number, size: number, color: RGB) {
-  if (!iconFontRegistered) return;
+  if (!p.__iconFontRegistered) return;
   const [r,g,b] = color;
   p.setFont('FAIcons', 'normal');
   p.setFontSize(size);
@@ -74,7 +94,7 @@ function drawIcon(p: any, glyph: string, x: number, y: number, size: number, col
 function iconText(p: any, glyph: string | null, text: string, x: number, y: number,
                   fontSize: number, color: RGB): number {
   let cx = x;
-  if (glyph && iconFontRegistered) {
+  if (glyph && p.__iconFontRegistered) {
     drawIcon(p, glyph, cx, y - 0.5, fontSize - 1, color);
     cx += fontSize * 0.55 + 1.5; // room for the icon glyph before the text starts
   }
@@ -257,7 +277,7 @@ function sectionHeading(p: any, title: string, x: number, y: number, maxW: numbe
     if (rightW>0) hLine(p, rightX, y-1.5, rightW, 203,213,225, 0.3);
   } else { // 'bar' (default)
     let titleX = x + 4;
-    if (icon && iconFontRegistered) {
+    if (icon && p.__iconFontRegistered) {
       drawIcon(p, icon, x, y-0.5, 8, accent);
       titleX = x + 6.5; // extra room for the icon glyph
     } else {
