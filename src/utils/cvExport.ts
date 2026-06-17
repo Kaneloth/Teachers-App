@@ -15,6 +15,53 @@
  */
 
 import { jsPDF as JsPDFClass } from 'jspdf';
+import { ICON_FONT_BASE64 } from './iconFont';
+
+// Icon glyphs — a small subset of Font Awesome 4 (free, monochrome,
+// glyf-based TrueType — confirmed to embed and render correctly via
+// jsPDF's addFont). These give the PDF export real icons matching the
+// React preview's section markers, which plain jsPDF standard fonts
+// can't do at all (no emoji/Unicode support beyond WinAnsi/CP1252).
+const ICON = {
+  graduationCap: '\uf19d',
+  briefcase:     '\uf0b1',
+  fileText:      '\uf0f6',
+  trophy:        '\uf091',
+  globe:         '\uf0ac',
+  user:          '\uf007',
+  envelope:      '\uf0e0',
+  phone:         '\uf095',
+  mapMarker:     '\uf041',
+  book:          '\uf02d',
+};
+
+let iconFontRegistered = false;
+function ensureIconFont(p: any) {
+  // Register once per jsPDF instance — addFont is relatively cheap but
+  // no need to repeat it for every section heading on every page.
+  if (iconFontRegistered) return;
+  try {
+    p.addFileToVFS('fa-subset.ttf', ICON_FONT_BASE64);
+    p.addFont('fa-subset.ttf', 'FAIcons', 'normal');
+    iconFontRegistered = true;
+  } catch (err) {
+    console.error('[cvExport] Failed to register icon font — section icons will be skipped:', err);
+  }
+}
+
+// Draws a single icon glyph at (x, y) in the given size/color, then
+// restores the standard body font so subsequent text calls aren't left
+// using the icon font by mistake. Safe to call even if the icon font
+// failed to register (silently does nothing).
+function drawIcon(p: any, glyph: string, x: number, y: number, size: number, color: RGB) {
+  if (!iconFontRegistered) return;
+  const [r,g,b] = color;
+  p.setFont('FAIcons', 'normal');
+  p.setFontSize(size);
+  tc(p, r, g, b);
+  p.text(glyph, x, y);
+  p.setFont(F, 'normal'); // restore standard text font for whatever is drawn next
+}
 
 // ── Page geometry (mm) ────────────────────────────────────────────────────────
 const PW = 210;
@@ -140,7 +187,7 @@ type HeadingStyle = 'bar' | 'underline' | 'shaded' | 'italic-underline' | 'tag-u
 function sectionHeading(p: any, title: string, x: number, y: number, maxW: number,
                         accent: RGB, style: HeadingStyle,
                         bottom: number, newPage: ()=>number,
-                        getXW?: ()=>[number,number]): number {
+                        getXW?: ()=>[number,number], icon?: string): number {
   if (y+28 > bottom) { y = newPage(); if (getXW) { [x,maxW]=getXW(); } }
   y += SECTION_GAP * 0.6;
   const [ar,ag,ab] = accent;
@@ -188,11 +235,17 @@ function sectionHeading(p: any, title: string, x: number, y: number, maxW: numbe
     if (leftW>0)  hLine(p, x, y-1.5, leftW, 203,213,225, 0.3);
     if (rightW>0) hLine(p, rightX, y-1.5, rightW, 203,213,225, 0.3);
   } else { // 'bar' (default)
-    fill(p,ar,ag,ab); p.rect(x, y-3.2, 2.5, 3.8, 'F');
+    let titleX = x + 4;
+    if (icon && iconFontRegistered) {
+      drawIcon(p, icon, x, y+0.5, 6, accent);
+      titleX = x + 7; // extra room for the icon glyph
+    } else {
+      fill(p,ar,ag,ab); p.rect(x, y-3.2, 2.5, 3.8, 'F'); // fallback plain tick if icon font failed to load
+    }
     tc(p,ar,ag,ab); p.setFont(F,'bold'); p.setFontSize(9);
-    p.text(title.toUpperCase(), x+4, y);
+    p.text(title.toUpperCase(), titleX, y);
     const tw = p.getTextWidth(title.toUpperCase());
-    hLine(p, x+4+tw+2, y-1.5, maxW-4-tw-2, ar,ag,ab, 0.35);
+    hLine(p, titleX+tw+2, y-1.5, maxW-(titleX-x)-tw-2, ar,ag,ab, 0.35);
     return y + HEADING_GAP + 2.5; // extra clearance below the heading so content doesn't feel congested against it
   }
   return y + HEADING_GAP;
@@ -363,6 +416,7 @@ export async function exportElementAsPDF(
     },
   } as any);
   reset(pdf);
+  ensureIconFont(pdf);
 
   const dispatch: Record<string, ()=>void> = {
     classic:      ()=>drawClassic(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
@@ -416,10 +470,10 @@ function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   reset(p); let y=MT+20;
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,PW,5,'F');reset(p);return MT+7;};
   const GXW=():[ number,number]=>[ML,PW-ML-MR];
-  if(pr.bio){y=sectionHeading(p,isEdu?'Professional Summary':'Professional Summary',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
-  if(edu.length){y=sectionHeading(p,'Education',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW);
+  if(pr.bio){y=sectionHeading(p,isEdu?'Professional Summary':'Professional Summary',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW,ICON.fileText);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
+  if(edu.length){y=sectionHeading(p,'Education',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW,ICON.graduationCap);
     for(const e of edu){if(y+12>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.qualification||'',ML,y);y+=LINE_H;p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text([e.institution,e.year].filter(Boolean).join('  ·  '),ML,y);y+=LINE_H+ITEM_GAP;}}
-  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW);
+  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW,ICON.briefcase);
     for(const e of exp){if(y+14>BOTTOM)y=np();
       fill(p,ar,ag,ab);p.rect(ML,y-3.2,2.5,14,'F');reset(p);
       p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',ML+5,y);y+=LINE_H;
@@ -427,7 +481,7 @@ function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
       const ds=[e.from,e.to].filter(Boolean).join(' – ');if(ds){p.setFont(F,'normal');p.setFontSize(8);tc(p,156,163,175);p.text(ds,PW-MR-p.getTextWidth(ds),y);}y+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML+5,y,PW-MR-ML-5,accent,BOTTOM,np,()=>[ML+5,PW-MR-ML-5]);
       y+=ITEM_GAP+1;}}
-  if(sk.subjects?.length||sk.soft_skills?.length||sk.languages?.length){y=sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW);
+  if(sk.subjects?.length||sk.soft_skills?.length||sk.languages?.length){y=sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW,ICON.trophy);
     for(const [lbl,items] of [['Subjects',sk.subjects||[]],['Skills',sk.soft_skills||[]],['Languages',sk.languages||[]]] as [string,string[]][]){if(!items.length)continue;
       p.setFont(F,'bold');p.setFontSize(9);tc(p,55,65,81);p.text(`${lbl}:`,ML,y);const lw=p.getTextWidth(`${lbl}:`)+2;p.setFont(F,'normal');tc(p,55,65,81);y=wrapped(p,items.join('  ·  '),ML+lw,y,PW-ML-MR-lw,BOTTOM,np,()=>[ML,PW-ML-MR]);y+=ITEM_GAP;}}
   y=drawCustom(p,customs,accent,'bar',ML,y,PW-ML-MR,BOTTOM,np,GXW);
