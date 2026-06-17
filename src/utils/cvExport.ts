@@ -636,15 +636,15 @@ function drawModern(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   hLine(p,cx,y,cmw,ar,ag,ab,0.5);y+=6;
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,6,PH,'F');reset(p);return MT+4;};
   const GXW=():[ number,number]=>[cx,cmw];
-  if(pr.bio){y=sectionHeading(p,isEdu?'About Me':'About Me',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,cx,y,cmw,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
-  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);
+  if(pr.bio){y=sectionHeading(p,isEdu?'About Me':'About Me',cx,y,cmw,accent,'bar',BOTTOM,np,GXW,ICON.fileText);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,cx,y,cmw,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
+  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',cx,y,cmw,accent,'bar',BOTTOM,np,GXW,ICON.briefcase);
     for(const e of exp){if(y+14>BOTTOM)y=np();
       p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',cx,y);y+=LINE_H;
       p.setFont(F,'bold');p.setFontSize(8.5);tc(p,ar,ag,ab);p.text(e.school||'',cx,y);
       const ds=[e.from,e.to].filter(Boolean).join(' – ');if(ds){p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);p.text(ds,PW-MR-p.getTextWidth(ds),y);}y+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,cx,y,cmw,accent,BOTTOM,np,()=>[cx,cmw]);
       y+=ITEM_GAP+1;}}
-  if(edu.length){y=sectionHeading(p,'Education',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);
+  if(edu.length){y=sectionHeading(p,'Education',cx,y,cmw,accent,'bar',BOTTOM,np,GXW,ICON.graduationCap);
     for(const e of edu){if(y+12>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.qualification||'',cx,y);y+=LINE_H;p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text([e.institution,e.year].filter(Boolean).join('  ·  '),cx,y);y+=LINE_H+ITEM_GAP;}}
   y=drawCustom(p,customs,accent,'bar',cx,y,cmw,BOTTOM,np,GXW);
   refsPage(p,refs,accent,'bar',np,BOTTOM,owner,wm);
@@ -704,9 +704,18 @@ function drawMinimal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 // ── 5. SIDEBAR — Blue left sidebar with initials circle ───────────────────────
 function drawSidebar(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const BLUE=hex('#3b5998'); const [sr,sg,sb]=BLUE;
-  const SB=55;const cx=ML+SB+8;const cmw=PW-MR-cx;
+  // Sidebar width reduced 30% (was 55mm -> ~38.5mm). Page-1-only: content
+  // on page 1 is indented to clear the sidebar; pages 2+ use the full
+  // normal margin (ML) instead of staying indented by the sidebar width,
+  // which previously left a large unused white strip on every page after
+  // the first.
+  const SB=38.5; const cx=ML+SB+8; const cmw=PW-MR-cx;
+  const mainCX = ML; const mainCMW = PW-ML-MR; // page 2+ content position — normal full-width margin, no sidebar offset
   fill(p,sr,sg,sb);p.rect(0,0,ML+SB+2,PH,'F');
   let sy=MT+4;const sx=ML+1;const smw=SB-4;
+  // All sidebar elements are horizontally centered within the new
+  // (narrower) smw — same centering technique as before, just relative
+  // to the reduced width so nothing runs into the sidebar's edge.
   p.setFillColor(220,230,255);p.circle(sx+smw/2,sy+8,10,'F');
   const ini=owner.split(' ').map((n:string)=>n[0]||'').join('').slice(0,2).toUpperCase();
   tc(p,sr,sg,sb);p.setFont(F,'bold');p.setFontSize(10);p.text(ini,sx+smw/2-p.getTextWidth(ini)/2,sy+10);sy+=24;
@@ -718,21 +727,43 @@ function drawSidebar(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   if(pr.phone){p.text(pr.phone,sx,sy);sy+=5;}
   if(pr.address){const ls=p.splitTextToSize(pr.address,smw) as string[];ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=3.5;});sy+=1;}
   sy+=3;
-  if(sk.subjects?.length){sy=sidebarLabel(p,'Subjects',sx,sy,smw,[255,255,255],[180,195,240]);p.setFont(F,'normal');p.setFontSize(7);tc(p,210,220,255);for(const s of sk.subjects){const ls=p.splitTextToSize(`– ${s}`,smw) as string[];ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=3.5;});}sy+=3;}
+  // Subjects and Skills (soft_skills) moved to the main content area
+  // below — only Languages stays in the sidebar.
   if(sk.languages?.length){sy=sidebarLabel(p,'Languages',sx,sy,smw,[255,255,255],[180,195,240]);p.setFont(F,'normal');p.setFontSize(7);tc(p,210,220,255);for(const l of sk.languages){p.text(`– ${l}`,sx,sy);sy+=3.5;}sy+=3;}
-  if(sk.soft_skills?.length){sy=sidebarLabel(p,'Skills',sx,sy,smw,[255,255,255],[180,195,240]);p.setFont(F,'normal');p.setFontSize(7);tc(p,210,220,255);for(const s of sk.soft_skills){const ls=p.splitTextToSize(`– ${s}`,smw) as string[];ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=3.5;});}}
   reset(p);let y=MT+8;tc(p,sr,sg,sb);p.setFont(F,'bold');p.setFontSize(16);p.text(owner.toUpperCase(),cx,y);y+=6;
   tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',cx,y);y+=3;hLine(p,cx,y,cmw,sr,sg,sb,0.5);y+=6;
-  const np=()=>{p.addPage();reset(p);fill(p,sr,sg,sb);p.rect(0,0,6,PH,'F');reset(p);return MT+4;};const GXW=():[ number,number]=>[cx,cmw];
-  if(pr.bio){y=sectionHeading(p,isEdu?'About Me':'About Me',cx,y,cmw,BLUE,'bar',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,cx,y,cmw,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
-  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work History',cx,y,cmw,BLUE,'bar',BOTTOM,np,GXW);
-    for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',cx,y);y+=LINE_H;
-      p.setFont(F,'bold');p.setFontSize(8.5);tc(p,sr,sg,sb);p.text(e.school||'',cx,y);const ds=[e.from,e.to].filter(Boolean).join(' – ');if(ds){tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,cx+cmw-p.getTextWidth(ds),y);}y+=LINE_H;
-      if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,cx,y,cmw,BLUE,BOTTOM,np,GXW);
+  // Pages 2+: a horizontal shaded header strip in the same sidebar color
+  // (matching the request for visual consistency across pages) instead
+  // of a vertical sidebar — and content starts at the NORMAL margin
+  // (mainCX/mainCMW), not still indented by the page-1 sidebar width.
+  const np=()=>{p.addPage();reset(p);fill(p,sr,sg,sb);p.rect(0,0,PW,6,'F');reset(p);return MT+8;};
+  // GXW must report different x/width depending on which "side" of the
+  // page-1/page-2+ boundary content currently sits on. Since content is
+  // drawn sequentially and np() is only called once a new page is
+  // actually needed, anything drawn AFTER the first np() call is on
+  // page 2+ and should use the normal margin from then on.
+  let onFirstPage = true;
+  const GXW=():[number,number]=>{ onFirstPage=false; return [mainCX,mainCMW]; };
+  if(pr.bio){y=sectionHeading(p,isEdu?'About Me':'About Me',cx,y,cmw,BLUE,'bar',BOTTOM,np,GXW,ICON.fileText);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,cx,y,cmw,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
+  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work History',cx,y,cmw,BLUE,'bar',BOTTOM,np,GXW,ICON.briefcase);
+    for(const e of exp){if(y+14>BOTTOM){y=np();onFirstPage=false;}
+      const [ex,ew]=onFirstPage?[cx,cmw]:[mainCX,mainCMW];
+      p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',ex,y);y+=LINE_H;
+      p.setFont(F,'bold');p.setFontSize(8.5);tc(p,sr,sg,sb);p.text(e.school||'',ex,y);const ds=[e.from,e.to].filter(Boolean).join(' – ');if(ds){tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,ex+ew-p.getTextWidth(ds),y);}y+=LINE_H;
+      if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ex,y,ew,BLUE,BOTTOM,np,GXW);
       y+=ITEM_GAP+1;}}
-  if(edu.length){y=sectionHeading(p,'Education',cx,y,cmw,BLUE,'bar',BOTTOM,np,GXW);
-    for(const e of edu){if(y+12>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.qualification||'',cx,y);y+=LINE_H;p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text([e.institution,e.year].filter(Boolean).join('  ·  '),cx,y);y+=LINE_H+ITEM_GAP;}}
-  y=drawCustom(p,customs,BLUE,'bar',cx,y,cmw,BOTTOM,np,GXW);
+  if(edu.length){y=sectionHeading(p,'Education',onFirstPage?cx:mainCX,y,onFirstPage?cmw:mainCMW,BLUE,'bar',BOTTOM,np,GXW,ICON.graduationCap);
+    for(const e of edu){if(y+12>BOTTOM){y=np();onFirstPage=false;}const [ex,ew]=onFirstPage?[cx,cmw]:[mainCX,mainCMW];p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.qualification||'',ex,y);y+=LINE_H;p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text([e.institution,e.year].filter(Boolean).join('  ·  '),ex,y);y+=LINE_H+ITEM_GAP;void ew;}}
+  // Subjects and Skills — moved here from the sidebar, drawn in the main
+  // content area like a normal section.
+  if(sk.subjects?.length||sk.soft_skills?.length){
+    const [sx2,sw2]=onFirstPage?[cx,cmw]:[mainCX,mainCMW];
+    y=sectionHeading(p,'Subjects & Skills',sx2,y,sw2,BLUE,'bar',BOTTOM,np,GXW,ICON.cogs);
+    for(const [lbl,items] of [['Subjects',sk.subjects||[]],['Skills',sk.soft_skills||[]]] as [string,string[]][]){if(!items.length)continue;
+      const [ex,ew]=onFirstPage?[cx,cmw]:[mainCX,mainCMW];
+      p.setFont(F,'bold');p.setFontSize(9);tc(p,55,65,81);p.text(`${lbl}:`,ex,y);const lw=p.getTextWidth(`${lbl}:`)+2;p.setFont(F,'normal');tc(p,55,65,81);y=wrapped(p,items.join('  ·  '),ex+lw,y,ew-lw,BOTTOM,np,()=>onFirstPage?[cx+lw,cmw-lw]:[mainCX+lw,mainCMW-lw]);y+=ITEM_GAP;}
+  }
+  y=drawCustom(p,customs,BLUE,'bar',onFirstPage?cx:mainCX,y,onFirstPage?cmw:mainCMW,BOTTOM,np,GXW);
   refsPage(p,refs,BLUE,'bar',np,BOTTOM,owner,wm);
 }
 
