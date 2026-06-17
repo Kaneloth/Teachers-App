@@ -626,35 +626,50 @@ function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 // ── 2. MODERN — Teal left sidebar with avatar circle ─────────────────────────
 function drawModern(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#0d9488'); const [ar,ag,ab]=accent;
-  // Sidebar width reduced 30% then a further 20% (52mm -> ~29.1mm).
-  // Page-1-only: pages 2+ use the normal full-width margin instead of
-  // staying indented by the sidebar width.
-  const SB=29.1; const cx=ML+SB+8; const cmw=PW-MR-cx;
+  // Sidebar narrowed further still (52mm -> 29.1mm -> 22mm) and the gap
+  // before the main content column tightened (8mm -> 5mm). Page 1's body
+  // text previously started at x=52.1mm while page 2+ and the references
+  // page both sit at the plain ML=15mm margin — a ~37mm jump that read as
+  // an oversized left margin specifically on page 1. The jump is now
+  // ~27mm, noticeably less jarring when flipping between pages.
+  const SB=22; const cx=ML+SB+5; const cmw=PW-MR-cx;
   const mainCX = ML; const mainCMW = PW-ML-MR; // page 2+ content position
   fill(p,ar,ag,ab); p.rect(0,0,ML+SB+2,PH,'F');
-  // sx shifted left and smw given extra safety margin (was SB-4, now
-  // SB-7) — text was wrapping correctly by line count but individual
-  // wrapped lines (especially unbroken runs like email addresses) were
-  // still rendering right at/past the sidebar's edge, since
-  // splitTextToSize's width estimate doesn't perfectly match real
-  // rendered glyph widths. More margin avoids relying on that estimate
-  // being exact.
+  // sx/smw define the sidebar's safe text column. The -7 buffer (vs the
+  // raw sidebar width) is what keeps wrapped lines like email addresses
+  // from rendering past the sidebar's edge — kept as-is since it's
+  // independent of how wide the sidebar itself is.
   let sy=MT+4; const sx=ML+0.5; const smw=SB-7;
-  // Sidebar elements stay horizontally centered relative to the new
-  // (narrower) smw.
-  p.setFillColor(220,245,242); p.circle(sx+smw/2,sy+8,10,'F');
+  // All sidebar content (avatar, contact details, languages) is now
+  // centered horizontally within the sidebar column instead of
+  // left-aligned — ragged left-aligned text read as an afterthought in
+  // a narrow column.
+  const sbCenter = (t: string, yy: number) => { const tw=p.getTextWidth(t); p.text(t, sx+(smw-tw)/2, yy); };
+  const sbCenterWrapped = (t: string, yy: number): number => {
+    const ls = p.splitTextToSize(t, smw) as string[];
+    ls.forEach((l: string) => { sbCenter(l, yy); yy += 4; });
+    return yy;
+  };
+  const modernSidebarLabel = (t: string, yy: number): number => {
+    p.setFont(F,'bold'); p.setFontSize(7); tc(p,255,255,255);
+    sbCenter(t.toUpperCase(), yy);
+    dc(p,180,220,215); p.setLineWidth(0.2); p.line(sx, yy+1, sx+smw, yy+1);
+    return yy+4;
+  };
+  const AVR = 7; // avatar circle radius, scaled down to match the narrower sidebar
+  p.setFillColor(220,245,242); p.circle(sx+smw/2,sy+AVR,AVR,'F');
   const ini=owner.split(' ').map((n:string)=>n[0]||'').join('').slice(0,2).toUpperCase();
-  tc(p,ar,ag,ab);p.setFont(F,'bold');p.setFontSize(10);p.text(ini,sx+smw/2-p.getTextWidth(ini)/2,sy+10);sy+=26;
-  sy=sidebarLabel(p,'Contact',sx,sy,smw,[255,255,255],[180,220,215]);
+  tc(p,ar,ag,ab);p.setFont(F,'bold');p.setFontSize(10);p.text(ini,sx+smw/2-p.getTextWidth(ini)/2,sy+AVR+1.5);sy+=AVR*2+8;
+  sy=modernSidebarLabel('Contact',sy);
   p.setFont(F,'normal');p.setFontSize(7.5);tc(p,224,253,244);
-  if(pr.email){const ls=p.splitTextToSize(pr.email,smw) as string[];ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=4;});sy+=1;}
-  if(pr.phone){p.text(pr.phone,sx,sy);sy+=5;}
-  if(pr.address){const ls=p.splitTextToSize(pr.address,smw) as string[];ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=4;});sy+=1;}
-  if(pr.id_number){p.text(`ID: ${pr.id_number}`,sx,sy);sy+=5;}
+  if(pr.email){sy=sbCenterWrapped(pr.email,sy);sy+=1;}
+  if(pr.phone){sbCenter(pr.phone,sy);sy+=5;}
+  if(pr.address){sy=sbCenterWrapped(pr.address,sy);sy+=1;}
+  if(pr.id_number){sbCenter(`ID: ${pr.id_number}`,sy);sy+=5;}
   sy+=4;
   // Subjects and Skills (soft_skills) moved to the main content area
   // below — only Languages stays in the sidebar.
-  if(sk.languages?.length){sy=sidebarLabel(p,'Languages',sx,sy,smw,[255,255,255],[180,220,215]);p.setFont(F,'normal');p.setFontSize(7.5);tc(p,224,253,244);for(const l of sk.languages){p.text(`– ${l}`,sx,sy);sy+=4;}sy+=3;}
+  if(sk.languages?.length){sy=modernSidebarLabel('Languages',sy);p.setFont(F,'normal');p.setFontSize(7.5);tc(p,224,253,244);for(const l of sk.languages){sbCenter(`– ${l}`,sy);sy+=4;}sy+=3;}
   reset(p);let y=MT+8;
   tc(p,ar,ag,ab);p.setFont(F,'bold');p.setFontSize(15);p.text(owner.toUpperCase(),cx,y);y+=6;
   tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',cx,y);y+=3;
