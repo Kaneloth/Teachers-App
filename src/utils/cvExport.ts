@@ -333,7 +333,7 @@ function refsPage(p: any, refs: any[], accent: RGB, headStyle: HeadingStyle,
   }
   let y = (bg || topStrip) ? MT+5 : MT;
   const np = ()=>{ p.addPage(); reset(p); if (bg) { fill(p,bg[0],bg[1],bg[2]); p.rect(0,0,PW,PH,'F'); reset(p); } return MT; };
-  y = sectionHeading(p,'References',ML,y,PW-ML-MR,accent,headStyle,bottom,np);
+  y = sectionHeading(p,'References',ML,y,PW-ML-MR,accent,headStyle,bottom,np,undefined,ICON.user);
   y += 2;
   const half = (PW-ML-MR-8)/2;
   for (let i=0; i<validRefs.length; i+=2) {
@@ -368,11 +368,20 @@ function drawCustom(p: any, sections: any[], accent: RGB, headStyle: HeadingStyl
       (sec.type === 'bullets' && !!(sec.content && (sec.content as string).split('\n').map((l:string)=>l.trim()).filter(Boolean).length)) ||
       (sec.type === 'table'   && !!(sec.columns?.length && sec.rows?.length));
     if (!sec.title || !hasContent) continue;
-    // Trophy icon specifically for Awards/Achievements-type custom
-    // sections — other custom section titles are user-defined free text
-    // (e.g. "Certifications", "Volunteer Work") with no single icon that
-    // would fit all of them, so they keep the plain bar marker.
-    const sectionIcon = /award|achievement|honour|honor|recognition/i.test(sec.title) ? ICON.trophy : undefined;
+    // Icon resolution order: 1) AI-resolved icon (set ahead of drawing by
+    // resolveCustomSectionIcons, covers arbitrary user-defined titles
+    // like "Training & Workshops"), 2) instant Awards/Achievements
+    // keyword match as a fast-path that skips the AI call entirely,
+    // 3) no icon (plain bar) if neither applies or the AI call failed.
+    const ICON_MAP: Record<string, string> = {
+      graduationCap: ICON.graduationCap, briefcase: ICON.briefcase, fileText: ICON.fileText,
+      trophy: ICON.trophy, cogs: ICON.cogs, globe: ICON.globe, user: ICON.user,
+      envelope: ICON.envelope, phone: ICON.phone, mapMarker: ICON.mapMarker, book: ICON.book,
+    };
+    const resolvedKey = (sec as any).__resolvedIcon as string | null;
+    const sectionIcon = resolvedKey && ICON_MAP[resolvedKey]
+      ? ICON_MAP[resolvedKey]
+      : (/award|achievement|honour|honor|recognition/i.test(sec.title) ? ICON.trophy : undefined);
     y = sectionHeading(p, sec.title, x, y, maxW, accent, headStyle, bottom, newPage, getXW, sectionIcon);
     p.setFont(font,'normal'); p.setFontSize(9); tc(p,55,65,81);
     if (sec.type==='text' && sec.content) {
@@ -426,6 +435,60 @@ function getAccent(tmpl: string): RGB {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT
 // ═══════════════════════════════════════════════════════════════════════════════
+// Cache of custom-section-title -> resolved icon key, shared across calls
+// within the same loaded module/browser session. Keyed by the exact title
+// text (case-insensitive) — safe to share across different users/CVs
+// since the same title should sensibly get the same icon every time, and
+// this avoids repeat AI calls for common titles ("Certifications",
+// "Volunteer Work", etc.) that many different users will type.
+const customSectionIconCache = new Map<string, string | null>();
+
+// Resolves icons for a list of custom sections ahead of time (the actual
+// PDF-drawing code is synchronous, so any AI call must happen before
+// drawing starts, not during). Awards/Achievements-style titles are
+// still matched instantly via the keyword regex with no AI call needed;
+// anything else asks the AI to pick from a fixed, closed list of
+// available icon keys (see enhance-cv.mjs's pick_section_icon action).
+// Never throws — any failure (network, timeout, bad response) just
+// results in that section having no icon (the existing plain-bar
+// fallback), never blocking CV generation.
+async function resolveCustomSectionIcons(sections: any[]): Promise<Map<string, string | null>> {
+  const result = new Map<string, string | null>();
+  await Promise.all(sections.map(async (sec: any) => {
+    const title = (sec.title || '').trim();
+    if (!title) return;
+
+    if (/award|achievement|honour|honor|recognition/i.test(title)) {
+      result.set(title, 'trophy');
+      return;
+    }
+
+    const cacheKey = title.toLowerCase();
+    if (customSectionIconCache.has(cacheKey)) {
+      result.set(title, customSectionIconCache.get(cacheKey)!);
+      return;
+    }
+
+    try {
+      const res = await fetch('/.netlify/functions/enhance-cv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'pick_section_icon', title }),
+        signal: AbortSignal.timeout(4000), // never let a slow AI call meaningfully delay PDF generation
+      });
+      const data = await res.json();
+      const icon = res.ok && data.success ? (data.icon as string | null) : null;
+      customSectionIconCache.set(cacheKey, icon);
+      result.set(title, icon);
+    } catch {
+      // Network error, timeout, etc. — fall back to no icon, never block.
+      customSectionIconCache.set(cacheKey, null);
+      result.set(title, null);
+    }
+  }));
+  return result;
+}
+
 export async function exportElementAsPDF(
   _container: HTMLElement,
   filename: string,
@@ -439,6 +502,11 @@ export async function exportElementAsPDF(
   const sk      = data.skills        || {};
   const refs    = (data.references   || []).filter((r:any)=>r.name);
   const customs = (data.custom_sections||[]).filter((s:any)=>s.title);
+  const customIcons = await resolveCustomSectionIcons(customs);
+  // Attach the resolved icon directly onto each section object (rather
+  // than threading a new parameter through all 18 template-drawing
+  // functions' signatures) — drawCustom reads sec.__resolvedIcon.
+  for (const sec of customs) (sec as any).__resolvedIcon = customIcons.get((sec.title||'').trim()) ?? null;
   const tmpl    = data.template || 'classic';
   const isEdu    = data.cvType !== 'general';  // false = general CV, true = educator (default)
   const wm      = !!data.watermark;
