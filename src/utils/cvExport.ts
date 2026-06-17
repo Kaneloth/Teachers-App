@@ -193,6 +193,7 @@ function sectionHeading(p: any, title: string, x: number, y: number, maxW: numbe
     p.text(title.toUpperCase(), x+4, y);
     const tw = p.getTextWidth(title.toUpperCase());
     hLine(p, x+4+tw+2, y-1.5, maxW-4-tw-2, ar,ag,ab, 0.35);
+    return y + HEADING_GAP + 2.5; // extra clearance below the heading so content doesn't feel congested against it
   }
   return y + HEADING_GAP;
 }
