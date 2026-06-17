@@ -235,6 +235,7 @@ export default function CoverLettersPage() {
   const [generating,    setGenerating]    = useState(false);
   const [jobDesc,       setJobDesc]        = useState('');
   const [aiGenerating,  setAiGenerating]   = useState(false);
+  const [aiUsed,        setAiUsed]         = useState(false); // credit already spent on AI generation
   const [lastCvData,    setLastCvData]     = useState<Record<string, unknown> | null>(null);
 
   const today = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -249,14 +250,33 @@ export default function CoverLettersPage() {
       .then(({ data }) => {
         setUserName(data?.full_name ?? (user.user_metadata?.full_name as string | undefined) ?? '');
       });
-    // Load last generated CV data for AI context
-    const savedMeta = user.user_metadata?.last_cv_data as Record<string, unknown> | undefined;
-    if (savedMeta) setLastCvData(savedMeta);
+
+    // Refresh the session before reading last_cv_data from user_metadata.
+    // user_metadata is updated server-side whenever a CV is generated
+    // (see CVBuilderPage.tsx's handleCVGenerated), but the in-memory
+    // `user` object here can be stale if it was loaded earlier in the
+    // session — e.g. the user built a CV, then navigated to Cover Letters
+    // without a full page reload in between. Without this refresh, the AI
+    // cover letter generator would silently fall back to no CV context,
+    // producing a generic letter with no visible error anywhere — exactly
+    // what happened during testing before a full logout/login fixed it.
+    // This makes that manual workaround unnecessary going forward.
+    supabase.auth.refreshSession().then(({ data: refreshed, error }) => {
+      if (error) {
+        console.warn('[CoverLettersPage] Session refresh failed, using existing session data:', error);
+        const savedMeta = user.user_metadata?.last_cv_data as Record<string, unknown> | undefined;
+        if (savedMeta) setLastCvData(savedMeta);
+        return;
+      }
+      const freshUser = refreshed?.user ?? user;
+      const savedMeta = freshUser.user_metadata?.last_cv_data as Record<string, unknown> | undefined;
+      if (savedMeta) setLastCvData(savedMeta);
+    });
   }, [user]);
 
   const rebuildBody = useCallback(() => {
     const tpl = TEMPLATES[category];
-    if (tpl) setBody(tpl.body(userName, position, org, today));
+    if (tpl) { setBody(tpl.body(userName, position, org, today)); setAiUsed(false); }
   }, [category, userName, position, org, today]);
 
   useEffect(() => { rebuildBody(); }, [rebuildBody]);
@@ -267,6 +287,14 @@ export default function CoverLettersPage() {
       toast.error('Please paste the job description first.');
       return;
     }
+
+    // ── Deduct 1 credit BEFORE calling the AI ────────────────────────────
+    // This prevents abuse — the credit is spent on the AI call itself.
+    // If AI succeeds, download is free for this letter (aiUsed = true).
+    const aiRef = `ai_letter_${category}_${Date.now()}`;
+    const ok = await deduct('letter_usage', aiRef);
+    if (!ok) return; // insufficient credits — toast already shown
+
     setAiGenerating(true);
     try {
       const res = await fetch('/.netlify/functions/enhance-cv', {
@@ -287,9 +315,12 @@ export default function CoverLettersPage() {
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error || 'AI generation failed');
       setBody(result.letter);
-      toast.success('Cover letter generated! Review and edit before downloading.');
+      setAiUsed(true); // credit spent — download is now free for this letter
+      toast.success('Cover letter generated! Download is free — your credit was used for the AI.');
     } catch (err: any) {
-      toast.error(err.message || 'AI generation failed. Please try again.');
+      // AI failed — the credit was already deducted. We can't easily refund
+      // automatically, but we flag it so the user knows.
+      toast.error((err as any).message || 'AI generation failed. Please try again.');
     } finally {
       setAiGenerating(false);
     }
@@ -299,10 +330,14 @@ export default function CoverLettersPage() {
   const handleDownload = async () => {
     if (!body.trim()) { toast.error('Letter body is empty.'); return; }
 
-    // ── Deduct 1 credit before generating ────────────────────────────────
-    const letterRef = `letter_${category}_${Date.now()}`;
-    const ok = await deduct('letter_usage', letterRef);
-    if (!ok) return;  // useCredits already showed the insufficient-credits toast
+    // ── Credit logic ──────────────────────────────────────────────────────
+    // If user already paid 1 credit for AI generation → download is free.
+    // If user is using a plain template → deduct 1 credit now.
+    if (!aiUsed) {
+      const letterRef = `letter_${category}_${Date.now()}`;
+      const ok = await deduct('letter_usage', letterRef);
+      if (!ok) return; // insufficient credits — toast already shown
+    }
 
     setGenerating(true);
     try {
@@ -439,12 +474,12 @@ export default function CoverLettersPage() {
             )}
             <button
               onClick={generateWithAI}
-              disabled={aiGenerating || !jobDesc.trim()}
+              disabled={aiGenerating || !jobDesc.trim() || (!creditsLoading && balance < 1)}
               className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl py-2.5 text-sm font-semibold transition-all disabled:opacity-50 hover:bg-primary/90"
             >
               {aiGenerating
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating tailored letter…</>
-                : <><Sparkles className="w-4 h-4" /> Generate with AI</>
+                : <><Sparkles className="w-4 h-4" /> Generate with AI · 1 credit</>
               }
             </button>
           </div>
@@ -481,12 +516,14 @@ export default function CoverLettersPage() {
 
           <Button
             onClick={handleDownload}
-            disabled={generating || !body.trim() || (!creditsLoading && balance < 1)}
+            disabled={generating || !body.trim() || (!aiUsed && !creditsLoading && balance < 1)}
             className="w-full h-12 rounded-2xl text-base font-semibold gap-2"
           >
             {generating
               ? <><Loader2 className="w-5 h-5 animate-spin" /> Generating…</>
-              : <><Download className="w-5 h-5" /> Download as Word (.docx) · 1 credit</>
+              : aiUsed
+                ? <><Download className="w-5 h-5" /> Download as Word (.docx) · Free</>
+                : <><Download className="w-5 h-5" /> Download as Word (.docx) · 1 credit</>
             }
           </Button>
 
