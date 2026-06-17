@@ -47,12 +47,14 @@ ${inputLabel}:
 ${inputText}
 """
 
-CV TYPE: ${cvType === 'educator' ? 'South African Educator CV' : 'General Professional CV'}
+CV TYPE (app context — a HINT only, not a fact): ${cvType === 'educator' ? 'South African Educator CV' : 'General Professional CV'}
+
+IMPORTANT: The CV TYPE above reflects which section of the app the user is in, NOT necessarily their actual profession. The TEXT ABOVE is the only real source of truth about who this person is and what they do. If the input text contains no mention of teaching, schools, learners, or education-related work, do NOT frame this person as an educator, regardless of the CV TYPE hint — base the bio and all framing strictly on what the text actually says about their field (e.g. accounting, IT, retail, etc.) or their studies if they have no work experience yet.
 
 TASK: Extract, restructure, and enhance this information into the JSON structure below.
 
 RULES:
-1. RESTRUCTURE intelligently based on the person's actual profession:
+1. RESTRUCTURE intelligently based on the person's actual profession AS STATED IN THE TEXT ABOVE — never based on the CV TYPE hint alone:
    - Educator: "I taught Maths at Sandton High from 2018 to 2022" → role="Mathematics Educator", school="Sandton High School"
    - Nurse: "I worked in ICU at Netcare since 2019" → role="ICU Nurse", school="Netcare [Hospital]", from="2019"
    - Accountant: "I've been a CA at Deloitte for 5 years" → role="Chartered Accountant", school="Deloitte"
@@ -149,8 +151,8 @@ function buildSummaryPrompt(cvData, userBlurb) {
     .join('; ');
 
   const professionHint = isEducator
-    ? 'This person is an educator — mention subjects taught, phase/grade level, and teaching strengths.'
-    : 'This person works in a professional field — mention their industry, role level, key technical skills, and career achievements.';
+    ? 'Based on their work experience, this person is an educator — mention subjects taught, phase/grade level, and teaching strengths.'
+    : 'This person works in a non-education professional field (or has no work experience yet) — mention their actual industry/field of study, role level, key technical skills, and career achievements. Do NOT describe them as an educator, teacher, or anything education-related unless their work experience explicitly says so.';
 
   return `You are a professional CV writer specialising in South African CVs for ALL industries and professions.
 
@@ -236,9 +238,9 @@ ${jobDescription}
 
 INSTRUCTIONS:
 1. Write a professional cover letter tailored SPECIFICALLY to this job description
-2. Reference specific requirements, skills, or keywords from the job description
-3. Match the applicant's experience/skills to the job requirements — be specific
-4. ${hasCv ? "Use the applicant's CV data above to personalise — mention their actual experience, qualifications, and skills" : 'Write a compelling letter based on the position and job description'}
+2. Reference specific requirements, skills, or keywords from the job description — but ONLY where they genuinely connect to something true about this applicant. Do NOT echo back a JD keyword/phrase (e.g. an industry, a tool, a certification) as something the applicant is interested in or experienced with unless their CV data above actually supports that connection. Sounding aligned with the posting is never a reason to imply something not grounded in the applicant's real background.
+3. Match the applicant's experience/skills to the job requirements — be specific, and be honest about gaps (see rule 8)
+4. ${hasCv ? "Use the applicant's CV data above to personalise. CRITICAL: name their qualification(s) and field of study EXPLICITLY by their real name (e.g. \"my BCom in Accounting\", \"my Bridging Certificate in the Theory of Accounting\") wherever relevant to the role — never refer to it vaguely as \"my field of study\" or \"my qualification\" when the actual qualification name is available above. A specific, named qualification (especially one that relates to the role, e.g. an accounting degree for a payroll/finance role) is often a genuine point in the applicant's favour and should be stated plainly, not generically." : 'Write a compelling letter based on the position and job description'}
 5. The letter must be appropriate for the South African job market
 6. Format:
    - Date line at top: ${new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -300,7 +302,7 @@ export const handler = async (event) => {
 
       // ── Mode 2: Process free-text "tell us about yourself" ─────────────
       if (body.action === 'process_freetext') {
-        const prompt  = buildStructurePrompt(body.text, body.cvType || 'educator', true);
+        const prompt  = buildStructurePrompt(body.text, body.cvType || 'general', true);
         const content = await callGroq(prompt, true);
         return {
           statusCode: 200,
@@ -336,7 +338,7 @@ export const handler = async (event) => {
 
   let fileBuffer = null;
   let fileMimeType = null;
-  let cvType = 'educator';
+  let cvType = 'general';
 
   await new Promise((resolve, reject) => {
     const bb = busboy({ headers: { 'content-type': contentType } });
