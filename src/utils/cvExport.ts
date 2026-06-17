@@ -599,11 +599,10 @@ function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
     for(const e of edu){if(y+12>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.qualification||'',ML,y);y+=LINE_H;p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text([e.institution,e.year].filter(Boolean).join('  ·  '),ML,y);y+=LINE_H+ITEM_GAP;}}
   if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW,ICON.briefcase);
     for(const e of exp){if(y+14>BOTTOM)y=np();
-      fill(p,ar,ag,ab);p.rect(ML,y-3.2,2.5,14,'F');reset(p);
-      p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',ML+5,y);y+=LINE_H;
-      p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text(e.school||'',ML+5,y);
+      p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',ML,y);y+=LINE_H;
+      p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text(e.school||'',ML,y);
       const ds=[e.from,e.to].filter(Boolean).join(' – ');if(ds){p.setFont(F,'normal');p.setFontSize(8);tc(p,156,163,175);p.text(ds,PW-MR-p.getTextWidth(ds),y);}y+=LINE_H;
-      if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML+5,y,PW-MR-ML-5,accent,BOTTOM,np,()=>[ML+5,PW-MR-ML-5]);
+      if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML,y,PW-MR-ML,accent,BOTTOM,np,()=>[ML,PW-MR-ML]);
       y+=ITEM_GAP+1;}}
   if(sk.subjects?.length||sk.soft_skills?.length||sk.languages?.length){y=sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW,ICON.cogs);
     for(const [lbl,items] of [['Subjects',sk.subjects||[]],['Skills',sk.soft_skills||[]],['Languages',sk.languages||[]]] as [string,string[]][]){if(!items.length)continue;
@@ -639,11 +638,11 @@ function drawModern(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   const GXW=():[ number,number]=>[cx,cmw];
   if(pr.bio){y=sectionHeading(p,isEdu?'About Me':'About Me',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,cx,y,cmw,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
   if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);
-    for(const e of exp){if(y+14>BOTTOM)y=np();fill(p,ar,ag,ab);p.rect(cx,y-3,2,11,'F');reset(p);
-      p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',cx+4,y);y+=LINE_H;
-      p.setFont(F,'bold');p.setFontSize(8.5);tc(p,ar,ag,ab);p.text(e.school||'',cx+4,y);
+    for(const e of exp){if(y+14>BOTTOM)y=np();
+      p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',cx,y);y+=LINE_H;
+      p.setFont(F,'bold');p.setFontSize(8.5);tc(p,ar,ag,ab);p.text(e.school||'',cx,y);
       const ds=[e.from,e.to].filter(Boolean).join(' – ');if(ds){p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);p.text(ds,PW-MR-p.getTextWidth(ds),y);}y+=LINE_H;
-      if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,cx+4,y,cmw-4,accent,BOTTOM,np,()=>[cx+4,cmw-4]);
+      if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,cx,y,cmw,accent,BOTTOM,np,()=>[cx,cmw]);
       y+=ITEM_GAP+1;}}
   if(edu.length){y=sectionHeading(p,'Education',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);
     for(const e of edu){if(y+12>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.qualification||'',cx,y);y+=LINE_H;p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text([e.institution,e.year].filter(Boolean).join('  ·  '),cx,y);y+=LINE_H+ITEM_GAP;}}
