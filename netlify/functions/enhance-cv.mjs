@@ -209,6 +209,24 @@ function buildCoverLetterPrompt(jobDescription, cvData, meta) {
     .filter(e => e.qualification)
     .map(e => `${e.qualification} — ${e.institution} (${e.year})`)
     .join('; ');
+
+  // Determine the applicant's highest/most relevant qualification
+  // explicitly in CODE rather than relying on the model to judge this —
+  // smaller/faster models (this uses Llama 3.3 via Groq) have repeatedly
+  // failed to reliably name a specific qualification even when told to,
+  // across multiple attempts at stronger prompt wording. Giving the model
+  // a literal, ready-made sentence fragment to use is far more reliable
+  // than asking it to recall and insert the fact itself.
+  const QUAL_RANK = [
+    /doctor|phd/i, /master/i, /honours|honors/i, /bachelor|b\.?com|b\.?sc|b\.?a\.?|b\.?ed/i,
+    /diploma/i, /certificate/i, /matric|grade ?12/i,
+  ];
+  const eduEntries = (cvData?.education || []).filter(e => e.qualification);
+  const rankOf = (q) => { const i = QUAL_RANK.findIndex(re => re.test(q)); return i === -1 ? QUAL_RANK.length : i; };
+  const topQual = eduEntries.sort((a, b) => rankOf(a.qualification) - rankOf(b.qualification))[0];
+  const topQualPhrase = topQual
+    ? `my ${topQual.qualification}${topQual.institution ? ` from ${topQual.institution}` : ''}`
+    : null;
   const skills = [
     ...(cvData?.skills?.subjects || []),
     ...(cvData?.skills?.soft_skills || []),
@@ -217,7 +235,8 @@ function buildCoverLetterPrompt(jobDescription, cvData, meta) {
 
   const hasCv = expList || eduList || skills || bio;
 
-  return `You are an expert South African cover letter writer. Write a compelling, tailored cover letter for a job application.
+  return {
+    prompt: `You are an expert South African cover letter writer. Write a compelling, tailored cover letter for a job application.
 
 APPLICANT DETAILS:
 Name: ${name}
@@ -240,9 +259,8 @@ INSTRUCTIONS:
 1. Write a professional cover letter tailored SPECIFICALLY to this job description
 2. Reference specific requirements, skills, or keywords from the job description — but ONLY where they genuinely connect to something true about this applicant. Do NOT echo back a JD keyword/phrase (e.g. an industry, a tool, a certification) as something the applicant is interested in or experienced with unless their CV data above actually supports that connection. Sounding aligned with the posting is never a reason to imply something not grounded in the applicant's real background.
 3. Match the applicant's experience/skills to the job requirements — be specific, and be honest about gaps (see rule 8)
-4. ${hasCv ? `Use the applicant's CV data above to personalise.
-   MANDATORY — NOT OPTIONAL: The opening or second paragraph MUST explicitly name the applicant's highest or most relevant qualification by its real title, exactly as given in the Education list above (e.g. "my Bachelor of Commerce in Accounting" or "my BCom in Accounting from Eduvos") — not a paraphrase, not "my qualification", not "my field of study". This is required even if the role doesn't explicitly ask for that exact qualification — a named, real qualification always strengthens a letter and must be stated plainly every time CV education data is available, not only when it feels relevant.
-   If multiple qualifications are listed in the Education data above, use the HIGHEST/MOST ADVANCED one (e.g. a Bachelor's degree over a Matric/Grade 12 certificate) as the primary one named in the letter — do not default to mentioning only a lower-level qualification (like Matric) while omitting a higher one that was also provided.` : 'Write a compelling letter based on the position and job description'}
+4. ${topQualPhrase ? `Use the applicant's CV data above to personalise.
+   MANDATORY — NOT OPTIONAL: somewhere in the opening or second paragraph, you MUST include this exact phrase, adapted only enough to fit the sentence grammatically: "${topQualPhrase}". Do not paraphrase it into something vaguer like "my qualification" or "my field of study" — use the real qualification name and institution as given. Build a natural sentence around this phrase (e.g. "With ${topQualPhrase}, I have developed..."), but the phrase itself must appear close to verbatim.` : (hasCv ? "Use the applicant's CV data above to personalise — mention their actual experience and skills." : 'Write a compelling letter based on the position and job description')}
 5. The letter must be appropriate for the South African job market
 6. Format:
    - Date line at top: ${new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -255,7 +273,9 @@ INSTRUCTIONS:
 8. NEVER fabricate experience, job titles, seniority, years of experience, or qualifications not explicitly present in the CV data above. If the applicant has limited experience or is early-career, write a genuine, honest letter that focuses on their real strengths (education, transferable skills, enthusiasm) rather than inventing achievements to sound more impressive. A short, honest letter is correct; an embellished one is not.
 9. If no CV data is provided, write a strong generic letter for the role based on the JD
 
-Return ONLY the letter text. No labels, no JSON, no preamble or postamble. Just the letter.`;
+Return ONLY the letter text. No labels, no JSON, no preamble or postamble. Just the letter.`,
+    topQualPhrase,
+  };
 }
 
 async function callGroq(prompt, jsonMode = true) {
@@ -314,15 +334,45 @@ export const handler = async (event) => {
 
       // ── Mode 3: Generate AI cover letter tailored to job description ────
       if (body.action === 'generate_cover_letter') {
-        const prompt = buildCoverLetterPrompt(
+        const { prompt, topQualPhrase } = buildCoverLetterPrompt(
           body.jobDescription || '',
           body.cvData || null,
           body.meta || {}
         );
-        const letter = await callGroq(prompt, false);
+        let letter = (await callGroq(prompt, false)).trim();
+
+        // Safety net: the underlying model (Llama 3.3 via Groq) has
+        // repeatedly failed to reliably follow the "name the real
+        // qualification" instruction across multiple rounds of prompt
+        // strengthening, even when given the literal phrase to use. Rather
+        // than keep tightening prose that the model may continue to
+        // ignore, verify the phrase actually made it into the output —
+        // if not, insert a sentence containing it directly into the
+        // letter so the user's real qualification is never silently
+        // dropped.
+        if (topQualPhrase) {
+          const qualWords = topQualPhrase.replace(/^my /, '').split(' ').filter(w => w.length > 3);
+          const mentioned = qualWords.some(w => letter.toLowerCase().includes(w.toLowerCase()));
+          if (!mentioned) {
+            const insertSentence = `With ${topQualPhrase}, I bring a relevant academic foundation to this role. `;
+            // Insert after the first paragraph (first double-newline), or
+            // after the first sentence if the letter has no clear
+            // paragraph break, so it reads naturally rather than being
+            // tacked on at the very end.
+            const firstBreak = letter.indexOf('\n\n');
+            if (firstBreak !== -1) {
+              const secondParaStart = firstBreak + 2;
+              letter = letter.slice(0, secondParaStart) + insertSentence + letter.slice(secondParaStart);
+            } else {
+              const firstSentenceEnd = letter.indexOf('. ') + 2;
+              letter = letter.slice(0, firstSentenceEnd) + insertSentence + letter.slice(firstSentenceEnd);
+            }
+          }
+        }
+
         return {
           statusCode: 200,
-          body: JSON.stringify({ success: true, letter: letter.trim() }),
+          body: JSON.stringify({ success: true, letter }),
         };
       }
 
