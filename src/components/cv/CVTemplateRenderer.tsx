@@ -1982,18 +1982,21 @@ const PL_MUTED    = '#555555';   // gray — contact info, dates, meta
 const PL_YELLOW   = '#f0c040';   // mustard yellow circles
 const PL_TEAL     = '#4ab8b8';   // teal circles
 
-function PlayfulHeading({ title }: { title: string }) {
+function PlayfulHeading({ title, icon }: { title: string; icon?: string }) {
   return (
-    <div style={{ marginBottom: '12px', marginTop: '4px' }}>
-      <span style={{
-        fontSize: '13px', fontWeight: 800, textTransform: 'uppercase',
-        letterSpacing: '1.5px', color: PL_INK,
-        borderBottom: `2px solid ${PL_INK}`,
-        paddingBottom: '3px',
-        display: 'inline-block',
-      }}>
-        {title}
-      </span>
+    <div style={{ marginBottom: '12px', marginTop: '16px' }}>
+      {/* Title row: icon + text */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+        {icon && <span style={{ fontSize: '13px', lineHeight: 1 }}>{icon}</span>}
+        <span style={{
+          fontSize: '13px', fontWeight: 800, textTransform: 'uppercase',
+          letterSpacing: '1.5px', color: PL_INK,
+        }}>
+          {title}
+        </span>
+      </div>
+      {/* Full-width underline — same 1px weight as all other section lines */}
+      <div style={{ height: '1px', background: PL_INK, width: '100%' }} />
     </div>
   );
 }
@@ -2090,7 +2093,7 @@ function PlayfulTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
           {/* About Me — full width */}
           {personal.bio && (
             <div style={{ marginBottom: '28px' }}>
-              <PlayfulHeading title="About Me" />
+              <PlayfulHeading title="About Me" icon="📄" />
               <p style={{ fontSize: '12px', color: '#333', lineHeight: '1.7', margin: 0 }}>{personal.bio}</p>
             </div>
           )}
@@ -2105,7 +2108,7 @@ function PlayfulTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
               <div>
                 {validExp.length > 0 && (
                   <>
-                    <PlayfulHeading title={expLabel} />
+                    <PlayfulHeading title={expLabel} icon="💼" />
                     {validExp.map((e: any, i: number) => (
                       <div key={i} style={{ marginBottom: '16px' }}>
                         <div style={{ fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px', color: PL_INK }}>
@@ -2128,7 +2131,7 @@ function PlayfulTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
               <div>
                 {validEdu.length > 0 && (
                   <>
-                    <PlayfulHeading title="Education" />
+                    <PlayfulHeading title="Education" icon="🎓" />
                     {validEdu.map((e: any, i: number) => (
                       <div key={i} style={{ marginBottom: '16px' }}>
                         <div style={{ fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px', color: PL_INK }}>
@@ -2153,7 +2156,7 @@ function PlayfulTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
           {/* Skills — categorised, 2-column bullet layout */}
           {allSkills.length > 0 && (
             <div style={{ marginBottom: '28px' }}>
-              <PlayfulHeading title="Skills" />
+              <PlayfulHeading title="Skills" icon="⚙️" />
               {([
                 { label: 'Key Skills',          items: skills?.subjects    || [] },
                 { label: 'Professional Skills', items: skills?.soft_skills || [] },
@@ -2190,7 +2193,7 @@ function PlayfulTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, PL_INK, watermark)}
+      <div style={{ background: PL_BG }}>{renderReferencesPage(data.references, PL_INK, watermark)}</div>
     </div>
   );
 }
@@ -2266,7 +2269,7 @@ function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
           {/* About Me */}
           {personal.bio && (
             <div style={{ marginBottom: '28px' }}>
-              <PlayfulHeading title="About Me" />
+              <PlayfulHeading title="About Me" icon="📄" />
               <p style={{ fontSize: '12px', color: '#333', lineHeight: '1.7', margin: 0 }}>{personal.bio}</p>
             </div>
           )}
@@ -2274,7 +2277,7 @@ function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
           {/* Experience — full width, single column */}
           {validExp.length > 0 && (
             <div style={{ marginBottom: '28px' }}>
-              <PlayfulHeading title={expLabel} />
+              <PlayfulHeading title={expLabel} icon="💼" />
               {validExp.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '16px' }}>
                   <div style={{ fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px', color: PL_INK }}>
@@ -2294,7 +2297,7 @@ function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
           {/* Education — full width, single column */}
           {validEdu.length > 0 && (
             <div style={{ marginBottom: '28px' }}>
-              <PlayfulHeading title="Education" />
+              <PlayfulHeading title="Education" icon="🎓" />
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '16px' }}>
                   <div style={{ fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px', color: PL_INK }}>
@@ -2316,7 +2319,7 @@ function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
           {/* Skills — categorised, 2-column bullet layout per category */}
           {allSkills.length > 0 && (
             <div style={{ marginBottom: '28px' }}>
-              <PlayfulHeading title="Skills" />
+              <PlayfulHeading title="Skills" icon="⚙️" />
               {skillGroups.map((group, gi) => (
                 <div key={gi} style={{ marginBottom: '10px' }}>
                   <div style={{ fontWeight: 700, fontSize: '10.5px', textTransform: 'uppercase', color: PL_INK, marginBottom: '4px', letterSpacing: '0.5px' }}>
@@ -2347,7 +2350,7 @@ function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, PL_INK, watermark)}
+      <div style={{ background: PL_BG }}>{renderReferencesPage(data.references, PL_INK, watermark)}</div>
     </div>
   );
 }
