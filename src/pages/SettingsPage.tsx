@@ -149,9 +149,9 @@ function GeneralTab() {
 /* ── Subscription tab (Pro users only) ─────────────────────── */
 
 const BILLING = [
-  { id: 'monthly', label: 'Monthly',     badge: null as string | null, save: null as string | null,       sub: 'R59/mo',               price: 'R59', perMonth: 59 },
-  { id: 'semi',    label: 'Semi-Annual', badge: 'Popular' as string | null, save: 'Save 20%' as string | null, sub: 'R282 every 6 months',  price: 'R47', perMonth: 47 },
-  { id: 'annual',  label: 'Annual',      badge: null as string | null, save: 'Save 41%' as string | null, sub: 'R420/year',             price: 'R35', perMonth: 35 },
+  { id: 'monthly',     label: 'Monthly',     badge: null as string | null, save: null as string | null,       sub: 'R59/mo',                price: 'R59', perMonth: 59 },
+  { id: 'semi_annual', label: 'Semi-Annual', badge: 'Popular' as string | null, save: 'Save 33%' as string | null, sub: 'R234 every 6 months', price: 'R39', perMonth: 39 },
+  { id: 'annual',      label: 'Annual',      badge: null as string | null, save: 'Save 51%' as string | null, sub: 'R348/year',              price: 'R29', perMonth: 29 },
 ];
 
 const COMPARISON = [
@@ -168,7 +168,7 @@ function SubscriptionTab() {
   const [profile, setProfile] = useState<{ subscription_plan: string; subscription_end: string | null } | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
-  const [billing, setBilling] = useState<'monthly' | 'semi' | 'annual'>('semi');
+  const [billing, setBilling] = useState<'monthly' | 'semi_annual' | 'annual'>('semi_annual');
 
   useEffect(() => {
     if (!user) return;
@@ -180,7 +180,7 @@ function SubscriptionTab() {
       .then(({ data }) => {
         setProfile(data);
         if (data?.subscription_plan && data.subscription_plan !== 'free') {
-          setBilling(data.subscription_plan as 'monthly' | 'semi' | 'annual');
+          setBilling(data.subscription_plan as 'monthly' | 'semi_annual' | 'annual');
         }
       });
   }, [user]);
@@ -203,7 +203,7 @@ function SubscriptionTab() {
 
   const getPlanEndDate = (planId: string): string => {
     const d = new Date();
-    if (planId === 'semi')        d.setMonth(d.getMonth() + 6);
+    if (planId === 'semi_annual') d.setMonth(d.getMonth() + 6);
     else if (planId === 'annual') d.setFullYear(d.getFullYear() + 1);
     else                          d.setMonth(d.getMonth() + 1);
     return d.toISOString();
@@ -261,7 +261,7 @@ function SubscriptionTab() {
         </p>
         <div className="space-y-2">
           {BILLING.map(b => (
-            <button key={b.id} onClick={() => setBilling(b.id as 'monthly' | 'semi' | 'annual')}
+            <button key={b.id} onClick={() => setBilling(b.id as 'monthly' | 'semi_annual' | 'annual')}
               className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-all text-left ${billing === b.id ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border bg-card'}`}
             >
               <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${billing === b.id ? 'border-primary' : 'border-muted-foreground'}`}>
@@ -675,7 +675,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
           <div className="space-y-2">
             <Label className="text-sm font-medium">Subscription Plan</Label>
             <div className="flex gap-2 flex-wrap">
-              {['free', 'monthly', 'semi', 'annual'].map(p => (
+              {['free', 'monthly', 'semi_annual', 'annual'].map(p => (
                 <button key={p} onClick={() => setSubscriptionPlan(p)}
                   className={`px-3 py-1.5 rounded-xl border text-sm font-medium capitalize transition-all ${subscriptionPlan === p ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
                   {p}
