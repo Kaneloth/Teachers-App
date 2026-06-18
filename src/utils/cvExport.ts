@@ -1643,7 +1643,7 @@ function drawPlayful(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 
   // ── About Me ──────────────────────────────────────────────────────────────
   if (pr.bio) {
-    y = sectionHeading(p,'About Me',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
+    y = sectionHeading(p,'About Me',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW,ICON.fileText);
     y += 2;
     p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51);
     y = wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);
@@ -1730,8 +1730,8 @@ function drawPlayful(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 
   if (exp.length || edu.length) {
     // ── Draw section headings at the same Y ──────────────────────────────
-    if (exp.length) { leftY  = sectionHeading(p,isEdu?'Teaching Experience':'Experience',ML,leftY,colW,accent,'tag-underline',BOTTOM,np); leftY  += 2; }
-    if (edu.length) { rightY = sectionHeading(p,'Education',col2x,rightY,colW,accent,'tag-underline',BOTTOM,np); rightY += 2; }
+    if (exp.length) { leftY  = sectionHeading(p,isEdu?'Teaching Experience':'Experience',ML,leftY,colW,accent,'tag-underline',BOTTOM,np,undefined,ICON.briefcase); leftY  += 2; }
+    if (edu.length) { rightY = sectionHeading(p,'Education',col2x,rightY,colW,accent,'tag-underline',BOTTOM,np,undefined,ICON.graduationCap); rightY += 2; }
     // Sync both columns to the lower of the two headings so content starts
     // at the same baseline regardless of which heading is taller.
     const headingEndY = Math.max(leftY, rightY);
@@ -1803,7 +1803,7 @@ function drawPlayful(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   ] as [string,string[]][]).filter(([,items])=>(items as string[]).length > 0);
 
   if (plSkillGroups.length) {
-    y = sectionHeading(p,'Skills',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
+    y = sectionHeading(p,'Skills',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW,ICON.cogs);
     y += 2;
     const skColW2 = (PW-ML-MR-colGap)/2;
     for (let g=0; g<plSkillGroups.length; g++) {
@@ -1829,7 +1829,7 @@ function drawPlayful(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 
 
   y = drawCustom(p,customs,accent,'tag-underline',ML,y,PW-ML-MR,BOTTOM,np,GXW);
-  refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm,undefined,false);
+  refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm,PL_BG,false);
 }
 
 // ── 21. CASUAL — Identical to Playful but fully single-column.
@@ -1874,7 +1874,7 @@ function drawCasual(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
 
   // ── About Me ──────────────────────────────────────────────────────────────
   if (pr.bio) {
-    y = sectionHeading(p,'About Me',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW);
+    y = sectionHeading(p,'About Me',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.fileText);
     y += 2;
     p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51);
     y = wrapped(p,pr.bio,ML,y,W,BOTTOM,np,GXW);
@@ -1883,7 +1883,7 @@ function drawCasual(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
 
   // ── Experience — full width ───────────────────────────────────────────────
   if (exp.length) {
-    y = sectionHeading(p,isEdu?'Teaching Experience':'Experience',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW);
+    y = sectionHeading(p,isEdu?'Teaching Experience':'Experience',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.briefcase);
     y += 2;
     for (const e of exp) {
       if (y+14>BOTTOM) y=np();
@@ -1904,7 +1904,7 @@ function drawCasual(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
 
   // ── Education — full width ────────────────────────────────────────────────
   if (edu.length) {
-    y = sectionHeading(p,'Education',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW);
+    y = sectionHeading(p,'Education',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.graduationCap);
     y += 2;
     for (const e of edu) {
       if (y+10>BOTTOM) y=np();
@@ -1932,7 +1932,7 @@ function drawCasual(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   ] as [string,string[]][]).filter(([,items])=>(items as string[]).length > 0);
 
   if (casSkillGroups.length) {
-    y = sectionHeading(p,'Skills',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW);
+    y = sectionHeading(p,'Skills',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.cogs);
     y += 2;
     const skGap  = 10;
     const skColW = (W-skGap)/2;
@@ -1956,5 +1956,5 @@ function drawCasual(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   }
 
   y = drawCustom(p,customs,accent,'tag-underline',ML,y,W,BOTTOM,np,GXW);
-  refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm,undefined,false);
+  refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm,PL_BG,false);
 }
