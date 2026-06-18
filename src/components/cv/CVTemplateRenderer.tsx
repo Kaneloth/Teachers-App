@@ -2005,11 +2005,6 @@ function PlayfulTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
     ...(skills?.languages   || []),
   ];
 
-  // Split skills into 3 columns for the grid
-  const col1 = allSkills.filter((_: string, i: number) => i % 3 === 0);
-  const col2 = allSkills.filter((_: string, i: number) => i % 3 === 1);
-  const col3 = allSkills.filter((_: string, i: number) => i % 3 === 2);
-
   return (
     <div style={{ ...wrapperStyle, background: PL_BG }}>
       <div
@@ -2098,9 +2093,12 @@ function PlayfulTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
             </div>
           )}
 
-          {/* Two-column: Experience (left) + Education (right) */}
+          {/* Two-column: Experience (left) + Education (right)
+               Use align-items: flex-start so the grid does NOT stretch the
+               shorter column to match the taller one — that was causing the
+               white-space gap when experience had many more entries. */}
           {(validExp.length > 0 || validEdu.length > 0) && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 40px', marginBottom: '28px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 40px', marginBottom: '28px', alignItems: 'flex-start' }}>
               {/* Experience column */}
               <div>
                 {validExp.length > 0 && (
@@ -2113,7 +2111,7 @@ function PlayfulTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
                         </div>
                         {(e.from || e.to) && (
                           <div style={{ fontSize: '10.5px', textTransform: 'uppercase', color: PL_MUTED, marginBottom: '4px', letterSpacing: '0.3px' }}>
-                            {e.school && `${e.school.toUpperCase()}, `}{[e.from, e.to].filter(Boolean).join(' – ')}
+                            {[e.from, e.to].filter(Boolean).join(' – ')}
                           </div>
                         )}
                         {renderDescription(e.description, PL_INK, '11px')}
@@ -2123,7 +2121,8 @@ function PlayfulTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
                 )}
               </div>
 
-              {/* Education column */}
+              {/* Education column — starts at the same top as Experience,
+                   does NOT stretch to fill. */}
               <div>
                 {validEdu.length > 0 && (
                   <>
@@ -2149,22 +2148,38 @@ function PlayfulTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
             </div>
           )}
 
-          {/* Skills — 3-column bullet grid */}
+          {/* Skills — categorised, 2-column bullet layout */}
           {allSkills.length > 0 && (
             <div style={{ marginBottom: '28px' }}>
               <PlayfulHeading title="Skills" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2px 16px' }}>
-                {[col1, col2, col3].map((col, ci) => (
-                  <div key={ci}>
-                    {col.map((s: string, si: number) => (
-                      <div key={si} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '3px' }}>
-                        <span style={{ color: PL_INK, fontSize: '11px', marginTop: '1px', flexShrink: 0 }}>•</span>
-                        <span style={{ fontSize: '11.5px', color: '#333', lineHeight: '1.5' }}>{s}</span>
-                      </div>
-                    ))}
+              {([
+                { label: 'Key Skills',          items: skills?.subjects    || [] },
+                { label: 'Professional Skills', items: skills?.soft_skills || [] },
+                { label: 'Languages',           items: skills?.languages   || [] },
+              ] as { label: string; items: string[] }[])
+                .filter(g => g.items.length > 0)
+                .map((group, gi) => (
+                  <div key={gi} style={{ marginBottom: '10px' }}>
+                    <div style={{ fontWeight: 700, fontSize: '10.5px', textTransform: 'uppercase', color: PL_INK, marginBottom: '4px', letterSpacing: '0.5px' }}>
+                      {group.label}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 16px' }}>
+                      {[
+                        group.items.filter((_: string, i: number) => i % 2 === 0),
+                        group.items.filter((_: string, i: number) => i % 2 === 1),
+                      ].map((col, ci) => (
+                        <div key={ci}>
+                          {col.map((s: string, si: number) => (
+                            <div key={si} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '3px' }}>
+                              <span style={{ color: PL_INK, fontSize: '11px', marginTop: '1px', flexShrink: 0 }}>•</span>
+                              <span style={{ fontSize: '11.5px', color: '#333', lineHeight: '1.5' }}>{s}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
-              </div>
             </div>
           )}
 

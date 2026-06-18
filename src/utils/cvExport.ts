@@ -1649,83 +1649,182 @@ function drawPlayful(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   }
 
   // ── Two-column: Experience (left) + Education (right) ─────────────────────
+  // Both columns are drawn in lock-step: before drawing each item we check
+  // whether it fits on the current page. If either column would overflow,
+  // BOTH cursors advance to a new page together — preventing the right
+  // column from jumping ahead and leaving a white gap on the left.
   const colGap = 10;
   const colW   = (PW-ML-MR-colGap)/2;
   const col2x  = ML+colW+colGap;
 
+  // Estimate height (mm) of one experience entry
+  const estimateExpH = (e:any): number => {
+    p.setFontSize(9);
+    const roleStr = `${(e.role||'').toUpperCase()}${e.school?' / '+e.school.toUpperCase():''}`;
+    const roleLines = p.splitTextToSize(roleStr, colW) as string[];
+    let h = roleLines.length * (LINE_H-0.5);
+    if (e.from||e.to) h += LINE_H-0.5;
+    if (e.description) {
+      p.setFontSize(8.5);
+      for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean)) {
+        const bls = p.splitTextToSize(l, colW-BULLET_INDENT) as string[];
+        h += bls.length * LINE_H;
+      }
+    }
+    return h + ITEM_GAP;
+  };
+
+  // Estimate height (mm) of one education entry
+  const estimateEduH = (e:any): number => {
+    p.setFontSize(9);
+    const qLines = p.splitTextToSize((e.qualification||'').toUpperCase(), colW) as string[];
+    let h = qLines.length * (LINE_H-0.5);
+    if (e.institution||e.year) h += LINE_H-0.5;
+    if (e.description) {
+      p.setFontSize(8.5);
+      const dls = p.splitTextToSize(e.description, colW) as string[];
+      h += dls.length * LINE_H;
+    }
+    return h + ITEM_GAP;
+  };
+
+  // Draw one experience entry at (x, startY), return new Y
+  const drawExpEntry = (e:any, x:number, startY:number): number => {
+    let ey = startY;
+    p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
+    const roleStr = `${(e.role||'').toUpperCase()}${e.school?' / '+e.school.toUpperCase():''}`;
+    const roleLines = p.splitTextToSize(roleStr, colW) as string[];
+    roleLines.forEach((l:string) => { p.text(l,x,ey); ey+=LINE_H-0.5; });
+    const ds = [e.from,e.to].filter(Boolean).join(' \u2013 ');
+    if (ds) { p.setFont(F,'normal'); p.setFontSize(8); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]); p.text(ds.toUpperCase(),x,ey); ey+=LINE_H-0.5; }
+    if (e.description) {
+      p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,51,51,51);
+      for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))
+        ey = bulletLine(p,l,x,ey,colW,accent,BOTTOM,np);
+    }
+    return ey + ITEM_GAP;
+  };
+
+  // Draw one education entry at (x, startY), return new Y
+  const drawEduEntry = (e:any, x:number, startY:number): number => {
+    let ey = startY;
+    p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
+    const qLines = p.splitTextToSize((e.qualification||'').toUpperCase(), colW) as string[];
+    qLines.forEach((l:string) => { p.text(l,x,ey); ey+=LINE_H-0.5; });
+    if (e.institution||e.year) {
+      p.setFont(F,'normal'); p.setFontSize(8); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]);
+      p.text([e.institution,e.year].filter(Boolean).join(', ').toUpperCase(),x,ey);
+      ey+=LINE_H-0.5;
+    }
+    if (e.description) {
+      p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,51,51,51);
+      ey = wrapped(p,e.description,x,ey,colW,BOTTOM,np);
+    }
+    return ey + ITEM_GAP;
+  };
+
   let leftY  = y;
   let rightY = y;
 
-  // Experience (left column)
-  if (exp.length) {
-    leftY = sectionHeading(p,isEdu?'Teaching Experience':'Experience',ML,leftY,colW,accent,'tag-underline',BOTTOM,np);
-    leftY += 2;
+  if (exp.length || edu.length) {
+    // ── Draw section headings at the same Y ──────────────────────────────
+    if (exp.length) { leftY  = sectionHeading(p,isEdu?'Teaching Experience':'Experience',ML,leftY,colW,accent,'tag-underline',BOTTOM,np); leftY  += 2; }
+    if (edu.length) { rightY = sectionHeading(p,'Education',col2x,rightY,colW,accent,'tag-underline',BOTTOM,np); rightY += 2; }
+    // Sync both columns to the lower of the two headings so content starts
+    // at the same baseline regardless of which heading is taller.
+    const headingEndY = Math.max(leftY, rightY);
+    leftY = headingEndY; rightY = headingEndY;
+
+    // ── Draw each column independently ───────────────────────────────────
+    // Columns are NOT drawn in lock-step — that caused the right column to
+    // jump to page 2 when experience had many more items than education,
+    // leaving a huge white gap on page 1.
+    //
+    // Instead each column flows naturally: when an entry doesn't fit on
+    // the current page we add a new page FOR THAT COLUMN only and continue.
+    // After both columns are done we sync y to the bottom of the longer one.
+    //
+    // Page-tracking: we record which jsPDF page each column is currently on
+    // so we can go back to the correct page when drawing the right column.
+
+    const startPage = (p as any).internal.getCurrentPageInfo().pageNumber;
+
+    // Left column — draw all experience entries
     for (const e of exp) {
-      if (leftY+14>BOTTOM) leftY=np();
-      // Role + school
-      p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
-      const roleStr = `${(e.role||'').toUpperCase()}${e.school?` / ${e.school.toUpperCase()}`:''}`;
-      const roleLines = p.splitTextToSize(roleStr, colW) as string[];
-      roleLines.forEach((l:string) => { p.text(l,ML,leftY); leftY+=LINE_H-0.5; });
-      // Dates
-      const ds = [e.from,e.to].filter(Boolean).join(' – ');
-      if (ds) { p.setFont(F,'normal'); p.setFontSize(8); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]); p.text(ds.toUpperCase(),ML,leftY); leftY+=LINE_H-0.5; }
-      // Bullets
-      if (e.description) {
-        p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,51,51,51);
-        for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))
-          leftY = bulletLine(p,l,ML,leftY,colW,accent,BOTTOM,np);
-      }
-      leftY += ITEM_GAP;
+      const h = estimateExpH(e);
+      if (leftY + h > BOTTOM) { leftY = np(); }
+      leftY = drawExpEntry(e, ML, leftY);
     }
-  }
+    const leftEndPage = (p as any).internal.getCurrentPageInfo().pageNumber;
+    const leftEndY    = leftY;
 
-  // Education (right column)
-  if (edu.length) {
-    rightY = sectionHeading(p,'Education',col2x,rightY,colW,accent,'tag-underline',BOTTOM,np);
-    rightY += 2;
+    // Right column — go back to the starting page, then draw education
+    // entries. We use setPage() to position jsPDF on the correct page.
+    (p as any).setPage(startPage);
+    rightY = headingEndY;
+
     for (const e of edu) {
-      if (rightY+10>BOTTOM) rightY=np();
-      p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
-      const qLines = p.splitTextToSize((e.qualification||'').toUpperCase(), colW) as string[];
-      qLines.forEach((l:string) => { p.text(l,col2x,rightY); rightY+=LINE_H-0.5; });
-      if (e.institution||e.year) {
-        p.setFont(F,'normal'); p.setFontSize(8); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]);
-        p.text([e.institution,e.year].filter(Boolean).join(', ').toUpperCase(),col2x,rightY);
-        rightY+=LINE_H-0.5;
+      const h = estimateEduH(e);
+      if (rightY + h > BOTTOM) {
+        // Advance right column to next page.
+        // If left column already drew content on that page, we just setPage;
+        // otherwise addPage would create an extra blank page.
+        const curPage = (p as any).internal.getCurrentPageInfo().pageNumber;
+        if (curPage < leftEndPage) {
+          (p as any).setPage(curPage + 1);
+          reset(p); paintBg();
+          rightY = MT + 4;
+        } else {
+          rightY = np();
+        }
       }
-      if (e.description) {
-        p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,51,51,51);
-        rightY=wrapped(p,e.description,col2x,rightY,colW,BOTTOM,np);
-      }
-      rightY+=ITEM_GAP;
+      rightY = drawEduEntry(e, col2x, rightY);
+    }
+
+    // Ensure jsPDF is on the last page of whichever column went furthest
+    const rightEndPage = (p as any).internal.getCurrentPageInfo().pageNumber;
+    if (leftEndPage >= rightEndPage) {
+      (p as any).setPage(leftEndPage);
+      y = leftEndY;
+    } else {
+      y = rightY;
     }
   }
 
-  y = Math.max(leftY, rightY) + ITEM_GAP;
+  y = y + ITEM_GAP;
 
-  // ── Skills — 3-column bullet grid ─────────────────────────────────────────
-  const allSk = [...(sk.subjects||[]),...(sk.soft_skills||[]),...(sk.languages||[])];
-  if (allSk.length) {
+  // ── Skills — categorised, 2-column bullet layout ───────────────────────────
+  const plSkillGroups = ([
+    ['Key Skills',          sk.subjects    || []],
+    ['Professional Skills', sk.soft_skills || []],
+    ['Languages',           sk.languages   || []],
+  ] as [string,string[]][]).filter(([,items])=>(items as string[]).length > 0);
+
+  if (plSkillGroups.length) {
     y = sectionHeading(p,'Skills',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
     y += 2;
-    const skColW = (PW-ML-MR)/3;
-    const skCols: string[][] = [[], [], []];
-    allSk.forEach((s:string,i:number) => skCols[i%3].push(s));
-    const maxRows = Math.max(...skCols.map(c=>c.length));
-    for (let row=0; row<maxRows; row++) {
+    const skColW2 = (PW-ML-MR-colGap)/2;
+    for (let g=0; g<plSkillGroups.length; g++) {
+      const [label, items] = plSkillGroups[g];
       if (y+LINE_H>BOTTOM) y=np();
-      for (let col=0; col<3; col++) {
-        if (!skCols[col][row]) continue;
-        const sx = ML + col*skColW;
-        dot(p, sx+0.5, y-0.2, accent);
-        p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51);
-        p.text(skCols[col][row], sx+BULLET_INDENT, y);
+      // Category label — bold, full width
+      p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
+      p.text(label as string, ML, y); y += LINE_H;
+      // Items in two columns
+      const col1i = (items as string[]).filter((_:string,i:number)=>i%2===0);
+      const col2i = (items as string[]).filter((_:string,i:number)=>i%2===1);
+      const maxR  = Math.max(col1i.length, col2i.length);
+      for (let r=0; r<maxR; r++) {
+        if (y+LINE_H>BOTTOM) y=np();
+        if (col1i[r]) { dot(p,ML+0.5,y-0.2,accent); p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51); p.text(col1i[r], ML+BULLET_INDENT, y); }
+        if (col2i[r]) { dot(p,ML+skColW2+colGap+0.5,y-0.2,accent); p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51); p.text(col2i[r], ML+skColW2+colGap+BULLET_INDENT, y); }
+        y += LINE_H;
       }
-      y += LINE_H;
+      y += ITEM_GAP + (g < plSkillGroups.length-1 ? 1 : 0);
     }
-    y += ITEM_GAP;
+    y += 1;
   }
+
 
   y = drawCustom(p,customs,accent,'tag-underline',ML,y,PW-ML-MR,BOTTOM,np,GXW);
   refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm,undefined,false);
