@@ -446,6 +446,7 @@ function getAccent(tmpl: string): RGB {
     timeline:'#374151', shaded:'#374151', teal:'#06b6d4', crimson:'#c0392b', sage:'#7fa37f',
     elegant:'#475569',
     heritage:'#334155',
+    playful:'#111111',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -570,6 +571,7 @@ export async function exportElementAsPDF(
     sage:         ()=>drawSage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     elegant:      ()=>drawElegant(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     heritage:     ()=>drawHeritage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    playful:      ()=>drawPlayful(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -1581,4 +1583,150 @@ function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
 
   // References page keeps the same lavender background
   refsPage(p,refs,accent,'double-line',np,BOTTOM,owner,wm,BG);
+}
+// ── 20. PLAYFUL — Cream background, large stacked name, color-blob circles,
+// two-column Experience/Education, 3-column skills grid.
+function drawPlayful(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
+  const accent:RGB  = [17,17,17];
+  const PL_BG:RGB   = [245,240,232];  // cream
+  const PL_MUT:RGB  = [85,85,85];     // muted gray
+  const PL_YEL:RGB  = [240,192,64];   // mustard yellow
+  const PL_TEA:RGB  = [74,184,184];   // teal
+
+  // Paint cream background
+  const paintBg = () => { fill(p,PL_BG[0],PL_BG[1],PL_BG[2]); p.rect(0,0,PW,PH,'F'); };
+  paintBg();
+
+  // Decorative blobs — page 1
+  const drawBlobs = () => {
+    // Top-left large yellow circle
+    fill(p,PL_YEL[0],PL_YEL[1],PL_YEL[2]); p.circle(0,0,33,'F');
+    // Small teal dot below name area
+    fill(p,PL_TEA[0],PL_TEA[1],PL_TEA[2]); p.circle(10,44,7,'F');
+    // Bottom-right large yellow
+    fill(p,PL_YEL[0],PL_YEL[1],PL_YEL[2]); p.circle(PW,PH,40,'F');
+    // Bottom-right teal offset
+    fill(p,PL_TEA[0],PL_TEA[1],PL_TEA[2]); p.circle(PW-24,PH-10,20,'F');
+  };
+  drawBlobs();
+
+  reset(p);
+
+  // ── Header: name (left) + contact (right) ────────────────────────────────
+  const nameParts = owner.trim().split(' ');
+  const lastName  = nameParts.length > 1 ? nameParts.pop()! : '';
+  const firstName = nameParts.join(' ');
+
+  // Name — large bold, stacked
+  p.setFont(F,'bold'); p.setFontSize(28); tc(p,17,17,17);
+  p.text(firstName || lastName, ML, MT+12);
+  if (firstName && lastName) {
+    p.text(lastName, ML, MT+12+14);
+  }
+
+  // Contact — top right
+  const contactItems = [pr.address, pr.phone, pr.email, pr.id_number?`ID: ${pr.id_number}`:null].filter(Boolean) as string[];
+  p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]);
+  let cy = MT+4;
+  for (const item of contactItems) {
+    const x = PW - MR - p.getTextWidth(item);
+    p.text(item, x, cy);
+    cy += 4;
+  }
+
+  reset(p);
+  let y = MT + 36;
+  const np = () => { p.addPage(); reset(p); paintBg(); return MT + 4; };
+  const GXW = ():[number,number] => [ML, PW-ML-MR];
+
+  // ── About Me ──────────────────────────────────────────────────────────────
+  if (pr.bio) {
+    y = sectionHeading(p,'About Me',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
+    y += 2;
+    p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51);
+    y = wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);
+    y += ITEM_GAP + 2;
+  }
+
+  // ── Two-column: Experience (left) + Education (right) ─────────────────────
+  const colGap = 10;
+  const colW   = (PW-ML-MR-colGap)/2;
+  const col2x  = ML+colW+colGap;
+
+  let leftY  = y;
+  let rightY = y;
+
+  // Experience (left column)
+  if (exp.length) {
+    leftY = sectionHeading(p,isEdu?'Teaching Experience':'Experience',ML,leftY,colW,accent,'tag-underline',BOTTOM,np);
+    leftY += 2;
+    for (const e of exp) {
+      if (leftY+14>BOTTOM) leftY=np();
+      // Role + school
+      p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
+      const roleStr = `${(e.role||'').toUpperCase()}${e.school?` / ${e.school.toUpperCase()}`:''}`;
+      const roleLines = p.splitTextToSize(roleStr, colW) as string[];
+      roleLines.forEach((l:string) => { p.text(l,ML,leftY); leftY+=LINE_H-0.5; });
+      // Dates
+      const ds = [e.from,e.to].filter(Boolean).join(' – ');
+      if (ds) { p.setFont(F,'normal'); p.setFontSize(8); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]); p.text(ds.toUpperCase(),ML,leftY); leftY+=LINE_H-0.5; }
+      // Bullets
+      if (e.description) {
+        p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,51,51,51);
+        for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))
+          leftY = bulletLine(p,l,ML,leftY,colW,accent,BOTTOM,np);
+      }
+      leftY += ITEM_GAP;
+    }
+  }
+
+  // Education (right column)
+  if (edu.length) {
+    rightY = sectionHeading(p,'Education',col2x,rightY,colW,accent,'tag-underline',BOTTOM,np);
+    rightY += 2;
+    for (const e of edu) {
+      if (rightY+10>BOTTOM) rightY=np();
+      p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
+      const qLines = p.splitTextToSize((e.qualification||'').toUpperCase(), colW) as string[];
+      qLines.forEach((l:string) => { p.text(l,col2x,rightY); rightY+=LINE_H-0.5; });
+      if (e.institution||e.year) {
+        p.setFont(F,'normal'); p.setFontSize(8); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]);
+        p.text([e.institution,e.year].filter(Boolean).join(', ').toUpperCase(),col2x,rightY);
+        rightY+=LINE_H-0.5;
+      }
+      if (e.description) {
+        p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,51,51,51);
+        rightY=wrapped(p,e.description,col2x,rightY,colW,BOTTOM,np);
+      }
+      rightY+=ITEM_GAP;
+    }
+  }
+
+  y = Math.max(leftY, rightY) + ITEM_GAP;
+
+  // ── Skills — 3-column bullet grid ─────────────────────────────────────────
+  const allSk = [...(sk.subjects||[]),...(sk.soft_skills||[]),...(sk.languages||[])];
+  if (allSk.length) {
+    y = sectionHeading(p,'Skills',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
+    y += 2;
+    const skColW = (PW-ML-MR)/3;
+    const skCols: string[][] = [[], [], []];
+    allSk.forEach((s:string,i:number) => skCols[i%3].push(s));
+    const maxRows = Math.max(...skCols.map(c=>c.length));
+    for (let row=0; row<maxRows; row++) {
+      if (y+LINE_H>BOTTOM) y=np();
+      for (let col=0; col<3; col++) {
+        if (!skCols[col][row]) continue;
+        const sx = ML + col*skColW;
+        dot(p, sx+0.5, y-0.2, accent);
+        p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51);
+        p.text(skCols[col][row], sx+BULLET_INDENT, y);
+      }
+      y += LINE_H;
+    }
+    y += ITEM_GAP;
+  }
+
+  y = drawCustom(p,customs,accent,'tag-underline',ML,y,PW-ML-MR,BOTTOM,np,GXW);
+  refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm,undefined,false);
 }
