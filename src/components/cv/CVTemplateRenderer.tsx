@@ -64,7 +64,6 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'minimal': "'Trebuchet MS', Arial, sans-serif",
     'bold': "'Arial Black', Arial, sans-serif",
     'stylish': "Arial, Helvetica, sans-serif",
-    'navy': "Arial, Helvetica, sans-serif",
     'timeline': "'Trebuchet MS', Arial, sans-serif",
     'shaded': "Arial, Helvetica, sans-serif",
     'sage': "'Segoe UI', Arial, sans-serif",
@@ -94,7 +93,6 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'bold'         ? <BoldTemplate         {...T} /> :
     template === 'stylish'      ? <StylishTemplate      {...T} /> :
     template === 'traditional'  ? <TraditionalTemplate  {...T} /> :
-    template === 'navy'         ? <NavyTemplate         {...T} /> :
     template === 'timeline'     ? <TimelineTemplate     {...T} /> :
     template === 'shaded'       ? <ShadedTemplate       {...T} /> :
     template === 'crimson'      ? <CrimsonTemplate      {...T} /> :
