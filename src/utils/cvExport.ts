@@ -251,15 +251,7 @@ function sectionHeading(p: any, title: string, x: number, y: number, maxW: numbe
     tc(p,ar,ag,ab); p.setFont(F,'bold'); p.setFontSize(10);
     p.text(title.toUpperCase(), x, y);
     hLine(p, x, y+2, maxW, ar,ag,ab, 0.5);
-    // FIX: the generic `y + HEADING_GAP` (5mm) below only left ~3mm between
-    // this rule (drawn at y+2) and the next line's baseline. Anything drawn
-    // there at a typical body/entry font size has an ascender taller than
-    // that 3mm gap, so its glyph tops poked back up through the rule —
-    // visible as the rule slicing through "ICT Coordinator..." text in the
-    // Sage template, and equally through entry titles, the first Education
-    // item, and the first row of skill chips. Extra clearance fixes all of
-    // those call sites at once since they all return through here.
-    return y + HEADING_GAP + 3;
+    return y + HEADING_GAP + 2.5; // extra clearance below the underline so content doesn't overlap it
   } else if (style === 'dot-prefix') {
     tc(p,ar,ag,ab); p.setFont(F,'bold'); p.setFontSize(9);
     p.text('◆ '+title.toUpperCase(), x, y);
@@ -635,50 +627,35 @@ function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 // ── 2. MODERN — Teal left sidebar with avatar circle ─────────────────────────
 function drawModern(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#0d9488'); const [ar,ag,ab]=accent;
-  // Sidebar narrowed further still (52mm -> 29.1mm -> 22mm) and the gap
-  // before the main content column tightened (8mm -> 5mm). Page 1's body
-  // text previously started at x=52.1mm while page 2+ and the references
-  // page both sit at the plain ML=15mm margin — a ~37mm jump that read as
-  // an oversized left margin specifically on page 1. The jump is now
-  // ~27mm, noticeably less jarring when flipping between pages.
-  const SB=22; const cx=ML+SB+5; const cmw=PW-MR-cx;
+  // Sidebar width reduced 30% then a further 20% (52mm -> ~29.1mm).
+  // Page-1-only: pages 2+ use the normal full-width margin instead of
+  // staying indented by the sidebar width.
+  const SB=29.1; const cx=ML+SB+8; const cmw=PW-MR-cx;
   const mainCX = ML; const mainCMW = PW-ML-MR; // page 2+ content position
   fill(p,ar,ag,ab); p.rect(0,0,ML+SB+2,PH,'F');
-  // sx/smw define the sidebar's safe text column. The -7 buffer (vs the
-  // raw sidebar width) is what keeps wrapped lines like email addresses
-  // from rendering past the sidebar's edge — kept as-is since it's
-  // independent of how wide the sidebar itself is.
+  // sx shifted left and smw given extra safety margin (was SB-4, now
+  // SB-7) — text was wrapping correctly by line count but individual
+  // wrapped lines (especially unbroken runs like email addresses) were
+  // still rendering right at/past the sidebar's edge, since
+  // splitTextToSize's width estimate doesn't perfectly match real
+  // rendered glyph widths. More margin avoids relying on that estimate
+  // being exact.
   let sy=MT+4; const sx=ML+0.5; const smw=SB-7;
-  // All sidebar content (avatar, contact details, languages) is now
-  // centered horizontally within the sidebar column instead of
-  // left-aligned — ragged left-aligned text read as an afterthought in
-  // a narrow column.
-  const sbCenter = (t: string, yy: number) => { const tw=p.getTextWidth(t); p.text(t, sx+(smw-tw)/2, yy); };
-  const sbCenterWrapped = (t: string, yy: number): number => {
-    const ls = p.splitTextToSize(t, smw) as string[];
-    ls.forEach((l: string) => { sbCenter(l, yy); yy += 4; });
-    return yy;
-  };
-  const modernSidebarLabel = (t: string, yy: number): number => {
-    p.setFont(F,'bold'); p.setFontSize(7); tc(p,255,255,255);
-    sbCenter(t.toUpperCase(), yy);
-    dc(p,180,220,215); p.setLineWidth(0.2); p.line(sx, yy+1, sx+smw, yy+1);
-    return yy+4;
-  };
-  const AVR = 7; // avatar circle radius, scaled down to match the narrower sidebar
-  p.setFillColor(220,245,242); p.circle(sx+smw/2,sy+AVR,AVR,'F');
+  // Sidebar elements stay horizontally centered relative to the new
+  // (narrower) smw.
+  p.setFillColor(220,245,242); p.circle(sx+smw/2,sy+8,10,'F');
   const ini=owner.split(' ').map((n:string)=>n[0]||'').join('').slice(0,2).toUpperCase();
-  tc(p,ar,ag,ab);p.setFont(F,'bold');p.setFontSize(10);p.text(ini,sx+smw/2-p.getTextWidth(ini)/2,sy+AVR+1.5);sy+=AVR*2+8;
-  sy=modernSidebarLabel('Contact',sy);
+  tc(p,ar,ag,ab);p.setFont(F,'bold');p.setFontSize(10);p.text(ini,sx+smw/2-p.getTextWidth(ini)/2,sy+10);sy+=26;
+  sy=sidebarLabel(p,'Contact',sx,sy,smw,[255,255,255],[180,220,215]);
   p.setFont(F,'normal');p.setFontSize(7.5);tc(p,224,253,244);
-  if(pr.email){sy=sbCenterWrapped(pr.email,sy);sy+=1;}
-  if(pr.phone){sbCenter(pr.phone,sy);sy+=5;}
-  if(pr.address){sy=sbCenterWrapped(pr.address,sy);sy+=1;}
-  if(pr.id_number){sbCenter(`ID: ${pr.id_number}`,sy);sy+=5;}
+  if(pr.email){const ls=p.splitTextToSize(pr.email,smw) as string[];ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=4;});sy+=1;}
+  if(pr.phone){p.text(pr.phone,sx,sy);sy+=5;}
+  if(pr.address){const ls=p.splitTextToSize(pr.address,smw) as string[];ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=4;});sy+=1;}
+  if(pr.id_number){p.text(`ID: ${pr.id_number}`,sx,sy);sy+=5;}
   sy+=4;
   // Subjects and Skills (soft_skills) moved to the main content area
   // below — only Languages stays in the sidebar.
-  if(sk.languages?.length){sy=modernSidebarLabel('Languages',sy);p.setFont(F,'normal');p.setFontSize(7.5);tc(p,224,253,244);for(const l of sk.languages){sbCenter(`– ${l}`,sy);sy+=4;}sy+=3;}
+  if(sk.languages?.length){sy=sidebarLabel(p,'Languages',sx,sy,smw,[255,255,255],[180,220,215]);p.setFont(F,'normal');p.setFontSize(7.5);tc(p,224,253,244);for(const l of sk.languages){p.text(`– ${l}`,sx,sy);sy+=4;}sy+=3;}
   reset(p);let y=MT+8;
   tc(p,ar,ag,ab);p.setFont(F,'bold');p.setFontSize(15);p.text(owner.toUpperCase(),cx,y);y+=6;
   tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',cx,y);y+=3;
@@ -1188,20 +1165,20 @@ function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   refsPage(p,refs,accent,'italic-underline',np,BOTTOM,owner,wm);
 }
 
-// ── 17. SAGE — Soft green card header, chip-style skill badges ────────────────
+// ── 17. SAGE — Soft green card header, bulleted skills list ───────────────────
 function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#7fa37f');const SAGE_BG:RGB=[232,240,232];const [ar,ag,ab]=accent;
-  // Header reordered to Name -> Job title -> rule -> Contact details
-  // (previously contact details sat directly under the name, above the
-  // rule, with no job title at all — the rule then had nothing of its
-  // own to separate). Box height grown 26mm -> 30mm to fit the extra line
-  // without crowding the bottom edge.
-  fill(p,...SAGE_BG);p.roundedRect(ML-2,MT-4,PW-ML-MR+4,30,3,3,'F');
+  fill(p,...SAGE_BG);p.roundedRect(ML-2,MT-4,PW-ML-MR+4,28,3,3,'F');
   tc(p,26,46,26);p.setFont(F,'bold');p.setFontSize(16);p.text(owner,ML+2,MT+7);
-  p.setFont(F,'normal');p.setFontSize(9.5);tc(p,75,108,75);p.text(isEdu?'Educator':'Professional',ML+2,MT+12.5);
-  hLine(p,ML,MT+16,PW-ML-MR,ar,ag,ab,0.6);
-  p.setFont(F,'normal');p.setFontSize(8);tc(p,55,80,55);p.text([pr.address,pr.phone,pr.email].filter(Boolean).join('   ·   '),ML+2,MT+21.5);
-  reset(p);let y=MT+28;
+  // Job title (most recent role) sits below the name — was missing
+  // entirely before; falls back gracefully if no experience is listed.
+  const jobTitle = (exp[0]?.role || '').trim();
+  let headerY = MT+13;
+  if (jobTitle) { p.setFont(F,'normal');p.setFontSize(9.5);tc(p,75,108,75);p.text(jobTitle,ML+2,headerY); headerY += 5; }
+  hLine(p,ML,headerY,PW-ML-MR,ar,ag,ab,0.6);
+  // Contact details now sit BELOW the line, not above it.
+  p.setFont(F,'normal');p.setFontSize(8);tc(p,55,80,55);p.text([pr.address,pr.phone,pr.email].filter(Boolean).join('   ·   '),ML+2,headerY+6);
+  reset(p);let y=headerY+12;
   const np=()=>{p.addPage();reset(p);return MT;};const GXW=():[ number,number]=>[ML,PW-ML-MR];
   if(pr.bio){p.setFont(F,'normal');p.setFontSize(9.5);tc(p,75,108,75);p.text('Educator',ML,y);y+=5;p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
   if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Career Experience',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
@@ -1210,28 +1187,10 @@ function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   if(edu.length){y=sectionHeading(p,'Education',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
     for(const e of edu){if(y+12>BOTTOM)y=np();p.setFont(F,'normal');p.setFontSize(11);tc(p,ar,ag,ab);p.text(e.qualification||'',ML,y);y+=LINE_H;p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text([e.institution,e.year].filter(Boolean).join('  ·  '),ML,y);y+=LINE_H+ITEM_GAP;}}
   const allSk=[...(sk.subjects||[]),...(sk.soft_skills||[]),...(sk.languages||[])];
-  // FIX: pill/"bubble" chips replaced with a plain two-column bulleted list
-  // (square accent-colored bullet, matching the bullet style already used
-  // for experience bullets and references elsewhere in this template)
-  // per request — also reads better with 15+ skill items than a wrapped
-  // chip row would.
-  if(allSk.length){
-    y=sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
-    const colGap=10; const colW=(PW-ML-MR-colGap)/2; const col2x=ML+colW+colGap;
-    let leftY=y, rightY=y;
-    p.setFont(F,'normal'); p.setFontSize(9);
-    for(let i=0;i<allSk.length;i++){
-      const isLeft=i%2===0; const ix=isLeft?ML:col2x; let iy=isLeft?leftY:rightY;
-      const lines=p.splitTextToSize(String(allSk[i]),colW-BULLET_INDENT) as string[];
-      if(iy+lines.length*LINE_H>BOTTOM){y=np();leftY=y;rightY=y;iy=y;}
-      dot(p,ix+0.8,iy-0.2,accent);
-      tc(p,55,65,81);
-      lines.forEach((line:string,li:number)=>p.text(line,ix+BULLET_INDENT,iy+li*LINE_H));
-      const used=lines.length*LINE_H;
-      if(isLeft) leftY=iy+used; else rightY=iy+used;
-    }
-    y=Math.max(leftY,rightY)+ITEM_GAP+2;
-  }
+  if(allSk.length){y=sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
+    p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
+    for(const s of allSk)y=bulletLine(p,s,ML,y,PW-ML-MR,accent,BOTTOM,np,GXW);
+    y+=ITEM_GAP+1;}
   y=drawCustom(p,customs,accent,'tag-underline',ML,y,PW-ML-MR,BOTTOM,np,GXW);
   refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm);
 }
