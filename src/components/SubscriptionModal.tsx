@@ -69,7 +69,7 @@ export default function SubscriptionModal({ open, onClose }: Props) {
   const isCancelled = user?.user_metadata?.subscription_cancelled === true;
   const isActive = plan !== 'free' && subEnd !== null && subEnd > new Date();
   const activePlanLabel = BILLING.find(b => b.id === plan)?.label ?? plan;
-  const selected = BILLING.find(b => b.id === billing)!;
+  const selected = BILLING.find(b => b.id === billing) ?? BILLING[0];
 
   const handleSubscribe = async () => {
     if (!user || !session?.access_token) return;

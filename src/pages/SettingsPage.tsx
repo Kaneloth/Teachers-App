@@ -165,6 +165,7 @@ const COMPARISON = [
 
 function SubscriptionTab() {
   const { user } = useAuth();
+  const [, setSearchParams] = useSearchParams();
   const [profile, setProfile] = useState<{ subscription_plan: string; subscription_end: string | null } | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
@@ -196,7 +197,7 @@ function SubscriptionTab() {
   const isCancelled = user?.user_metadata?.subscription_cancelled === true;
   const isActive = plan !== 'free' && subEnd !== null && subEnd > new Date();
   const activePlanLabel = BILLING.find(b => b.id === plan)?.label ?? plan;
-  const selected = BILLING.find(b => b.id === billing)!;
+  const selected = BILLING.find(b => b.id === billing) ?? BILLING[0];
 
   const fmtDate = (d: Date) =>
     d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -231,6 +232,12 @@ function SubscriptionTab() {
       toast.error('Failed to cancel: ' + error.message);
     } else {
       toast.success('Subscription cancelled. You keep access until your current period ends.');
+      // Navigate away from the Subscription tab immediately — the auth
+      // session refresh triggered by updateUser will cause a re-render
+      // where isPro may briefly be false, removing this tab from
+      // visibleTabs. Staying on it causes a crash as the component
+      // tries to render with stale/undefined state.
+      setSearchParams({ tab: 'General' });
     }
   };
 
