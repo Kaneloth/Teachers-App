@@ -9,7 +9,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const MONTHLY_PRO_CREDITS = 10;
+const MONTHLY_PRO_CREDITS = 20;
 
 // Schedule is declared in netlify.toml:
 //   [functions."monthly-pro-credits"]

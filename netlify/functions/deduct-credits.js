@@ -10,7 +10,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const COSTS = {
-  cv_usage:     6,
+  cv_usage:     9,
   letter_usage: 1,
 };
 
@@ -37,7 +37,7 @@ export const handler = async (event) => {
 
   const cost = COSTS[type];
   const description = type === 'cv_usage'
-    ? 'CV generated (6 credits)'
+    ? 'CV generated (9 credits)'
     : 'Cover letter / AI action (1 credit)';
 
   const { data: newBalance, error: deductErr } = await supabase.rpc('deduct_credits', {
