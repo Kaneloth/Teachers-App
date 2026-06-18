@@ -251,6 +251,15 @@ function sectionHeading(p: any, title: string, x: number, y: number, maxW: numbe
     tc(p,ar,ag,ab); p.setFont(F,'bold'); p.setFontSize(10);
     p.text(title.toUpperCase(), x, y);
     hLine(p, x, y+2, maxW, ar,ag,ab, 0.5);
+    // FIX: the generic `y + HEADING_GAP` (5mm) below only left ~3mm between
+    // this rule (drawn at y+2) and the next line's baseline. Anything drawn
+    // there at a typical body/entry font size has an ascender taller than
+    // that 3mm gap, so its glyph tops poked back up through the rule —
+    // visible as the rule slicing through "ICT Coordinator..." text in the
+    // Sage template, and equally through entry titles, the first Education
+    // item, and the first row of skill chips. Extra clearance fixes all of
+    // those call sites at once since they all return through here.
+    return y + HEADING_GAP + 3;
   } else if (style === 'dot-prefix') {
     tc(p,ar,ag,ab); p.setFont(F,'bold'); p.setFontSize(9);
     p.text('◆ '+title.toUpperCase(), x, y);
@@ -1182,10 +1191,17 @@ function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 // ── 17. SAGE — Soft green card header, chip-style skill badges ────────────────
 function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#7fa37f');const SAGE_BG:RGB=[232,240,232];const [ar,ag,ab]=accent;
-  fill(p,...SAGE_BG);p.roundedRect(ML-2,MT-4,PW-ML-MR+4,26,3,3,'F');
+  // Header reordered to Name -> Job title -> rule -> Contact details
+  // (previously contact details sat directly under the name, above the
+  // rule, with no job title at all — the rule then had nothing of its
+  // own to separate). Box height grown 26mm -> 30mm to fit the extra line
+  // without crowding the bottom edge.
+  fill(p,...SAGE_BG);p.roundedRect(ML-2,MT-4,PW-ML-MR+4,30,3,3,'F');
   tc(p,26,46,26);p.setFont(F,'bold');p.setFontSize(16);p.text(owner,ML+2,MT+7);
-  p.setFont(F,'normal');p.setFontSize(8);tc(p,55,80,55);p.text([pr.address,pr.phone,pr.email].filter(Boolean).join('   ·   '),ML+2,MT+14);
-  hLine(p,ML,MT+18,PW-ML-MR,ar,ag,ab,0.6);reset(p);let y=MT+24;
+  p.setFont(F,'normal');p.setFontSize(9.5);tc(p,75,108,75);p.text(isEdu?'Educator':'Professional',ML+2,MT+12.5);
+  hLine(p,ML,MT+16,PW-ML-MR,ar,ag,ab,0.6);
+  p.setFont(F,'normal');p.setFontSize(8);tc(p,55,80,55);p.text([pr.address,pr.phone,pr.email].filter(Boolean).join('   ·   '),ML+2,MT+21.5);
+  reset(p);let y=MT+28;
   const np=()=>{p.addPage();reset(p);return MT;};const GXW=():[ number,number]=>[ML,PW-ML-MR];
   if(pr.bio){p.setFont(F,'normal');p.setFontSize(9.5);tc(p,75,108,75);p.text('Educator',ML,y);y+=5;p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
   if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Career Experience',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
@@ -1194,8 +1210,28 @@ function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   if(edu.length){y=sectionHeading(p,'Education',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
     for(const e of edu){if(y+12>BOTTOM)y=np();p.setFont(F,'normal');p.setFontSize(11);tc(p,ar,ag,ab);p.text(e.qualification||'',ML,y);y+=LINE_H;p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text([e.institution,e.year].filter(Boolean).join('  ·  '),ML,y);y+=LINE_H+ITEM_GAP;}}
   const allSk=[...(sk.subjects||[]),...(sk.soft_skills||[]),...(sk.languages||[])];
-  if(allSk.length){y=sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
-    let tx=ML;for(const s of allSk){const sw=chipTag(p,tx,y,s,accent);tx+=sw;if(tx>PW-MR-20){tx=ML;y+=7;}}y+=8;}
+  // FIX: pill/"bubble" chips replaced with a plain two-column bulleted list
+  // (square accent-colored bullet, matching the bullet style already used
+  // for experience bullets and references elsewhere in this template)
+  // per request — also reads better with 15+ skill items than a wrapped
+  // chip row would.
+  if(allSk.length){
+    y=sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
+    const colGap=10; const colW=(PW-ML-MR-colGap)/2; const col2x=ML+colW+colGap;
+    let leftY=y, rightY=y;
+    p.setFont(F,'normal'); p.setFontSize(9);
+    for(let i=0;i<allSk.length;i++){
+      const isLeft=i%2===0; const ix=isLeft?ML:col2x; let iy=isLeft?leftY:rightY;
+      const lines=p.splitTextToSize(String(allSk[i]),colW-BULLET_INDENT) as string[];
+      if(iy+lines.length*LINE_H>BOTTOM){y=np();leftY=y;rightY=y;iy=y;}
+      dot(p,ix+0.8,iy-0.2,accent);
+      tc(p,55,65,81);
+      lines.forEach((line:string,li:number)=>p.text(line,ix+BULLET_INDENT,iy+li*LINE_H));
+      const used=lines.length*LINE_H;
+      if(isLeft) leftY=iy+used; else rightY=iy+used;
+    }
+    y=Math.max(leftY,rightY)+ITEM_GAP+2;
+  }
   y=drawCustom(p,customs,accent,'tag-underline',ML,y,PW-ML-MR,BOTTOM,np,GXW);
   refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm);
 }
