@@ -106,6 +106,7 @@ export default function Search({ embedded = false }: Props) {
 
       results = (data || []).map((r: any) => ({ ...r.educator, distance_km: r.distance_km }));
       results = results.filter(e => e.profile_type === 'educator' || e.profile_type == null);
+      results = results.filter(e => !e.is_admin);  // never show admin accounts in search
 
       // The RPC only does the geo-radius filter — apply the remaining
       // filters client-side. Province is deliberately NOT applied here:
@@ -121,6 +122,7 @@ export default function Search({ embedded = false }: Props) {
 
       if (user?.id) q = q.neq('user_id', user.id);
       q = q.or('profile_type.eq.educator,profile_type.is.null');
+      q = q.eq('is_admin', false);  // never show admin accounts in search
 
       if (filters.province) q = q.eq('current_province', filters.province);
       if (filters.phase)      q = q.eq('phase', filters.phase);
