@@ -1168,29 +1168,79 @@ function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 // ── 17. SAGE — Soft green card header, bulleted skills list ───────────────────
 function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#7fa37f');const SAGE_BG:RGB=[232,240,232];const [ar,ag,ab]=accent;
-  fill(p,...SAGE_BG);p.roundedRect(ML-2,MT-4,PW-ML-MR+4,28,3,3,'F');
-  tc(p,26,46,26);p.setFont(F,'bold');p.setFontSize(16);p.text(owner,ML+2,MT+7);
-  // Job title (most recent role) sits below the name — was missing
-  // entirely before; falls back gracefully if no experience is listed.
-  const jobTitle = (exp[0]?.role || '').trim();
-  let headerY = MT+13;
-  if (jobTitle) { p.setFont(F,'normal');p.setFontSize(9.5);tc(p,75,108,75);p.text(jobTitle,ML+2,headerY); headerY += 5; }
-  hLine(p,ML,headerY,PW-ML-MR,ar,ag,ab,0.6);
-  // Contact details now sit BELOW the line, not above it.
-  p.setFont(F,'normal');p.setFontSize(8);tc(p,55,80,55);p.text([pr.address,pr.phone,pr.email].filter(Boolean).join('   ·   '),ML+2,headerY+6);
-  reset(p);let y=headerY+12;
+
+  // ── Calculate header height dynamically so the shaded card always
+  // contains all content without overflowing the bottom border.
+  // Rows: name (always) + divider line + contact line.
+  // The job-title row has been removed per design requirement.
+  const HEADER_PAD_TOP    = 4;  // space above name baseline from card top
+  const HEADER_NAME_H     = 9;  // name row height (16pt bold)
+  const HEADER_DIVIDER_H  = 5;  // gap from name to divider line
+  const HEADER_CONTACT_H  = 7;  // gap from divider to contact baseline
+  const HEADER_PAD_BOTTOM = 5;  // breathing room below the last row
+  const headerCardH = HEADER_PAD_TOP + HEADER_NAME_H + HEADER_DIVIDER_H
+                    + HEADER_CONTACT_H + HEADER_PAD_BOTTOM;
+
+  fill(p,...SAGE_BG);
+  p.roundedRect(ML-2, MT-4, PW-ML-MR+4, headerCardH, 3, 3, 'F');
+
+  // Name
+  tc(p,26,46,26);p.setFont(F,'bold');p.setFontSize(16);
+  p.text(owner, ML+2, MT + HEADER_PAD_TOP + HEADER_NAME_H - 4);
+
+  // Divider line sits below the name
+  const dividerY = MT + HEADER_PAD_TOP + HEADER_NAME_H;
+  hLine(p, ML, dividerY, PW-ML-MR, ar, ag, ab, 0.6);
+
+  // Contact line sits below the divider, fully inside the card
+  const contactY = dividerY + HEADER_CONTACT_H;
+  const contactStr = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
+  p.setFont(F,'normal');p.setFontSize(8);tc(p,55,80,55);
+  p.text(contactStr, ML+2, contactY);
+
+  reset(p);
+  // Body starts below the card with a small gap
+  let y = MT - 4 + headerCardH + 5;
   const np=()=>{p.addPage();reset(p);return MT;};const GXW=():[ number,number]=>[ML,PW-ML-MR];
-  if(pr.bio){p.setFont(F,'normal');p.setFontSize(9.5);tc(p,75,108,75);p.text('Educator',ML,y);y+=5;p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
+
+  // Professional summary — no "Educator" label above it
+  if(pr.bio){
+    p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
+    y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);
+    y+=ITEM_GAP+2;
+  }
+
   if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Career Experience',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'normal');p.setFontSize(11);tc(p,ar,ag,ab);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,ML,y);const ds=[e.from,e.to].filter(Boolean).join(' — ');if(ds){tc(p,156,163,175);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,PW-MR-p.getTextWidth(ds),y);}y+=LINE_H;
       if(e.description){p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML,y,PW-ML-MR,accent,BOTTOM,np,GXW);}y+=ITEM_GAP+1;}}
+
   if(edu.length){y=sectionHeading(p,'Education',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
     for(const e of edu){if(y+12>BOTTOM)y=np();p.setFont(F,'normal');p.setFontSize(11);tc(p,ar,ag,ab);p.text(e.qualification||'',ML,y);y+=LINE_H;p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text([e.institution,e.year].filter(Boolean).join('  ·  '),ML,y);y+=LINE_H+ITEM_GAP;}}
-  const allSk=[...(sk.subjects||[]),...(sk.soft_skills||[]),...(sk.languages||[])];
-  if(allSk.length){y=sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
-    p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
-    for(const s of allSk)y=bulletLine(p,s,ML,y,PW-ML-MR,accent,BOTTOM,np,GXW);
-    y+=ITEM_GAP+1;}
+
+  // ── Skills — grouped by category with a bold label per group ─────────────
+  const sageSkillGroups = ([
+    ['Key Skills',          sk.subjects    || []],
+    ['Professional Skills', sk.soft_skills || []],
+    ['Languages',           sk.languages   || []],
+  ] as [string, string[]][]).filter(([, items]) => items.length);
+
+  if (sageSkillGroups.length) {
+    y = sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
+    for (let g=0; g<sageSkillGroups.length; g++) {
+      const [label, items] = sageSkillGroups[g];
+      if (y+LINE_H > BOTTOM) y = np();
+      // Category label
+      p.setFont(F,'bold'); p.setFontSize(9); tc(p,ar,ag,ab);
+      p.text(label, ML, y);
+      y += LINE_H;
+      // Bulleted items under this category
+      p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
+      for (const s of items) y = bulletLine(p, s, ML, y, PW-ML-MR, accent, BOTTOM, np, GXW);
+      y += ITEM_GAP + (g < sageSkillGroups.length-1 ? 1 : 0);
+    }
+    y += 1;
+  }
+
   y=drawCustom(p,customs,accent,'tag-underline',ML,y,PW-ML-MR,BOTTOM,np,GXW);
   refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm);
 }
