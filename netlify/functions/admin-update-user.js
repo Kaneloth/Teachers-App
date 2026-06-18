@@ -59,9 +59,23 @@ export const handler = async (event) => {
   //   - educators       → what the webhook writes (source of truth for PayFast)
   //   - user_metadata   → instant client-side reflection without session refresh
   if (subscription_plan !== undefined || subscription_end !== undefined) {
+    // Auto-calculate subscription_end if a paid plan is set but no end date
+    // was provided — prevents accidentally clearing the end date when the
+    // admin only meant to set/change the plan name.
+    let resolvedEnd = subscription_end;
+    if (subscription_plan && subscription_plan !== 'free' && !resolvedEnd) {
+      const d = new Date();
+      if      (subscription_plan === 'monthly')     d.setMonth(d.getMonth() + 1);
+      else if (subscription_plan === 'semi_annual') d.setMonth(d.getMonth() + 6);
+      else if (subscription_plan === 'annual')      d.setFullYear(d.getFullYear() + 1);
+      resolvedEnd = d.toISOString();
+    }
+    // If explicitly setting to free, clear the end date too
+    if (subscription_plan === 'free') resolvedEnd = null;
+
     const updatePayload = {};
     if (subscription_plan !== undefined) updatePayload.subscription_plan = subscription_plan;
-    if (subscription_end  !== undefined) updatePayload.subscription_end  = subscription_end;
+    if (resolvedEnd        !== undefined) updatePayload.subscription_end  = resolvedEnd;
 
     // Write to profiles (upsert — row may not exist yet)
     const { error: profErr } = await supabase
