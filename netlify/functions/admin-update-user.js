@@ -53,24 +53,45 @@ export const handler = async (event) => {
     results.account_status = account_status;
   }
 
-  // ── Subscription plan / end (profiles table + user_metadata) ────────────
+  // ── Subscription plan / end ──────────────────────────────────────────────
+  // Writes to BOTH tables so everything stays in sync:
+  //   - profiles        → what SettingsPage reads client-side
+  //   - educators       → what the webhook writes (source of truth for PayFast)
+  //   - user_metadata   → instant client-side reflection without session refresh
   if (subscription_plan !== undefined || subscription_end !== undefined) {
     const updatePayload = {};
     if (subscription_plan !== undefined) updatePayload.subscription_plan = subscription_plan;
     if (subscription_end  !== undefined) updatePayload.subscription_end  = subscription_end;
 
+    // Write to profiles (upsert — row may not exist yet)
     const { error: profErr } = await supabase
       .from('profiles')
-      .update(updatePayload)
-      .eq('id', target_user_id);
-    if (profErr) return { statusCode: 500, body: JSON.stringify({ error: `profiles: ${profErr.message}` }) };
+      .upsert({ id: target_user_id, ...updatePayload }, { onConflict: 'id' });
+    if (profErr) console.error('[admin-update-user] profiles upsert error (non-fatal):', profErr.message);
 
-    // Mirror into user_metadata so client-side checks that read from
-    // user.user_metadata stay in sync immediately.
-    const { error: metaErr } = await supabase.auth.admin.updateUserById(target_user_id, {
-      user_metadata: updatePayload,
-    });
-    if (metaErr) return { statusCode: 500, body: JSON.stringify({ error: `user_metadata: ${metaErr.message}` }) };
+    // Write to educators (this is what the webhook uses)
+    const { error: eduErr } = await supabase
+      .from('educators')
+      .update(updatePayload)
+      .eq('user_id', target_user_id);
+    if (eduErr) console.error('[admin-update-user] educators update error (non-fatal):', eduErr.message);
+
+    // Mirror to user_metadata — MUST fetch-and-merge to avoid wiping
+    // unrelated fields like is_admin, user_code, full_name, etc.
+    const { data: existingUserData, error: getUserErr } = await supabase.auth.admin.getUserById(target_user_id);
+    if (getUserErr) {
+      console.error('[admin-update-user] could not fetch user for metadata merge:', getUserErr.message);
+    } else {
+      const mergedMeta = {
+        ...(existingUserData?.user?.user_metadata || {}),
+        ...updatePayload,
+        subscription_cancelled: subscription_plan === 'free' || subscription_plan === null ? true : false,
+      };
+      const { error: metaErr } = await supabase.auth.admin.updateUserById(target_user_id, {
+        user_metadata: mergedMeta,
+      });
+      if (metaErr) return { statusCode: 500, body: JSON.stringify({ error: `user_metadata: ${metaErr.message}` }) };
+    }
 
     results.subscription_plan = subscription_plan;
     results.subscription_end  = subscription_end;
@@ -81,8 +102,15 @@ export const handler = async (event) => {
     if (target_user_id === adminUser.id && is_admin === false) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Cannot remove your own admin access' }) };
     }
+    // Fetch-and-merge to avoid wiping other metadata fields
+    const { data: adminTargetData, error: adminGetErr } = await supabase.auth.admin.getUserById(target_user_id);
+    if (adminGetErr) return { statusCode: 500, body: JSON.stringify({ error: `is_admin fetch: ${adminGetErr.message}` }) };
+    const mergedAdminMeta = {
+      ...(adminTargetData?.user?.user_metadata || {}),
+      is_admin: !!is_admin,
+    };
     const { error } = await supabase.auth.admin.updateUserById(target_user_id, {
-      user_metadata: { is_admin: !!is_admin },
+      user_metadata: mergedAdminMeta,
     });
     if (error) return { statusCode: 500, body: JSON.stringify({ error: `is_admin: ${error.message}` }) };
     results.is_admin = !!is_admin;

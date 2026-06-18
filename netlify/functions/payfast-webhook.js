@@ -105,16 +105,16 @@ export const handler = async (event) => {
     const cancelPlan   = fields.custom_str2;
     if (cancelUserId && SUB_PLANS[cancelPlan]) {
       console.log(`[payfast-webhook] ${status} ITN for user=${cancelUserId} plan=${cancelPlan} — downgrading`);
-      // Clear subscription in profiles table
-      const { error: cancelProfErr } = await supabase
+      // Clear subscription in both tables
+      const cancelPayload = { subscription_plan: null, subscription_end: null, payfast_token: null };
+      const { error: cancelEduErr } = await supabase
         .from('educators')
-        .update({
-          subscription_plan:      null,
-          subscription_end:       null,
-          payfast_token:          null,
-        })
+        .update(cancelPayload)
         .eq('user_id', cancelUserId);
-      if (cancelProfErr) console.error('[payfast-webhook] cancel: educators update failed:', cancelProfErr);
+      if (cancelEduErr) console.error('[payfast-webhook] cancel: educators update failed:', cancelEduErr);
+      await supabase
+        .from('profiles')
+        .upsert({ id: cancelUserId, subscription_plan: null, subscription_end: null }, { onConflict: 'id' });
 
       // Mirror cancellation to user_metadata
       const { data: cancelUserData } = await supabase.auth.admin.getUserById(cancelUserId);
@@ -257,21 +257,27 @@ async function handleSubscriptionPayment(fields, user_id, planId) {
   // Upsert profiles — subscription_plan, subscription_end, payfast_token.
   // Using upsert (not update) because not every user has a profiles row yet
   // — a plain .update() would silently affect zero rows for such users.
-  const educatorUpdate = {
+  const subUpdate = {
     subscription_plan: planId,
     subscription_end:  newEnd.toISOString(),
   };
-  if (fields.token) educatorUpdate.payfast_token = fields.token;
+  if (fields.token) subUpdate.payfast_token = fields.token;
 
-  const { error: profErr } = await supabase
+  // Write to educators (primary source — webhook-driven payments)
+  const { error: eduErr } = await supabase
     .from('educators')
-    .update(educatorUpdate)
+    .update(subUpdate)
     .eq('user_id', user_id);
-
-  if (profErr) {
-    console.error('[payfast-webhook] educators update failed:', profErr);
+  if (eduErr) {
+    console.error('[payfast-webhook] educators update failed:', eduErr);
     return { statusCode: 500, body: 'Error' };
   }
+
+  // Also write to profiles so SettingsPage reads the correct status
+  // without requiring a session refresh or extra query.
+  await supabase
+    .from('profiles')
+    .upsert({ id: user_id, ...subUpdate }, { onConflict: 'id' });
 
   // Mirror to user_metadata so client-side checks (which read user_metadata
   // directly) stay in sync immediately, and clear any prior cancellation flag.
