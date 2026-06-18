@@ -610,7 +610,7 @@ export default function GuidesPage() {
       <div className="flex gap-2 flex-wrap mb-5">
         <Badge variant="secondary">7 Steps</Badge>
         <Badge variant="secondary">4 Downloadable Templates</Badge>
-        <Badge variant="outline">Gauteng (Provincial DoE)</Badge>
+        <Badge variant="outline">Provincial DoE</Badge>
         <Badge variant="outline">Cross-Transfer</Badge>
       </div>
 
