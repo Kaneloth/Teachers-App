@@ -61,25 +61,17 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
   const { template } = data;
   const TEMPLATE_FONTS: Record<string, string> = {
     'classic': "'Inter', Arial, Helvetica, sans-serif",
-    'modern': "'Inter', Arial, Helvetica, sans-serif",
-    'professional': "Arial, Helvetica, sans-serif",
     'minimal': "'Trebuchet MS', Arial, sans-serif",
-    'sidebar': "Arial, Helvetica, sans-serif",
     'bold': "'Arial Black', Arial, sans-serif",
-    'corporate': "'Gill Sans', 'Gill Sans MT', Calibri, sans-serif",
     'stylish': "Arial, Helvetica, sans-serif",
-    'boxed': "Arial, Helvetica, sans-serif",
     'navy': "Arial, Helvetica, sans-serif",
     'timeline': "'Trebuchet MS', Arial, sans-serif",
     'shaded': "Arial, Helvetica, sans-serif",
-    'teal': "Arial, Helvetica, sans-serif",
     'sage': "'Segoe UI', Arial, sans-serif",
-    'executive': "Georgia, 'Times New Roman', serif",
     'traditional': "Georgia, 'Times New Roman', serif",
     'crimson': "Georgia, 'Times New Roman', serif",
     'elegant': "Georgia, 'Times New Roman', serif",
     'heritage': "Georgia, 'Times New Roman', serif",
-    'playful':  "'Arial', Helvetica, sans-serif",
     'casual':   "'Arial', Helvetica, sans-serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
@@ -98,25 +90,17 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
   const expLabel = isEducatorCV ? 'Teaching Experience' : 'Work Experience';
   const T = { data, wrapperStyle, validEdu, validExp, watermark, skillsLabel, subjectsLabel, expLabel };
   const tmpl =
-    template === 'modern'       ? <ModernTemplate       {...T} /> :
-    template === 'professional' ? <ProfessionalTemplate {...T} /> :
     template === 'minimal'      ? <MinimalTemplate      {...T} /> :
-    template === 'sidebar'      ? <SidebarTemplate      {...T} /> :
     template === 'bold'         ? <BoldTemplate         {...T} /> :
-    template === 'executive'    ? <ExecutiveTemplate    {...T} /> :
-    template === 'corporate'    ? <CorporateTemplate    {...T} /> :
     template === 'stylish'      ? <StylishTemplate      {...T} /> :
-    template === 'boxed'        ? <BoxedTemplate        {...T} /> :
     template === 'traditional'  ? <TraditionalTemplate  {...T} /> :
     template === 'navy'         ? <NavyTemplate         {...T} /> :
     template === 'timeline'     ? <TimelineTemplate     {...T} /> :
     template === 'shaded'       ? <ShadedTemplate       {...T} /> :
-    template === 'teal'         ? <TealTemplate         {...T} /> :
     template === 'crimson'      ? <CrimsonTemplate      {...T} /> :
     template === 'sage'         ? <SageTemplate         {...T} /> :
     template === 'elegant'      ? <ElegantTemplate      {...T} /> :
     template === 'heritage'     ? <HeritageTemplate     {...T} /> :
-    template === 'playful'      ? <PlayfulTemplate      {...T} /> :
     template === 'casual'       ? <CasualTemplate       {...T} /> :
     <ClassicTemplate {...T} />;
 

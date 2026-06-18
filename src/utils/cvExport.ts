@@ -440,13 +440,11 @@ function sidebarLabel(p: any, t: string, x: number, y: number, maxW: number,
 // ── Accent map ────────────────────────────────────────────────────────────────
 function getAccent(tmpl: string): RGB {
   const map: Record<string,string> = {
-    classic:'#1e2a3a', modern:'#0d9488', professional:'#1e4d2b', minimal:'#111827',
-    sidebar:'#3b5998', bold:'#c2185b', executive:'#6b1a1a', corporate:'#1a2a4a',
-    stylish:'#e05c6b', boxed:'#374151', traditional:'#374151', navy:'#1a2a4a',
-    timeline:'#374151', shaded:'#374151', teal:'#06b6d4', crimson:'#c0392b', sage:'#7fa37f',
+    classic:'#1e2a3a', minimal:'#111827', bold:'#c2185b',
+    stylish:'#e05c6b', traditional:'#374151', navy:'#1a2a4a',
+    timeline:'#374151', shaded:'#374151', crimson:'#c0392b', sage:'#7fa37f',
     elegant:'#475569',
     heritage:'#334155',
-    playful:'#111111',
     casual:'#111111',
   };
   return hex(map[tmpl] || '#1e2a3a');
@@ -554,25 +552,17 @@ export async function exportElementAsPDF(
 
   const dispatch: Record<string, ()=>void> = {
     classic:      ()=>drawClassic(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    modern:       ()=>drawModern(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    professional: ()=>drawProfessional(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     minimal:      ()=>drawMinimal(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    sidebar:      ()=>drawSidebar(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     bold:         ()=>drawBold(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    executive:    ()=>drawExecutive(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    corporate:    ()=>drawCorporate(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     stylish:      ()=>drawStylish(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    boxed:        ()=>drawBoxed(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     traditional:  ()=>drawTraditional(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     navy:         ()=>drawNavy(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     timeline:     ()=>drawTimeline(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     shaded:       ()=>drawShaded(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    teal:         ()=>drawTeal(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     crimson:      ()=>drawCrimson(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     sage:         ()=>drawSage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     elegant:      ()=>drawElegant(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     heritage:     ()=>drawHeritage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    playful:      ()=>drawPlayful(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     casual:       ()=>drawCasual(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
   };
 
