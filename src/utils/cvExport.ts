@@ -248,8 +248,13 @@ function sectionHeading(p: any, title: string, x: number, y: number, maxW: numbe
     p.text(title, x, y);
     hLine(p, x, y+2, maxW, ar,ag,ab, 0.5);
   } else if (style === 'tag-underline') {
+    let titleX = x;
+    if (icon && p.__iconFontRegistered) {
+      drawIcon(p, icon, x, y-0.5, 9, accent);
+      titleX = x + 7; // indent title to clear the icon glyph
+    }
     tc(p,ar,ag,ab); p.setFont(F,'bold'); p.setFontSize(10);
-    p.text(title.toUpperCase(), x, y);
+    p.text(title.toUpperCase(), titleX, y);
     hLine(p, x, y+2, maxW, ar,ag,ab, 0.5);
     return y + HEADING_GAP + 2.5; // extra clearance below the underline so content doesn't overlap it
   } else if (style === 'dot-prefix') {
@@ -1224,17 +1229,22 @@ function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   // Professional summary — rendered as a proper named section so it is
   // clearly separated from the header rather than floating immediately below it.
   if(pr.bio){
-    y=sectionHeading(p,'Professional Summary',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
+    y=sectionHeading(p,'Professional Summary',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW,ICON.fileText);
+    y+=3;
     p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
     y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);
     y+=ITEM_GAP+2;
   }
 
-  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Career Experience',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
+  if(exp.length){
+    y=sectionHeading(p,isEdu?'Teaching Experience':'Career Experience',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW,ICON.briefcase);
+    y+=3;
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'normal');p.setFontSize(11);tc(p,ar,ag,ab);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,ML,y);const ds=[e.from,e.to].filter(Boolean).join(' — ');if(ds){tc(p,156,163,175);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,PW-MR-p.getTextWidth(ds),y);}y+=LINE_H;
       if(e.description){p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML,y,PW-ML-MR,accent,BOTTOM,np,GXW);}y+=ITEM_GAP+1;}}
 
-  if(edu.length){y=sectionHeading(p,'Education',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
+  if(edu.length){
+    y=sectionHeading(p,'Education',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW,ICON.graduationCap);
+    y+=3;
     for(const e of edu){if(y+12>BOTTOM)y=np();p.setFont(F,'normal');p.setFontSize(11);tc(p,ar,ag,ab);p.text(e.qualification||'',ML,y);y+=LINE_H;p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text([e.institution,e.year].filter(Boolean).join('  ·  '),ML,y);y+=LINE_H+ITEM_GAP;}}
 
   // ── Skills — grouped by category with a bold label per group ─────────────
@@ -1245,7 +1255,8 @@ function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   ] as [string, string[]][]).filter(([, items]) => items.length);
 
   if (sageSkillGroups.length) {
-    y = sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
+    y = sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW,ICON.cogs);
+    y+=3;
     for (let g=0; g<sageSkillGroups.length; g++) {
       const [label, items] = sageSkillGroups[g];
       if (y+LINE_H > BOTTOM) y = np();
@@ -1271,7 +1282,7 @@ function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
     let ry = MT + STRIP_H + 4;
     const rnp = ()=>{ p.addPage(); reset(p); paintStrip(); return MT+STRIP_H+4; };
     ry = sectionHeading(p,'References',ML,ry,PW-ML-MR,accent,'tag-underline',BOTTOM,rnp,undefined,ICON.user);
-    ry += 2;
+    ry += 5;
     const half = (PW-ML-MR-8)/2;
     for (let i=0; i<validRefs.length; i+=2) {
       const drawRef = (ref:any, rx:number, startY:number): number => {
