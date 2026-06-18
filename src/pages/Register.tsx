@@ -81,7 +81,7 @@ export default function Register() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">Verify your email</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            We sent an 8-digit code to <strong>{email}</strong>
+            We sent an 6-digit code to <strong>{email}</strong>
           </p>
         </div>
         <form onSubmit={handleVerifyEmail} className="space-y-4">
