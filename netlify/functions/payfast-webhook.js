@@ -46,6 +46,29 @@ export const handler = async (event) => {
 
   console.log('[payfast-webhook] ITN received:', { pf_payment_id: fields.pf_payment_id, payment_status: fields.payment_status, m_payment_id: fields.m_payment_id });
 
+  // ── 0. Validate sender IP against PayFast's known server ranges ──────────
+  // PayFast requires this as an extra layer of security beyond signature
+  // verification. Requests from unknown IPs are rejected immediately.
+  const PAYFAST_VALID_IPS = [
+    '197.97.145.144', '197.97.145.145', '197.97.145.146', '197.97.145.147',
+    '197.97.145.148', '197.97.145.149', '197.97.145.150', '197.97.145.151',
+    '197.97.145.152', '197.97.145.153', '197.97.145.154', '197.97.145.155',
+    '197.97.145.156', '197.97.145.157', '197.97.145.158', '197.97.145.159',
+  ];
+  // Netlify passes the real client IP via x-nf-client-connection-ip;
+  // fall back to x-forwarded-for (first hop) in other environments.
+  const clientIp = (
+    event.headers['x-nf-client-connection-ip'] ||
+    (event.headers['x-forwarded-for'] || '').split(',')[0]
+  ).trim();
+
+  // Allow sandbox IPs in non-live mode — sandbox uses a different IP range.
+  const isSandbox = (process.env.PAYFAST_MODE || 'sandbox').toLowerCase() !== 'live';
+  if (!isSandbox && !PAYFAST_VALID_IPS.includes(clientIp)) {
+    console.error(`[payfast-webhook] IP not in PayFast whitelist: ${clientIp}`);
+    return { statusCode: 403, body: 'Forbidden' };
+  }
+
   // ── 1. Verify signature ─────────────────────────────────────────────────────
   const receivedSig = fields.signature;
   const expectedSig = generateITNSignature(fields, PASSPHRASE);
@@ -73,9 +96,43 @@ export const handler = async (event) => {
     return { statusCode: 500, body: 'Validation error' };
   }
 
-  // ── 3. Only act on completed payments ───────────────────────────────────────
-  if (fields.payment_status !== 'COMPLETE') {
-    console.log(`[payfast-webhook] payment_status=${fields.payment_status} — no action taken`);
+  // ── 3. Handle payment status ────────────────────────────────────────────────
+  const status = fields.payment_status;
+
+  // Subscription cancellation / payment failure — downgrade the user.
+  if (status === 'CANCELLED' || status === 'FAILED') {
+    const cancelUserId = fields.custom_str1;
+    const cancelPlan   = fields.custom_str2;
+    if (cancelUserId && SUB_PLANS[cancelPlan]) {
+      console.log(`[payfast-webhook] ${status} ITN for user=${cancelUserId} plan=${cancelPlan} — downgrading`);
+      // Clear subscription in profiles table
+      const { error: cancelProfErr } = await supabase
+        .from('educators')
+        .update({
+          subscription_plan:      null,
+          subscription_end:       null,
+          payfast_token:          null,
+        })
+        .eq('user_id', cancelUserId);
+      if (cancelProfErr) console.error('[payfast-webhook] cancel: educators update failed:', cancelProfErr);
+
+      // Mirror cancellation to user_metadata
+      const { data: cancelUserData } = await supabase.auth.admin.getUserById(cancelUserId);
+      if (cancelUserData?.user) {
+        const cancelledMeta = {
+          ...(cancelUserData.user.user_metadata || {}),
+          subscription_plan:      null,
+          subscription_end:       null,
+          subscription_cancelled: true,
+        };
+        await supabase.auth.admin.updateUserById(cancelUserId, { user_metadata: cancelledMeta });
+      }
+    }
+    return { statusCode: 200, body: 'OK' };
+  }
+
+  if (status !== 'COMPLETE') {
+    console.log(`[payfast-webhook] payment_status=${status} — no action taken`);
     return { statusCode: 200, body: 'OK' };
   }
 
@@ -185,9 +242,9 @@ async function handleSubscriptionPayment(fields, user_id, planId) {
 
   // Extend from the later of (current subscription_end, now)
   const { data: profile } = await supabase
-    .from('profiles')
+    .from('educators')
     .select('subscription_end')
-    .eq('id', user_id)
+    .eq('user_id', user_id)
     .maybeSingle();
 
   const now = new Date();
@@ -200,19 +257,19 @@ async function handleSubscriptionPayment(fields, user_id, planId) {
   // Upsert profiles — subscription_plan, subscription_end, payfast_token.
   // Using upsert (not update) because not every user has a profiles row yet
   // — a plain .update() would silently affect zero rows for such users.
-  const profileUpdate = {
-    id:                user_id,
+  const educatorUpdate = {
     subscription_plan: planId,
     subscription_end:  newEnd.toISOString(),
   };
-  if (fields.token) profileUpdate.payfast_token = fields.token;
+  if (fields.token) educatorUpdate.payfast_token = fields.token;
 
   const { error: profErr } = await supabase
-    .from('profiles')
-    .upsert(profileUpdate, { onConflict: 'id' });
+    .from('educators')
+    .update(educatorUpdate)
+    .eq('user_id', user_id);
 
   if (profErr) {
-    console.error('[payfast-webhook] profiles upsert failed:', profErr);
+    console.error('[payfast-webhook] educators update failed:', profErr);
     return { statusCode: 500, body: 'Error' };
   }
 
