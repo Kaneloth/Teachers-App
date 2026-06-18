@@ -447,6 +447,7 @@ function getAccent(tmpl: string): RGB {
     elegant:'#475569',
     heritage:'#334155',
     playful:'#111111',
+    casual:'#111111',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -572,6 +573,7 @@ export async function exportElementAsPDF(
     elegant:      ()=>drawElegant(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     heritage:     ()=>drawHeritage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     playful:      ()=>drawPlayful(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    casual:       ()=>drawCasual(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -1827,5 +1829,132 @@ function drawPlayful(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 
 
   y = drawCustom(p,customs,accent,'tag-underline',ML,y,PW-ML-MR,BOTTOM,np,GXW);
+  refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm,undefined,false);
+}
+
+// ── 21. CASUAL — Identical to Playful but fully single-column.
+// About Me → Experience → Education → Skills → Custom → References.
+function drawCasual(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
+  const accent:RGB  = [17,17,17];
+  const PL_BG:RGB   = [245,240,232];
+  const PL_MUT:RGB  = [85,85,85];
+  const PL_YEL:RGB  = [240,192,64];
+  const PL_TEA:RGB  = [74,184,184];
+
+  const paintBg = () => { fill(p,PL_BG[0],PL_BG[1],PL_BG[2]); p.rect(0,0,PW,PH,'F'); };
+  paintBg();
+
+  // Decorative blobs
+  fill(p,PL_YEL[0],PL_YEL[1],PL_YEL[2]); p.circle(0,0,33,'F');
+  fill(p,PL_TEA[0],PL_TEA[1],PL_TEA[2]); p.circle(10,44,7,'F');
+  fill(p,PL_YEL[0],PL_YEL[1],PL_YEL[2]); p.circle(PW,PH,40,'F');
+  fill(p,PL_TEA[0],PL_TEA[1],PL_TEA[2]); p.circle(PW-24,PH-10,20,'F');
+
+  reset(p);
+
+  // ── Header ───────────────────────────────────────────────────────────────
+  const nameParts = owner.trim().split(' ');
+  const lastName  = nameParts.length > 1 ? nameParts.pop()! : '';
+  const firstName = nameParts.join(' ');
+
+  p.setFont(F,'bold'); p.setFontSize(28); tc(p,17,17,17);
+  p.text(firstName || lastName, ML, MT+12);
+  if (firstName && lastName) p.text(lastName, ML, MT+12+14);
+
+  const contactItems = [pr.address, pr.phone, pr.email, pr.id_number?`ID: ${pr.id_number}`:null].filter(Boolean) as string[];
+  p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]);
+  let cy = MT+4;
+  for (const item of contactItems) { p.text(item, PW-MR-p.getTextWidth(item), cy); cy+=4; }
+
+  reset(p);
+  let y = MT + 36;
+  const np  = () => { p.addPage(); reset(p); paintBg(); return MT+4; };
+  const GXW = ():[number,number] => [ML, PW-ML-MR];
+  const W   = PW-ML-MR;
+
+  // ── About Me ──────────────────────────────────────────────────────────────
+  if (pr.bio) {
+    y = sectionHeading(p,'About Me',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW);
+    y += 2;
+    p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51);
+    y = wrapped(p,pr.bio,ML,y,W,BOTTOM,np,GXW);
+    y += ITEM_GAP+2;
+  }
+
+  // ── Experience — full width ───────────────────────────────────────────────
+  if (exp.length) {
+    y = sectionHeading(p,isEdu?'Teaching Experience':'Experience',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW);
+    y += 2;
+    for (const e of exp) {
+      if (y+14>BOTTOM) y=np();
+      p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
+      const roleStr = `${(e.role||'').toUpperCase()}${e.school?' / '+e.school.toUpperCase():''}`;
+      const roleLines = p.splitTextToSize(roleStr, W) as string[];
+      roleLines.forEach((l:string)=>{ p.text(l,ML,y); y+=LINE_H-0.5; });
+      const ds = [e.from,e.to].filter(Boolean).join(' \u2013 ');
+      if (ds) { p.setFont(F,'normal'); p.setFontSize(8); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]); p.text(ds.toUpperCase(),ML,y); y+=LINE_H-0.5; }
+      if (e.description) {
+        p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,51,51,51);
+        for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))
+          y = bulletLine(p,l,ML,y,W,accent,BOTTOM,np,GXW);
+      }
+      y += ITEM_GAP;
+    }
+  }
+
+  // ── Education — full width ────────────────────────────────────────────────
+  if (edu.length) {
+    y = sectionHeading(p,'Education',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW);
+    y += 2;
+    for (const e of edu) {
+      if (y+10>BOTTOM) y=np();
+      p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
+      const qLines = p.splitTextToSize((e.qualification||'').toUpperCase(), W) as string[];
+      qLines.forEach((l:string)=>{ p.text(l,ML,y); y+=LINE_H-0.5; });
+      if (e.institution||e.year) {
+        p.setFont(F,'normal'); p.setFontSize(8); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]);
+        p.text([e.institution,e.year].filter(Boolean).join(', ').toUpperCase(),ML,y);
+        y+=LINE_H-0.5;
+      }
+      if (e.description) {
+        p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,51,51,51);
+        y=wrapped(p,e.description,ML,y,W,BOTTOM,np,GXW);
+      }
+      y+=ITEM_GAP;
+    }
+  }
+
+  // ── Skills — categorised, 2-column bullets per category ──────────────────
+  const casSkillGroups = ([
+    ['Key Skills',          sk.subjects    || []],
+    ['Professional Skills', sk.soft_skills || []],
+    ['Languages',           sk.languages   || []],
+  ] as [string,string[]][]).filter(([,items])=>(items as string[]).length > 0);
+
+  if (casSkillGroups.length) {
+    y = sectionHeading(p,'Skills',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW);
+    y += 2;
+    const skGap  = 10;
+    const skColW = (W-skGap)/2;
+    for (let g=0; g<casSkillGroups.length; g++) {
+      const [label, items] = casSkillGroups[g];
+      if (y+LINE_H>BOTTOM) y=np();
+      p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
+      p.text(label as string, ML, y); y+=LINE_H;
+      const col1i = (items as string[]).filter((_:string,i:number)=>i%2===0);
+      const col2i = (items as string[]).filter((_:string,i:number)=>i%2===1);
+      const maxR  = Math.max(col1i.length, col2i.length);
+      for (let r=0; r<maxR; r++) {
+        if (y+LINE_H>BOTTOM) y=np();
+        if (col1i[r]) { dot(p,ML+0.5,y-0.2,accent); p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51); p.text(col1i[r],ML+BULLET_INDENT,y); }
+        if (col2i[r]) { dot(p,ML+skColW+skGap+0.5,y-0.2,accent); p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51); p.text(col2i[r],ML+skColW+skGap+BULLET_INDENT,y); }
+        y+=LINE_H;
+      }
+      y+=ITEM_GAP+(g<casSkillGroups.length-1?1:0);
+    }
+    y+=1;
+  }
+
+  y = drawCustom(p,customs,accent,'tag-underline',ML,y,W,BOTTOM,np,GXW);
   refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm,undefined,false);
 }

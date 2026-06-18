@@ -66,6 +66,7 @@ const TEMPLATES = [
   { id: 'elegant',      name: 'Elegant',      description: 'Centered serif layout on a soft lavender background. Formal and refined.', category: 'Corporate' },
   { id: 'heritage',     name: 'Heritage',     description: 'Formal centered layout with double-rule headings and a top contact bar.', category: 'Corporate' },
   { id: 'playful',      name: 'Playful',      description: 'Cream background, large bold name, colour-blob circles. Fresh and modern.', category: 'Colourful' },
+  { id: 'casual',       name: 'Casual',       description: 'Same cream & circles design as Playful but single-column. Great for longer CVs.', category: 'Colourful' },
 ];
 
 const FREE_TEMPLATE = 'classic';
@@ -75,7 +76,7 @@ interface Props { selected: string; onChange: (id: string) => void; isFree?: boo
 export default function CVStepTemplate({ selected, onChange, isFree = false }: Props) {
   const handleSelect = (id: string) => {
     if (isFree && id !== FREE_TEMPLATE) {
-      toast.info('Buy any credit pack to unlock all 20 templates.', { duration: 3000 });
+      toast.info('Buy any credit pack to unlock all 21 templates.', { duration: 3000 });
       return;
     }
     onChange(id);
@@ -88,7 +89,7 @@ export default function CVStepTemplate({ selected, onChange, isFree = false }: P
         <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2">
           <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
           <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug">
-            Free credits include the <strong>Classic</strong> template. Buy any credit pack to unlock all 20 templates — permanently.
+            Free credits include the <strong>Classic</strong> template. Buy any credit pack to unlock all 21 templates — permanently.
           </p>
         </div>
       )}

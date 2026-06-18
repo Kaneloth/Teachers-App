@@ -80,6 +80,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'elegant': "Georgia, 'Times New Roman', serif",
     'heritage': "Georgia, 'Times New Roman', serif",
     'playful':  "'Arial', Helvetica, sans-serif",
+    'casual':   "'Arial', Helvetica, sans-serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -116,6 +117,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'elegant'      ? <ElegantTemplate      {...T} /> :
     template === 'heritage'     ? <HeritageTemplate     {...T} /> :
     template === 'playful'      ? <PlayfulTemplate      {...T} /> :
+    template === 'casual'       ? <CasualTemplate       {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -2180,6 +2182,163 @@ function PlayfulTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
                     </div>
                   </div>
                 ))}
+            </div>
+          )}
+
+          {renderCustomSections(data.custom_sections, PL_INK)}
+        </div>
+
+        {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
+      </div>
+      {renderReferencesPage(data.references, PL_INK, watermark)}
+    </div>
+  );
+}
+
+/* ── Casual Template ────────────────────────────────────────────────────────
+ * Identical look to Playful (cream bg, large stacked name, colour-blob
+ * circles, categorised skills) but fully single-column — no side-by-side
+ * Experience/Education grid. Sections flow top-to-bottom:
+ * About Me → Experience → Education → Skills → Custom → References.
+ */
+function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
+  const { personal, skills } = data;
+
+  const allSkills = [
+    ...(skills?.subjects    || []),
+    ...(skills?.soft_skills || []),
+    ...(skills?.languages   || []),
+  ];
+
+  const skillGroups = [
+    { label: 'Key Skills',          items: skills?.subjects    || [] },
+    { label: 'Professional Skills', items: skills?.soft_skills || [] },
+    { label: 'Languages',           items: skills?.languages   || [] },
+  ].filter(g => g.items.length > 0);
+
+  return (
+    <div style={{ ...wrapperStyle, background: PL_BG }}>
+      <div
+        className="cv-content-page"
+        style={{
+          width: '794px',
+          minHeight: forExportMinHeight(wrapperStyle),
+          boxSizing: 'border-box',
+          background: PL_BG,
+          position: 'relative',
+          overflow: 'hidden',
+          fontFamily: "'Arial', Helvetica, sans-serif",
+          color: PL_INK,
+        }}
+      >
+        {/* ── Decorative circles (same as Playful) ── */}
+        <div style={{ position: 'absolute', top: '-30px', left: '-30px', width: '130px', height: '130px', borderRadius: '50%', background: PL_YELLOW, opacity: 0.85, zIndex: 0 }} />
+        <div style={{ position: 'absolute', top: '110px', left: '18px', width: '22px', height: '22px', borderRadius: '50%', background: PL_TEAL, opacity: 0.9, zIndex: 0 }} />
+        <div style={{ position: 'absolute', bottom: '-40px', right: '-40px', width: '160px', height: '160px', borderRadius: '50%', background: PL_YELLOW, opacity: 0.75, zIndex: 0 }} />
+        <div style={{ position: 'absolute', bottom: '10px', right: '80px', width: '80px', height: '80px', borderRadius: '50%', background: PL_TEAL, opacity: 0.55, zIndex: 0 }} />
+
+        {/* ── Header: stacked name left, contact right ── */}
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '44px 48px 20px 56px' }}>
+          <div>
+            {(() => {
+              const parts = (personal.full_name || 'Your Name').trim().split(' ');
+              const last  = parts.length > 1 ? parts.pop() : '';
+              const first = parts.join(' ');
+              return (
+                <>
+                  <div style={{ fontSize: '46px', fontWeight: 900, lineHeight: 1.05, color: PL_INK, letterSpacing: '-0.5px' }}>{first || last}</div>
+                  {last && first && <div style={{ fontSize: '46px', fontWeight: 900, lineHeight: 1.05, color: PL_INK, letterSpacing: '-0.5px' }}>{last}</div>}
+                </>
+              );
+            })()}
+          </div>
+          <div style={{ textAlign: 'right', fontSize: '10.5px', color: PL_MUTED, lineHeight: '1.8', marginTop: '6px', minWidth: '180px' }}>
+            {personal.address   && <div>{personal.address}</div>}
+            {personal.phone     && <div>{personal.phone}</div>}
+            {personal.email     && <div>{personal.email}</div>}
+            {personal.id_number && <div>ID: {personal.id_number}</div>}
+          </div>
+        </div>
+
+        {/* ── Body: single column ── */}
+        <div style={{ position: 'relative', zIndex: 1, padding: '0 48px 48px 56px' }}>
+
+          {/* About Me */}
+          {personal.bio && (
+            <div style={{ marginBottom: '28px' }}>
+              <PlayfulHeading title="About Me" />
+              <p style={{ fontSize: '12px', color: '#333', lineHeight: '1.7', margin: 0 }}>{personal.bio}</p>
+            </div>
+          )}
+
+          {/* Experience — full width, single column */}
+          {validExp.length > 0 && (
+            <div style={{ marginBottom: '28px' }}>
+              <PlayfulHeading title={expLabel} />
+              {validExp.map((e: any, i: number) => (
+                <div key={i} style={{ marginBottom: '16px' }}>
+                  <div style={{ fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px', color: PL_INK }}>
+                    {e.role}{e.school ? ` / ${e.school}` : ''}
+                  </div>
+                  {(e.from || e.to) && (
+                    <div style={{ fontSize: '10.5px', textTransform: 'uppercase', color: PL_MUTED, marginBottom: '4px', letterSpacing: '0.3px' }}>
+                      {[e.from, e.to].filter(Boolean).join(' – ')}
+                    </div>
+                  )}
+                  {renderDescription(e.description, PL_INK, '11px')}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Education — full width, single column */}
+          {validEdu.length > 0 && (
+            <div style={{ marginBottom: '28px' }}>
+              <PlayfulHeading title="Education" />
+              {validEdu.map((e: any, i: number) => (
+                <div key={i} style={{ marginBottom: '16px' }}>
+                  <div style={{ fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px', color: PL_INK }}>
+                    {e.qualification}
+                  </div>
+                  {(e.institution || e.year) && (
+                    <div style={{ fontSize: '10.5px', textTransform: 'uppercase', color: PL_MUTED, letterSpacing: '0.3px', marginBottom: '2px' }}>
+                      {[e.institution, e.year].filter(Boolean).join(', ')}
+                    </div>
+                  )}
+                  {e.description && (
+                    <p style={{ fontSize: '11px', color: '#444', lineHeight: '1.6', margin: '4px 0 0' }}>{e.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Skills — categorised, 2-column bullet layout per category */}
+          {allSkills.length > 0 && (
+            <div style={{ marginBottom: '28px' }}>
+              <PlayfulHeading title="Skills" />
+              {skillGroups.map((group, gi) => (
+                <div key={gi} style={{ marginBottom: '10px' }}>
+                  <div style={{ fontWeight: 700, fontSize: '10.5px', textTransform: 'uppercase', color: PL_INK, marginBottom: '4px', letterSpacing: '0.5px' }}>
+                    {group.label}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 16px' }}>
+                    {[
+                      group.items.filter((_: string, i: number) => i % 2 === 0),
+                      group.items.filter((_: string, i: number) => i % 2 === 1),
+                    ].map((col, ci) => (
+                      <div key={ci}>
+                        {col.map((s: string, si: number) => (
+                          <div key={si} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '3px' }}>
+                            <span style={{ color: PL_INK, fontSize: '11px', marginTop: '1px', flexShrink: 0 }}>•</span>
+                            <span style={{ fontSize: '11.5px', color: '#333', lineHeight: '1.5' }}>{s}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
