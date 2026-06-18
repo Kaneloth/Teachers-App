@@ -1168,43 +1168,63 @@ function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 // ── 17. SAGE — Soft green card header, bulleted skills list ───────────────────
 function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#7fa37f');const SAGE_BG:RGB=[232,240,232];const [ar,ag,ab]=accent;
+  const STRIP_H = 8; // height of the sage-green top strip on page 2+
+
+  // Helper: paints the sage-green top strip on continuation pages so every
+  // page from page 2 onward carries the same header shade as page 1.
+  const paintStrip = () => {
+    fill(p,SAGE_BG[0],SAGE_BG[1],SAGE_BG[2]);
+    p.rect(0, 0, PW, STRIP_H, 'F');
+    reset(p);
+  };
 
   // ── Calculate header height dynamically so the shaded card always
   // contains all content without overflowing the bottom border.
-  // Rows: name (always) + divider line + contact line.
-  // The job-title row has been removed per design requirement.
-  const HEADER_PAD_TOP    = 4;  // space above name baseline from card top
-  const HEADER_NAME_H     = 9;  // name row height (16pt bold)
-  const HEADER_DIVIDER_H  = 5;  // gap from name to divider line
-  const HEADER_CONTACT_H  = 7;  // gap from divider to contact baseline
-  const HEADER_PAD_BOTTOM = 5;  // breathing room below the last row
-  const headerCardH = HEADER_PAD_TOP + HEADER_NAME_H + HEADER_DIVIDER_H
-                    + HEADER_CONTACT_H + HEADER_PAD_BOTTOM;
+  // Rows: name + job title (optional) + divider line + contact line.
+  const HEADER_PAD_TOP    = 4;   // space from card top to name baseline
+  const HEADER_NAME_H     = 9;   // name row (16 pt bold)
+  const HEADER_JOBTITLE_H = 6;   // job-title row (9.5 pt) — always reserved
+  const HEADER_DIVIDER_H  = 5;   // gap from last text row to divider line
+  const HEADER_CONTACT_H  = 7;   // gap from divider to contact baseline
+  const HEADER_PAD_BOTTOM = 5;   // breathing room below contact
+  const headerCardH = HEADER_PAD_TOP + HEADER_NAME_H + HEADER_JOBTITLE_H
+                    + HEADER_DIVIDER_H + HEADER_CONTACT_H + HEADER_PAD_BOTTOM;
 
-  fill(p,...SAGE_BG);
+  fill(p,SAGE_BG[0],SAGE_BG[1],SAGE_BG[2]);
   p.roundedRect(ML-2, MT-4, PW-ML-MR+4, headerCardH, 3, 3, 'F');
 
   // Name
-  tc(p,26,46,26);p.setFont(F,'bold');p.setFontSize(16);
-  p.text(owner, ML+2, MT + HEADER_PAD_TOP + HEADER_NAME_H - 4);
+  const nameY = MT + HEADER_PAD_TOP + HEADER_NAME_H - 4;
+  tc(p,26,46,26); p.setFont(F,'bold'); p.setFontSize(16);
+  p.text(owner, ML+2, nameY);
 
-  // Divider line sits below the name
-  const dividerY = MT + HEADER_PAD_TOP + HEADER_NAME_H;
+  // Job title / profession (most recent role, or fallback to isEdu label)
+  const jobTitle = (exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  const jobTitleY = nameY + HEADER_JOBTITLE_H;
+  p.setFont(F,'normal'); p.setFontSize(9.5); tc(p,75,108,75);
+  p.text(jobTitle, ML+2, jobTitleY);
+
+  // Divider line below the job title
+  const dividerY = jobTitleY + HEADER_DIVIDER_H - 1;
   hLine(p, ML, dividerY, PW-ML-MR, ar, ag, ab, 0.6);
 
-  // Contact line sits below the divider, fully inside the card
+  // Contact line — fully inside the card, below the divider
   const contactY = dividerY + HEADER_CONTACT_H;
   const contactStr = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
-  p.setFont(F,'normal');p.setFontSize(8);tc(p,55,80,55);
+  p.setFont(F,'normal'); p.setFontSize(8); tc(p,55,80,55);
   p.text(contactStr, ML+2, contactY);
 
   reset(p);
-  // Body starts below the card with a small gap
-  let y = MT - 4 + headerCardH + 5;
-  const np=()=>{p.addPage();reset(p);return MT;};const GXW=():[ number,number]=>[ML,PW-ML-MR];
+  // Body starts below the card with extra gap so the summary is clearly
+  // visually separated from the header area.
+  let y = MT - 4 + headerCardH + 10;
+  const np=()=>{p.addPage();reset(p);paintStrip();return MT+STRIP_H+4;};
+  const GXW=():[ number,number]=>[ML,PW-ML-MR];
 
-  // Professional summary — no "Educator" label above it
+  // Professional summary — rendered as a proper named section so it is
+  // clearly separated from the header rather than floating immediately below it.
   if(pr.bio){
+    y=sectionHeading(p,'Professional Summary',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
     p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
     y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);
     y+=ITEM_GAP+2;
@@ -1229,11 +1249,9 @@ function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
     for (let g=0; g<sageSkillGroups.length; g++) {
       const [label, items] = sageSkillGroups[g];
       if (y+LINE_H > BOTTOM) y = np();
-      // Category label
       p.setFont(F,'bold'); p.setFontSize(9); tc(p,ar,ag,ab);
       p.text(label, ML, y);
       y += LINE_H;
-      // Bulleted items under this category
       p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
       for (const s of items) y = bulletLine(p, s, ML, y, PW-ML-MR, accent, BOTTOM, np, GXW);
       y += ITEM_GAP + (g < sageSkillGroups.length-1 ? 1 : 0);
@@ -1242,7 +1260,38 @@ function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   }
 
   y=drawCustom(p,customs,accent,'tag-underline',ML,y,PW-ML-MR,BOTTOM,np,GXW);
-  refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm);
+
+  // ── References page — uses SAGE_BG strip so it matches the header shade ──
+  // Pass SAGE_BG as the `bg` tint BUT we only want a top strip, not a full
+  // page fill. We do this by calling refsPage with topStrip=false and
+  // manually painting the strip on each refs page via a wrapper np.
+  const validRefs = refs.filter((r:any)=>r.name);
+  if (validRefs.length) {
+    p.addPage(); reset(p); paintStrip();
+    let ry = MT + STRIP_H + 4;
+    const rnp = ()=>{ p.addPage(); reset(p); paintStrip(); return MT+STRIP_H+4; };
+    ry = sectionHeading(p,'References',ML,ry,PW-ML-MR,accent,'tag-underline',BOTTOM,rnp,undefined,ICON.user);
+    ry += 2;
+    const half = (PW-ML-MR-8)/2;
+    for (let i=0; i<validRefs.length; i+=2) {
+      const drawRef = (ref:any, rx:number, startY:number): number => {
+        let cy = startY;
+        dot(p, rx, cy-0.8, accent, 1.6);
+        p.setFont(F,'bold'); p.setFontSize(9.5); tc(p,17,24,39);
+        p.text(ref.name, rx+3, cy); cy += LINE_H;
+        if (ref.title)        { p.setFont(F,'normal'); p.setFontSize(9);   tc(p,ar,ag,ab);       p.text(ref.title,        rx+3, cy); cy+=LINE_H; }
+        if (ref.organisation) { p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,107,114,128);    p.text(ref.organisation, rx+3, cy); cy+=LINE_H; }
+        if (ref.relationship) { p.setFont(F,'italic'); p.setFontSize(8);   tc(p,156,163,175);    p.text(ref.relationship, rx+3, cy); cy+=LINE_H; }
+        if (ref.phone||ref.email) { p.setFont(F,'normal'); p.setFontSize(8); tc(p,107,114,128);  p.text([ref.phone,ref.email].filter(Boolean).join('  |  '), rx+3, cy); cy+=LINE_H; }
+        return cy;
+      };
+      const ly  = drawRef(validRefs[i],     ML,           ry);
+      const ry2 = validRefs[i+1] ? drawRef(validRefs[i+1], ML+half+8, ry) : ry;
+      ry = Math.max(ly,ry2)+2;
+      hLine(p, ML, ry, PW-ML-MR, 229,231,235, 0.2);
+      ry += 5;
+    }
+  }
 }
 
 // ── 18. ELEGANT — Centered serif layout on soft lavender background ─────────
