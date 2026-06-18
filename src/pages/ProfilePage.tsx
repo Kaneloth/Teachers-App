@@ -853,6 +853,16 @@ export default function ProfilePage() {
   const initial = profile.full_name?.[0]?.toUpperCase() || profile.email?.[0]?.toUpperCase() || 'U';
   const isEducator = profile.profile_type !== 'general';
 
+  // ID verification is restricted to Pro educators only.
+  // - General users never need it (no educator-specific features)
+  // - Free users cannot verify (Pro gate keeps the feature premium)
+  const _metaPlan = user?.user_metadata?.subscription_plan as string | undefined;
+  const _metaEnd  = user?.user_metadata?.subscription_end  as string | undefined;
+  const isPro = !!(
+    _metaPlan && _metaPlan !== 'free' &&
+    _metaEnd  && new Date(_metaEnd) > new Date()
+  );
+
   if (isOwnProfile) {
     return (
       <div className="max-w-2xl mx-auto pb-28">
@@ -1004,7 +1014,7 @@ export default function ProfilePage() {
             </Field>
           </SectionCard>
 
-          {isEducator && <IdentityVerificationSection />}
+          {isEducator && isPro && <IdentityVerificationSection />}
 
           {isEducator && (
             <SectionCard label="Current Position">
