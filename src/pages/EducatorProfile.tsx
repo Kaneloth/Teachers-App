@@ -184,17 +184,24 @@ export default function EducatorProfile() {
         </SectionCard>
       </div>
 
-      {/* Sticky Send Message button */}
+      {/* Sticky Send Message button — only shown for actively looking educators */}
       {!isOwn && (
         <div className="fixed bottom-16 left-0 right-0 px-4 pb-3 bg-background/90 backdrop-blur-sm">
-          <Button
-            onClick={handleMessage}
-            disabled={messaging}
-            className="w-full h-12 rounded-2xl text-base font-semibold gap-2"
-          >
-            <MessageCircle className="w-5 h-5" />
-            {messaging ? 'Opening…' : 'Send Message'}
-          </Button>
+          {educator.is_actively_looking ? (
+            <Button
+              onClick={handleMessage}
+              disabled={messaging}
+              className="w-full h-12 rounded-2xl text-base font-semibold gap-2"
+            >
+              <MessageCircle className="w-5 h-5" />
+              {messaging ? 'Opening…' : 'Send Message'}
+            </Button>
+          ) : (
+            <div className="w-full h-12 rounded-2xl border border-border bg-muted flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <MessageCircle className="w-4 h-4 opacity-40" />
+              Not accepting messages
+            </div>
+          )}
         </div>
       )}
     </div>
