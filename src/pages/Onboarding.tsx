@@ -12,7 +12,20 @@ import { useAuth } from '@/lib/AuthContext';
 
 const PROVINCES = ['Gauteng','KwaZulu-Natal','Western Cape','Eastern Cape','Mpumalanga','Limpopo','North West','Free State','Northern Cape'];
 const PHASES = ['Foundation','Intermediate','Senior','FET'];
-const SUBJECTS = ['Mathematics','Mathematical Literacy','Physical Sciences','Life Sciences','English HL','English FAL','Afrikaans HL','Afrikaans FAL','History','Geography','Business Studies','Accounting','Economics','Life Orientation','Computer Applications Technology','Information Technology'];
+const SUBJECTS = [
+  'Accounting','Afrikaans FAL','Afrikaans HL','Agricultural Sciences',
+  'Agricultural Management Practices','Agricultural Technology','Business Studies',
+  'Computer Applications Technology','Consumer Studies','Dance Studies','Design',
+  'Dramatic Arts','Economics','Engineering Graphics and Design','English FAL','English HL',
+  'Geography','History','Hospitality Studies','Information Technology',
+  'isiNdebele FAL','isiNdebele HL','isiXhosa FAL','isiXhosa HL','isiZulu FAL','isiZulu HL',
+  'Life Orientation','Life Sciences','Mathematical Literacy','Mathematics','Music',
+  'Natural Sciences','Physical Sciences','Religion Studies',
+  'Sepedi FAL','Sepedi HL','Sesotho FAL','Sesotho HL','Setswana FAL','Setswana HL',
+  'Sign Language HL','Siswati FAL','Siswati HL','Social Sciences','Technology',
+  'Tshivenda FAL','Tshivenda HL','Tourism','Visual Arts',
+  'Xitsonga FAL','Xitsonga HL','Other',
+];
 
 type ProfileType = 'educator' | 'general';
 
