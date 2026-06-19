@@ -59,8 +59,10 @@ function RequireComplete() {
   // ── Gate 1: Email not confirmed ────────────────────────────────────────────
   // Google OAuth users always have email_confirmed_at set by Supabase.
   // Only email/password signups need OTP confirmation.
+  // Admins bypass this gate entirely.
+  const isAdmin = !!user?.user_metadata?.is_admin;
   const emailConfirmed = !!(user?.email_confirmed_at || user?.confirmed_at);
-  if (user && !emailConfirmed) {
+  if (user && !emailConfirmed && !isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="max-w-sm w-full space-y-5 text-center">
@@ -98,8 +100,9 @@ function RequireComplete() {
   }
 
   // ── Gate 2: Profile type not yet chosen (onboarding incomplete) ───────────
+  // Admins bypass this gate — they may not have gone through onboarding.
   const profileType = user?.user_metadata?.profile_type as string | undefined;
-  if (user && !profileType) {
+  if (user && !profileType && !isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="max-w-sm w-full space-y-5 text-center">
