@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, MailCheck } from 'lucide-react';
+import { Eye, EyeOff, Loader2, MailCheck, MessageCircle, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 type Step = 'form' | 'email-otp';
@@ -24,7 +24,10 @@ export default function Register() {
   const [emailOtp,      setEmailOtp]      = useState('');
   const [loading,       setLoading]       = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleLoading,   setGoogleLoading]   = useState(false);
+  const [showContactForm, setShowContactForm] = useState(false);
+  const [contactMsg,      setContactMsg]      = useState('');
+  const [contactSending,  setContactSending]  = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,9 +59,45 @@ export default function Register() {
   const handleResendEmailOtp = async () => {
     setResendLoading(true);
     const { error } = await supabase.auth.resend({ type: 'signup', email });
-    if (error) toast.error(error.message);
-    else       toast.success('New code sent — check your inbox.');
+    if (error) {
+      // Detect bounce / quota / delivery errors and give actionable guidance
+      const msg = error.message.toLowerCase();
+      if (msg.includes('bounce') || msg.includes('quota') || msg.includes('storage') ||
+          msg.includes('over_email_send_rate_limit') || msg.includes('rate')) {
+        toast.warning(
+          "We couldn't deliver the code — your inbox may be full or temporarily blocking emails. " +
+          "Please free up inbox space or use Google sign-in instead."
+        );
+      } else {
+        toast.error(error.message);
+      }
+    } else {
+      toast.success('New code sent — check your inbox and spam folder.');
+    }
     setResendLoading(false);
+  };
+
+  const handleContactSupport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactMsg.trim()) return;
+    setContactSending(true);
+    // Send via Supabase edge or just open mailto as fallback
+    try {
+      await fetch('/.netlify/functions/contact-support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name: fullName || 'New User', message: contactMsg }),
+      });
+      toast.success("Message sent! We'll verify your account manually within 24 hours.");
+      setShowContactForm(false);
+      setContactMsg('');
+    } catch {
+      // Fallback to mailto if function not deployed yet
+      window.location.href =
+        \`mailto:support@crosssa.co.za?subject=Email+Verification+Issue&body=\` +
+        encodeURIComponent(\`Name: \${fullName}\nEmail: \${email}\n\nIssue: \${contactMsg}\`);
+    }
+    setContactSending(false);
   };
 
   const handleGoogle = async () => {
@@ -110,6 +149,63 @@ export default function Register() {
             <button onClick={() => { setStep('form'); setEmailOtp(''); }}
               className="text-primary font-semibold hover:underline">Go back</button>
           </p>
+        </div>
+
+        {/* Inbox full / delivery problem help */}
+        <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 space-y-3">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-xs text-amber-800 dark:text-amber-300 space-y-1">
+              <p className="font-semibold">Still not getting the code?</p>
+              <p>Your inbox may be full or blocking the email. Try these steps:</p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                <li>Check your <strong>spam/junk</strong> folder</li>
+                <li>Free up inbox space and tap <em>Resend code</em></li>
+                <li>Or <button onClick={() => { setStep('form'); setEmailOtp(''); }} className="underline font-semibold">go back</button> and use <strong>Google sign-in</strong> instead — no OTP needed</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Contact support toggle */}
+          {!showContactForm ? (
+            <button
+              onClick={() => setShowContactForm(true)}
+              className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400 font-semibold hover:underline w-full justify-center"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              Still stuck? Contact support to verify manually
+            </button>
+          ) : (
+            <form onSubmit={handleContactSupport} className="space-y-2">
+              <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
+                Describe your issue and we'll manually verify your account within 24 hours.
+              </p>
+              <textarea
+                value={contactMsg}
+                onChange={e => setContactMsg(e.target.value)}
+                placeholder="e.g. My Gmail inbox is full and I can't receive the OTP code..."
+                rows={3}
+                required
+                className="w-full rounded-xl border border-amber-300 dark:border-amber-700 bg-white dark:bg-amber-950/30 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 resize-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowContactForm(false); setContactMsg(''); }}
+                  className="flex-1 text-xs py-1.5 rounded-xl border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={contactSending || !contactMsg.trim()}
+                  className="flex-1 text-xs py-1.5 rounded-xl bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50 transition-colors"
+                >
+                  {contactSending ? 'Sending…' : 'Send to Support'}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     );

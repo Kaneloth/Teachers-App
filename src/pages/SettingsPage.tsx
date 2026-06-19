@@ -598,7 +598,27 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
     user.subscription_end ? user.subscription_end.slice(0, 10) : ''
   );
   const [isAdminFlag, setIsAdminFlag] = useState(user.is_admin);
-  const [saving, setSaving] = useState(false);
+  const [saving,    setSaving]    = useState(false);
+  const [verifying, setVerifying] = useState(false);
+
+  const handleVerifyEmail = async () => {
+    if (!window.confirm(`Manually verify ${user.email}? This bypasses OTP and marks the account as confirmed.`)) return;
+    setVerifying(true);
+    try {
+      const res = await fetch('/.netlify/functions/admin-verify-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ target_user_id: user.id }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || 'Verification failed');
+      toast.success(`${user.email} has been manually verified.`);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to verify user');
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -733,6 +753,26 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
             <Switch checked={isAdminFlag} onCheckedChange={setIsAdminFlag} />
           </div>
         </div>
+
+          {/* Manual email verification — for users whose OTP bounced */}
+          <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Manual Email Verification</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">Use if OTP email bounced or inbox was full</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleVerifyEmail}
+              disabled={verifying}
+              className="shrink-0 rounded-xl border-amber-300 text-amber-700 hover:bg-amber-100 gap-1.5"
+            >
+              {verifying
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <ShieldCheck className="w-3.5 h-3.5" />}
+              {verifying ? 'Verifying…' : 'Verify Now'}
+            </Button>
+          </div>
 
         <div className="flex gap-3 px-5 pb-5 pt-2">
           <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl">Cancel</Button>
