@@ -14,12 +14,16 @@ const BILLING = [
 
 // Corrected free tier limits (based on your earlier discussions)
 const COMPARISON = [
-  { feature: 'CV builds / month', free: 'Unlimited',          pro: 'Unlimited' },
-  { feature: 'CV watermark',      free: 'Yes',       			pro: 'No'        },
-  { feature: 'Active chats',      free: 'Unlimited',          pro: 'Unlimited' },
-  { feature: 'Job applications',  free: 'Unlimited',          pro: 'Unlimited' },
-  { feature: 'Ads',               free: 'Yes',        			pro: 'No'        },
-  { feature: 'Cover letters',     free: '0',          			pro: 'Unlimited' },
+  { feature: 'CV builds',               free: 'Pay per CV',       pro: 'Pay per CV'          },
+  { feature: 'CV watermark',            free: 'Yes',              pro: 'No'                  },
+  { feature: 'Monthly free credits',    free: 'None',             pro: '20 credits/month'    },
+  { feature: 'Unused monthly credits',  free: '—',                pro: 'Expire end of month' },
+  { feature: 'Active chats',            free: 'Unlimited',        pro: 'Unlimited'           },
+  { feature: 'Vacancy applications',    free: 'Unlimited',        pro: 'Unlimited'           },
+  { feature: 'Ads',                     free: 'None',             pro: 'None'                },
+  { feature: 'Advanced search filters', free: 'Basic only',       pro: 'Full access'         },
+  { feature: 'ID verification',         free: 'No',               pro: 'Yes'                 },
+  { feature: 'Verified badge',          free: 'No',               pro: 'After verification'  },
 ];
 
 function getPlanEndDate(planId: string): string {
