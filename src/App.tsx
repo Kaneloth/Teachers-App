@@ -57,11 +57,14 @@ function RequireComplete() {
   }
 
   // ── Gate 1: Email not confirmed ────────────────────────────────────────────
-  // Google OAuth users always have email_confirmed_at set by Supabase.
-  // Only email/password signups need OTP confirmation.
-  // Admins bypass this gate entirely.
+  // Google (and other OAuth) users are pre-verified by their provider —
+  // Supabase sets email_confirmed_at automatically for them, and their
+  // app_metadata.provider is 'google' (not 'email'). Both checks are used
+  // so this gate is never accidentally triggered for OAuth users.
+  // Admins bypass entirely.
   const isAdmin = !!user?.user_metadata?.is_admin;
-  const emailConfirmed = !!(user?.email_confirmed_at || user?.confirmed_at);
+  const isOAuthUser = !!(user?.app_metadata?.provider && user.app_metadata.provider !== 'email');
+  const emailConfirmed = !!(user?.email_confirmed_at || user?.confirmed_at) || isOAuthUser;
   if (user && !emailConfirmed && !isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -86,7 +89,7 @@ function RequireComplete() {
             <p className="text-xs text-muted-foreground">
               Inbox full or not receiving emails?{' '}
               <a
-                href="mailto:support@crosssa.co.za?subject=Email+Verification+Help&body=My+email+is+{user.email}"
+                href={`mailto:support@crosssa.co.za?subject=Email+Verification+Help&body=My+email+is+${user.email}`}
                 className="text-primary underline font-medium"
               >
                 Contact support
