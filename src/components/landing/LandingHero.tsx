@@ -36,7 +36,7 @@ export default function LandingHero() {
             One Platform, Two Paths
           </span>
           <h1 className="text-4xl md:text-5xl font-extrabold text-[#0f172a] leading-tight mb-5">
-            For Educators <span className="text-[#0d9488]">&</span><br />
+            For Educators Seeking a Cross Transfer Match<span className="text-[#0d9488]">&</span><br />
             Job Seekers in South Africa
           </h1>
           <p className="text-lg text-[#475569] mb-6 max-w-lg mx-auto md:mx-0">
