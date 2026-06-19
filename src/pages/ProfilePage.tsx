@@ -474,6 +474,7 @@ export default function ProfilePage() {
   const [userCode, setUserCode] = useState<string>('');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [togglingActive, setTogglingActive] = useState(false);
   const [subjectToAdd, setSubjectToAdd] = useState('');
   const [provinceToAdd, setProvinceToAdd] = useState('');
 
@@ -602,6 +603,28 @@ export default function ProfilePage() {
 
   const setProfileField = (field: keyof Profile, value: unknown) => {
     if (profile) setProfile({ ...profile, [field]: value });
+  };
+
+  // Writes is_actively_looking immediately — independent of the 30-day
+  // save cooldown. This is the only field that can be changed at any time.
+  const handleToggleActive = async (value: boolean) => {
+    if (!user || !profile) return;
+    setTogglingActive(true);
+    setProfileField('is_actively_looking', value); // optimistic UI update
+    const { error } = await supabase
+      .from('educators')
+      .update({ is_actively_looking: value })
+      .eq('user_id', user.id);
+    if (error) {
+      setProfileField('is_actively_looking', !value); // revert on error
+      toast.error('Failed to update status. Please try again.');
+    } else {
+      toast.success(value
+        ? 'You are now Actively Looking — other educators can message you.'
+        : 'Actively Looking turned off — you will no longer receive new messages.'
+      );
+    }
+    setTogglingActive(false);
   };
 
   const handleRefresh = async () => {
@@ -962,19 +985,45 @@ export default function ProfilePage() {
           {/* Role switcher removed – users cannot change their role here */}
 
           {isEducator && (
-            <div className="bg-card rounded-2xl border border-border flex items-center gap-3 px-4 py-3.5">
-              <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
-                <Flame className="w-4 h-4 text-amber-500" />
+            <div className={`rounded-2xl border-2 px-4 py-4 transition-all ${
+              profile.is_actively_looking
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700'
+                : 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700'
+            }`}>
+              {/* Header row */}
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                  profile.is_actively_looking ? 'bg-green-100 dark:bg-green-800' : 'bg-amber-100 dark:bg-amber-800'
+                }`}>
+                  <Flame className={`w-5 h-5 ${profile.is_actively_looking ? 'text-green-600 dark:text-green-400' : 'text-amber-500'}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-bold ${profile.is_actively_looking ? 'text-green-800 dark:text-green-300' : 'text-amber-800 dark:text-amber-300'}`}>
+                    {profile.is_actively_looking ? 'Actively Looking — On' : 'Actively Looking — Off'}
+                  </p>
+                </div>
+                <Switch checked={profile.is_actively_looking} onCheckedChange={handleToggleActive} disabled={togglingActive} />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">Actively Looking</p>
-                <p className="text-xs text-muted-foreground">
-                  {profile.is_actively_looking
-                    ? 'Other educators can message you. Turn off to stop receiving messages.'
-                    : 'Turn on so other educators can message you about transfer opportunities.'}
-                </p>
-              </div>
-              <Switch checked={profile.is_actively_looking} onCheckedChange={v => setProfileField('is_actively_looking', v)} />
+              {/* State-aware explanation */}
+              {profile.is_actively_looking ? (
+                <div className="mt-3 space-y-1">
+                  <p className="text-xs font-medium text-green-800 dark:text-green-300">
+                    ✅ Other educators can see you are open to a transfer and can send you messages.
+                  </p>
+                  <p className="text-xs text-green-700 dark:text-green-400">
+                    Turn this off if you are no longer looking or want to stop receiving messages.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-3 space-y-1.5">
+                  <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                    ⚠️ You appear in search results but cannot be messaged.
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    Turn this on to allow other educators to send you messages about transfer opportunities. You can turn it off at any time.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
