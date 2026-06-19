@@ -78,6 +78,10 @@ export const handler = async (event) => {
       account_status:    edu?.account_status || 'active',
       current_school:    edu?.current_school || null,
       is_admin:          !!u.user_metadata?.is_admin,
+      // email_confirmed is null for Google OAuth users (they don't need OTP)
+      // and for unverified email users. Treat Google OAuth (no email_confirmed_at
+      // but confirmed_at exists) as confirmed.
+      email_confirmed:   !!(u.email_confirmed_at || u.confirmed_at),
       subscription_plan: prof?.subscription_plan || u.user_metadata?.subscription_plan || 'free',
       subscription_end:  prof?.subscription_end  || u.user_metadata?.subscription_end  || null,
       deleted_at:        prof?.deleted_at || null,

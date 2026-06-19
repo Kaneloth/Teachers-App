@@ -563,7 +563,8 @@ function avatarColor(name: string) {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
-function statusBadge(status: string) {
+function statusBadge(status: string, emailConfirmed = true) {
+  if (!emailConfirmed) return <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">pending</span>;
   const s = (status || 'active').toLowerCase();
   if (s === 'suspended') return <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700">suspended</span>;
   if (s === 'banned') return <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-red-100 text-red-700">banned</span>;
@@ -582,6 +583,7 @@ interface AdminUser {
   account_status: string;
   current_school: string | null;
   is_admin: boolean;
+  email_confirmed: boolean;
   subscription_plan: string;
   subscription_end: string | null;
   deleted_at: string | null;
@@ -752,27 +754,29 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
             </div>
             <Switch checked={isAdminFlag} onCheckedChange={setIsAdminFlag} />
           </div>
-        </div>
 
-          {/* Manual email verification — for users whose OTP bounced */}
-          <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Manual Email Verification</p>
-              <p className="text-xs text-amber-600 dark:text-amber-400">Use if OTP email bounced or inbox was full</p>
+          {/* Manual email verification — only shown for unverified users */}
+          {!user.email_confirmed && (
+            <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Email Not Verified</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400">Manually verify if OTP email bounced or inbox was full</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleVerifyEmail}
+                disabled={verifying}
+                className="shrink-0 rounded-xl border-amber-300 text-amber-700 hover:bg-amber-100 gap-1.5"
+              >
+                {verifying
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <ShieldCheck className="w-3.5 h-3.5" />}
+                {verifying ? 'Verifying…' : 'Verify Now'}
+              </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleVerifyEmail}
-              disabled={verifying}
-              className="shrink-0 rounded-xl border-amber-300 text-amber-700 hover:bg-amber-100 gap-1.5"
-            >
-              {verifying
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : <ShieldCheck className="w-3.5 h-3.5" />}
-              {verifying ? 'Verifying…' : 'Verify Now'}
-            </Button>
-          </div>
+          )}
+        </div>
 
         <div className="flex gap-3 px-5 pb-5 pt-2">
           <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl">Cancel</Button>
@@ -856,7 +860,7 @@ function UsersSubTab() {
                     <p className="text-[11px] font-mono text-primary/80 truncate">{u.user_code}</p>
                   )}
                 </div>
-                {statusBadge(u.account_status)}
+                {statusBadge(u.account_status, u.email_confirmed)}
                 <ChevronRight className="w-4 h-4 text-muted-foreground ml-1 shrink-0" />
               </button>
             </div>
