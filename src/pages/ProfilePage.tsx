@@ -968,7 +968,11 @@ export default function ProfilePage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-foreground">Actively Looking</p>
-                <p className="text-xs text-muted-foreground">Appear first in search results</p>
+                <p className="text-xs text-muted-foreground">
+                  {profile.is_actively_looking
+                    ? 'Other educators can message you. Turn off to stop receiving messages.'
+                    : 'Turn on so other educators can message you about transfer opportunities.'}
+                </p>
               </div>
               <Switch checked={profile.is_actively_looking} onCheckedChange={v => setProfileField('is_actively_looking', v)} />
             </div>
