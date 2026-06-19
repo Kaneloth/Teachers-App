@@ -94,8 +94,8 @@ export default function Register() {
     } catch {
       // Fallback to mailto if function not deployed yet
       window.location.href =
-        \`mailto:support@crosssa.co.za?subject=Email+Verification+Issue&body=\` +
-        encodeURIComponent(\`Name: \${fullName}\nEmail: \${email}\n\nIssue: \${contactMsg}\`);
+        `mailto:support@crosssa.co.za?subject=Email+Verification+Issue&body=` +
+        encodeURIComponent(`Name: ${fullName}\nEmail: ${email}\n\nIssue: ${contactMsg}`);
     }
     setContactSending(false);
   };
