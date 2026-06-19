@@ -1,10 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { AuthProvider, useAuth } from '@/lib/AuthContext';
-import { MailCheck, ClipboardList, MessageCircle, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { AuthProvider } from '@/lib/AuthContext';
 
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ScrollToTop from '@/components/ScrollToTop';
@@ -37,114 +35,7 @@ import CreditsPage from '@/pages/CreditsPage';
 import NotFound from '@/pages/not-found';
 
 const queryClient = new QueryClient();
-
-/**
- * RequireComplete — wraps all main app routes.
- * Blocks access if:
- *   1. Email not yet confirmed (show verify prompt)
- *   2. Profile type not yet chosen (show onboarding prompt)
- * Shows a friendly, actionable screen instead of a blank page or silent redirect.
- */
-function RequireComplete() {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  // ── Gate 1: Email not confirmed ────────────────────────────────────────────
-  // Google (and other OAuth) users are pre-verified by their provider —
-  // Supabase sets email_confirmed_at automatically for them, and their
-  // app_metadata.provider is 'google' (not 'email'). Both checks are used
-  // so this gate is never accidentally triggered for OAuth users.
-  // Admins bypass entirely.
-  const isAdmin = !!user?.user_metadata?.is_admin;
-  const isOAuthUser = !!(user?.app_metadata?.provider && user.app_metadata.provider !== 'email');
-  const emailConfirmed = !!(user?.email_confirmed_at || user?.confirmed_at) || isOAuthUser;
-  if (user && !emailConfirmed && !isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
-        <div className="max-w-sm w-full space-y-5 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 mx-auto">
-            <MailCheck className="w-8 h-8 text-amber-600 dark:text-amber-400" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Verify your email</h1>
-            <p className="text-sm text-muted-foreground mt-1.5">
-              We sent a verification code to <strong>{user.email}</strong>.
-              Please check your inbox (and spam folder) and enter the code on the verification screen.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Button
-              className="w-full rounded-xl h-11"
-              onClick={() => window.location.href = '/register'}
-            >
-              Go to verification screen
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Inbox full or not receiving emails?{' '}
-              <a
-                href={`mailto:support@crosssa.co.za?subject=Email+Verification+Help&body=My+email+is+${user.email}`}
-                className="text-primary underline font-medium"
-              >
-                Contact support
-              </a>
-              {' '}and we'll verify you manually.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Gate 2: Profile type not yet chosen (onboarding incomplete) ───────────
-  // Admins bypass this gate — they may not have gone through onboarding.
-  const profileType = user?.user_metadata?.profile_type as string | undefined;
-  if (user && !profileType && !isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
-        <div className="max-w-sm w-full space-y-5 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mx-auto">
-            <ClipboardList className="w-8 h-8 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Complete your profile</h1>
-            <p className="text-sm text-muted-foreground mt-1.5">
-              You need to finish setting up your profile before you can access the app.
-              It only takes a minute!
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Button
-              className="w-full rounded-xl h-11"
-              onClick={() => window.location.href = '/onboarding'}
-            >
-              Complete setup
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Having trouble?{' '}
-              <a
-                href="mailto:support@crosssa.co.za?subject=Onboarding+Help"
-                className="text-primary underline font-medium"
-              >
-                <MessageCircle className="w-3 h-3 inline mr-0.5" />
-                Contact support
-              </a>
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return <Outlet />;
-}
-const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const base = import.meta.env.BASE_URL.replace(/\/$/,  '');
 
 export default function App() {
   return (
@@ -170,9 +61,8 @@ export default function App() {
                 <Route path="/onboarding" element={<Onboarding />} />
               </Route>
 
-              {/* Main app (requires auth + email confirmed + profile complete) */}
+              {/* Main app (requires auth + full app chrome) */}
               <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
-                <Route element={<RequireComplete />}>
                 <Route element={<AppLayout />}>
                   <Route path="/home"          element={<Home />} />
                   <Route path="/search"        element={<Search />} />
@@ -189,7 +79,6 @@ export default function App() {
                   <Route path="/settings"      element={<SettingsPage />} />
                   <Route path="/support"       element={<SupportPage />} />
                   <Route path="/credits"       element={<CreditsPage />} />
-                </Route>
                 </Route>
               </Route>
 
