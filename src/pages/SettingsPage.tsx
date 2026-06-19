@@ -4,7 +4,7 @@ import {
   ArrowLeft, Bell, Moon, Type, Shield, FileText, Headphones,
   Lock, ChevronRight, ChevronDown, Star, Zap,
   Search, AlertTriangle, CheckCircle, UserX, Ban, X,
-  Save, Loader2, Fingerprint, Coins, Crown, Plus, Minus, History, ScrollText,
+  Save, Loader2, Fingerprint, Coins, Crown, Plus, Minus, History, ScrollText, ShieldCheck,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
