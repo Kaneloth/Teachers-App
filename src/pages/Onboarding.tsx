@@ -42,7 +42,7 @@ const DISTRICTS_BY_PROVINCE: Record<string, string[]> = {
 
 const TOWNS_BY_DISTRICT: Record<string, string[]> = {
   'Alfred Nzo East': ['Bizana','Flagstaff','Other'],'Alfred Nzo West': ['Mount Frere','Matatiele','Maluti','Other'],
-  'Amatole East': ['Butterworth','Idutywa','Ngqamakhwe','Other'],'Amatole West': ['East London','King William's Town','Stutterheim','Komani','Other'],
+  'Amatole East': ['Butterworth','Idutywa','Ngqamakhwe','Other'],'Amatole West': ['East London','King Williams Town','Stutterheim','Komani','Other'],
   'Buffalo City': ['East London','Mdantsane','Bhisho','Other'],'Chris Hani East': ['Queenstown','Komani','Cofimvaba','Other'],'Chris Hani West': ['Cradock','Middelburg EC','Tarkastad','Other'],
   'Joe Gqabi': ['Aliwal North','Sterkstroom','Burgersdorp','Other'],'Nelson Mandela Bay': ['Port Elizabeth','Uitenhage','Kariega','Other'],
   'OR Tambo Coastal': ['Port St Johns','Lusikisiki','Ingquza','Other'],'OR Tambo Inland': ['Mthatha','Qumbu','Tsolo','Other'],'Sarah Baartman': ['Grahamstown','Port Alfred','Humansdorp','Jeffreys Bay','Other'],
@@ -71,7 +71,7 @@ const TOWNS_BY_DISTRICT: Record<string, string[]> = {
   'Dr Ruth Segomotsi Mompati': ['Vryburg','Schweizer-Reneke','Other'],'Ngaka Modiri Molema': ['Mafikeng','Zeerust','Lichtenburg','Other'],
   'Frances Baard': ['Kimberley','Barkly West','Other'],'John Taolo Gaetsewe': ['Kuruman','Kathu','Other'],
   'Namakwa': ['Springbok','Calvinia','Other'],'Pixley-ka-Seme': ['De Aar','Prieska','Victoria West','Other'],'ZF Mgcawu': ['Upington','Kakamas','Other'],
-  'Metro Central': ['Cape Town CBD','Bellville','Parow','Other'],'Metro East': ['Mitchell's Plain','Khayelitsha','Strand','Other'],
+  'Metro Central': ['Cape Town CBD','Bellville','Parow','Other'],'Metro East': ['Mitchells Plain','Khayelitsha','Strand','Other'],
   'Metro North': ['Durbanville','Kraaifontein','Brackenfell','Other'],'Metro South': ['Wynberg','Retreat','Muizenberg','Other'],
   'Cape Winelands': ['Stellenbosch','Paarl','Worcester','Franschhoek','Other'],
   'Eden and Central Karoo': ['George','Mossel Bay','Knysna','Oudtshoorn','Other'],
