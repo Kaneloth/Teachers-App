@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Switch } from '@/components/ui/switch';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -29,50 +30,55 @@ const PHASES    = ['Foundation','Intermediate','Senior','FET'];
 // Town list per province — used for the Current Position "Town" dropdown.
 // Source: Skootlink onboarding (SA_PROVINCE_CITIES). An "Other" option is
 // always appended so users in towns not listed here can type their own.
-const TOWNS_BY_PROVINCE: Record<string, string[]> = {
-  'Eastern Cape': [
-    'Aliwal North', 'Bhisho', 'East London', 'Gqeberha (Port Elizabeth)',
-    'Grahamstown', 'Humansdorp', 'Jeffreys Bay', "King William's Town",
-    'Mthatha', 'Port Alfred', 'Queenstown', 'Stutterheim',
-  ],
-  'Free State': [
-    'Bethlehem', 'Bloemfontein', 'Ficksburg', 'Harrismith', 'Kroonstad',
-    'Parys', 'Phuthaditjhaba', 'Sasolburg', 'Virginia', 'Welkom',
-  ],
-  'Gauteng': [
-    'Alberton', 'Benoni', 'Boksburg', 'Carletonville', 'Centurion',
-    'Edenvale', 'Fourways', 'Germiston', 'Johannesburg', 'Kempton Park',
-    'Midrand', 'Pretoria', 'Randburg', 'Randfontein', 'Roodepoort',
-    'Sandton', 'Soweto', 'Springs', 'Vanderbijlpark', 'Vereeniging',
-  ],
-  'KwaZulu-Natal': [
-    'Ballito', 'Durban', 'Empangeni', 'Kloof', 'Ladysmith', 'Margate',
-    'Newcastle', 'Pietermaritzburg', 'Pinetown', 'Port Shepstone',
-    'Richards Bay', 'Stanger', 'Ulundi', 'Umhlanga', 'Vryheid', 'Westville',
-  ],
-  'Limpopo': [
-    'Bela-Bela', 'Giyani', 'Louis Trichardt', 'Modimolle', 'Mokopane',
-    'Musina', 'Phalaborwa', 'Polokwane', 'Thohoyandou', 'Tzaneen',
-  ],
-  'Mpumalanga': [
-    'Barberton', 'Ermelo', 'Graskop', 'Hazyview', 'Komatipoort',
-    'Malelane', 'Mbombela (Nelspruit)', 'Middelburg', 'Piet Retief',
-    'Sabie', 'Secunda', 'Witbank (eMalahleni)',
-  ],
-  'North West': [
-    'Brits', 'Hartbeespoort', 'Klerksdorp', 'Lichtenburg', 'Mahikeng',
-    'Potchefstroom', 'Rustenburg', 'Wolmaransstad', 'Zeerust',
-  ],
-  'Northern Cape': [
-    'Colesberg', 'De Aar', 'Kathu', 'Kimberley', 'Kuruman',
-    'Pofadder', 'Springbok', 'Upington',
-  ],
-  'Western Cape': [
-    'Beaufort West', 'Bellville', 'Cape Town', 'Durbanville', 'George',
-    'Hermanus', 'Knysna', 'Malmesbury', 'Mossel Bay', 'Oudtshoorn',
-    'Paarl', 'Saldanha', 'Somerset West', 'Stellenbosch', 'Strand',
-    'Swellendam', 'Vredenburg', 'Worcester',
-  ],
+const DISTRICTS_BY_PROVINCE: Record<string, string[]> = {
+  'Eastern Cape':  ['Alfred Nzo East','Alfred Nzo West','Amatole East','Amatole West','Buffalo City','Chris Hani East','Chris Hani West','Joe Gqabi','Nelson Mandela Bay','OR Tambo Coastal','OR Tambo Inland','Sarah Baartman','Other'],
+  'Free State':    ['Fezile Dabi','Lejweleputswa','Motheo','Thabo Mofutsanyana','Xhariep','Other'],
+  'Gauteng':       ['Ekurhuleni North','Ekurhuleni South','Gauteng North','Gauteng West','Johannesburg Central','Johannesburg East','Johannesburg North','Johannesburg South','Sedibeng East','Sedibeng West','Tshwane North','Tshwane South','Tshwane West','Other'],
+  'KwaZulu-Natal': ['Amajuba','Harry Gwala','Ilembe','King Cetshwayo','Pinetown','Ugu','Umgungundlovu','Umkhanyakude','Umzinyathi','Uthukela','Uthungulu','Zululand','Other'],
+  'Limpopo':       ['Capricorn North','Capricorn South','Mopani East','Mopani West','Sekhukhune East','Sekhukhune South','Vhembe East','Vhembe West','Waterberg','Mogalakwena','Other'],
+  'Mpumalanga':    ['Bohlabela','Ehlanzeni','Gert Sibande','Nkangala','Other'],
+  'North West':    ['Bojanala','Dr Kenneth Kaunda','Dr Ruth Segomotsi Mompati','Ngaka Modiri Molema','Other'],
+  'Northern Cape': ['Frances Baard','John Taolo Gaetsewe','Namakwa','Pixley-ka-Seme','ZF Mgcawu','Other'],
+  'Western Cape':  ['Metro Central','Metro East','Metro North','Metro South','Cape Winelands','Eden and Central Karoo','Overberg','West Coast','Other'],
+};
+
+// Towns grouped by district — both dropdowns together eliminate spelling errors
+const TOWNS_BY_DISTRICT: Record<string, string[]> = {
+  'Alfred Nzo East': ['Bizana','Flagstaff','Other'],'Alfred Nzo West': ['Mount Frere','Matatiele','Maluti','Other'],
+  'Amatole East': ['Butterworth','Idutywa','Ngqamakhwe','Other'],'Amatole West': ['East London','King William's Town','Stutterheim','Komani','Other'],
+  'Buffalo City': ['East London','Mdantsane','Bhisho','Other'],'Chris Hani East': ['Queenstown','Komani','Cofimvaba','Other'],'Chris Hani West': ['Cradock','Middelburg EC','Tarkastad','Other'],
+  'Joe Gqabi': ['Aliwal North','Sterkstroom','Burgersdorp','Other'],'Nelson Mandela Bay': ['Port Elizabeth','Uitenhage','Kariega','Other'],
+  'OR Tambo Coastal': ['Port St Johns','Lusikisiki','Ingquza','Other'],'OR Tambo Inland': ['Mthatha','Qumbu','Tsolo','Other'],'Sarah Baartman': ['Grahamstown','Port Alfred','Humansdorp','Jeffreys Bay','Other'],
+  'Fezile Dabi': ['Sasolburg','Parys','Viljoenskroon','Other'],'Lejweleputswa': ['Welkom','Odendaalsrus','Virginia','Other'],
+  'Motheo': ['Bloemfontein','Botshabelo','Thaba Nchu','Other'],'Thabo Mofutsanyana': ['Phuthaditjhaba','Harrismith','Bethlehem','Other'],'Xhariep': ['Springfontein','Trompsburg','Philippolis','Other'],
+  'Ekurhuleni North': ['Tembisa','Kempton Park','Edenvale','Other'],'Ekurhuleni South': ['Alberton','Germiston','Boksburg','Other'],
+  'Gauteng North': ['Pretoria North','Soshanguve','Mabopane','Other'],'Gauteng West': ['Krugersdorp','Randfontein','Westonaria','Other'],
+  'Johannesburg Central': ['Johannesburg CBD','Soweto','Orlando','Other'],'Johannesburg East': ['Bedfordview','Edenvale','Katlehong','Other'],
+  'Johannesburg North': ['Sandton','Randburg','Midrand','Other'],'Johannesburg South': ['Lenasia','Ennerdale','Orange Farm','Other'],
+  'Sedibeng East': ['Vereeniging','Vanderbijlpark','Sebokeng','Other'],'Sedibeng West': ['Heidelberg GP','Balfour','Other'],
+  'Tshwane North': ['Pretoria North','Soshanguve','Hammanskraal','Other'],'Tshwane South': ['Centurion','Pretoria East','Other'],'Tshwane West': ['Atteridgeville','Ga-Rankuwa','Other'],
+  'Amajuba': ['Newcastle','Utrecht','Dannhauser','Other'],'Harry Gwala': ['Ixopo','Kokstad','Umzimkulu','Other'],
+  'Ilembe': ['KwaDukuza','Stanger','Mandeni','Other'],'King Cetshwayo': ['Richards Bay','Empangeni','Nkandla','Other'],
+  'Pinetown': ['Pinetown','Westville','Kloof','Other'],'Ugu': ['Port Shepstone','Margate','Hibiscus Coast','Other'],
+  'Umgungundlovu': ['Pietermaritzburg','Howick','Camperdown','Other'],'Umkhanyakude': ['Jozini','Hluhluwe','Mkuze','Other'],
+  'Umzinyathi': ['Dundee','Greytown','Nqutu','Other'],'Uthukela': ['Ladysmith','Estcourt','Bergville','Other'],
+  'Uthungulu': ['Richards Bay','Empangeni','Mthunzini','Other'],'Zululand': ['Ulundi','Vryheid','Nongoma','Other'],
+  'Capricorn North': ['Bela-Bela','Mokopane','Other'],'Capricorn South': ['Polokwane','Seshego','Other'],
+  'Mopani East': ['Tzaneen','Letsitele','Other'],'Mopani West': ['Phalaborwa','Giyani','Other'],
+  'Sekhukhune East': ['Marble Hall','Groblersdal','Other'],'Sekhukhune South': ['Burgersfort','Jane Furse','Other'],
+  'Vhembe East': ['Thohoyandou','Malamulele','Other'],'Vhembe West': ['Louis Trichardt','Musina','Other'],
+  'Waterberg': ['Mokopane','Lephalale','Thabazimbi','Other'],'Mogalakwena': ['Mokopane','Mahwelereng','Other'],
+  'Bohlabela': ['Bushbuckridge','Acornhoek','Other'],'Ehlanzeni': ['Mbombela','White River','Hazyview','Other'],
+  'Gert Sibande': ['Ermelo','Secunda','Standerton','Other'],'Nkangala': ['Witbank','Middelburg MP','Bronkhorstspruit','Other'],
+  'Bojanala': ['Rustenburg','Brits','Phokeng','Other'],'Dr Kenneth Kaunda': ['Klerksdorp','Orkney','Stilfontein','Other'],
+  'Dr Ruth Segomotsi Mompati': ['Vryburg','Schweizer-Reneke','Other'],'Ngaka Modiri Molema': ['Mafikeng','Zeerust','Lichtenburg','Other'],
+  'Frances Baard': ['Kimberley','Barkly West','Other'],'John Taolo Gaetsewe': ['Kuruman','Kathu','Other'],
+  'Namakwa': ['Springbok','Calvinia','Other'],'Pixley-ka-Seme': ['De Aar','Prieska','Victoria West','Other'],'ZF Mgcawu': ['Upington','Kakamas','Other'],
+  'Metro Central': ['Cape Town CBD','Bellville','Parow','Other'],'Metro East': ['Mitchell's Plain','Khayelitsha','Strand','Other'],
+  'Metro North': ['Durbanville','Kraaifontein','Brackenfell','Other'],'Metro South': ['Wynberg','Retreat','Muizenberg','Other'],
+  'Cape Winelands': ['Stellenbosch','Paarl','Worcester','Franschhoek','Other'],
+  'Eden and Central Karoo': ['George','Mossel Bay','Knysna','Oudtshoorn','Other'],
+  'Overberg': ['Hermanus','Bredasdorp','Swellendam','Other'],'West Coast': ['Moorreesburg','Malmesbury','Vredenburg','Other'],
 };
 
 const SUBJECTS = [
@@ -101,6 +107,7 @@ interface Profile {
   sace_number: string;
   current_school: string;
   current_province: string;
+  district: string;
   town: string;
   phase: string;
   subjects: string[];
@@ -479,8 +486,7 @@ export default function ProfilePage() {
   const [provinceToAdd, setProvinceToAdd] = useState('');
 
   // ── Current town: dropdown (filtered by province) + "Other" free text ─────
-  const [townOther, setTownOther] = useState(false);
-  const [customTownText, setCustomTownText] = useState('');
+
   const [townGeocoding, setTownGeocoding] = useState(false);
   const [townCoords, setTownCoords] = useState<{ latitude: number; longitude: number; displayName: string } | null>(null);
   const [townGeocodeTarget, setTownGeocodeTarget] = useState('');
@@ -523,6 +529,7 @@ export default function ProfilePage() {
         sace_number: '',
         current_school: '',
         current_province: '',
+        district: '',
         town: '',
         phase: '',
         subjects: [],
@@ -548,7 +555,8 @@ export default function ProfilePage() {
         ...data,
         // The '__other__' marker drives the edit-mode Select for OWN profile
         // only; read-only views of other users' profiles show the real text.
-        town: (isOwnProfile && isOther) ? '__other__' : townValue,
+        district: data.district ?? '',
+        town: townValue,
         years_experience: String(data.years_experience ?? ''),
       });
 
@@ -693,20 +701,19 @@ export default function ProfilePage() {
     lastGeocodedTownRef.current = '';
   };
 
-  // Town dropdown: a listed town geocodes immediately (discrete choice, no
-  // debounce needed); "Other" reveals a free-text input geocoded on blur.
+  const handleDistrictSelect = (v: string) => {
+    setProfileField('district', v);
+    setProfileField('town', ''); // reset town when district changes
+    setTownCoords(null);
+    setTownGeocodeTarget('');
+    lastGeocodedTownRef.current = '';
+  };
+
   const handleTownSelect = (v: string) => {
-    if (v === '__other__') {
-      setTownOther(true);
-      setCustomTownText('');
-      setProfileField('town', '__other__');
-      setTownCoords(null);
-      lastGeocodedTownRef.current = '';
-    } else {
-      setTownOther(false);
-      setCustomTownText('');
-      setProfileField('town', v);
-      setTownGeocodeTarget(v);
+    setProfileField('town', v);
+    if (v && v !== 'Other') {
+      const target = `${v}, ${profile.district}, ${profile.current_province}, South Africa`;
+      setTownGeocodeTarget(target);
     }
   };
 
@@ -794,7 +801,7 @@ export default function ProfilePage() {
     try {
       const { id: _id, is_sace_verified: _sv, ...rest } = profile;
       const yearsExp = profile.years_experience ? parseInt(profile.years_experience, 10) : null;
-      const townText = (rest.town === '__other__' ? customTownText : rest.town).trim();
+      const townText = rest.town.trim();
       const payload = {
         ...rest,
         town: townText,
@@ -1072,57 +1079,42 @@ export default function ProfilePage() {
           {isEducator && (
             <SectionCard label="Current Position">
               <Field label="Province">
-                <Select value={profile.current_province} onValueChange={handleProvinceChange}>
-                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select province" /></SelectTrigger>
-                  <SelectContent>{PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={profile.current_province}
+                  onValueChange={handleProvinceChange}
+                  options={PROVINCES}
+                  placeholder="Select province"
+                  searchPlaceholder="Search province…"
+                />
               </Field>
-              <Field label="Town">
-                {profile.current_province ? (
-                  <>
-                    <Select value={townOther ? '__other__' : profile.town} onValueChange={handleTownSelect}>
-                      <SelectTrigger className="rounded-xl">
-                        <SelectValue placeholder="Select town" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-48 overflow-y-auto">
-                        {(TOWNS_BY_PROVINCE[profile.current_province] ?? []).map(t => (
-                          <SelectItem key={t} value={t}>{t}</SelectItem>
-                        ))}
-                        <SelectItem value="__other__">Other (type below)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {townOther && (
-                      <div className="relative mt-2">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          value={customTownText}
-                          onChange={e => setCustomTownText(e.target.value)}
-                          onBlur={e => setTownGeocodeTarget(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') setTownGeocodeTarget(e.currentTarget.value); }}
-                          placeholder="Type your town name"
-                          className="rounded-xl pl-9"
-                          autoFocus
-                        />
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex h-9 w-full items-center rounded-xl border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
-                    Select a province first
-                  </div>
-                )}
+              <Field label="District">
+                <SearchableSelect
+                  value={profile.district}
+                  onValueChange={handleDistrictSelect}
+                  options={DISTRICTS_BY_PROVINCE[profile.current_province] ?? []}
+                  placeholder={profile.current_province ? 'Select district' : 'Select province first'}
+                  searchPlaceholder="Search district…"
+                  disabled={!profile.current_province}
+                />
+              </Field>
+              <Field label="Town / City">
+                <SearchableSelect
+                  value={profile.town}
+                  onValueChange={handleTownSelect}
+                  options={TOWNS_BY_DISTRICT[profile.district] ?? []}
+                  placeholder={profile.district ? 'Select town' : 'Select district first'}
+                  searchPlaceholder="Search town…"
+                  disabled={!profile.district}
+                />
                 {townGeocoding ? (
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Looking up "{townOther ? customTownText : profile.town}"…
+                    <Loader2 className="w-3 h-3 animate-spin" /> Locating…
                   </p>
                 ) : townCoords ? (
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
                     <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
-                    Found: {townCoords.latitude.toFixed(4)}°, {townCoords.longitude.toFixed(4)}°
-                    {townCoords.displayName ? ` — ${townCoords.displayName}` : ''}
+                    Located: {townCoords.displayName || profile.town}
                   </p>
-                ) : townOther && customTownText.trim().length >= 3 ? (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">Place not found — check the spelling.</p>
                 ) : (
                   <p className="text-xs text-muted-foreground mt-1.5">Used for distance-based search and matching.</p>
                 )}
@@ -1155,13 +1147,16 @@ export default function ProfilePage() {
                     ))}
                   </div>
                 )}
-                <div className="flex gap-2">
-                  <Select value={subjectToAdd} onValueChange={setSubjectToAdd}>
-                    <SelectTrigger className="rounded-xl flex-1"><SelectValue placeholder="Add subject" /></SelectTrigger>
-                    <SelectContent className="max-h-48 overflow-y-auto">{SUBJECTS.filter(s => !profile.subjects.includes(s)).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                  </Select>
-                  <Button type="button" size="icon" variant="outline" onClick={addSubject} className="rounded-xl shrink-0 h-10 w-10"><Plus className="w-4 h-4" /></Button>
-                </div>
+                <SearchableSelect
+                  value=""
+                  onValueChange={v => {
+                    if (v && !profile.subjects.includes(v))
+                      setProfileField('subjects', [...profile.subjects, v]);
+                  }}
+                  options={SUBJECTS.filter(s => !profile.subjects.includes(s))}
+                  placeholder="Add a subject…"
+                  searchPlaceholder="Search subjects…"
+                />
               </Field>
             </SectionCard>
           )}
@@ -1313,7 +1308,8 @@ export default function ProfilePage() {
           <>
             <SectionCard label="Current Position">
               <Field label="Province"><p className="text-sm">{profile.current_province || '—'}</p></Field>
-              <Field label="Town"><p className="text-sm">{profile.town || '—'}</p></Field>
+              <Field label="District"><p className="text-sm">{profile.district || '—'}</p></Field>
+              <Field label="Town / City"><p className="text-sm">{profile.town || '—'}</p></Field>
               <Field label="School"><p className="text-sm">{profile.current_school || '—'}</p></Field>
             </SectionCard>
 

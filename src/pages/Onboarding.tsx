@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Loader2, ChevronRight, ChevronLeft, GraduationCap, User } from 'lucide-react';
@@ -68,6 +69,7 @@ export default function Onboarding() {
     bio:                 '',
     current_school:      '',
     current_province:    '',
+    district:            '',
     town:                '',
     phase:               '',
     subjects:            [] as string[],
@@ -319,12 +321,34 @@ export default function Onboarding() {
             <>
               <Field label="Current School"><Input value={form.current_school} onChange={e => set('current_school', e.target.value)} placeholder="e.g. Pretoria High School" className="rounded-xl" /></Field>
               <Field label="Province">
-                <Select value={form.current_province} onValueChange={v => set('current_province', v)}>
-                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select province" /></SelectTrigger>
-                  <SelectContent>{PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={form.current_province}
+                  onValueChange={v => { set('current_province', v); set('district', ''); set('town', ''); }}
+                  options={PROVINCES}
+                  placeholder="Select province"
+                  searchPlaceholder="Search province…"
+                />
               </Field>
-              <Field label="Town / Circuit"><Input value={form.town} onChange={e => set('town', e.target.value)} placeholder="e.g. Pretoria" className="rounded-xl" /></Field>
+              <Field label="District">
+<SearchableSelect
+                  value={form.district}
+                  onValueChange={v => { set('district', v); set('town', ''); }}
+                  options={DISTRICTS_BY_PROVINCE[form.current_province] ?? []}
+                  placeholder={form.current_province ? 'Select district' : 'Select province first'}
+                  searchPlaceholder="Search district…"
+                  disabled={!form.current_province}
+                />
+              </Field>
+              <Field label="Town / City">
+<SearchableSelect
+                  value={form.town}
+                  onValueChange={v => set('town', v)}
+                  options={TOWNS_BY_DISTRICT[form.district] ?? []}
+                  placeholder={form.district ? 'Select town' : 'Select district first'}
+                  searchPlaceholder="Search town…"
+                  disabled={!form.district}
+                />
+              </Field>
             </>
           )}
 
@@ -338,13 +362,25 @@ export default function Onboarding() {
               </Field>
               <Field label="Years of Experience"><Input type="number" value={form.years_experience} onChange={e => set('years_experience', e.target.value)} placeholder="e.g. 5" className="rounded-xl" /></Field>
               <Field label="Subjects (select all that apply)">
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {SUBJECTS.map(s => (
-                    <button key={s} onClick={() => toggleSubject(s)}
-                      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${form.subjects.includes(s) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:border-primary'}`}
-                    >{s}</button>
-                  ))}
-                </div>
+                {form.subjects.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {form.subjects.map(s => (
+                      <span key={s} className="flex items-center gap-1 text-xs bg-primary/10 text-primary border border-primary/20 rounded-full pl-2.5 pr-1.5 py-0.5">
+                        {s}
+                        <button type="button" onClick={() => toggleSubject(s)} className="hover:text-destructive transition-colors">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <SearchableSelect
+                  value=""
+                  onValueChange={v => { if (v) toggleSubject(v); }}
+                  options={SUBJECTS.filter(s => !form.subjects.includes(s))}
+                  placeholder="Add a subject…"
+                  searchPlaceholder="Search subjects…"
+                />
               </Field>
             </>
           )}
