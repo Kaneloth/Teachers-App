@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, MailCheck, MessageCircle, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, Loader2, MailCheck, MessageCircle, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 type Step = 'form' | 'email-otp';
@@ -22,6 +22,7 @@ export default function Register() {
   const [showConfirmPw,   setShowConfirmPw]   = useState(false);
 
   const [emailOtp,      setEmailOtp]      = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [loading,       setLoading]       = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [googleLoading,   setGoogleLoading]   = useState(false);
@@ -29,8 +30,24 @@ export default function Register() {
   const [contactMsg,      setContactMsg]      = useState('');
   const [contactSending,  setContactSending]  = useState(false);
 
+  // Client-side password rules matching Supabase settings
+  const pwRules = [
+    { label: 'At least 8 characters',        met: password.length >= 8 },
+    { label: 'One uppercase letter (A–Z)',    met: /[A-Z]/.test(password) },
+    { label: 'One lowercase letter (a–z)',    met: /[a-z]/.test(password) },
+    { label: 'One number (0–9)',              met: /[0-9]/.test(password) },
+  ];
+  const pwValid = pwRules.every(r => r.met);
+  const showPwChecklist = password.length > 0 && !pwValid;
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPasswordError(null);
+
+    if (!pwValid) {
+      setPasswordError('password_requirements');
+      return;
+    }
     if (password !== confirmPassword) {
       toast.error('Passwords do not match');
       return;
@@ -42,8 +59,17 @@ export default function Register() {
         data: { full_name: fullName, phone, subscription_plan: 'free' },
       },
     });
-    if (error) { toast.error(error.message); }
-    else        { setStep('email-otp'); toast.success('Check your email for a verification code!'); }
+    if (error) {
+      // Catch any remaining Supabase password errors and show inline
+      if (error.message.toLowerCase().includes('password')) {
+        setPasswordError('supabase');
+      } else {
+        toast.error(error.message);
+      }
+    } else {
+      setStep('email-otp');
+      toast.success('Check your email for a verification code!');
+    }
     setLoading(false);
   };
 
@@ -251,14 +277,46 @@ export default function Register() {
         <div className="space-y-1.5">
           <Label htmlFor="password">Password</Label>
           <div className="relative">
-            <Input id="password" type={showPw ? 'text' : 'password'} value={password}
-              onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters"
-              className="rounded-xl pr-10" minLength={8} required />
+            <Input
+              id="password"
+              type={showPw ? 'text' : 'password'}
+              value={password}
+              onChange={e => { setPassword(e.target.value); setPasswordError(null); }}
+              placeholder="Min 8 chars, upper, lower & number"
+              className={`rounded-xl pr-10 ${passwordError === 'password_requirements' ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+              required
+            />
             <button type="button" onClick={() => setShowPw(p => !p)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
               {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
+
+          {/* Password requirements checklist — shown while typing, hidden when all met */}
+          {showPwChecklist && (
+            <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-3.5 py-3 space-y-1.5">
+              <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 mb-1">
+                Password must include:
+              </p>
+              {pwRules.map(rule => (
+                <div key={rule.label} className="flex items-center gap-2">
+                  {rule.met
+                    ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                    : <XCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                  <span className={`text-xs ${rule.met ? 'text-green-700 dark:text-green-400 line-through opacity-60' : 'text-amber-800 dark:text-amber-300'}`}>
+                    {rule.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* All requirements met — show a subtle confirmation */}
+          {password.length > 0 && pwValid && (
+            <p className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Strong password ✓
+            </p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="confirmPassword">Confirm Password</Label>
