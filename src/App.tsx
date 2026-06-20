@@ -1,8 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { AuthProvider } from '@/lib/AuthContext';
+import { AuthProvider, useAuth } from '@/lib/AuthContext';
 
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ScrollToTop from '@/components/ScrollToTop';
@@ -35,7 +35,42 @@ import CreditsPage from '@/pages/CreditsPage';
 import NotFound from '@/pages/not-found';
 
 const queryClient = new QueryClient();
-const base = import.meta.env.BASE_URL.replace(/\/$/,  '');
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+/**
+ * RequireComplete — gates app access for users who haven't finished setup.
+ *
+ * Uses <Navigate> (render-safe) not window.location.href (causes session crash).
+ * Only runs checks once loading is definitively false so session refresh
+ * mid-render never triggers a redirect.
+ *
+ * Gate 1: Email not confirmed → back to /register (OTP screen)
+ * Gate 2: No profile_type chosen → to /onboarding
+ *
+ * Admins bypass both gates.
+ */
+function RequireComplete() {
+  const { user, loading } = useAuth();
+
+  // While auth is loading, render nothing — don't redirect prematurely
+  if (loading) return null;
+
+  // Not logged in — ProtectedRoute above us handles this redirect
+  if (!user) return <Outlet />;
+
+  // Admins bypass all gates
+  if (user.user_metadata?.is_admin) return <Outlet />;
+
+  // Gate 1: Email not confirmed (Google OAuth users always pass — they have confirmed_at)
+  const emailConfirmed = !!(user.email_confirmed_at || user.confirmed_at);
+  if (!emailConfirmed) return <Navigate to="/register" replace />;
+
+  // Gate 2: Profile type not chosen (onboarding incomplete)
+  const profileType = user.user_metadata?.profile_type as string | undefined;
+  if (!profileType) return <Navigate to="/onboarding" replace />;
+
+  return <Outlet />;
+}
 
 export default function App() {
   return (
@@ -61,8 +96,9 @@ export default function App() {
                 <Route path="/onboarding" element={<Onboarding />} />
               </Route>
 
-              {/* Main app (requires auth + full app chrome) */}
+              {/* Main app (requires auth + email confirmed + profile complete) */}
               <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
+                <Route element={<RequireComplete />}>
                 <Route element={<AppLayout />}>
                   <Route path="/home"          element={<Home />} />
                   <Route path="/search"        element={<Search />} />
@@ -79,6 +115,7 @@ export default function App() {
                   <Route path="/settings"      element={<SettingsPage />} />
                   <Route path="/support"       element={<SupportPage />} />
                   <Route path="/credits"       element={<CreditsPage />} />
+                </Route>
                 </Route>
               </Route>
 
