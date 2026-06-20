@@ -624,7 +624,7 @@ export default function GuidesPage() {
       </div>
 
       {/* ── Upgrade banner for free users ── */}
-      {!isPro && (
+      {!isPro && !isAdmin && (
         <div className="bg-primary/5 border border-primary/30 rounded-2xl px-4 py-4 mb-4 flex gap-3 items-start">
           <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
             <Lock className="w-4 h-4 text-primary" />
@@ -650,7 +650,7 @@ export default function GuidesPage() {
         {STEPS.map(step => {
           const isOpen = openStep === step.id;
           // Free users: only step 1 is openable (teaser), rest are locked
-          const isLocked = !isPro && step.id > 1;
+          const isLocked = !isPro && !isAdmin && step.id > 1;
           return (
             <div key={step.id} className={`bg-card border rounded-2xl overflow-hidden transition-colors ${isLocked ? 'border-border opacity-75' : 'border-border'}`}>
               <button
@@ -712,14 +712,14 @@ export default function GuidesPage() {
             <button
               key={t.key}
               disabled={downloading === t.key}
-              onClick={() => (isPro || isAdmin) ? handleDownload(t.key, t.label) : setShowSubModal(true)} // opens credits modal
-              className={`bg-card border rounded-2xl p-4 text-left transition-all ${isPro ? "border-border hover:border-primary/50 hover:bg-primary/5" : "border-border/60 opacity-70"}`}
+              onClick={() => (isPro || isAdmin) ? handleDownload(t.key, t.label) : setShowSubModal(true)}
+              className={`bg-card border rounded-2xl p-4 text-left transition-all ${(isPro || isAdmin) ? "border-border hover:border-primary/50 hover:bg-primary/5" : "border-border/60 opacity-70"}`}
             >
               <div className="text-2xl mb-2">{t.icon}</div>
               <div className="text-sm font-semibold text-foreground">{t.label}</div>
               <div className="text-xs text-muted-foreground mt-0.5">{t.desc}</div>
               <div className="flex items-center gap-1 mt-2 text-xs font-medium text-primary">
-                {!isPro
+                {!isPro && !isAdmin
                   ? <><Lock className="w-3 h-3" /> Pro only</>
                   : downloading === t.key
                     ? <><FileText className="w-3 h-3" /> Generating…</>
