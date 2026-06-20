@@ -2,20 +2,10 @@
  * SearchableSelect — a dropdown with a built-in search box.
  * Drop-in replacement for shadcn <Select> for long lists.
  *
- * Usage:
- *   <SearchableSelect
- *     value={value}
- *     onValueChange={setValue}
- *     options={['Option A', 'Option B', ...]}
- *     placeholder="Select an option"
- *     searchPlaceholder="Search..."
- *     disabled={false}
- *   />
- *
  * Place at: src/components/ui/SearchableSelect.tsx
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Check, ChevronsUpDown, Search } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -41,8 +31,21 @@ export default function SearchableSelect({
   disabled = false,
   className,
 }: Props) {
-  const [open, setOpen]       = useState(false);
-  const [query, setQuery]     = useState('');
+  const [open, setOpen]   = useState(false);
+  const [query, setQuery] = useState('');
+  const inputRef          = useRef<HTMLInputElement>(null);
+
+  // Focus the search input after the popover opens — using a ref instead
+  // of autoFocus avoids a crash when the options list changes mid-render
+  // (e.g. multi-select subject chips) which remounts PopoverContent.
+  useEffect(() => {
+    if (open) {
+      const t = setTimeout(() => inputRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    } else {
+      setQuery('');
+    }
+  }, [open]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return options;
@@ -53,11 +56,10 @@ export default function SearchableSelect({
   const handleSelect = (option: string) => {
     onValueChange(option);
     setOpen(false);
-    setQuery('');
   };
 
   return (
-    <Popover open={open} onOpenChange={o => { setOpen(o); if (!o) setQuery(''); }}>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -83,11 +85,11 @@ export default function SearchableSelect({
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
           <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
           <Input
+            ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder={searchPlaceholder}
             className="h-7 border-0 bg-transparent p-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground"
-            autoFocus
           />
         </div>
 
