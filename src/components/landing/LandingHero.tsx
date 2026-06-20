@@ -62,6 +62,10 @@ export default function LandingHero() {
             <span className="flex items-center gap-1.5"><Briefcase className="w-4 h-4 text-[#0d9488]" /> Job Seeker Tools</span>
             <span className="flex items-center gap-1.5"><CheckCircle className="w-4 h-4 text-[#0d9488]" /> Free to Join</span>
           </div>
+          <div className="mt-4 inline-flex items-center gap-2 bg-[#f0fdfa] border border-[#99f6e4] text-[#0d9488] text-sm font-semibold px-4 py-2 rounded-full">
+            <CheckCircle className="w-4 h-4 shrink-0" />
+            No subscriptions · No hidden costs · Pay only for what you use
+          </div>
         </div>
 
         {/* Right side - real stats card (no fabricated names or activity —
