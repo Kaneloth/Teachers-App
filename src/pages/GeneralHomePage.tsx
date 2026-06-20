@@ -190,7 +190,7 @@ export default function GeneralHomePage() {
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
               {cvCount === 0
-                ? 'Each CV download costs 9 credits. New users get 18 free credits on signup.'
+                ? 'Each CV build costs 9 credits. New users get 18 free credits on signup.'
                 : 'Each CV download costs 9 credits — buy a credit pack to generate more.'}
             </p>
             <Link to="/cv-builder">
