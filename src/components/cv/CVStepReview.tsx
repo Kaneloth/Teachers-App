@@ -55,8 +55,36 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
 
+  // Existing stored PDF — re-download this for free without generating a new one
+  const existingPdfUrl = (user?.user_metadata?.last_cv_pdf_url as string | undefined) ?? null;
+
   const { personal, education, experience, skills } = data;
   const fileName = `CV_${(personal.full_name || 'Educator').replace(/\s+/g, '_')}.pdf`;
+
+  // Re-download the already-stored PDF — FREE, no credit deduction
+  const handleRedownload = async () => {
+    const url = pdfUrl ?? existingPdfUrl;
+    if (!url) return;
+    setSending(true);
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = blobUrl;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(blobUrl);
+      toast.success('CV downloaded — no credits charged.');
+    } catch {
+      // Fallback: open in new tab
+      window.open(url, '_blank');
+    } finally {
+      setSending(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!exportRef.current) return;
@@ -140,9 +168,9 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
           <Button variant="outline" className="rounded-xl" onClick={() => setSent(false)}>
             Make Changes
           </Button>
-          <Button className="rounded-xl gap-2" disabled={sending} onClick={handleGenerate}>
+          <Button className="rounded-xl gap-2" disabled={sending} onClick={handleRedownload}>
             <RefreshCw className="w-4 h-4" />
-            {sending ? 'Generating...' : 'Download Again'}
+            {sending ? 'Downloading...' : 'Download Again (free)'}
           </Button>
         </div>
         <TestimonialPromptModal
@@ -277,12 +305,16 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
       )}
 
       <Button
-        onClick={handleGenerate}
-        disabled={sending || (!isAdmin && !creditsLoading && balance < (aiUsed ? 7 : 9))}
+        onClick={(pdfUrl ?? existingPdfUrl) ? handleRedownload : handleGenerate}
+        disabled={sending || (!isAdmin && !(pdfUrl ?? existingPdfUrl) && !creditsLoading && balance < (aiUsed ? 7 : 9))}
         className="w-full h-12 rounded-xl text-base font-semibold gap-2"
       >
         <Download className="w-5 h-5" />
-        {sending ? 'Generating PDF...' : `Download PDF (${aiUsed ? 7 : 9} credits)${shouldWatermark ? ' · Free watermark' : ''}`}
+        {sending
+          ? 'Downloading...'
+          : (pdfUrl ?? existingPdfUrl)
+            ? 'Download CV — free (already generated)'
+            : `Generate & Download PDF (${aiUsed ? 7 : 9} credits)${shouldWatermark ? ' · watermark' : ''}`}
       </Button>
 
       {/* Insufficient credits modal */}
