@@ -593,10 +593,6 @@ interface AdminUser {
 function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: () => void; onSaved: (u: AdminUser) => void }) {
   const { session } = useAuth();
   const [accountStatus, setAccountStatus]     = useState(user.account_status || 'active');
-  const [subscriptionPlan, setSubscriptionPlan] = useState(user.subscription_plan || 'free');
-  const [subscriptionEnd, setSubscriptionEnd] = useState(
-    user.subscription_end ? user.subscription_end.slice(0, 10) : ''
-  );
   const [isAdminFlag, setIsAdminFlag] = useState(user.is_admin);
   const [saving,    setSaving]    = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -623,30 +619,11 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Calculate subscription_end automatically if the admin set a paid plan
-      // but left the date blank — prevents accidentally clearing the end date.
-      let resolvedEnd: string | null = subscriptionEnd
-        ? new Date(subscriptionEnd).toISOString()
-        : null;
-
-      if (subscriptionPlan && subscriptionPlan !== 'free' && !resolvedEnd) {
-        const d = new Date();
-        if      (subscriptionPlan === 'monthly')     d.setMonth(d.getMonth() + 1);
-        else if (subscriptionPlan === 'semi_annual') d.setMonth(d.getMonth() + 6);
-        else if (subscriptionPlan === 'annual')      d.setFullYear(d.getFullYear() + 1);
-        resolvedEnd = d.toISOString();
-      }
-
       const payload: Record<string, unknown> = {
         target_user_id: user.id,
         account_status: accountStatus,
         is_admin:       isAdminFlag,
       };
-      // Only include subscription fields if they are actually changing —
-      // avoids accidentally nulling out an end date when admin only meant
-      // to change account_status.
-      if (subscriptionPlan !== undefined) payload.subscription_plan = subscriptionPlan;
-      if (resolvedEnd       !== undefined) payload.subscription_end  = resolvedEnd;
 
       const res = await fetch('/.netlify/functions/admin-update-user', {
         method: 'POST',
@@ -659,10 +636,8 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
       toast.success('User updated — they will see the change on next page load.');
       onSaved({
         ...user,
-        account_status:    accountStatus,
-        subscription_plan: subscriptionPlan,
-        subscription_end:  resolvedEnd,
-        is_admin:          isAdminFlag,
+        account_status: accountStatus,
+        is_admin:       isAdminFlag,
       });
     } catch (e: any) {
       toast.error(e.message || 'Failed to update user');
@@ -720,26 +695,6 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
               </button>
             </div>
           </div>
-
-          {/* Subscription */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Subscription Plan</Label>
-            <div className="flex gap-2 flex-wrap">
-              {['free', 'monthly', 'semi_annual', 'annual'].map(p => (
-                <button key={p} onClick={() => setSubscriptionPlan(p)}
-                  className={`px-3 py-1.5 rounded-xl border text-sm font-medium capitalize transition-all ${subscriptionPlan === p ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {subscriptionPlan !== 'free' && (
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Subscription End Date</Label>
-              <Input type="date" value={subscriptionEnd} onChange={e => setSubscriptionEnd(e.target.value)} className="rounded-xl" />
-            </div>
-          )}
 
           {/* Admin flag */}
           <div className="flex items-center justify-between bg-muted/50 rounded-xl px-4 py-3">
