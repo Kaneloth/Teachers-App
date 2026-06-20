@@ -166,14 +166,17 @@ export default function Search({ embedded = false }: Props) {
        both Search and Matches. Applies to all users: for free users this
        also means their best matches are reserved for the Pro-gated Matches
        page, consistent with "Pro unlocks your highest-quality matches". */
-    if (myProfile) {
+    if (myProfile && !isPro) {
+      // For free users only: exclude high-match educators from Search so they
+      // appear in the locked Matches tab instead (creating an incentive to upgrade).
+      // R79+ users see ALL educators in one unified search — no exclusions.
       results = results.filter(e => !qualifiesForMatchesPage(myProfile, {
         phase: e.phase,
         current_province: e.current_province,
         town: e.town,
         subjects: e.subjects,
         preferred_districts: e.preferred_districts,
-      }));
+      }, undefined, false));
     }
 
     setEducators(results);
@@ -203,7 +206,9 @@ export default function Search({ embedded = false }: Props) {
             <h1 className="text-lg font-bold text-foreground">Find Educators</h1>
           </div>
           <p className="text-sm text-muted-foreground pl-1">
-            Search and filter educators · <span className="text-primary font-medium">Pro</span> unlocks your highest-quality matches.
+            {isPro
+              ? 'All educators shown with match scores — use filters to refine your search.'
+              : <>Search educators · <span className="text-primary font-medium">R79+ pack</span> unlocks match scores &amp; advanced filters.</>}
           </p>
         </div>
       )}

@@ -12,10 +12,10 @@ export default function SearchAndMatches() {
   const [isPro, setIsPro] = useState(false);
   const [checked, setChecked] = useState(false);
 
-  /* ── Subscription check ─────────────────────────────────────────────────
-     Pro users only get the "Your matches" view (now showing ALL educators
-     with full search/filter access) — the separate "Find educators" tab is
-     redundant for them and is hidden entirely.                              */
+  /* ── R79+ purchase check ─────────────────────────────────────────────────
+     Users who have purchased an R79+ credit pack get access to the Matches
+     page (75%+ score matches and town-swap matches). Basic users get the
+     two-tab layout with Search + a locked Matches preview.                  */
   useEffect(() => {
     if (!user) return;
 
@@ -44,13 +44,15 @@ export default function SearchAndMatches() {
   }
 
   if (isPro) {
-    // Non-embedded gives Pro users the page header (back arrow + "Find Your
-    // Matches" title) and the narrower max-w-lg container — matching the
-    // width of cards on other pages (e.g. Chats) instead of the wider
-    // max-w-2xl used by the two-tab layout below.
-    return <MatchesPage />;
+    // R79+ users get a single unified search page:
+    // — All educators shown (0–100% match), sorted/filtered freely
+    // — Advanced filters enabled (radius search, distance etc.)
+    // — Match % rings visible on every card
+    // — No separate Matches tab needed — everything is in one view
+    return <SearchPage />;
   }
 
+  // Free users get two tabs: basic Search + a locked Matches preview
   return (
     <div className="max-w-2xl mx-auto">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
