@@ -23,7 +23,7 @@ const PACKAGES = [
 ];
 
 const UNLOCKS = [
-  { icon: Users,         label: 'Transfer Matches',     desc: '75%+ match scores & town-swap opportunities' },
+  { icon: Users,         label: 'Transfer Matches',     desc: 'See your strongest educator matches ranked by compatibility' },
   { icon: Search,        label: 'Advanced Search',      desc: 'Radius search, distance filters & more' },
   { icon: BookOpen,      label: 'Transfer Guides',      desc: 'Download all step-by-step transfer templates' },
   { icon: ShieldCheck,   label: 'ID Verification',      desc: 'Verify your identity & earn a verified badge' },
