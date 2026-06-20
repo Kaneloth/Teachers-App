@@ -498,7 +498,7 @@ const STEPS = [
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function GuidesPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [profile, setProfile] = useState<EducatorProfile>({
     full_name: '', current_school: '', current_province: '',
     phone: '', email: '', personal_number: '', post_level: '',
@@ -530,32 +530,36 @@ export default function GuidesPage() {
         post_level:       edu?.post_level       || '',
       });
 
-      // ── Subscription check (mirrors MatchesPage pattern) ──────────────
-      const metaPlan = u?.user_metadata?.subscription_plan as string | undefined;
-      const metaEnd  = u?.user_metadata?.subscription_end  as string | undefined;
-      const isProMeta = metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date();
-      if (isProMeta) {
-        setIsPro(true);
-      } else {
-        const { data: profileRow } = await supabase
-          .from('profiles')
-          .select('subscription_plan, subscription_end')
-          .eq('id', user.id)
-          .single();
-        const proFromDb =
-          profileRow?.subscription_plan &&
-          profileRow.subscription_plan !== 'free' &&
-          profileRow.subscription_end &&
-          new Date(profileRow.subscription_end) > new Date();
-        setIsPro(!!proFromDb);
-      }
+      // ── R79+ purchase check — unlocks guide downloads ──────────────────
+      const { data: purchaseData } = await supabase
+        .from('credit_ledger')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('type', 'purchase')
+        .gte('amount', 60)
+        .limit(1);
+      setIsPro(!!(purchaseData && purchaseData.length > 0));
     };
     load();
   }, [user]);
 
   const handleDownload = async (templateKey: string, templateLabel: string) => {
+    if (!session?.access_token) { toast.error('Please sign in to download guides.'); return; }
     setDownloading(templateKey);
     try {
+      // Deduct 3 credits before generating the download
+      const deductRes = await fetch('/.netlify/functions/deduct-credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ type: 'guide_download', ref_id: `guide:${templateKey}:${Date.now()}` }),
+      });
+      const deductData = await deductRes.json();
+      if (deductRes.status === 402) {
+        toast.error(`Not enough credits. Downloading a guide costs 3 credits. You have ${deductData.balance}.`);
+        return;
+      }
+      if (!deductRes.ok) throw new Error(deductData.error || 'Credit deduction failed');
+
       const blob = await generateDocx(templateKey, profile);
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
@@ -565,8 +569,10 @@ export default function GuidesPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (err) {
+      toast.success('Guide downloaded! 3 credits used.');
+    } catch (err: any) {
       console.error('Template generation failed:', err);
+      toast.error(err.message || 'Download failed. Please try again.');
     } finally {
       setDownloading(null);
     }
@@ -623,13 +629,13 @@ export default function GuidesPage() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-foreground mb-0.5">Pro Feature</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Upgrade to Pro to unlock all transfer steps, download templates, and get your documents pre-filled with your details.
+              Purchase an R79+ credit pack to unlock all transfer guides. Each download costs 3 credits.
             </p>
             <button
               onClick={() => setShowSubModal(true)}
               className="mt-2.5 flex items-center gap-1.5 bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5 rounded-xl hover:bg-primary/90 transition-colors"
             >
-              <Zap className="w-3 h-3" /> Upgrade to Pro
+              <Zap className="w-3 h-3" /> Get R79+ pack
             </button>
           </div>
         </div>
@@ -703,7 +709,7 @@ export default function GuidesPage() {
             <button
               key={t.key}
               disabled={downloading === t.key}
-              onClick={() => isPro ? handleDownload(t.key, t.label) : setShowSubModal(true)}
+              onClick={() => isPro ? handleDownload(t.key, t.label) : setShowSubModal(true)} // opens credits modal
               className={`bg-card border rounded-2xl p-4 text-left transition-all ${isPro ? "border-border hover:border-primary/50 hover:bg-primary/5" : "border-border/60 opacity-70"}`}
             >
               <div className="text-2xl mb-2">{t.icon}</div>

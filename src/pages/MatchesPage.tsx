@@ -54,25 +54,15 @@ export default function MatchesPage({ embedded = false }: Props) {
     if (!user) return;
 
     (async () => {
-      const metaPlan = user.user_metadata?.subscription_plan as string | undefined;
-      const metaEnd  = user.user_metadata?.subscription_end  as string | undefined;
-      const isProMeta = metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date();
-
-      if (isProMeta) {
-        setIsPro(true);
-      } else {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('subscription_plan, subscription_end')
-          .eq('id', user.id)
-          .single();
-        const proFromDb =
-          profile?.subscription_plan &&
-          profile.subscription_plan !== 'free' &&
-          profile.subscription_end &&
-          new Date(profile.subscription_end) > new Date();
-        setIsPro(!!proFromDb);
-      }
+      // R79+ purchase (pro_pack=60cr or business=200cr) unlocks full Matches access
+      const { data: purchaseData } = await supabase
+        .from('credit_ledger')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('type', 'purchase')
+        .gte('amount', 60)
+        .limit(1);
+      setIsPro(!!(purchaseData && purchaseData.length > 0));
       setProChecked(true);
 
       const { data: mine } = await supabase
@@ -168,7 +158,7 @@ export default function MatchesPage({ embedded = false }: Props) {
       // Free: 85–100% with the weighted formula, OR a direct town-swap
       // opportunity (shared subject + reciprocal town preference)
       // regardless of overall score.
-      : scored.filter(e => qualifiesForMatchesPage(myProfile, e, e.score ?? 0))
+      : scored.filter(e => qualifiesForMatchesPage(myProfile, e, e.score ?? 0, isPro))
               .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
     setMatches(final);
@@ -195,9 +185,9 @@ export default function MatchesPage({ embedded = false }: Props) {
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-foreground">{isPro ? 'Find Your Matches' : 'Transfer Matches'}</h1>
+            <h1 className="text-xl font-bold text-foreground">{isPro ? 'Your Matches' : 'Transfer Matches'}</h1>
             <p className="text-sm text-muted-foreground">
-              {isPro ? 'All educators, sorted by match — use filters to refine your search.' : 'Educators who match your transfer preferences'}
+              {isPro ? 'Educators sorted by match score — 75%+ matches and town-swap opportunities.' : 'Educators who match your transfer preferences'}
             </p>
           </div>
         </div>
@@ -236,14 +226,14 @@ export default function MatchesPage({ embedded = false }: Props) {
           </div>
           <h2 className="text-lg font-bold text-foreground mb-2">Unlock Your Matches</h2>
           <p className="text-sm text-muted-foreground max-w-xs mb-6">
-            Upgrade to Pro to see your strongest transfer matches, view their full profiles, and connect directly — giving you the best chance of finding the right exchange partner, faster.
+            Purchase an R79+ credit pack to see your strongest transfer matches, view their full profiles, and connect directly — giving you the best chance of finding the right exchange partner, faster.
           </p>
           <Button
             onClick={() => setShowSubModal(true)}
             className="gap-2 rounded-2xl px-8 h-11 font-semibold"
           >
             <Zap className="w-4 h-4" />
-            Upgrade to Pro
+            Purchase an R79+ credit pack
           </Button>
         </div>
       ) : !myProfile ? (
