@@ -41,9 +41,17 @@ export default function GeneralHomePage() {
 
     setCvCount((user.user_metadata?.cv_count as number) ?? 0);
 
-    const plan = user.user_metadata?.subscription_plan as string | undefined;
-    const end  = user.user_metadata?.subscription_end  as string | undefined;
-    if (plan && plan !== 'free' && end && new Date(end) > new Date()) setIsPro(true);
+    // Advanced features unlocked by R79+ credit purchase
+    supabase
+      .from('credit_ledger')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('type', 'purchase')
+      .gte('amount', 60)
+      .limit(1)
+      .then(({ data: purchaseData }) => {
+        if (purchaseData && purchaseData.length > 0) setIsPro(true);
+      });
 
     supabase
       .from('educators')
@@ -181,14 +189,14 @@ export default function GeneralHomePage() {
                 : `You've created ${cvCount} CV${cvCount !== 1 ? 's' : ''}`}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {isPro
-                ? 'Premium templates unlocked — stand out from the crowd!'
-                : 'Upgrade to premium templates and stand out (R99/yr).'}
+              {cvCount === 0
+                ? 'Each CV download costs 9 credits. New users get 18 free credits on signup.'
+                : 'Each CV download costs 9 credits — buy a credit pack to generate more.'}
             </p>
             <Link to="/cv-builder">
               <Button size="sm" className="mt-2.5 h-7 text-xs rounded-xl px-3 gap-1">
                 <Sparkles className="w-3 h-3" />
-                {cvCount === 0 ? 'Create CV' : isPro ? 'Open CV Builder' : 'Upgrade Templates'}
+                {cvCount === 0 ? 'Create CV' : 'Open CV Builder'}
               </Button>
             </Link>
           </div>
