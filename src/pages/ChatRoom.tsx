@@ -201,10 +201,6 @@ export default function ChatRoom() {
     if (!user || !partnerId) return;
 
     // Chat-specific channel: receive deletions from partner's ChatRoom
-    // Check if the current user has previously sent a message in this conversation
-    // (determines whether 5 credits are needed to "unlock" replying)
-    const sentBefore = (data || []).some((m: Message) => m.sender_id === user.id);
-    setHasSentBefore(sentBefore);
 
     const chatChannelName = `chat-broadcast-${[user.id, partnerId].sort().join('_')}`;
     const chatChannel = supabase
@@ -256,7 +252,10 @@ export default function ChatRoom() {
         .order('created_at', { ascending: true });
 
       const hidden = getHidden(user.id);
-      setMessages((data || []).filter(m => !hidden.has(m.id)));
+      const filtered = (data || []).filter(m => !hidden.has(m.id));
+      setMessages(filtered);
+      // Set hasSentBefore based on fetched messages
+      setHasSentBefore(filtered.some(m => m.sender_id === user.id));
 
       await supabase
         .from('messages')
