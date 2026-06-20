@@ -15,7 +15,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import DeleteAccountSection from '@/components/DeleteAccountSection';
 
-const ALL_TABS = ['General', 'Subscription', 'Security', 'Admin'] as const;
+const ALL_TABS = ['General', 'Security', 'Admin'] as const;
 type Tab = typeof ALL_TABS[number];
 
 /* ── shared primitives ─────────────────────────────────────── */
@@ -1548,63 +1548,9 @@ export default function SettingsPage() {
 
   const isAdmin = !!(user?.user_metadata?.is_admin);
 
-  /* Subscription status — dual source of truth:
-   *  1. profiles table  — written by webhook + admin tool (most accurate)
-   *  2. user_metadata   — immediate fallback before the DB query returns
-   *
-   * subProfileLoaded starts false so we never flash the Subscription tab
-   * to a free user during the brief moment before the profiles query resolves.
-   * We use user_metadata as an optimistic hint: if metadata already says Pro,
-   * show the tab immediately (no flash either way). Only after the query
-   * resolves do we lock in the final value.
-   */
-  const metaPlanEarly = user?.user_metadata?.subscription_plan as string | undefined;
-  const metaEndEarly  = user?.user_metadata?.subscription_end  as string | undefined;
-  const isProFromMeta = !!(metaPlanEarly && metaPlanEarly !== 'free' && metaEndEarly && new Date(metaEndEarly) > new Date());
-
-  const [subProfile, setSubProfile] = useState<{ subscription_plan: string; subscription_end: string | null } | null>(null);
-  const [subProfileLoaded, setSubProfileLoaded] = useState(false);
-
-  const refreshSubProfile = () => {
-    if (!user) return;
-    supabase.from('profiles').select('subscription_plan, subscription_end').eq('id', user.id).single()
-      .then(({ data }) => {
-        setSubProfile(data ?? null);
-        setSubProfileLoaded(true);
-      });
-  };
-
-  useEffect(() => {
-    refreshSubProfile();
-  }, [user]);
-
-  // Re-check subscription status whenever the user returns to this tab
-  // (e.g. after an admin has just updated their plan). This means the
-  // Subscription tab appears/disappears without needing a full page reload.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') refreshSubProfile(); };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [user]);
-
-  const profilePlan = subProfile?.subscription_plan;
-  const metaPlan    = metaPlanEarly;
-  const plan        = (profilePlan && profilePlan !== 'free') ? profilePlan : (metaPlan || 'free');
-  const profileEnd  = subProfile?.subscription_end;
-  const metaEnd     = metaEndEarly;
-  const subEnd      = profileEnd ? new Date(profileEnd) : metaEnd ? new Date(metaEnd) : null;
-
-  // Only declare Pro once the DB has confirmed it (or metadata already says so).
-  // This prevents the Subscription tab from ever appearing to a free user,
-  // even briefly during the loading window.
-  const isPro = (subProfileLoaded || isProFromMeta)
-    ? (plan !== 'free' && subEnd !== null && subEnd > new Date())
-    : false;
-
-  /* Build visible tabs: Subscription only shown when user is Pro */
+  /* Build visible tabs */
   const visibleTabs = ALL_TABS.filter(t => {
     if (t === 'Admin')        return isAdmin;
-    if (t === 'Subscription') return isPro;
     return true;
   });
 
@@ -1637,7 +1583,6 @@ export default function SettingsPage() {
       {/* Tab content */}
       <div className="px-4 pb-8 space-y-3">
         {tab === 'General'      && <GeneralTab />}
-        {tab === 'Subscription' && isPro && <SubscriptionTab />}
         {tab === 'Security'     && <SecurityTab />}
         {tab === 'Admin'        && isAdmin && <AdminTab />}
       </div>
