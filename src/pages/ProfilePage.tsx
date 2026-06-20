@@ -546,28 +546,15 @@ export default function ProfilePage() {
     }
 
     if (data) {
-      const province = data.current_province || '';
-      const townsForProvince = TOWNS_BY_PROVINCE[province] ?? [];
       const townValue = data.town ?? '';
-      const isOther = townValue !== '' && !townsForProvince.includes(townValue);
 
       setProfile({
         ...data,
-        // The '__other__' marker drives the edit-mode Select for OWN profile
-        // only; read-only views of other users' profiles show the real text.
         district: data.district ?? '',
         town: townValue,
         years_experience: String(data.years_experience ?? ''),
       });
 
-      if (isOwnProfile && isOther) {
-        setTownOther(true);
-        setCustomTownText(townValue);
-      }
-
-      // Show the "Found: ..." confirmation immediately for an existing town,
-      // so the user can see at a glance whether it's recognized — without
-      // them needing to re-select/re-type it.
       if (isOwnProfile && townValue) {
         lastGeocodedTownRef.current = townValue;
         setTownGeocoding(true);
@@ -693,9 +680,7 @@ export default function ProfilePage() {
     // Merge both changes into a single setProfile call — setProfileField
     // uses the stale `profile` closure, so two sequential calls here would
     // have the second overwrite the first (current_province would be lost).
-    setProfile({ ...profile, current_province: v, town: '' });
-    setTownOther(false);
-    setCustomTownText('');
+    setProfile({ ...profile, current_province: v, district: '', town: '' });
     setTownCoords(null);
     setTownGeocodeTarget('');
     lastGeocodedTownRef.current = '';
