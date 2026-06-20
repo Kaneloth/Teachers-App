@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -51,9 +52,37 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
  */
 function RequireComplete() {
   const { user, loading } = useAuth();
+  const [profileChecked, setProfileChecked] = useState(false);
+  const [hasProfile, setHasProfile] = useState(false);
 
-  // While auth is loading, render nothing — don't redirect prematurely
-  if (loading) return null;
+  useEffect(() => {
+    if (!user) return;
+    // Check the educators table directly — user_metadata.profile_type may lag
+    // behind after onboarding until the session refreshes. The DB is always
+    // up-to-date and avoids the infinite redirect loop.
+    const metaType = user.user_metadata?.profile_type as string | undefined;
+    if (metaType) {
+      // Fast path: metadata already has profile_type
+      setHasProfile(true);
+      setProfileChecked(true);
+    } else {
+      // Slow path: check DB (catches the gap right after onboarding saves)
+      import('@/lib/supabase').then(({ supabase }) => {
+        supabase
+          .from('educators')
+          .select('profile_type')
+          .eq('user_id', user.id)
+          .single()
+          .then(({ data }) => {
+            setHasProfile(!!(data?.profile_type));
+            setProfileChecked(true);
+          });
+      });
+    }
+  }, [user?.id]);
+
+  // While auth or profile check is loading, render nothing
+  if (loading || (user && !profileChecked)) return null;
 
   // Not logged in — ProtectedRoute above us handles this redirect
   if (!user) return <Outlet />;
@@ -66,8 +95,7 @@ function RequireComplete() {
   if (!emailConfirmed) return <Navigate to="/register" replace />;
 
   // Gate 2: Profile type not chosen (onboarding incomplete)
-  const profileType = user.user_metadata?.profile_type as string | undefined;
-  if (!profileType) return <Navigate to="/onboarding" replace />;
+  if (!hasProfile) return <Navigate to="/onboarding" replace />;
 
   return <Outlet />;
 }
