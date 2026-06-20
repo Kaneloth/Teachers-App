@@ -46,7 +46,7 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
 export default function EducatorProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [educator, setEducator] = useState<Educator | null>(null);
   const [loading, setLoading] = useState(true);
   const [messaging, setMessaging] = useState(false);
@@ -60,12 +60,12 @@ export default function EducatorProfile() {
   }, [id]);
 
   const handleMessage = async () => {
-    if (!user || !educator) return;
+    if (!user || !educator || !session?.access_token) return;
     setMessaging(true);
     try {
       const targetId = educator.user_id ?? '';
 
-      /* ── Open / create the conversation ────────────────────────── */
+      // Check if conversation already exists — only charge credits for NEW chats
       const { data: existing } = await supabase
         .from('messages')
         .select('id')
@@ -76,17 +76,31 @@ export default function EducatorProfile() {
         .limit(1);
 
       if (!existing?.length) {
+        // New conversation — deduct 5 credits before sending
+        const deductRes = await fetch('/.netlify/functions/deduct-credits', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ type: 'chat_start', ref_id: `chat:${user.id}:${targetId}` }),
+        });
+        const deductData = await deductRes.json();
+        if (deductRes.status === 402) {
+          toast.error(`Not enough credits. Starting a new chat costs 5 credits. You have ${deductData.balance}.`);
+          setMessaging(false);
+          return;
+        }
+        if (!deductRes.ok) throw new Error(deductData.error || 'Credit deduction failed');
+
         await supabase.from('messages').insert([{
-          sender_id: user.id,
+          sender_id:   user.id,
           receiver_id: targetId,
-          content: `Hi ${educator.full_name}, I found your profile on Crosssa and would like to connect!`,
+          content:     `Hi ${educator.full_name}, I found your profile on Crosssa and would like to connect!`,
         }]);
-        toast.success(`Message sent to ${educator.full_name}`);
+        toast.success(`Message sent! 5 credits used.`);
       }
 
       navigate(`/chat/${targetId}`);
-    } catch {
-      toast.error('Failed to start conversation');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to start conversation');
     } finally {
       setMessaging(false);
     }

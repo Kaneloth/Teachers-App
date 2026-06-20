@@ -15,7 +15,17 @@ const MONTHLY_PRO_CREDITS = 10;
 //   [functions."monthly-pro-credits"]
 //   schedule = "0 2 1 * *"
 
+// ── Monthly Pro credit grants have been removed as of the credits-only
+// funding model. This function now exits immediately without granting
+// any credits. It is kept deployed so the netlify.toml schedule entry
+// doesn't cause a missing-function error — it just does nothing.
 export const handler = async (event) => {
+  console.log('[monthly-pro-credits] Disabled — credits-only model, no monthly grants.');
+  return { statusCode: 200, body: JSON.stringify({ granted: 0, reason: 'disabled' }) };
+  // ── Original code below (kept for reference) ──
+  const _DISABLED = true; if (_DISABLED) return { statusCode: 200, body: '{}' };
+  // eslint-disable-next-line no-unreachable
+  const __handler = async (event) => {
   const now = new Date();
   const monthLabel = now.toLocaleString('en-ZA', { month: 'long', year: 'numeric' });
   const yearMonth  = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -25,7 +35,7 @@ export const handler = async (event) => {
   const { data: proUsers, error: fetchErr } = await supabase
     .from('profiles')
     .select('id')
-    .in('subscription_plan', ['monthly', 'semi_annual', 'annual'])
+    .eq('subscription_plan', 'pro')
     .gt('subscription_end', now.toISOString())
     .is('deleted_at', null);
 
@@ -54,21 +64,13 @@ export const handler = async (event) => {
 
     if (alreadyGranted) { skippedCount++; continue; }
 
-    // Monthly credits expire at end of current month — insert directly
-    // so we can set the expires_at column (add_credits RPC doesn't have
-    // an expiry parameter).
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-
-    const { error: creditErr } = await supabase
-      .from('credit_ledger')
-      .insert({
-        user_id:     user.id,
-        amount:      MONTHLY_PRO_CREDITS,
-        type:        'monthly_pro',
-        description: `Pro subscriber monthly credits — ${monthLabel}`,
-        ref_id,
-        expires_at:  endOfMonth.toISOString(),
-      });
+    const { error: creditErr } = await supabase.rpc('add_credits', {
+      p_user_id:     user.id,
+      p_amount:      MONTHLY_PRO_CREDITS,
+      p_type:        'monthly_pro',
+      p_description: `Pro subscriber monthly credits — ${monthLabel}`,
+      p_ref_id:      ref_id,
+    });
 
     if (creditErr) {
       console.error(`[monthly-pro-credits] Failed for ${user.id}:`, creditErr.message);

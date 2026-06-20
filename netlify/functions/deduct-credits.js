@@ -10,8 +10,11 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const COSTS = {
-  cv_usage:     9,
-  letter_usage: 1,
+  cv_usage:      9,   // CV generation
+  letter_usage:  2,   // Cover letter / AI action
+  chat_start:    5,   // Starting a new conversation
+  guide_download:3,   // Downloading a transfer guide
+  id_verify:     30,  // ID/passport verification
 };
 
 export const handler = async (event) => {
@@ -36,9 +39,14 @@ export const handler = async (event) => {
   }
 
   const cost = COSTS[type];
-  const description = type === 'cv_usage'
-    ? 'CV generated (9 credits)'
-    : 'Cover letter / AI action (1 credit)';
+  const DESCRIPTIONS: Record<string, string> = {
+    cv_usage:       'CV generated (9 credits)',
+    letter_usage:   'Cover letter / AI action (2 credits)',
+    chat_start:     'New chat started (5 credits)',
+    guide_download: 'Transfer guide downloaded (3 credits)',
+    id_verify:      'ID verification (30 credits)',
+  };
+  const description = DESCRIPTIONS[type] || type;
 
   const { data: newBalance, error: deductErr } = await supabase.rpc('deduct_credits', {
     p_user_id:     user.id,

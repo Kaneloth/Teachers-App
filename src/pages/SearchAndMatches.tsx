@@ -19,26 +19,16 @@ export default function SearchAndMatches() {
   useEffect(() => {
     if (!user) return;
 
-    const metaPlan = user.user_metadata?.subscription_plan as string | undefined;
-    const metaEnd  = user.user_metadata?.subscription_end  as string | undefined;
-    if (metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date()) {
-      setIsPro(true);
-      setChecked(true);
-      return;
-    }
-
+    // Advanced search unlocked by R79+ credit purchase
     supabase
-      .from('profiles')
-      .select('subscription_plan, subscription_end')
-      .eq('id', user.id)
-      .single()
+      .from('credit_ledger')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('type', 'purchase')
+      .gte('amount', 60)
+      .limit(1)
       .then(({ data }) => {
-        setIsPro(
-          !!data?.subscription_plan &&
-          data.subscription_plan !== 'free' &&
-          !!data.subscription_end &&
-          new Date(data.subscription_end) > new Date()
-        );
+        setIsPro(!!(data && data.length > 0));
         setChecked(true);
       });
   }, [user]);

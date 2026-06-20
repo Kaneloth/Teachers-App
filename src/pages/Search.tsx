@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import EducatorCard, { qualifiesForMatchesPage, MyProfile } from '@/components/search/EducatorCard';
 import SearchFilters, { Filters, DEFAULT_FILTERS } from '@/components/search/SearchFilters';
-import SubscriptionModal from '@/components/SubscriptionModal';
+import SubscriptionModal from '@/components/SubscriptionModal'; // shows credits purchase
 
 interface Educator {
   id: string;
@@ -46,25 +46,18 @@ export default function Search({ embedded = false }: Props) {
   useEffect(() => {
     if (!user) return;
 
-    const metaPlan = user.user_metadata?.subscription_plan as string | undefined;
-    const metaEnd  = user.user_metadata?.subscription_end  as string | undefined;
-    if (metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date()) {
-      setIsPro(true);
-    } else {
-      supabase
-        .from('profiles')
-        .select('subscription_plan, subscription_end')
-        .eq('id', user.id)
-        .single()
-        .then(({ data }) => {
-          setIsPro(
-            !!data?.subscription_plan &&
-            data.subscription_plan !== 'free' &&
-            !!data.subscription_end &&
-            new Date(data.subscription_end) > new Date()
-          );
-        });
-    }
+    // Advanced search unlocked by R79+ purchase (pro_pack or business pack)
+    // Check credit_ledger for any purchase of these packs
+    supabase
+      .from('credit_ledger')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('type', 'purchase')
+      .gte('amount', 60)  // pro_pack=60cr, business=200cr; standard=30cr excluded
+      .limit(1)
+      .then(({ data }) => {
+        setIsPro(!!(data && data.length > 0));
+      });
 
     // preferred_districts is needed for the town-swap exclusion check below.
     supabase
@@ -230,7 +223,7 @@ export default function Search({ embedded = false }: Props) {
           filters={filters}
           onFiltersChange={setFilters}
           isPro={isPro}
-          onProGate={() => setShowSubModal(true)}
+          onProGate={() => setShowSubModal(true)} // buy R79+ pack to unlock
         />
       </div>
 

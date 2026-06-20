@@ -155,16 +155,14 @@ const BILLING = [
 ];
 
 const COMPARISON = [
-  { feature: 'CV builds',               free: 'Pay per CV',       pro: 'Pay per CV'          },
-  { feature: 'CV watermark',            free: 'Yes',              pro: 'No'                  },
-  { feature: 'Monthly free credits',    free: 'None',             pro: '20 credits/month'    },
-  { feature: 'Unused monthly credits',  free: '—',                pro: 'Expire end of month' },
-  { feature: 'Active chats',            free: 'Unlimited',        pro: 'Unlimited'           },
-  { feature: 'Vacancy applications',    free: 'Unlimited',        pro: 'Unlimited'           },
-  { feature: 'Ads',                     free: 'None',             pro: 'None'                },
-  { feature: 'Advanced search filters', free: 'Basic only',       pro: 'Full access'         },
-  { feature: 'ID verification',         free: 'No',               pro: 'Yes'                 },
-  { feature: 'Verified badge',          free: 'No',               pro: 'After verification'  },
+  { feature: 'CV download',             free: '9 credits',        pro: '9 credits'           },
+  { feature: 'Cover letter',            free: '2 credits',        pro: '2 credits'           },
+  { feature: 'New chat',                free: '5 credits',        pro: '5 credits'           },
+  { feature: 'Guide download',          free: '3 credits',        pro: '3 credits'           },
+  { feature: 'ID verification',         free: '30 credits',       pro: '30 credits'          },
+  { feature: 'Advanced search',         free: 'R79+ purchase',    pro: 'R79+ purchase'       },
+  { feature: 'Signup credits',          free: '18 free credits',  pro: '18 free credits'     },
+  { feature: 'Credits expire',          free: 'Never',            pro: 'Never'               },
 ];
 
 function SubscriptionTab() {

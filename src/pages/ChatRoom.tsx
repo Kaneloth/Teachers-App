@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Send, Check, CheckCheck, Copy, Trash, Trash2, Lock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { useCredits } from '@/hooks/useCredits';
 import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
 import { isBlocked, blockUser } from '@/lib/blockUtils';
@@ -54,13 +55,15 @@ function removeHidden(userId: string, msgId: string) {
 export default function ChatRoom() {
   const { partnerId } = useParams<{ partnerId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
+  const { balance, loading: creditsLoading } = useCredits();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [partner, setPartner] = useState<PartnerInfo | null>(null);
   const [sending, setSending] = useState(false);
   const [selectedMsg, setSelectedMsg] = useState<Message | null>(null);
   const [chatBlocked, setChatBlocked] = useState(false);
+  const [hasSentBefore, setHasSentBefore] = useState<boolean | null>(null);
   const [checkingBlock, setCheckingBlock] = useState(true);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -197,6 +200,11 @@ export default function ChatRoom() {
     if (!user || !partnerId) return;
 
     // Chat-specific channel: receive deletions from partner's ChatRoom
+    // Check if the current user has previously sent a message in this conversation
+    // (determines whether 5 credits are needed to "unlock" replying)
+    const sentBefore = (data || []).some((m: Message) => m.sender_id === user.id);
+    setHasSentBefore(sentBefore);
+
     const chatChannelName = `chat-broadcast-${[user.id, partnerId].sort().join('_')}`;
     const chatChannel = supabase
       .channel(chatChannelName)
@@ -305,6 +313,30 @@ export default function ChatRoom() {
     if (blockedByMe || blockedByThem) {
       toast.error("You cannot send messages to this user (blocked).");
       return;
+    }
+
+    // If user hasn't sent to this partner before, deduct 5 credits
+    if (!hasSentBefore) {
+      if (creditsLoading) return; // wait for balance to load
+      if (balance < 5) {
+        toast.error('You need 5 credits to start this conversation. Please top up your credits.');
+        return;
+      }
+      const deductRes = await fetch('/.netlify/functions/deduct-credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ type: 'chat_start', ref_id: `chat:${user.id}:${partnerId}` }),
+      });
+      const deductData = await deductRes.json();
+      if (deductRes.status === 402) {
+        toast.error(`Not enough credits. You need 5 credits to reply. You have ${deductData.balance}.`);
+        return;
+      }
+      if (!deductRes.ok) {
+        toast.error('Could not process credits. Please try again.');
+        return;
+      }
+      setHasSentBefore(true); // mark so future replies in this session are free
     }
 
     setSending(true);
@@ -500,26 +532,44 @@ export default function ChatRoom() {
         <div ref={bottomRef} />
       </div>
 
-      <form
-        onSubmit={handleSend}
-        className="flex items-center gap-2 px-4 py-3 border-t border-border bg-background"
-      >
-        <Input
-          value={text}
-          onChange={e => setText(e.target.value)}
-          placeholder="Type a message..."
-          disabled={sending}
-          className="rounded-full flex-1 bg-muted/40 border-border"
-        />
-        <Button
-          type="submit"
-          size="icon"
-          disabled={sending || !text.trim()}
-          className="rounded-full shrink-0 w-10 h-10"
+      {/* Credit gate — show banner if user hasn't sent before and has no credits */}
+      {hasSentBefore === false && !creditsLoading && balance < 5 ? (
+        <div className="px-4 py-3 border-t border-border bg-background">
+          <div className="rounded-2xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">5 credits needed to reply</p>
+              <p className="text-xs text-amber-700 dark:text-amber-400">You have {balance} credit{balance !== 1 ? 's' : ''}. Top up to send your first message.</p>
+            </div>
+            <a
+              href="/credits"
+              className="shrink-0 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-xl transition-colors"
+            >
+              Top up
+            </a>
+          </div>
+        </div>
+      ) : (
+        <form
+          onSubmit={handleSend}
+          className="flex items-center gap-2 px-4 py-3 border-t border-border bg-background"
         >
-          <Send className="w-4 h-4" />
-        </Button>
-      </form>
+          <Input
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder="Type a message..."
+            disabled={sending}
+            className="rounded-full flex-1 bg-muted/40 border-border"
+          />
+          <Button
+            type="submit"
+            size="icon"
+            disabled={sending || !text.trim()}
+            className="rounded-full shrink-0 w-10 h-10"
+          >
+            <Send className="w-4 h-4" />
+          </Button>
+        </form>
+      )}
     </div>
   );
 }
