@@ -24,7 +24,7 @@ export const handler = async (event) => {
   try { body = JSON.parse(event.body); }
   catch { return { statusCode: 400, body: 'Invalid JSON' }; }
 
-  const { user_id, phone, device_fingerprint } = body;
+  const { user_id, email, phone, device_fingerprint } = body;
   const ip = event.headers['x-forwarded-for']?.split(',')[0]?.trim()
            || event.headers['client-ip']
            || 'unknown';
@@ -33,7 +33,26 @@ export const handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'user_id required' }) };
   }
 
-  // Guard: only grant once per user ever
+  // Guard 0: Email fingerprint — persists across account deletions.
+  // When a user deletes their account, credit_ledger rows are cascade-deleted
+  // with auth.users, so the signup_bonus check below would pass on re-signup.
+  // The email_grants table is NOT linked to auth.users so it survives deletions.
+  if (email && email.trim() !== '') {
+    const cleanEmail = email.toLowerCase().trim();
+    const { data: emailFp } = await supabase
+      .from('email_grants')
+      .select('id')
+      .eq('email', cleanEmail)
+      .maybeSingle();
+
+    if (emailFp) {
+      await recordNoGrant(user_id, ip, 'email_known');
+      console.warn(`[grant-signup-credits] Denied to ${cleanEmail} — email already received bonus (account re-registration)`);
+      return { statusCode: 200, body: JSON.stringify({ granted: 0, reason: 'email_known' }) };
+    }
+  }
+
+  // Guard 1: Only grant once per active user_id (fast path for normal users)
   const { data: existing, error: existingErr } = await supabase
     .from('credit_ledger')
     .select('id')
@@ -102,7 +121,16 @@ export const handler = async (event) => {
     }
   }
 
-  // All checks passed — grant free credits
+  // All checks passed — record email grant BEFORE crediting
+  // (so re-registrations with same email are blocked even if credit grant fails)
+  if (email && email.trim() !== '') {
+    await supabase.from('email_grants').upsert(
+      { email: email.toLowerCase().trim(), user_id, granted_at: new Date().toISOString() },
+      { onConflict: 'email' }
+    );
+  }
+
+  // Grant free credits
   const { error } = await supabase.rpc('add_credits', {
     p_user_id:     user_id,
     p_amount:      FREE_CREDITS,
