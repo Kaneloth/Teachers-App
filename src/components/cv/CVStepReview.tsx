@@ -67,7 +67,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
     const remainingCost = aiUsed ? 7 : 9;  // AI summary costs 2cr, so remaining = 9-2=7
     const ok = await deduct('cv_usage', fileName);
     if (!ok) {
-      if (balance < remainingCost) setShowInsufficientModal(true);
+      if (!isAdmin && balance < remainingCost) setShowInsufficientModal(true);
       return;
     }
 
@@ -264,7 +264,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
       )}
 
       {/* Insufficient credits warning */}
-      {!creditsLoading && balance < (aiUsed ? 7 : 9) && (
+      {!isAdmin && !creditsLoading && balance < (aiUsed ? 7 : 9) && (
         <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2.5">
           <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
@@ -278,7 +278,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
 
       <Button
         onClick={handleGenerate}
-        disabled={sending || (!creditsLoading && balance < (aiUsed ? 7 : 9))}
+        disabled={sending || (!isAdmin && !creditsLoading && balance < (aiUsed ? 7 : 9))}
         className="w-full h-12 rounded-xl text-base font-semibold gap-2"
       >
         <Download className="w-5 h-5" />

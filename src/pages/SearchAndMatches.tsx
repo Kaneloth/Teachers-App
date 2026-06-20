@@ -19,6 +19,9 @@ export default function SearchAndMatches() {
   useEffect(() => {
     if (!user) return;
 
+    // Admins always get advanced access
+    if (user.user_metadata?.is_admin) { setIsPro(true); setChecked(true); return; }
+
     // Advanced search unlocked by R79+ credit purchase
     supabase
       .from('credit_ledger')

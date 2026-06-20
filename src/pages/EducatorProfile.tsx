@@ -47,6 +47,7 @@ export default function EducatorProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, session } = useAuth();
+  const isAdmin = !!(user?.user_metadata?.is_admin);
   const [educator, setEducator] = useState<Educator | null>(null);
   const [loading, setLoading] = useState(true);
   const [messaging, setMessaging] = useState(false);
@@ -76,6 +77,8 @@ export default function EducatorProfile() {
         .limit(1);
 
       if (!existing?.length) {
+        // Admins bypass the credit gate entirely
+        if (!isAdmin) {
         // New conversation — deduct 5 credits before sending
         const deductRes = await fetch('/.netlify/functions/deduct-credits', {
           method: 'POST',
@@ -90,12 +93,13 @@ export default function EducatorProfile() {
         }
         if (!deductRes.ok) throw new Error(deductData.error || 'Credit deduction failed');
 
+        } // end !isAdmin credit gate
         await supabase.from('messages').insert([{
           sender_id:   user.id,
           receiver_id: targetId,
           content:     `Hi ${educator.full_name}, I found your profile on Crosssa and would like to connect!`,
         }]);
-        toast.success(`Message sent! 5 credits used.`);
+        toast.success(isAdmin ? `Message sent.` : `Message sent! 5 credits used.`);
       }
 
       navigate(`/chat/${targetId}`);

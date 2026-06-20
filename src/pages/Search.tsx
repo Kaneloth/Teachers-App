@@ -46,18 +46,21 @@ export default function Search({ embedded = false }: Props) {
   useEffect(() => {
     if (!user) return;
 
-    // Advanced search unlocked by R79+ purchase (pro_pack or business pack)
-    // Check credit_ledger for any purchase of these packs
-    supabase
-      .from('credit_ledger')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('type', 'purchase')
-      .gte('amount', 60)  // pro_pack=60cr, business=200cr; standard=30cr excluded
-      .limit(1)
-      .then(({ data }) => {
-        setIsPro(!!(data && data.length > 0));
-      });
+    // Admins always get advanced search access
+    if (user.user_metadata?.is_admin) { setIsPro(true); }
+    else {
+      // Advanced search unlocked by R79+ purchase (pro_pack or business pack)
+      supabase
+        .from('credit_ledger')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('type', 'purchase')
+        .gte('amount', 60)  // pro_pack=60cr, business=200cr; standard=30cr excluded
+        .limit(1)
+        .then(({ data }) => {
+          setIsPro(!!(data && data.length > 0));
+        });
+    }
 
     // preferred_districts is needed for the town-swap exclusion check below.
     supabase

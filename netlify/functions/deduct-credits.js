@@ -34,6 +34,12 @@ export const handler = async (event) => {
 
   const { type, ref_id } = body;
 
+  // Admins bypass all credit gates — log for audit but don't deduct
+  if (user.user_metadata?.is_admin) {
+    console.log(`[deduct-credits] Admin bypass for ${user.email} — type=${type}`);
+    return { statusCode: 200, body: JSON.stringify({ success: true, deducted: 0, new_balance: 999999 }) };
+  }
+
   if (!COSTS[type]) {
     return { statusCode: 400, body: JSON.stringify({ error: `Unknown type "${type}"` }) };
   }

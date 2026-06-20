@@ -54,6 +54,9 @@ export default function MatchesPage({ embedded = false }: Props) {
     if (!user) return;
 
     (async () => {
+      // Admins always get full Matches access
+      if (user.user_metadata?.is_admin) { setIsPro(true); setProChecked(true); return; }
+
       // R79+ purchase (pro_pack=60cr or business=200cr) unlocks full Matches access
       const { data: purchaseData } = await supabase
         .from('credit_ledger')

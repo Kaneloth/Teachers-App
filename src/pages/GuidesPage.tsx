@@ -499,6 +499,7 @@ const STEPS = [
 export default function GuidesPage() {
   const navigate = useNavigate();
   const { user, session } = useAuth();
+  const isAdmin = !!(user?.user_metadata?.is_admin);
   const [profile, setProfile] = useState<EducatorProfile>({
     full_name: '', current_school: '', current_province: '',
     phone: '', email: '', personal_number: '', post_level: '',
@@ -547,7 +548,8 @@ export default function GuidesPage() {
     if (!session?.access_token) { toast.error('Please sign in to download guides.'); return; }
     setDownloading(templateKey);
     try {
-      // Deduct 3 credits before generating the download
+      // Deduct 3 credits before generating (admins bypass)
+      if (!isAdmin) {
       const deductRes = await fetch('/.netlify/functions/deduct-credits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
@@ -559,6 +561,7 @@ export default function GuidesPage() {
         return;
       }
       if (!deductRes.ok) throw new Error(deductData.error || 'Credit deduction failed');
+      } // end !isAdmin
 
       const blob = await generateDocx(templateKey, profile);
       const url  = URL.createObjectURL(blob);
@@ -569,7 +572,7 @@ export default function GuidesPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success('Guide downloaded! 3 credits used.');
+      toast.success(isAdmin ? 'Guide downloaded.' : 'Guide downloaded! 3 credits used.');
     } catch (err: any) {
       console.error('Template generation failed:', err);
       toast.error(err.message || 'Download failed. Please try again.');
@@ -709,7 +712,7 @@ export default function GuidesPage() {
             <button
               key={t.key}
               disabled={downloading === t.key}
-              onClick={() => isPro ? handleDownload(t.key, t.label) : setShowSubModal(true)} // opens credits modal
+              onClick={() => (isPro || isAdmin) ? handleDownload(t.key, t.label) : setShowSubModal(true)} // opens credits modal
               className={`bg-card border rounded-2xl p-4 text-left transition-all ${isPro ? "border-border hover:border-primary/50 hover:bg-primary/5" : "border-border/60 opacity-70"}`}
             >
               <div className="text-2xl mb-2">{t.icon}</div>

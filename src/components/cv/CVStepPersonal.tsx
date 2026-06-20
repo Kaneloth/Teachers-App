@@ -44,6 +44,7 @@ interface Props {
 
 export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed }: Props) {
   const { user } = useAuth();
+  const isAdmin = !!(user?.user_metadata?.is_admin);
   const { balance, loading: creditsLoading, deduct } = useCredits();
   const [uploading,         setUploading]         = useState(false);
   const [generatingSummary, setGeneratingSummary] = useState(false);
@@ -77,8 +78,11 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed }:
     // Deduct 2 credits BEFORE calling the AI to prevent abuse.
     // If AI succeeds, CV download cost is reduced from 9 → 7 credits (onAiUsed).
     const aiRef = `ai_summary_${Date.now()}`;
-    const ok = await deduct('letter_usage', aiRef); // 1 credit = same cost as a letter
-    if (!ok) return; // insufficient credits — toast already shown
+    // Admins bypass credit deduction
+    if (!isAdmin) {
+      const ok = await deduct('letter_usage', aiRef);
+      if (!ok) return;
+    }
 
     setGeneratingSummary(true);
     try {
@@ -206,7 +210,7 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed }:
         <div className="flex items-center justify-between">
           <Label className="text-sm font-medium">Professional Summary</Label>
           <button type="button" onClick={generateSummary}
-            disabled={generatingSummary || (!creditsLoading && balance < 2)}
+            disabled={generatingSummary || (!isAdmin && !creditsLoading && balance < 2)}
             className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50">
             {generatingSummary
               ? <><Loader2 className="w-3 h-3 animate-spin" /> Generating…</>
