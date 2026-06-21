@@ -20,6 +20,7 @@ interface Props {
   searchPlaceholder?: string;
   disabled?: boolean;
   className?: string;
+  allowCustom?: boolean; // if true, pressing Enter on a non-matching query adds the typed value
 }
 
 export default function SearchableSelect({
@@ -30,6 +31,7 @@ export default function SearchableSelect({
   searchPlaceholder = 'Search…',
   disabled = false,
   className,
+  allowCustom = false,
 }: Props) {
   const [open, setOpen]   = useState(false);
   const [query, setQuery] = useState('');
@@ -88,6 +90,13 @@ export default function SearchableSelect({
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && query.trim()) {
+                const match = filtered[0];
+                if (match) { handleSelect(match); }
+                else if (allowCustom) { handleSelect(query.trim()); }
+              }
+            }}
             placeholder={searchPlaceholder}
             className="h-7 border-0 bg-transparent p-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground"
           />
@@ -96,7 +105,16 @@ export default function SearchableSelect({
         {/* Options list */}
         <div className="max-h-52 overflow-y-auto py-1">
           {filtered.length === 0 ? (
-            <p className="py-4 text-center text-xs text-muted-foreground">No results found</p>
+            allowCustom && query.trim() ? (
+              <button
+                onClick={() => handleSelect(query.trim())}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors text-primary font-medium"
+              >
+                <span className="text-base leading-none">+</span> Add "{query.trim()}"
+              </button>
+            ) : (
+              <p className="py-4 text-center text-xs text-muted-foreground">No results found</p>
+            )
           ) : (
             filtered.map(option => (
               <button

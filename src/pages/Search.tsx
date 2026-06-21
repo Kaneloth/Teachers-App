@@ -111,7 +111,7 @@ export default function Search({ embedded = false }: Props) {
       // other (e.g. "within 45km of Polokwane" + "KZN").
       if (filters.phase)      results = results.filter(e => e.phase === filters.phase);
       if (filters.activeOnly) results = results.filter(e => e.is_actively_looking);
-      if (filters.subject)    results = results.filter(e => e.subjects?.includes(filters.subject));
+      if (filters.subjects?.length) results = results.filter(e => filters.subjects!.every(s => e.subjects?.includes(s)));
 
     } else {
       let q = supabase.from('educators').select('*');
@@ -123,7 +123,7 @@ export default function Search({ embedded = false }: Props) {
       if (filters.province) q = q.eq('current_province', filters.province);
       if (filters.phase)      q = q.eq('phase', filters.phase);
       if (filters.activeOnly) q = q.eq('is_actively_looking', true);
-      if (filters.subject)    q = q.contains('subjects', [filters.subject]);
+      if (filters.subjects?.length) q = q.contains('subjects', filters.subjects!);
 
       const { data } = await q.limit(50);
       results = data || [];

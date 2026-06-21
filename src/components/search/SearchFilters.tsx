@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
-import { SlidersHorizontal, Lock, MapPin, Loader2, CheckCircle2 } from 'lucide-react';
+import { SlidersHorizontal, Lock, MapPin, Loader2, CheckCircle2, X, Plus } from 'lucide-react';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { geocodeLocation } from '@/lib/geocode';
 
 const PROVINCES = ['Gauteng', 'KwaZulu-Natal', 'Western Cape', 'Eastern Cape', 'Mpumalanga', 'Limpopo', 'North West', 'Free State', 'Northern Cape'];
@@ -43,13 +44,13 @@ export interface Filters {
   townLng?: number;
   townDisplayName?: string;
   radiusKm: number;         // Pro-only proximity radius around `town`; 0 = off
-  subject: string;
+  subjects: string[];  // multi-subject filter (empty = all)
   phase: string;
   activeOnly: boolean;
 }
 
 export const DEFAULT_FILTERS: Filters = {
-  province: '', town: '', radiusKm: RADIUS_OFF, subject: '', phase: '', activeOnly: false,
+  province: '', town: '', radiusKm: RADIUS_OFF, subjects: [], phase: '', activeOnly: false,
 };
 
 interface Props {
@@ -117,7 +118,7 @@ export default function SearchFilters({ filters, onFiltersChange, isPro = false,
   };
 
   const activeCount = [
-    local.province, local.town, local.subject, local.phase,
+    local.province, local.town, local.subjects?.length > 0, local.phase,
     local.activeOnly, isPro && local.radiusKm > RADIUS_OFF,
   ].filter(Boolean).length;
 
@@ -245,11 +246,37 @@ export default function SearchFilters({ filters, onFiltersChange, isPro = false,
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Subject (CAPS)</Label>
-            <Select value={local.subject} onValueChange={v => setLocal(p => ({ ...p, subject: v }))}>
-              <SelectTrigger><SelectValue placeholder="All subjects" /></SelectTrigger>
-              <SelectContent className="max-h-48 overflow-y-auto">{SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-            </Select>
+            <Label className="text-sm font-medium">Subjects (CAPS)</Label>
+            {/* Chips for selected subjects */}
+            {(local.subjects || []).length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-1">
+                {(local.subjects || []).map(s => (
+                  <span key={s} className="flex items-center gap-1 text-xs bg-primary/10 text-primary border border-primary/20 rounded-full pl-2.5 pr-1.5 py-0.5">
+                    {s}
+                    <button
+                      type="button"
+                      onClick={() => setLocal(p => ({ ...p, subjects: (p.subjects || []).filter(x => x !== s) }))}
+                      className="hover:text-destructive transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            {/* Searchable dropdown — selecting adds to chips, already-selected excluded */}
+            <SearchableSelect
+              value=""
+              onValueChange={v => {
+                if (v && !(local.subjects || []).includes(v))
+                  setLocal(p => ({ ...p, subjects: [...(p.subjects || []), v] }));
+              }}
+              options={[...SUBJECTS, ...(local.subjects || []).filter(s => !SUBJECTS.includes(s))].filter(s => !(local.subjects || []).includes(s))}
+              placeholder={local.subjects?.length ? 'Add another subject…' : 'All subjects'}
+              searchPlaceholder="Search or type a subject…"
+              allowCustom
+            />
+            <p className="text-xs text-muted-foreground">Can't find a subject? Type it and press Enter or select it from the list.</p>
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-medium">Phase</Label>
