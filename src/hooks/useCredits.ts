@@ -72,7 +72,7 @@ export function useCredits(): CreditState {
       return false;
     }
 
-    const cost = type === 'cv_usage' ? 6 : 1;
+    const cost = type === 'cv_usage' ? 9 : 2;  // CV = 9cr, letter/AI = 2cr
 
     // Optimistic UI — immediately decrement so the button feels instant
     setBalance(prev => prev - cost);

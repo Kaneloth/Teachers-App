@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
-import { grantSignupCredits, getDeviceFingerprint } from '@/hooks/useCredits';
+// grantSignupCredits moved to Onboarding.tsx — only grant after role is chosen
 
 // ── Biometric session backup keys ─────────────────────────────────────────────
 // Kept as a fallback for when the Supabase session has truly expired (60+ days).
@@ -95,36 +95,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         saveBioSession(newSession.access_token, newSession.refresh_token);
       }
 
-      // ── Grant signup credits on first-ever login ──────────────────────────
-      // Detect first login by checking if the account was created within the
-      // last 5 minutes (covers both email+password and Google OAuth signups).
-      if (event === 'SIGNED_IN' && newSession?.user) {
-        const u = newSession.user;
-        const createdAt   = new Date(u.created_at ?? 0).getTime();
-        const fiveMinAgo  = Date.now() - 5 * 60 * 1000;
-        const isFirstLogin = createdAt > fiveMinAgo;
-
-        if (isFirstLogin) {
-          const deviceFp = getDeviceFingerprint();
-          const phone    = u.phone || u.user_metadata?.phone || '';
-          grantSignupCredits({
-            user_id:            u.id,
-            phone,
-            device_fingerprint: deviceFp,
-          }).then(result => {
-            if (result.granted > 0) {
-              // Small delay so the welcome screen appears first
-              setTimeout(() => {
-                // toast is imported where needed — fire a custom event instead
-                // so we don't couple AuthContext to the toast library
-                window.dispatchEvent(new CustomEvent('crosssa:credits-granted', {
-                  detail: { credits: result.granted },
-                }));
-              }, 2000);
-            }
-          });
-        }
-      }
     });
 
     return () => subscription.unsubscribe();
