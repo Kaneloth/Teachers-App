@@ -307,7 +307,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
       <Button
         onClick={(pdfUrl ?? existingPdfUrl) ? handleRedownload : handleGenerate}
         disabled={sending || (!isAdmin && !(pdfUrl ?? existingPdfUrl) && !creditsLoading && balance < (aiUsed ? 7 : 9))}
-        className="w-full h-12 rounded-xl text-base font-semibold gap-2"
+        className="w-full h-12 rounded-xl text-sm font-semibold gap-2"
       >
         <Download className="w-5 h-5" />
         {sending
