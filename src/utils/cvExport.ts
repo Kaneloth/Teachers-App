@@ -1099,8 +1099,7 @@ function drawTraditional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],cust
       p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,CX,y);y+=LINE_H;
       if(e.description){
         p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
-        for(const l of (e.description as string).split('
-').map((s:string)=>s.trim()).filter(Boolean))
+        for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))
           y=bulletLine(p,l,CX,y,CMW,accent,BOTTOM,np,GXW);
       }
       y+=ITEM_GAP+1;
