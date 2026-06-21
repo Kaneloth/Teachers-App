@@ -144,6 +144,26 @@ export default function Onboarding() {
   // Even when skipping the detail form, we still persist a minimal
   // `educators` row recording the chosen profile_type, so the rest of
   // the app knows whether this user is an educator or general user.
+  // Grant signup credits — called once per user after role is chosen.
+  // Keeping this here (not in a webhook/trigger) ensures credits are only
+  // granted to users who have actually completed onboarding and chosen a role.
+  const grantSignupCredits = async (userId: string, email: string) => {
+    try {
+      await fetch('/.netlify/functions/grant-signup-credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          email,
+          device_fingerprint: navigator.userAgent + screen.width + screen.height,
+        }),
+      });
+    } catch {
+      // Non-fatal — user can still use the app without the bonus
+      console.warn('[onboarding] signup credit grant failed silently');
+    }
+  };
+
   const handleSkip = async () => {
     if (!user || !profileType) { navigate('/home'); return; }
 
@@ -189,6 +209,9 @@ export default function Onboarding() {
     // Send straight to the profile editor — skipping the detail form means
     // key fields (town, subjects, etc.) are still empty, which matters for
     // search/matching.
+    // Grant signup credits now that role is confirmed
+    grantSignupCredits(user.id, user.email ?? '').catch(() => {});
+
     toast('Add a few details to your profile to get better matches.');
     navigate('/profile');
   };
@@ -219,6 +242,9 @@ export default function Onboarding() {
           .invoke('sendWelcomeEmail', { body: { email: user?.email ?? '', full_name: genForm.full_name || user?.user_metadata?.full_name || '', user_code: userCode, profile_type: 'general' } })
           .catch(() => {});
       }
+
+      // Grant signup credits now that role is confirmed
+      grantSignupCredits(user?.id ?? '', user?.email ?? '').catch(() => {});
 
       toast.success('Profile created! Welcome to Crosssa!');
       toast('Tip: add a profile photo and bio to help others recognize you.');
@@ -251,6 +277,9 @@ export default function Onboarding() {
           .invoke('sendWelcomeEmail', { body: { email: user?.email ?? '', full_name: form.full_name || user?.user_metadata?.full_name || '', user_code: userCode, profile_type: 'educator' } })
           .catch(() => {});
       }
+
+      // Grant signup credits now that role is confirmed
+      grantSignupCredits(user?.id ?? '', user?.email ?? '').catch(() => {});
 
       toast.success('Profile created! Welcome to Crosssa!');
       toast('Add your current town to improve your search results and matches.');
