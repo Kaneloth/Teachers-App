@@ -596,6 +596,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
   const [accountStatus,     setAccountStatus]     = useState(user.account_status || 'active');
   const [isAdminFlag,       setIsAdminFlag]       = useState(user.is_admin);
   const [templatesUnlocked, setTemplatesUnlocked] = useState(!!(user.templates_unlocked));
+  const [isHidden,          setIsHidden]          = useState(!!(user.is_hidden));
   const [saving,    setSaving]    = useState(false);
   const [verifying, setVerifying] = useState(false);
 
@@ -626,6 +627,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
         account_status:     accountStatus,
         is_admin:           isAdminFlag,
         templates_unlocked: templatesUnlocked,
+        is_hidden:          isHidden,
       };
 
       const res = await fetch('/.netlify/functions/admin-update-user', {
@@ -636,12 +638,16 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error || 'Update failed');
 
-      toast.success('User updated — they will see the change on next page load.');
+      toast.success('User updated successfully.');
+      if (isAdminFlag !== user.is_admin) {
+        toast.info('Admin access change takes effect when the user next opens or refreshes the app.', { duration: 6000 });
+      }
       onSaved({
         ...user,
         account_status:     accountStatus,
         is_admin:           isAdminFlag,
         templates_unlocked: templatesUnlocked,
+        is_hidden:          isHidden,
       });
     } catch (e: any) {
       toast.error(e.message || 'Failed to update user');
@@ -698,6 +704,17 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
                 <Ban className="w-3.5 h-3.5" /> Ban
               </button>
             </div>
+          </div>
+
+          {/* Profile visibility */}
+          <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-border">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">Hide Profile</p>
+                <p className="text-xs text-muted-foreground">Hides from browse lists · still shows in filtered searches</p>
+              </div>
+            </div>
+            <Switch checked={isHidden} onCheckedChange={setIsHidden} />
           </div>
 
           {/* Admin flag */}

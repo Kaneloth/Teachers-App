@@ -44,7 +44,7 @@ export const handler = async (event) => {
   // ── 2. Fetch educators/profiles rows for these users ─────────────────────
   const { data: educatorRows } = await supabase
     .from('educators')
-    .select('user_id, full_name, profile_type, account_status, current_school, templates_unlocked')
+    .select('user_id, full_name, profile_type, account_status, current_school, templates_unlocked, is_hidden')
     .in('user_id', userIds);
 
   const educatorMap = new Map((educatorRows ?? []).map(r => [r.user_id, r]));

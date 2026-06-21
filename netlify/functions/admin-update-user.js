@@ -32,7 +32,7 @@ export const handler = async (event) => {
   try { body = JSON.parse(event.body); }
   catch { return { statusCode: 400, body: 'Invalid JSON' }; }
 
-  const { target_user_id, account_status, subscription_plan, subscription_end, is_admin, templates_unlocked } = body;
+  const { target_user_id, account_status, subscription_plan, subscription_end, is_admin, templates_unlocked, is_hidden } = body;
 
   if (!target_user_id) {
     return { statusCode: 400, body: JSON.stringify({ error: 'target_user_id required' }) };
@@ -131,6 +131,16 @@ export const handler = async (event) => {
   }
 
   console.log(`[admin-update-user] ${adminUser.email} updated user ${target_user_id}:`, results);
+
+  // ── is_hidden — admin show/hide profile in browse lists ──────────────────
+  if (is_hidden !== undefined) {
+    const { error: hidErr } = await supabase
+      .from('educators')
+      .update({ is_hidden: !!is_hidden })
+      .eq('user_id', target_user_id);
+    if (hidErr) console.error('[admin-update-user] is_hidden error:', hidErr.message);
+    else results.is_hidden = !!is_hidden;
+  }
 
   // ── templates_unlocked — grant/revoke template access without purchase ───
   if (templates_unlocked !== undefined) {
