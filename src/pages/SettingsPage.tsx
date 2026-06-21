@@ -4,7 +4,7 @@ import {
   ArrowLeft, Bell, Moon, Type, Shield, FileText, Headphones,
   Lock, ChevronRight, ChevronDown, Star, Zap,
   Search, AlertTriangle, CheckCircle, UserX, Ban, X,
-  Save, Loader2, Fingerprint, Coins, Crown, Plus, Minus, History, ScrollText, ShieldCheck,
+  Save, Loader2, Fingerprint, Coins, Crown, Plus, Minus, History, ScrollText, ShieldCheck, Trash2,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -1405,6 +1405,14 @@ function TestimonialsSubTab() {
     setRows(prev => prev.filter(r => r.id !== id));
   };
 
+  const deleteTestimonial = async (id: string) => {
+    if (!window.confirm('Permanently delete this testimonial? This cannot be undone.')) return;
+    const { error } = await supabase.from('testimonials').delete().eq('id', id);
+    if (error) { toast.error('Failed to delete: ' + error.message); return; }
+    toast.success('Testimonial deleted.');
+    setRows(prev => prev.filter(r => r.id !== id));
+  };
+
   const sourceLabel = (s: string) => ({
     public_form: 'Public form', cv_download_prompt: 'CV download prompt', match_prompt: 'New match prompt',
   }[s] || s);
@@ -1446,11 +1454,19 @@ function TestimonialsSubTab() {
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => setStatus(t.id, 'approved')} className="rounded-xl flex-1">Approve</Button>
                   <Button size="sm" variant="outline" onClick={() => setStatus(t.id, 'rejected')} className="rounded-xl flex-1">Reject</Button>
+                  <Button size="sm" variant="outline" onClick={() => deleteTestimonial(t.id)} className="rounded-xl text-destructive border-destructive/30 hover:bg-destructive/5 shrink-0">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
               ) : (
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${t.status === 'approved' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
-                  {t.status === 'approved' ? 'Approved — live on landing page' : 'Rejected'}
-                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${t.status === 'approved' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
+                    {t.status === 'approved' ? 'Approved — live on landing page' : 'Rejected'}
+                  </span>
+                  <Button size="sm" variant="outline" onClick={() => deleteTestimonial(t.id)} className="rounded-xl text-destructive border-destructive/30 hover:bg-destructive/5 h-7 px-2">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               )}
             </div>
           ))}
