@@ -32,7 +32,7 @@ export const handler = async (event) => {
   try { body = JSON.parse(event.body); }
   catch { return { statusCode: 400, body: 'Invalid JSON' }; }
 
-  const { target_user_id, account_status, subscription_plan, subscription_end, is_admin } = body;
+  const { target_user_id, account_status, subscription_plan, subscription_end, is_admin, templates_unlocked } = body;
 
   if (!target_user_id) {
     return { statusCode: 400, body: JSON.stringify({ error: 'target_user_id required' }) };
@@ -131,6 +131,16 @@ export const handler = async (event) => {
   }
 
   console.log(`[admin-update-user] ${adminUser.email} updated user ${target_user_id}:`, results);
+
+  // ── templates_unlocked — grant/revoke template access without purchase ───
+  if (templates_unlocked !== undefined) {
+    const { error: tplErr } = await supabase
+      .from('educators')
+      .update({ templates_unlocked: !!templates_unlocked })
+      .eq('user_id', target_user_id);
+    if (tplErr) console.error('[admin-update-user] templates_unlocked error:', tplErr.message);
+    else results.templates_unlocked = !!templates_unlocked;
+  }
 
   await logAdminAction(supabase, {
     admin: adminUser,

@@ -44,7 +44,7 @@ export const handler = async (event) => {
   // ── 2. Fetch educators/profiles rows for these users ─────────────────────
   const { data: educatorRows } = await supabase
     .from('educators')
-    .select('user_id, full_name, profile_type, account_status, current_school')
+    .select('user_id, full_name, profile_type, account_status, current_school, templates_unlocked')
     .in('user_id', userIds);
 
   const educatorMap = new Map((educatorRows ?? []).map(r => [r.user_id, r]));
@@ -81,7 +81,8 @@ export const handler = async (event) => {
       // email_confirmed is null for Google OAuth users (they don't need OTP)
       // and for unverified email users. Treat Google OAuth (no email_confirmed_at
       // but confirmed_at exists) as confirmed.
-      email_confirmed:   !!(u.email_confirmed_at || u.confirmed_at),
+      email_confirmed:    !!(u.email_confirmed_at || u.confirmed_at),
+      templates_unlocked: !!(edu?.templates_unlocked),
       subscription_plan: prof?.subscription_plan || u.user_metadata?.subscription_plan || 'free',
       subscription_end:  prof?.subscription_end  || u.user_metadata?.subscription_end  || null,
       deleted_at:        prof?.deleted_at || null,

@@ -593,8 +593,9 @@ interface AdminUser {
 
 function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: () => void; onSaved: (u: AdminUser) => void }) {
   const { session } = useAuth();
-  const [accountStatus, setAccountStatus]     = useState(user.account_status || 'active');
-  const [isAdminFlag, setIsAdminFlag] = useState(user.is_admin);
+  const [accountStatus,     setAccountStatus]     = useState(user.account_status || 'active');
+  const [isAdminFlag,       setIsAdminFlag]       = useState(user.is_admin);
+  const [templatesUnlocked, setTemplatesUnlocked] = useState(!!(user.templates_unlocked));
   const [saving,    setSaving]    = useState(false);
   const [verifying, setVerifying] = useState(false);
 
@@ -621,9 +622,10 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
-        target_user_id: user.id,
-        account_status: accountStatus,
-        is_admin:       isAdminFlag,
+        target_user_id:     user.id,
+        account_status:     accountStatus,
+        is_admin:           isAdminFlag,
+        templates_unlocked: templatesUnlocked,
       };
 
       const res = await fetch('/.netlify/functions/admin-update-user', {
@@ -637,8 +639,9 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
       toast.success('User updated — they will see the change on next page load.');
       onSaved({
         ...user,
-        account_status: accountStatus,
-        is_admin:       isAdminFlag,
+        account_status:     accountStatus,
+        is_admin:           isAdminFlag,
+        templates_unlocked: templatesUnlocked,
       });
     } catch (e: any) {
       toast.error(e.message || 'Failed to update user');
@@ -707,6 +710,18 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
               </div>
             </div>
             <Switch checked={isAdminFlag} onCheckedChange={setIsAdminFlag} />
+          </div>
+
+          {/* Templates unlock */}
+          <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-border">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileText className="w-4 h-4 text-teal-500 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">Unlock CV Templates</p>
+                <p className="text-xs text-muted-foreground">All 12 templates without requiring a purchase</p>
+              </div>
+            </div>
+            <Switch checked={templatesUnlocked} onCheckedChange={setTemplatesUnlocked} />
           </div>
 
           {/* Manual email verification — only shown for unverified users */}

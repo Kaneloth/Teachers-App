@@ -261,21 +261,31 @@ export default function CVBuilderPage() {
   // Has this user ever bought credits (one-off pack or monthly Pro grant)?
   // If yes → all 17 templates unlock permanently, regardless of current
   // balance. If no → only the free Classic template is available.
-  const [hasPurchased, setHasPurchased] = useState(false);
+  const [hasPurchased,      setHasPurchased]      = useState(false);
+  const [templatesUnlocked, setTemplatesUnlocked] = useState(false);
+
   useEffect(() => {
     if (!user) return;
+    // Check credit purchase history
     supabase
       .from('credit_ledger')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .in('type', ['purchase', 'monthly_pro'])
       .then(({ count }) => setHasPurchased((count ?? 0) > 0));
+    // Check admin-granted template unlock
+    supabase
+      .from('educators')
+      .select('templates_unlocked')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => setTemplatesUnlocked(!!(data?.templates_unlocked)));
   }, [user]);
 
   // isFree gates the template picker (CVStepTemplate): true = only Classic
-  // template available. Admins and anyone who has ever purchased credits
-  // get every template unlocked.
-  const isFree = !hasPurchased && !isAdmin;
+  // template available. Admins, users who have purchased, or users with
+  // admin-granted template access get all templates unlocked.
+  const isFree = !hasPurchased && !isAdmin && !templatesUnlocked;
 
   const [showBuilder,      setShowBuilder]      = useState(initialState.showBuilder);
   const [step,             setStep]             = useState(initialState.draft?.step ?? 0);
