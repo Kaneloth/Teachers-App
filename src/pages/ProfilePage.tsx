@@ -638,8 +638,8 @@ export default function ProfilePage() {
       toast.error('Could not update visibility: ' + error.message);
     } else {
       toast.success(value
-        ? 'Profile hidden — you won't appear in general browse lists.'
-        : 'Profile visible — you'll appear in browse and search results again.');
+        ? "Profile hidden — you won't appear in general browse lists."
+        : "Profile visible — you'll appear in browse and search results again.");
     }
   };
 
