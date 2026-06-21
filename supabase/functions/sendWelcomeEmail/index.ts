@@ -28,7 +28,7 @@ serve(async (req) => {
     // that applies to them.
     const tagline = isEducator
       ? 'South African Educator Transfer Platform'
-      : 'A Platform for SA Educators &amp; Job Seekers';
+      : 'Professional CV &amp; Career Tools for South Africa';
 
     const introLine = isEducator
       ? "Your Crosssa account has been created successfully. We're excited to help you find your ideal transfer match across South Africa."
@@ -36,7 +36,13 @@ serve(async (req) => {
 
     const whatsNextBody = isEducator
       ? 'Complete your profile to start matching with educators who want to swap schools with you. The more detail you add, the better your matches will be.'
-      : 'Build your professional CV with our AI-assisted builder, generate a tailored cover letter, and browse the latest vacancies — all in one place.';
+      : `Here\'s what you can do on Crosssa:
+        <ul style="margin:12px 0;padding-left:20px;color:#374151;font-size:14px;line-height:2;">
+          <li><strong>Build a professional CV</strong> — choose from 10 templates and let our AI write your summary</li>
+          <li><strong>Generate job-specific cover letters</strong> — paste in a job description and get a tailored letter instantly</li>
+          <li><strong>Search vacancies</strong> — browse teaching and non-teaching jobs from across South Africa</li>
+        </ul>
+        Get started by completing your profile and building your first CV.`;
 
     const htmlBody = `
 <!DOCTYPE html>
@@ -87,7 +93,7 @@ serve(async (req) => {
         <!-- Footer -->
         <tr>
           <td style="background:#f9fafb;padding:20px 32px;text-align:center;border-top:1px solid #e5e7eb;">
-            <p style="margin:0;font-size:12px;color:#9ca3af;">© ${new Date().getFullYear()} Crosssa · ${tagline}</p>
+            <p style="margin:0;font-size:12px;color:#9ca3af;">© ${new Date().getFullYear()} Crosssa · A Skootlink (Pty) Ltd product</p>
           </td>
         </tr>
       </table>
@@ -105,7 +111,9 @@ serve(async (req) => {
       body: JSON.stringify({
         sender: { name: FROM_NAME, email: FROM_EMAIL },
         to: [{ email, name: displayName }],
-        subject: `Welcome to Crosssa — your reference code is ${user_code}`,
+        subject: isEducator
+          ? `Welcome to Crosssa — your reference code is ${user_code}`
+          : `Welcome to Crosssa — start building your CV today`,
         htmlContent: htmlBody,
       }),
     });

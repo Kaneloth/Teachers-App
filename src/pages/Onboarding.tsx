@@ -198,9 +198,10 @@ export default function Onboarding() {
       supabase.functions
         .invoke('sendWelcomeEmail', {
           body: {
-            email:     user.email ?? '',
-            full_name: user.user_metadata?.full_name || '',
-            user_code: userCode,
+            email:        user.email ?? '',
+            full_name:    user.user_metadata?.full_name || '',
+            user_code:    userCode,
+            profile_type: user.user_metadata?.profile_type ?? 'general',
           },
         })
         .catch(() => {});
