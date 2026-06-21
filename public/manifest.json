@@ -1,23 +1,34 @@
 {
   "name": "Crosssa – Educator Transfer & Career Platform",
   "short_name": "Crosssa",
-  "description": "Connect educators for transfer matches, build CVs, and find jobs.",
-  "start_url": "/home",
+  "description": "Crosssa connects South African educators for school transfers and helps job seekers build professional CVs, cover letters, and find vacancies.",
+  "start_url": "/",
   "display": "standalone",
-  "theme_color": "#0d9488",
   "background_color": "#ffffff",
+  "theme_color": "#0d9488",
+  "orientation": "portrait",
   "icons": [
     {
-      "src": "/icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/favicon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/web-app-manifest-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     }
   ]
 }
