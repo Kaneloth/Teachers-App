@@ -1033,27 +1033,116 @@ function drawBoxed(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
 // ── 11. TRADITIONAL — Centred name, left-date + vertical rule ─────────────────
 function drawTraditional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#374151');const [ar,ag,ab]=accent;
-  tc(p,17,24,39);p.setFont(F,'bold');p.setFontSize(16);const nw=p.getTextWidth(owner);p.text(owner,(PW-nw)/2,MT+8);
-  p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);const ctxt=[pr.address,pr.phone,pr.email].filter(Boolean).join('   ·   ');const cw=p.getTextWidth(ctxt);p.text(ctxt,(PW-cw)/2,MT+14);
-  hLine(p,ML,MT+17,PW-ML-MR,ar,ag,ab,0.5);reset(p);let y=MT+22;
+
+  // ── Centred name header ──────────────────────────────────────────────────
+  tc(p,17,24,39);p.setFont(F,'bold');p.setFontSize(16);
+  const nw=p.getTextWidth(owner);p.text(owner,(PW-nw)/2,MT+8);
+
+  // ── Contact line with icons ───────────────────────────────────────────────
+  // Build contact items as icon+text pairs, laid out inline and centred.
+  {
+    const muted:RGB=[107,114,128];
+    const items:[string|null,string][]=[
+      [ICON.mapMarker, pr.address],
+      [ICON.phone,     pr.phone],
+      [ICON.envelope,  pr.email],
+    ].filter(([,v])=>!!v) as [string|null,string][];
+    // Measure total width (icon + text + separator) to centre the line
+    p.setFont(F,'normal');p.setFontSize(8);
+    const SEP='   ·   ';const sepW=p.getTextWidth(SEP);
+    let totalW=0;
+    for(let i=0;i<items.length;i++){
+      const [,v]=items[i];
+      const iconW=8*0.55+1.5; // matches iconText() calculation
+      totalW+=iconW+p.getTextWidth(v);
+      if(i<items.length-1)totalW+=sepW;
+    }
+    let cx=(PW-totalW)/2;
+    tc(p,muted[0],muted[1],muted[2]);
+    for(let i=0;i<items.length;i++){
+      const [glyph,v]=items[i];
+      cx=iconText(p,glyph,v,cx,MT+15,8,muted);
+      if(i<items.length-1){p.setFont(F,'normal');p.setFontSize(8);tc(p,muted[0],muted[1],muted[2]);p.text(SEP,cx,MT+15);cx+=sepW;}
+    }
+  }
+
+  hLine(p,ML,MT+18,PW-ML-MR,ar,ag,ab,0.5);reset(p);let y=MT+23;
   const DX=ML;const DW=32;const CX=ML+DW+4;const CMW=PW-MR-CX;const VX=CX-2;
   const np=()=>{p.addPage();reset(p);return MT;};const GXW=():[ number,number]=>[CX,CMW];
-  const tHead=(t:string)=>{if(y+16>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(8);tc(p,ar,ag,ab);
-    const tl=p.splitTextToSize(t.toUpperCase(),DW) as string[];tl.forEach((l:string,i:number)=>p.text(l,DX,y+i*LINE_H));
-    dc(p,229,231,235);p.setLineWidth(0.4);p.line(VX,y-2,VX,y+6);hLine(p,CX,y,CMW,229,231,235,0.4);y+=tl.length*LINE_H+1;};
-  if(pr.bio){tHead('PROFILE');p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);dc(p,229,231,235);p.setLineWidth(0.4);p.line(VX,y-2,VX,y+30);y=wrapped(p,pr.bio,CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
-  if(exp.length){tHead(isEdu?'EMPLOYMENT\nHISTORY':'WORK\nHISTORY');
-    for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);p.text([e.from,e.to].filter(Boolean).join(' — '),DX,y);
-      dc(p,229,231,235);p.setLineWidth(0.3);p.line(VX,y-3,VX,y+14);p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,CX,y);y+=LINE_H;
-      if(e.description){p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,CX,y,CMW,accent,BOTTOM,np,GXW);}y+=ITEM_GAP+1;}}
-  if(edu.length){tHead('EDUCATION');
-    for(const e of edu){if(y+12>BOTTOM)y=np();p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);p.text(e.year||'',DX,y);
-      dc(p,229,231,235);p.setLineWidth(0.3);p.line(VX,y-3,VX,y+10);p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.qualification||'',CX,y);y+=LINE_H;p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text(e.institution||'',CX,y);y+=LINE_H+ITEM_GAP;}}
-  if(sk.subjects?.length||sk.soft_skills?.length||sk.languages?.length){tHead('SKILLS');p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
-    const allSk=[...(sk.subjects||[]),...(sk.soft_skills||[])];if(allSk.length){y=wrapped(p,allSk.join('  ·  '),CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP;}
-    if(sk.languages?.length){p.setFont(F,'bold');tc(p,ar,ag,ab);p.text('Languages: ',CX,y);const lw=p.getTextWidth('Languages: ');p.setFont(F,'normal');tc(p,55,65,81);p.text(sk.languages.join(', '),CX+lw,y);y+=LINE_H+ITEM_GAP;}}
-  y=drawCustom(p,customs,accent,'bar',CX,y,CMW,BOTTOM,np,GXW);
-  refsPage(p,refs,accent,'bar',np,BOTTOM,owner,wm);
+
+  // Section label in left date column + vertical rule + horizontal rule on content side
+  const tHead=(t:string)=>{
+    if(y+16>BOTTOM)y=np();
+    p.setFont(F,'bold');p.setFontSize(8);tc(p,ar,ag,ab);
+    const tl=p.splitTextToSize(t.toUpperCase(),DW) as string[];
+    tl.forEach((l:string,i:number)=>p.text(l,DX,y+i*LINE_H));
+    dc(p,229,231,235);p.setLineWidth(0.4);p.line(VX,y-2,VX,y+6);
+    hLine(p,CX,y,CMW,229,231,235,0.4);
+    y+=tl.length*LINE_H+1;
+  };
+
+  if(pr.bio){
+    tHead('PROFILE');
+    p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
+    dc(p,229,231,235);p.setLineWidth(0.4);p.line(VX,y-2,VX,y+30);
+    y=wrapped(p,pr.bio,CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP+2;
+  }
+
+  if(exp.length){
+    tHead(isEdu?'EMPLOYMENT
+HISTORY':'WORK
+HISTORY');
+    for(const e of exp){
+      if(y+14>BOTTOM)y=np();
+      p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);
+      p.text([e.from,e.to].filter(Boolean).join(' — '),DX,y);
+      dc(p,229,231,235);p.setLineWidth(0.3);p.line(VX,y-3,VX,y+14);
+      p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);
+      p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,CX,y);y+=LINE_H;
+      if(e.description){
+        p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
+        for(const l of (e.description as string).split('
+').map((s:string)=>s.trim()).filter(Boolean))
+          y=bulletLine(p,l,CX,y,CMW,accent,BOTTOM,np,GXW);
+      }
+      y+=ITEM_GAP+1;
+    }
+  }
+
+  if(edu.length){
+    tHead('EDUCATION');
+    for(const e of edu){
+      if(y+12>BOTTOM)y=np();
+      p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);p.text(e.year||'',DX,y);
+      dc(p,229,231,235);p.setLineWidth(0.3);p.line(VX,y-3,VX,y+10);
+      p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.qualification||'',CX,y);y+=LINE_H;
+      p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text(e.institution||'',CX,y);
+      y+=LINE_H+ITEM_GAP;
+    }
+  }
+
+  // ── Skills — separated by category ────────────────────────────────────────
+  if(sk.subjects?.length||sk.soft_skills?.length||sk.languages?.length){
+    tHead('SKILLS');
+    const skillGroups:[string,string[]][]=[
+      ['Key Skills',          sk.subjects    ||[]],
+      ['Professional Skills', sk.soft_skills ||[]],
+      ['Languages',           sk.languages   ||[]],
+    ].filter(([,items])=>(items as string[]).length>0) as [string,string[]][];
+    for(const [label,items] of skillGroups){
+      if(y+LINE_H>BOTTOM)y=np();
+      p.setFont(F,'bold');p.setFontSize(9);tc(p,ar,ag,ab);
+      p.text(`${label}:`,CX,y);
+      const lw=p.getTextWidth(`${label}:`)+2;
+      p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
+      y=wrapped(p,(items as string[]).join('  ·  '),CX+lw,y,CMW-lw,BOTTOM,np,()=>[CX,CMW]);
+      y+=ITEM_GAP;
+    }
+  }
+
+  // ── Custom sections — use 'underline' to match the template's ruled style ─
+  y=drawCustom(p,customs,accent,'underline',CX,y,CMW,BOTTOM,np,GXW);
+  refsPage(p,refs,accent,'underline',np,BOTTOM,owner,wm);
 }
 
 // ── 12. NAVY — Dark right sidebar with progress bars ──────────────────────────
