@@ -381,8 +381,17 @@ export default function CVBuilderPage() {
     // any user's real CV data — explaining generic letters that never
     // named a real qualification regardless of prompt wording.
     if (user) {
-      supabase.auth.updateUser({ data: { last_cv_data: data } }).catch((err) => {
-        console.error('[CVBuilderPage] Failed to save last_cv_data to user_metadata:', err);
+      // Save both last_cv_data AND last_cv_pdf_url to user_metadata so the
+      // PDF re-download link and CV context work on any device the user signs
+      // into — not just the one they generated the CV on.
+      supabase.auth.updateUser({
+        data: {
+          last_cv_data:          data,
+          last_cv_pdf_url:       pdfUrl || null,
+          last_cv_generated_at:  now,
+        }
+      }).catch((err) => {
+        console.error('[CVBuilderPage] Failed to save CV metadata to user_metadata:', err);
       });
     }
   };
