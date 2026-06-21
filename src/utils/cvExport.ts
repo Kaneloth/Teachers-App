@@ -1089,9 +1089,7 @@ function drawTraditional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],cust
   }
 
   if(exp.length){
-    tHead(isEdu?'EMPLOYMENT
-HISTORY':'WORK
-HISTORY');
+    tHead(isEdu?'EMPLOYMENT\nHISTORY':'WORK\nHISTORY');
     for(const e of exp){
       if(y+14>BOTTOM)y=np();
       p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);
