@@ -16,7 +16,7 @@ import {
   Loader2, Camera, Flame, Save, ArrowLeft, RefreshCw, X, Plus,
   Phone, Mail, Users, CreditCard, BookOpen, Upload, ImagePlus,
   CheckCircle2, AlertCircle, XCircle, ShieldCheck, ShieldVerified, Copy,
-  GraduationCap, User, Lock, MapPin,
+  GraduationCap, User, Lock, MapPin, EyeOff, EyeOff,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
