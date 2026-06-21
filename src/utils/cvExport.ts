@@ -304,7 +304,7 @@ function drawFooter(p: any, owner: string, pg: number, total: number,
   if (watermark) {
     fill(p,15,23,42); p.rect(0, PH-FOOTER_H, PW, FOOTER_H, 'F');
     tc(p,148,163,184); p.setFont(F,'normal'); p.setFontSize(6.5);
-    const wt='Created FREE at www.crosssa.co.za  –  Upgrade to remove this watermark';
+    const wt='Created FREE at www.crosssa.co.za';
     p.text(wt, (PW-p.getTextWidth(wt))/2, PH-3.2);
     tc(p,255,255,255); p.setFont(F,'italic'); p.setFontSize(6.5);
     p.text(`Resume of ${owner}`, ML, PH-3.2);
