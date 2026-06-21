@@ -1442,45 +1442,38 @@ function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
     reset(p);
   };
 
-  // ── Calculate header height dynamically so the shaded card always
-  // contains all content without overflowing the bottom border.
-  // Rows: name + job title (optional) + divider line + contact line.
-  const HEADER_PAD_TOP    = 4;   // space from card top to name baseline
-  const HEADER_NAME_H     = 9;   // name row (16 pt bold)
-  const HEADER_JOBTITLE_H = 6;   // job-title row (9.5 pt) — always reserved
-  const HEADER_DIVIDER_H  = 5;   // gap from last text row to divider line
-  const HEADER_CONTACT_H  = 7;   // gap from divider to contact baseline
-  const HEADER_PAD_BOTTOM = 5;   // breathing room below contact
-  const headerCardH = HEADER_PAD_TOP + HEADER_NAME_H + HEADER_JOBTITLE_H
-                    + HEADER_DIVIDER_H + HEADER_CONTACT_H + HEADER_PAD_BOTTOM;
+  // ── Two-column header card: name+profession left, contact right ─────────
+  // No divider line — clean card with just the green background.
+  const HEADER_PAD_TOP    = 5;
+  const HEADER_NAME_H     = 9;
+  const HEADER_JOBTITLE_H = 7;
+  const HEADER_PAD_BOTTOM = 6;
+  const headerCardH = HEADER_PAD_TOP + HEADER_NAME_H + HEADER_JOBTITLE_H + HEADER_PAD_BOTTOM;
 
   fill(p,SAGE_BG[0],SAGE_BG[1],SAGE_BG[2]);
   p.roundedRect(ML-2, MT-4, PW-ML-MR+4, headerCardH, 3, 3, 'F');
 
-  // Name
+  // Left side — Name (bold, dark green) + Profession below
   const nameY = MT + HEADER_PAD_TOP + HEADER_NAME_H - 4;
   tc(p,26,46,26); p.setFont(F,'bold'); p.setFontSize(16);
   p.text(owner, ML+2, nameY);
 
-  // Job title / profession (most recent role, or fallback to isEdu label)
   const jobTitle = (exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
   const jobTitleY = nameY + HEADER_JOBTITLE_H;
   p.setFont(F,'normal'); p.setFontSize(9.5); tc(p,75,108,75);
   p.text(jobTitle, ML+2, jobTitleY);
 
-  // Divider line below the job title
-  const dividerY = jobTitleY + HEADER_DIVIDER_H - 1;
-  hLine(p, ML, dividerY, PW-ML-MR, ar, ag, ab, 0.6);
-
-  // Contact line — fully inside the card, below the divider
-  const contactY = dividerY + HEADER_CONTACT_H;
-  const contactStr = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
-  p.setFont(F,'normal'); p.setFontSize(8); tc(p,55,80,55);
-  p.text(contactStr, ML+2, contactY);
+  // Right side — contact details stacked, right-aligned
+  const contactItems = [pr.address, pr.phone, pr.email].filter(Boolean) as string[];
+  const darkGreen:RGB = [55,80,55];
+  p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,darkGreen[0],darkGreen[1],darkGreen[2]);
+  const contactStartY = nameY - 1; // align top of contact with name baseline
+  contactItems.forEach((item, i) => {
+    const iw = p.getTextWidth(item);
+    p.text(item, PW-MR-2-iw, contactStartY + i * 4.5);
+  });
 
   reset(p);
-  // Body starts below the card with extra gap so the summary is clearly
-  // visually separated from the header area.
   let y = MT - 4 + headerCardH + 10;
   const np=()=>{p.addPage();reset(p);paintStrip();return MT+STRIP_H+4;};
   const GXW=():[ number,number]=>[ML,PW-ML-MR];
