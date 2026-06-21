@@ -94,6 +94,7 @@ export default function Home() {
           .from('educators')
           .select('*')
           .eq('is_actively_looking', true)
+          .eq('is_hidden', false)
           .or(educatorOnly)
           .limit(50),
       ]);

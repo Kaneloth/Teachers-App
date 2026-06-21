@@ -24,6 +24,7 @@ interface Educator {
   user_id?: string;
   profile_type?: string;
   distance_km?: number;
+  is_hidden?: boolean;
 }
 
 interface Props {
@@ -111,7 +112,7 @@ export default function Search({ embedded = false }: Props) {
       // other (e.g. "within 45km of Polokwane" + "KZN").
       if (filters.phase)      results = results.filter(e => e.phase === filters.phase);
       if (filters.activeOnly) results = results.filter(e => e.is_actively_looking);
-      if (filters.subjects?.length) results = results.filter(e => filters.subjects!.every(s => e.subjects?.includes(s)));
+      if (filters.subject)    results = results.filter(e => e.subjects?.includes(filters.subject));
 
     } else {
       let q = supabase.from('educators').select('*');
@@ -123,7 +124,7 @@ export default function Search({ embedded = false }: Props) {
       if (filters.province) q = q.eq('current_province', filters.province);
       if (filters.phase)      q = q.eq('phase', filters.phase);
       if (filters.activeOnly) q = q.eq('is_actively_looking', true);
-      if (filters.subjects?.length) q = q.contains('subjects', filters.subjects!);
+      if (filters.subject)    q = q.contains('subjects', [filters.subject]);
 
       const { data } = await q.limit(50);
       results = data || [];
@@ -162,6 +163,18 @@ export default function Search({ embedded = false }: Props) {
         e.current_province?.toLowerCase().includes(lower) ||
         e.subjects?.some(s => s.toLowerCase().includes(lower))
       );
+    }
+
+    /* Filter hidden profiles — only when no specific filters are active.
+       If the user has applied province/subject/phase/town filters,
+       hidden profiles are still shown (they opted in to filtered visibility). */
+    const hasActiveFilters = !!(
+      filters.province || filters.phase ||
+      (filters.subjects && filters.subjects.length > 0) ||
+      filters.town.trim() || filters.radiusKm > 0
+    );
+    if (!hasActiveFilters) {
+      results = results.filter(e => !e.is_hidden);
     }
 
     /* Exclude anyone who already qualifies for the Matches page (≥85% match
