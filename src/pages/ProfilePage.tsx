@@ -1040,8 +1040,8 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Profile visibility toggle — available to all profile types */}
-          <div className={`rounded-2xl border-2 px-4 py-4 transition-all ${
+          {/* Profile visibility toggle — educators only */}
+          {isEducator && <div className={`rounded-2xl border-2 px-4 py-4 transition-all ${
             profile.is_hidden
               ? 'bg-slate-50 dark:bg-slate-900/20 border-slate-300 dark:border-slate-700'
               : 'bg-card border-border'
@@ -1064,7 +1064,7 @@ export default function ProfilePage() {
               </div>
               <Switch checked={!!profile.is_hidden} onCheckedChange={handleToggleHidden} />
             </div>
-          </div>
+          </div>}
 
           <SectionCard label="Personal Information">
             <Field label="Full Name">
