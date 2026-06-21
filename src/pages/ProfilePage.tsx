@@ -1058,8 +1058,8 @@ export default function ProfilePage() {
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {profile.is_hidden
-                    ? 'You won't appear in browse lists — but you still show in filtered searches.'
-                    : 'You appear in search and browse results normally.'}
+                    ? "You won't appear in browse lists — but you still show in filtered searches."
+                    : "You appear in search and browse results normally."}
                 </p>
               </div>
               <Switch checked={!!profile.is_hidden} onCheckedChange={handleToggleHidden} />
