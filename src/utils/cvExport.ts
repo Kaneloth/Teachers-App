@@ -1137,8 +1137,43 @@ function drawTraditional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],cust
     }
   }
 
-  // ── Custom sections — use 'underline' to match the template's ruled style ─
-  y=drawCustom(p,customs,accent,'underline',CX,y,CMW,BOTTOM,np,GXW);
+  // ── Custom sections — rendered with tHead() to match left-column label style ─
+  if (customs?.filter((s:any)=>s.title).length) {
+    for (const sec of customs) {
+      if (!sec.title) continue;
+      const hasContent =
+        (sec.type === 'text'    && !!(sec.content && sec.content.trim())) ||
+        (sec.type === 'bullets' && !!(sec.content && (sec.content as string).split('\n').map((l:string)=>l.trim()).filter(Boolean).length)) ||
+        (sec.type === 'table'   && !!(sec.columns?.length && sec.rows?.length));
+      if (!hasContent) continue;
+
+      tHead(sec.title.toUpperCase());
+      p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
+
+      if (sec.type === 'text' && sec.content) {
+        y = wrapped(p, sec.content, CX, y, CMW, BOTTOM, np, GXW);
+      } else if (sec.type === 'bullets' && sec.content) {
+        for (const b of (sec.content as string).split('\n').map((l:string)=>l.trim()).filter(Boolean))
+          y = bulletLine(p, b, CX, y, CMW, accent, BOTTOM, np, GXW);
+      } else if (sec.type === 'table' && sec.columns?.length && sec.rows?.length) {
+        const cw = CMW / sec.columns.length;
+        const [ar2,ag2,ab2] = accent;
+        fill(p,ar2,ag2,ab2); tc(p,255,255,255);
+        p.rect(CX, y-4, CMW, 6, 'F');
+        p.setFont(F,'bold'); p.setFontSize(8);
+        sec.columns.forEach((col:string,ci:number)=>p.text(col, CX+ci*cw+1, y));
+        y+=6; p.setFont(F,'normal'); p.setFontSize(8.5);
+        for (let ri=0; ri<sec.rows.length; ri++) {
+          if (y+6>BOTTOM) { y=np(); }
+          if (ri%2===0) { fill(p,249,250,251); p.rect(CX,y-4,CMW,6,'F'); }
+          tc(p,55,65,81);
+          sec.rows[ri].forEach((cell:string,ci:number)=>p.text(String(cell||''), CX+ci*cw+1, y));
+          y+=6;
+        }
+      }
+      y += 3;
+    }
+  }
   refsPage(p,refs,accent,'underline',np,BOTTOM,owner,wm);
 }
 
