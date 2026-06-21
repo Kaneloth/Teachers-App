@@ -561,8 +561,9 @@ function avatarColor(name: string) {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
-function statusBadge(status: string, emailConfirmed = true) {
+function statusBadge(status: string, emailConfirmed = true, profileType?: string | null) {
   if (!emailConfirmed) return <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">pending</span>;
+  if (!profileType) return <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">incomplete</span>;
   const s = (status || 'active').toLowerCase();
   if (s === 'suspended') return <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700">suspended</span>;
   if (s === 'banned') return <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-red-100 text-red-700">banned</span>;
@@ -813,7 +814,7 @@ function UsersSubTab() {
                     <p className="text-[11px] font-mono text-primary/80 truncate">{u.user_code}</p>
                   )}
                 </div>
-                {statusBadge(u.account_status, u.email_confirmed)}
+                {statusBadge(u.account_status, u.email_confirmed, u.profile_type)}
                 <ChevronRight className="w-4 h-4 text-muted-foreground ml-1 shrink-0" />
               </button>
             </div>
