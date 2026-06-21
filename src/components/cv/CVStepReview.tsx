@@ -309,12 +309,14 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
         disabled={sending || (!isAdmin && !(pdfUrl ?? existingPdfUrl) && !creditsLoading && balance < (aiUsed ? 7 : 9))}
         className="w-full h-12 rounded-xl text-sm font-semibold gap-2"
       >
-        <Download className="w-5 h-5" />
-        {sending
-          ? 'Downloading...'
-          : (pdfUrl ?? existingPdfUrl)
-            ? 'Download CV — free (already generated)'
-            : `Generate & Download PDF (${aiUsed ? 7 : 9} credits)${shouldWatermark ? ' · watermark' : ''}`}
+        <Download className="w-4 h-4 shrink-0" />
+        <span className="truncate">
+          {sending
+            ? 'Downloading...'
+            : (pdfUrl ?? existingPdfUrl)
+              ? 'Download CV (free — already generated)'
+              : `Download PDF · ${aiUsed ? 7 : 9} credits${shouldWatermark ? ' · watermarked' : ''}`}
+        </span>
       </Button>
 
       {/* Insufficient credits modal */}
