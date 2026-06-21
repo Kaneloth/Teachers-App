@@ -248,13 +248,8 @@ function sectionHeading(p: any, title: string, x: number, y: number, maxW: numbe
     p.text(title, x, y);
     hLine(p, x, y+2, maxW, ar,ag,ab, 0.5);
   } else if (style === 'tag-underline') {
-    let titleX = x;
-    if (icon && p.__iconFontRegistered) {
-      drawIcon(p, icon, x, y-0.5, 9, accent);
-      titleX = x + 7; // indent title to clear the icon glyph
-    }
     tc(p,ar,ag,ab); p.setFont(F,'bold'); p.setFontSize(10);
-    p.text(title.toUpperCase(), titleX, y);
+    p.text(title.toUpperCase(), x, y);
     hLine(p, x, y+2, maxW, ar,ag,ab, 0.5);
     return y + HEADING_GAP + 2.5; // extra clearance below the underline so content doesn't overlap it
   } else if (style === 'dot-prefix') {
@@ -440,12 +435,12 @@ function sidebarLabel(p: any, t: string, x: number, y: number, maxW: number,
 // ── Accent map ────────────────────────────────────────────────────────────────
 function getAccent(tmpl: string): RGB {
   const map: Record<string,string> = {
-    classic:'#1e2a3a', minimal:'#111827', bold:'#c2185b',
-    stylish:'#e05c6b', traditional:'#374151',
-    timeline:'#374151', shaded:'#374151', crimson:'#c0392b', sage:'#7fa37f',
+    classic:'#1e2a3a', modern:'#0d9488', professional:'#1e4d2b', minimal:'#111827',
+    sidebar:'#3b5998', bold:'#c2185b', executive:'#6b1a1a', corporate:'#1a2a4a',
+    boxed:'#374151', traditional:'#374151', navy:'#1a2a4a',
+    shaded:'#374151', teal:'#06b6d4', crimson:'#c0392b', sage:'#7fa37f',
     elegant:'#475569',
     heritage:'#334155',
-    casual:'#111111',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -552,17 +547,22 @@ export async function exportElementAsPDF(
 
   const dispatch: Record<string, ()=>void> = {
     classic:      ()=>drawClassic(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    modern:       ()=>drawModern(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    professional: ()=>drawProfessional(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     minimal:      ()=>drawMinimal(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    sidebar:      ()=>drawSidebar(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     bold:         ()=>drawBold(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    stylish:      ()=>drawStylish(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    executive:    ()=>drawExecutive(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    corporate:    ()=>drawCorporate(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    boxed:        ()=>drawBoxed(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     traditional:  ()=>drawTraditional(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    timeline:     ()=>drawTimeline(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    navy:         ()=>drawNavy(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     shaded:       ()=>drawShaded(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    teal:         ()=>drawTeal(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     crimson:      ()=>drawCrimson(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     sage:         ()=>drawSage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     elegant:      ()=>drawElegant(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
     heritage:     ()=>drawHeritage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    casual:       ()=>drawCasual(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -812,105 +812,31 @@ function drawSidebar(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 
 // ── 6. BOLD — Pink banner, main left column + narrow right skill panel ─────────
 function drawBold(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
-  const accent:RGB = hex('#c2185b'); const [ar,ag,ab] = accent;
-
-  // ── Bold magenta full-width banner header ─────────────────────────────────
-  fill(p,ar,ag,ab); p.rect(0,0,PW,32,'F');
-  tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(18);
-  p.text(owner.toUpperCase(), ML, 12);
-  // Job title below name
-  const jobTitle = (exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
-  p.setFont(F,'normal'); p.setFontSize(9); tc(p,255,180,210);
-  p.text(jobTitle, ML, 18);
-  // Divider + contact
-  fill(p,255,255,255); p.rect(ML,21,PW-ML-MR,0.4,'F');
-  p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,255,210,230);
-  p.text([pr.email,pr.phone,pr.address].filter(Boolean).join('   |   '), ML, 27);
+  const accent=hex('#c2185b');const [ar,ag,ab]=accent;
+  fill(p,ar,ag,ab);p.rect(0,0,PW,32,'F');tc(p,255,255,255);p.setFont(F,'bold');p.setFontSize(18);p.text(owner.toUpperCase(),ML,12);
+  p.setFont(F,'normal');p.setFontSize(8);tc(p,255,180,210);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',ML,18);
+  fill(p,255,255,255);p.rect(ML,20,PW-ML-MR,0.4,'F');
+  p.setFont(F,'normal');p.setFontSize(7.5);tc(p,255,210,230);p.text([pr.email,pr.phone,pr.address].filter(Boolean).join('   |   '),ML,27);
   reset(p);
-
-  const W = PW-ML-MR;
-  let y = MT + 24;
-  const paintStrip = () => { fill(p,ar,ag,ab); p.rect(0,0,PW,5,'F'); reset(p); };
-  const np  = () => { p.addPage(); reset(p); paintStrip(); return MT+7; };
-  const GXW = ():[number,number] => [ML, W];
-
-  // ── Professional Summary ──────────────────────────────────────────────────
-  if (pr.bio) {
-    y = sectionHeading(p,'Professional Summary',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.fileText);
-    y += 3;
-    p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
-    y = wrapped(p,pr.bio,ML,y,W,BOTTOM,np,GXW);
-    y += ITEM_GAP + 2;
-  }
-
-  // ── Experience ────────────────────────────────────────────────────────────
-  if (exp.length) {
-    y = sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.briefcase);
-    y += 3;
-    for (const e of exp) {
-      if (y+14>BOTTOM) y=np();
-      p.setFont(F,'bold'); p.setFontSize(10); tc(p,17,24,39);
-      p.text(e.role||'', ML, y);
-      const ds = [e.from,e.to].filter(Boolean).join(' – ');
-      if (ds) { tc(p,156,163,175); p.setFont(F,'normal'); p.setFontSize(8); p.text(ds, PW-MR-p.getTextWidth(ds), y); }
-      y += LINE_H;
-      if (e.school) { p.setFont(F,'bold'); p.setFontSize(8.5); tc(p,ar,ag,ab); p.text(e.school, ML, y); y += LINE_H; }
-      if (e.description) {
-        p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
-        for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))
-          y = bulletLine(p,l,ML,y,W,accent,BOTTOM,np,GXW);
-      }
-      y += ITEM_GAP + 1;
-    }
-  }
-
-  // ── Education ─────────────────────────────────────────────────────────────
-  if (edu.length) {
-    y = sectionHeading(p,'Education',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.graduationCap);
-    y += 3;
-    for (const e of edu) {
-      if (y+12>BOTTOM) y=np();
-      p.setFont(F,'bold'); p.setFontSize(10); tc(p,17,24,39);
-      p.text(e.qualification||'', ML, y); y += LINE_H;
-      p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,107,114,128);
-      p.text([e.institution,e.year].filter(Boolean).join('  ·  '), ML, y);
-      y += LINE_H + ITEM_GAP;
-    }
-  }
-
-  // ── Skills — categorised ──────────────────────────────────────────────────
-  const boldSkillGroups = ([
-    ['Key Skills',          sk.subjects    || []],
-    ['Professional Skills', sk.soft_skills || []],
-    ['Languages',           sk.languages   || []],
-  ] as [string,string[]][]).filter(([,items]) => items.length > 0);
-
-  if (boldSkillGroups.length) {
-    y = sectionHeading(p,'Skills',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.cogs);
-    y += 3;
-    const skGap = 10; const skColW = (W-skGap)/2;
-    for (let g=0; g<boldSkillGroups.length; g++) {
-      const [label, items] = boldSkillGroups[g];
-      if (y+LINE_H>BOTTOM) y=np();
-      p.setFont(F,'bold'); p.setFontSize(9); tc(p,ar,ag,ab);
-      p.text(label as string, ML, y); y += LINE_H;
-      const col1 = (items as string[]).filter((_:string,i:number)=>i%2===0);
-      const col2 = (items as string[]).filter((_:string,i:number)=>i%2===1);
-      for (let r=0; r<Math.max(col1.length,col2.length); r++) {
-        if (y+LINE_H>BOTTOM) y=np();
-        if (col1[r]) { dot(p,ML+0.5,y-0.2,accent); p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81); p.text(col1[r],ML+BULLET_INDENT,y); }
-        if (col2[r]) { dot(p,ML+skColW+skGap+0.5,y-0.2,accent); p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81); p.text(col2[r],ML+skColW+skGap+BULLET_INDENT,y); }
-        y += LINE_H;
-      }
-      y += ITEM_GAP + (g < boldSkillGroups.length-1 ? 1 : 0);
-    }
-    y += 1;
-  }
-
-  y = drawCustom(p,customs,accent,'tag-underline',ML,y,W,BOTTOM,np,GXW);
-  refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm);
+  const RCX=PW-MR-50;const RCW=50;const MCW=RCX-ML-6;let y=MT+24;
+  const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,PW,5,'F');reset(p);return MT+7;};const GXW=():[ number,number]=>[ML,MCW];
+  if(pr.bio){y=sectionHeading(p,'Summary',ML,y,MCW,accent,'bar',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,MCW,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
+  if(exp.length){y=sectionHeading(p,'Experience',ML,y,MCW,accent,'bar',BOTTOM,np,GXW);
+    for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',ML,y);y+=LINE_H;
+      p.setFont(F,'bold');p.setFontSize(8.5);tc(p,ar,ag,ab);p.text(e.school||'',ML,y);const ds=[e.from,e.to].filter(Boolean).join(' – ');if(ds){tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,RCX-4-p.getTextWidth(ds),y);}y+=LINE_H;
+      if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML,y,MCW,accent,BOTTOM,np,GXW);
+      y+=ITEM_GAP+1;}}
+  y=drawCustom(p,customs,accent,'bar',ML,y,MCW,BOTTOM,np,GXW);
+  // Right panel
+  let rcy=MT+24;
+  if(edu.length){p.setFont(F,'bold');p.setFontSize(8);tc(p,ar,ag,ab);p.text('EDUCATION',RCX,rcy);rcy+=4;hLine(p,RCX,rcy,RCW,ar,ag,ab,0.4);rcy+=4;
+    for(const e of edu){if(rcy>=BOTTOM)break;const ql=p.splitTextToSize(e.qualification||'',RCW) as string[];ql.forEach((l:string)=>{p.setFont(F,'bold');p.setFontSize(8.5);tc(p,17,24,39);p.text(l,RCX,rcy);rcy+=3.8;});
+      p.setFont(F,'normal');p.setFontSize(7.5);tc(p,107,114,128);p.text([e.institution,e.year].filter(Boolean).join(' · '),RCX,rcy);rcy+=5;}rcy+=3;}
+  for(const [lbl,items] of [['Subjects',sk.subjects||[]],['Skills',sk.soft_skills||[]],['Languages',sk.languages||[]]] as [string,string[]][]){if(!items.length)continue;
+    p.setFont(F,'bold');p.setFontSize(8);tc(p,ar,ag,ab);p.text(lbl.toUpperCase(),RCX,rcy);rcy+=4;hLine(p,RCX,rcy,RCW,ar,ag,ab,0.4);rcy+=4;
+    for(const it of items){if(rcy>=BOTTOM)break;const ls=p.splitTextToSize(`– ${it}`,RCW) as string[];ls.forEach((l:string)=>{p.setFont(F,'normal');p.setFontSize(7.5);tc(p,55,65,81);p.text(l,RCX,rcy);rcy+=3.8;});}rcy+=3;}
+  refsPage(p,refs,accent,'bar',np,BOTTOM,owner,wm);
 }
-
 
 // ── 7. EXECUTIVE — Burgundy gradient banner, two-col body ─────────────────────
 function drawExecutive(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
@@ -1213,236 +1139,58 @@ function drawTeal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
 
 // ── 16. CRIMSON — Red banner, italic section headings, right skill bars ────────
 function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
-  const accent:RGB = hex('#c0392b'); const [ar,ag,ab] = accent;
-
-  // ── Crimson bold-italic banner header ────────────────────────────────────
-  fill(p,ar,ag,ab); p.rect(0,0,PW,28,'F');
-  tc(p,255,255,255); p.setFont(F,'bolditalic'); p.setFontSize(18);
-  p.text(owner, ML, 11);
-  const jobTitle = (exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
-  p.setFont(F,'italic'); p.setFontSize(9); tc(p,255,180,160);
-  p.text(jobTitle, ML, 18);
-  hLine(p,0,22,PW,255,255,255,0.25);
-  p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,255,210,200);
-  p.text([pr.email,pr.phone,pr.address].filter(Boolean).join('   |   '), ML, 27);
+  const accent=hex('#c0392b');const [ar,ag,ab]=accent;
+  fill(p,ar,ag,ab);p.rect(0,0,PW,28,'F');tc(p,255,255,255);p.setFont(F,'bolditalic');p.setFontSize(18);p.text(owner,ML,12);
+  p.setFont(F,'normal');p.setFontSize(8);tc(p,255,180,160);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',ML,18);reset(p);
+  hLine(p,0,28,PW,229,231,235,0.5);p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);
+  let ci=ML;for(const item of [pr.email,pr.address,pr.phone].filter(Boolean) as string[]){if(ci+p.getTextWidth(item)+10>PW-MR)break;p.text(item,ci,34);ci+=p.getTextWidth(item)+10;}
   reset(p);
-
-  const W = PW-ML-MR;
-  let y = MT + 22;
-  const paintStrip = () => { fill(p,ar,ag,ab); p.rect(0,0,PW,5,'F'); reset(p); };
-  const np  = () => { p.addPage(); reset(p); paintStrip(); return MT+7; };
-  const GXW = ():[number,number] => [ML, W];
-
-  // ── Professional Summary ──────────────────────────────────────────────────
-  if (pr.bio) {
-    y = sectionHeading(p,'Professional Summary',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.fileText);
-    y += 3;
-    p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
-    y = wrapped(p,pr.bio,ML,y,W,BOTTOM,np,GXW);
-    y += ITEM_GAP + 2;
-  }
-
-  // ── Experience ────────────────────────────────────────────────────────────
-  if (exp.length) {
-    y = sectionHeading(p,isEdu?'Teaching Experience':'Employment History',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.briefcase);
-    y += 3;
-    for (const e of exp) {
-      if (y+14>BOTTOM) y=np();
-      p.setFont(F,'bold'); p.setFontSize(10); tc(p,17,24,39);
-      p.text(`${e.role||''}${e.school?', '+e.school:''}`, ML, y);
-      y += LINE_H;
-      const ds = [e.from,e.to].filter(Boolean).join(' — ');
-      if (ds) { p.setFont(F,'italic'); p.setFontSize(8); tc(p,156,163,175); p.text(ds, ML, y); y += LINE_H; }
-      if (e.description) {
-        p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
-        for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))
-          y = bulletLine(p,l,ML,y,W,accent,BOTTOM,np,GXW);
-      }
-      y += ITEM_GAP + 1;
-    }
-  }
-
-  // ── Education ─────────────────────────────────────────────────────────────
-  if (edu.length) {
-    y = sectionHeading(p,'Education',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.graduationCap);
-    y += 3;
-    for (const e of edu) {
-      if (y+12>BOTTOM) y=np();
-      p.setFont(F,'bold'); p.setFontSize(10); tc(p,17,24,39);
-      p.text(e.qualification||'', ML, y); y += LINE_H;
-      p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,107,114,128);
-      p.text([e.institution,e.year].filter(Boolean).join('  ·  '), ML, y);
-      y += LINE_H + ITEM_GAP;
-    }
-  }
-
-  // ── Skills — categorised, 2-col per group ────────────────────────────────
-  const crimSkillGroups = ([
-    ['Key Skills',          sk.subjects    || []],
-    ['Professional Skills', sk.soft_skills || []],
-    ['Languages',           sk.languages   || []],
-  ] as [string,string[]][]).filter(([,items]) => items.length > 0);
-
-  if (crimSkillGroups.length) {
-    y = sectionHeading(p,'Skills',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.cogs);
-    y += 3;
-    const skGap = 10; const skColW = (W-skGap)/2;
-    for (let g=0; g<crimSkillGroups.length; g++) {
-      const [label, items] = crimSkillGroups[g];
-      if (y+LINE_H>BOTTOM) y=np();
-      p.setFont(F,'bold'); p.setFontSize(9); tc(p,ar,ag,ab);
-      p.text(label as string, ML, y); y += LINE_H;
-      const col1 = (items as string[]).filter((_:string,i:number)=>i%2===0);
-      const col2 = (items as string[]).filter((_:string,i:number)=>i%2===1);
-      for (let r=0; r<Math.max(col1.length,col2.length); r++) {
-        if (y+LINE_H>BOTTOM) y=np();
-        if (col1[r]) { dot(p,ML+0.5,y-0.2,accent); p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81); p.text(col1[r],ML+BULLET_INDENT,y); }
-        if (col2[r]) { dot(p,ML+skColW+skGap+0.5,y-0.2,accent); p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81); p.text(col2[r],ML+skColW+skGap+BULLET_INDENT,y); }
-        y += LINE_H;
-      }
-      y += ITEM_GAP + (g < crimSkillGroups.length-1 ? 1 : 0);
-    }
-    y += 1;
-  }
-
-  y = drawCustom(p,customs,accent,'tag-underline',ML,y,W,BOTTOM,np,GXW);
-  refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm);
+  const RCX=PW-MR-52;const RCW=52;const MCW=RCX-ML-6;let y=38;
+  const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,PW,5,'F');reset(p);return MT+7;};const GXW=():[ number,number]=>[ML,MCW];
+  if(pr.bio){y=sectionHeading(p,'Profile',ML,y,MCW,accent,'italic-underline',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,MCW,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
+  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Employment History',ML,y,MCW,accent,'italic-underline',BOTTOM,np,GXW);
+    for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,ML,y);y+=LINE_H;
+      p.setFont(F,'italic');p.setFontSize(8);tc(p,156,163,175);p.text([e.from,e.to].filter(Boolean).join(' — '),ML,y);y+=LINE_H;
+      if(e.description){p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML,y,MCW,accent,BOTTOM,np,GXW);}y+=ITEM_GAP+1;}}
+  if(edu.length){y=sectionHeading(p,'Education',ML,y,MCW,accent,'italic-underline',BOTTOM,np,GXW);
+    for(const e of edu){if(y+12>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.qualification||'',ML,y);y+=LINE_H;p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text([e.institution,e.year].filter(Boolean).join('  ·  '),ML,y);y+=LINE_H+ITEM_GAP;}}
+  y=drawCustom(p,customs,accent,'italic-underline',ML,y,MCW,BOTTOM,np,GXW);
+  // Right skill bars
+  let rcy=38;const allSk=[...(sk.subjects||[]),...(sk.soft_skills||[])];
+  if(allSk.length){p.setFont(F,'bolditalic');p.setFontSize(10);tc(p,ar,ag,ab);p.text('Skills',RCX,rcy);hLine(p,RCX,rcy+2,RCW,ar,ag,ab,0.5);rcy+=8;
+    for(const s of allSk.slice(0,10)){if(rcy>=BOTTOM-10)break;p.setFont(F,'normal');p.setFontSize(8);tc(p,55,65,81);p.text(s,RCX,rcy);rcy+=3.8;progressBar(p,RCX,rcy,RCW,0.75,accent);rcy+=5;}rcy+=4;}
+  if(sk.languages?.length){p.setFont(F,'bolditalic');p.setFontSize(10);tc(p,ar,ag,ab);p.text('Languages',RCX,rcy);hLine(p,RCX,rcy+2,RCW,ar,ag,ab,0.5);rcy+=8;for(const l of sk.languages){if(rcy>=BOTTOM-6)break;p.setFont(F,'normal');p.setFontSize(8);tc(p,55,65,81);p.text(l,RCX,rcy);rcy+=4;}}
+  refsPage(p,refs,accent,'italic-underline',np,BOTTOM,owner,wm);
 }
-
 
 // ── 17. SAGE — Soft green card header, bulleted skills list ───────────────────
 function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent=hex('#7fa37f');const SAGE_BG:RGB=[232,240,232];const [ar,ag,ab]=accent;
-  const STRIP_H = 8; // height of the sage-green top strip on page 2+
-
-  // Helper: paints the sage-green top strip on continuation pages so every
-  // page from page 2 onward carries the same header shade as page 1.
-  const paintStrip = () => {
-    fill(p,SAGE_BG[0],SAGE_BG[1],SAGE_BG[2]);
-    p.rect(0, 0, PW, STRIP_H, 'F');
-    reset(p);
-  };
-
-  // ── Calculate header height dynamically so the shaded card always
-  // contains all content without overflowing the bottom border.
-  // Rows: name + job title (optional) + divider line + contact line.
-  const HEADER_PAD_TOP    = 4;   // space from card top to name baseline
-  const HEADER_NAME_H     = 9;   // name row (16 pt bold)
-  const HEADER_JOBTITLE_H = 6;   // job-title row (9.5 pt) — always reserved
-  const HEADER_DIVIDER_H  = 5;   // gap from last text row to divider line
-  const HEADER_CONTACT_H  = 7;   // gap from divider to contact baseline
-  const HEADER_PAD_BOTTOM = 5;   // breathing room below contact
-  const headerCardH = HEADER_PAD_TOP + HEADER_NAME_H + HEADER_JOBTITLE_H
-                    + HEADER_DIVIDER_H + HEADER_CONTACT_H + HEADER_PAD_BOTTOM;
-
-  fill(p,SAGE_BG[0],SAGE_BG[1],SAGE_BG[2]);
-  p.roundedRect(ML-2, MT-4, PW-ML-MR+4, headerCardH, 3, 3, 'F');
-
-  // Name
-  const nameY = MT + HEADER_PAD_TOP + HEADER_NAME_H - 4;
-  tc(p,26,46,26); p.setFont(F,'bold'); p.setFontSize(16);
-  p.text(owner, ML+2, nameY);
-
-  // Job title / profession (most recent role, or fallback to isEdu label)
-  const jobTitle = (exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
-  const jobTitleY = nameY + HEADER_JOBTITLE_H;
-  p.setFont(F,'normal'); p.setFontSize(9.5); tc(p,75,108,75);
-  p.text(jobTitle, ML+2, jobTitleY);
-
-  // Divider line below the job title
-  const dividerY = jobTitleY + HEADER_DIVIDER_H - 1;
-  hLine(p, ML, dividerY, PW-ML-MR, ar, ag, ab, 0.6);
-
-  // Contact line — fully inside the card, below the divider
-  const contactY = dividerY + HEADER_CONTACT_H;
-  const contactStr = [pr.address, pr.phone, pr.email].filter(Boolean).join('   ·   ');
-  p.setFont(F,'normal'); p.setFontSize(8); tc(p,55,80,55);
-  p.text(contactStr, ML+2, contactY);
-
-  reset(p);
-  // Body starts below the card with extra gap so the summary is clearly
-  // visually separated from the header area.
-  let y = MT - 4 + headerCardH + 10;
-  const np=()=>{p.addPage();reset(p);paintStrip();return MT+STRIP_H+4;};
-  const GXW=():[ number,number]=>[ML,PW-ML-MR];
-
-  // Professional summary — rendered as a proper named section so it is
-  // clearly separated from the header rather than floating immediately below it.
-  if(pr.bio){
-    y=sectionHeading(p,'Professional Summary',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW,ICON.fileText);
-    y+=3;
-    p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
-    y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);
-    y+=ITEM_GAP+2;
-  }
-
-  if(exp.length){
-    y=sectionHeading(p,isEdu?'Teaching Experience':'Career Experience',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW,ICON.briefcase);
-    y+=3;
+  fill(p,...SAGE_BG);p.roundedRect(ML-2,MT-4,PW-ML-MR+4,28,3,3,'F');
+  tc(p,26,46,26);p.setFont(F,'bold');p.setFontSize(16);p.text(owner,ML+2,MT+7);
+  // Job title (most recent role) sits below the name — was missing
+  // entirely before; falls back gracefully if no experience is listed.
+  const jobTitle = (exp[0]?.role || '').trim();
+  let headerY = MT+13;
+  if (jobTitle) { p.setFont(F,'normal');p.setFontSize(9.5);tc(p,75,108,75);p.text(jobTitle,ML+2,headerY); headerY += 5; }
+  hLine(p,ML,headerY,PW-ML-MR,ar,ag,ab,0.6);
+  // Contact details now sit BELOW the line, not above it.
+  p.setFont(F,'normal');p.setFontSize(8);tc(p,55,80,55);p.text([pr.address,pr.phone,pr.email].filter(Boolean).join('   ·   '),ML+2,headerY+6);
+  reset(p);let y=headerY+12;
+  const np=()=>{p.addPage();reset(p);return MT;};const GXW=():[ number,number]=>[ML,PW-ML-MR];
+  if(pr.bio){p.setFont(F,'normal');p.setFontSize(9.5);tc(p,75,108,75);p.text('Educator',ML,y);y+=5;p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
+  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Career Experience',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'normal');p.setFontSize(11);tc(p,ar,ag,ab);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,ML,y);const ds=[e.from,e.to].filter(Boolean).join(' — ');if(ds){tc(p,156,163,175);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,PW-MR-p.getTextWidth(ds),y);}y+=LINE_H;
       if(e.description){p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML,y,PW-ML-MR,accent,BOTTOM,np,GXW);}y+=ITEM_GAP+1;}}
-
-  if(edu.length){
-    y=sectionHeading(p,'Education',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW,ICON.graduationCap);
-    y+=3;
+  if(edu.length){y=sectionHeading(p,'Education',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
     for(const e of edu){if(y+12>BOTTOM)y=np();p.setFont(F,'normal');p.setFontSize(11);tc(p,ar,ag,ab);p.text(e.qualification||'',ML,y);y+=LINE_H;p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text([e.institution,e.year].filter(Boolean).join('  ·  '),ML,y);y+=LINE_H+ITEM_GAP;}}
-
-  // ── Skills — grouped by category with a bold label per group ─────────────
-  const sageSkillGroups = ([
-    ['Key Skills',          sk.subjects    || []],
-    ['Professional Skills', sk.soft_skills || []],
-    ['Languages',           sk.languages   || []],
-  ] as [string, string[]][]).filter(([, items]) => items.length);
-
-  if (sageSkillGroups.length) {
-    y = sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW,ICON.cogs);
-    y+=3;
-    for (let g=0; g<sageSkillGroups.length; g++) {
-      const [label, items] = sageSkillGroups[g];
-      if (y+LINE_H > BOTTOM) y = np();
-      p.setFont(F,'bold'); p.setFontSize(9); tc(p,ar,ag,ab);
-      p.text(label, ML, y);
-      y += LINE_H;
-      p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
-      for (const s of items) y = bulletLine(p, s, ML, y, PW-ML-MR, accent, BOTTOM, np, GXW);
-      y += ITEM_GAP + (g < sageSkillGroups.length-1 ? 1 : 0);
-    }
-    y += 1;
-  }
-
+  const allSk=[...(sk.subjects||[]),...(sk.soft_skills||[]),...(sk.languages||[])];
+  if(allSk.length){y=sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW);
+    p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
+    for(const s of allSk)y=bulletLine(p,s,ML,y,PW-ML-MR,accent,BOTTOM,np,GXW);
+    y+=ITEM_GAP+1;}
   y=drawCustom(p,customs,accent,'tag-underline',ML,y,PW-ML-MR,BOTTOM,np,GXW);
-
-  // ── References page — uses SAGE_BG strip so it matches the header shade ──
-  // Pass SAGE_BG as the `bg` tint BUT we only want a top strip, not a full
-  // page fill. We do this by calling refsPage with topStrip=false and
-  // manually painting the strip on each refs page via a wrapper np.
-  const validRefs = refs.filter((r:any)=>r.name);
-  if (validRefs.length) {
-    p.addPage(); reset(p); paintStrip();
-    let ry = MT + STRIP_H + 4;
-    const rnp = ()=>{ p.addPage(); reset(p); paintStrip(); return MT+STRIP_H+4; };
-    ry = sectionHeading(p,'References',ML,ry,PW-ML-MR,accent,'tag-underline',BOTTOM,rnp,undefined,ICON.user);
-    ry += 5;
-    const half = (PW-ML-MR-8)/2;
-    for (let i=0; i<validRefs.length; i+=2) {
-      const drawRef = (ref:any, rx:number, startY:number): number => {
-        let cy = startY;
-        dot(p, rx, cy-0.8, accent, 1.6);
-        p.setFont(F,'bold'); p.setFontSize(9.5); tc(p,17,24,39);
-        p.text(ref.name, rx+3, cy); cy += LINE_H;
-        if (ref.title)        { p.setFont(F,'normal'); p.setFontSize(9);   tc(p,ar,ag,ab);       p.text(ref.title,        rx+3, cy); cy+=LINE_H; }
-        if (ref.organisation) { p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,107,114,128);    p.text(ref.organisation, rx+3, cy); cy+=LINE_H; }
-        if (ref.relationship) { p.setFont(F,'italic'); p.setFontSize(8);   tc(p,156,163,175);    p.text(ref.relationship, rx+3, cy); cy+=LINE_H; }
-        if (ref.phone||ref.email) { p.setFont(F,'normal'); p.setFontSize(8); tc(p,107,114,128);  p.text([ref.phone,ref.email].filter(Boolean).join('  |  '), rx+3, cy); cy+=LINE_H; }
-        return cy;
-      };
-      const ly  = drawRef(validRefs[i],     ML,           ry);
-      const ry2 = validRefs[i+1] ? drawRef(validRefs[i+1], ML+half+8, ry) : ry;
-      ry = Math.max(ly,ry2)+2;
-      hLine(p, ML, ry, PW-ML-MR, 229,231,235, 0.2);
-      ry += 5;
-    }
-  }
+  refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm);
 }
 
 // ── 18. ELEGANT — Centered serif layout on soft lavender background ─────────
@@ -1721,376 +1469,4 @@ function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
 
   // References page keeps the same lavender background
   refsPage(p,refs,accent,'double-line',np,BOTTOM,owner,wm,BG);
-}
-// ── 20. PLAYFUL — Cream background, large stacked name, color-blob circles,
-// two-column Experience/Education, 3-column skills grid.
-function drawPlayful(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
-  const accent:RGB  = [17,17,17];
-  const PL_BG:RGB   = [245,240,232];  // cream
-  const PL_MUT:RGB  = [85,85,85];     // muted gray
-  const PL_YEL:RGB  = [240,192,64];   // mustard yellow
-  const PL_TEA:RGB  = [74,184,184];   // teal
-
-  // Paint cream background
-  const paintBg = () => { fill(p,PL_BG[0],PL_BG[1],PL_BG[2]); p.rect(0,0,PW,PH,'F'); };
-  paintBg();
-
-  // Decorative blobs — page 1
-  const drawBlobs = () => {
-    // Top-left large yellow circle
-    fill(p,PL_YEL[0],PL_YEL[1],PL_YEL[2]); p.circle(0,0,33,'F');
-    // Small teal dot below name area
-    fill(p,PL_TEA[0],PL_TEA[1],PL_TEA[2]); p.circle(10,44,7,'F');
-    // Bottom-right large yellow
-    fill(p,PL_YEL[0],PL_YEL[1],PL_YEL[2]); p.circle(PW,PH,40,'F');
-    // Bottom-right teal offset
-    fill(p,PL_TEA[0],PL_TEA[1],PL_TEA[2]); p.circle(PW-24,PH-10,20,'F');
-  };
-  drawBlobs();
-
-  reset(p);
-
-  // ── Header: name (left) + contact (right) ────────────────────────────────
-  const nameParts = owner.trim().split(' ');
-  const lastName  = nameParts.length > 1 ? nameParts.pop()! : '';
-  const firstName = nameParts.join(' ');
-
-  // Name — large bold, stacked
-  p.setFont(F,'bold'); p.setFontSize(28); tc(p,17,17,17);
-  p.text(firstName || lastName, ML, MT+12);
-  if (firstName && lastName) {
-    p.text(lastName, ML, MT+12+14);
-  }
-
-  // Contact — top right
-  const contactItems = [pr.address, pr.phone, pr.email, pr.id_number?`ID: ${pr.id_number}`:null].filter(Boolean) as string[];
-  p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]);
-  let cy = MT+4;
-  for (const item of contactItems) {
-    const x = PW - MR - p.getTextWidth(item);
-    p.text(item, x, cy);
-    cy += 4;
-  }
-
-  reset(p);
-  let y = MT + 36;
-  const np = () => { p.addPage(); reset(p); paintBg(); return MT + 4; };
-  const GXW = ():[number,number] => [ML, PW-ML-MR];
-
-  // ── About Me ──────────────────────────────────────────────────────────────
-  if (pr.bio) {
-    y = sectionHeading(p,'About Me',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW,ICON.fileText);
-    y += 2;
-    p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51);
-    y = wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);
-    y += ITEM_GAP + 2;
-  }
-
-  // ── Two-column: Experience (left) + Education (right) ─────────────────────
-  // Both columns are drawn in lock-step: before drawing each item we check
-  // whether it fits on the current page. If either column would overflow,
-  // BOTH cursors advance to a new page together — preventing the right
-  // column from jumping ahead and leaving a white gap on the left.
-  const colGap = 10;
-  const colW   = (PW-ML-MR-colGap)/2;
-  const col2x  = ML+colW+colGap;
-
-  // Estimate height (mm) of one experience entry
-  const estimateExpH = (e:any): number => {
-    p.setFontSize(9);
-    const roleStr = `${(e.role||'').toUpperCase()}${e.school?' / '+e.school.toUpperCase():''}`;
-    const roleLines = p.splitTextToSize(roleStr, colW) as string[];
-    let h = roleLines.length * (LINE_H-0.5);
-    if (e.from||e.to) h += LINE_H-0.5;
-    if (e.description) {
-      p.setFontSize(8.5);
-      for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean)) {
-        const bls = p.splitTextToSize(l, colW-BULLET_INDENT) as string[];
-        h += bls.length * LINE_H;
-      }
-    }
-    return h + ITEM_GAP;
-  };
-
-  // Estimate height (mm) of one education entry
-  const estimateEduH = (e:any): number => {
-    p.setFontSize(9);
-    const qLines = p.splitTextToSize((e.qualification||'').toUpperCase(), colW) as string[];
-    let h = qLines.length * (LINE_H-0.5);
-    if (e.institution||e.year) h += LINE_H-0.5;
-    if (e.description) {
-      p.setFontSize(8.5);
-      const dls = p.splitTextToSize(e.description, colW) as string[];
-      h += dls.length * LINE_H;
-    }
-    return h + ITEM_GAP;
-  };
-
-  // Draw one experience entry at (x, startY), return new Y
-  const drawExpEntry = (e:any, x:number, startY:number): number => {
-    let ey = startY;
-    p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
-    const roleStr = `${(e.role||'').toUpperCase()}${e.school?' / '+e.school.toUpperCase():''}`;
-    const roleLines = p.splitTextToSize(roleStr, colW) as string[];
-    roleLines.forEach((l:string) => { p.text(l,x,ey); ey+=LINE_H-0.5; });
-    const ds = [e.from,e.to].filter(Boolean).join(' \u2013 ');
-    if (ds) { p.setFont(F,'normal'); p.setFontSize(8); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]); p.text(ds.toUpperCase(),x,ey); ey+=LINE_H-0.5; }
-    if (e.description) {
-      p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,51,51,51);
-      for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))
-        ey = bulletLine(p,l,x,ey,colW,accent,BOTTOM,np);
-    }
-    return ey + ITEM_GAP;
-  };
-
-  // Draw one education entry at (x, startY), return new Y
-  const drawEduEntry = (e:any, x:number, startY:number): number => {
-    let ey = startY;
-    p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
-    const qLines = p.splitTextToSize((e.qualification||'').toUpperCase(), colW) as string[];
-    qLines.forEach((l:string) => { p.text(l,x,ey); ey+=LINE_H-0.5; });
-    if (e.institution||e.year) {
-      p.setFont(F,'normal'); p.setFontSize(8); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]);
-      p.text([e.institution,e.year].filter(Boolean).join(', ').toUpperCase(),x,ey);
-      ey+=LINE_H-0.5;
-    }
-    if (e.description) {
-      p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,51,51,51);
-      ey = wrapped(p,e.description,x,ey,colW,BOTTOM,np);
-    }
-    return ey + ITEM_GAP;
-  };
-
-  let leftY  = y;
-  let rightY = y;
-
-  if (exp.length || edu.length) {
-    // ── Draw section headings at the same Y ──────────────────────────────
-    if (exp.length) { leftY  = sectionHeading(p,isEdu?'Teaching Experience':'Experience',ML,leftY,colW,accent,'tag-underline',BOTTOM,np,undefined,ICON.briefcase); leftY  += 2; }
-    if (edu.length) { rightY = sectionHeading(p,'Education',col2x,rightY,colW,accent,'tag-underline',BOTTOM,np,undefined,ICON.graduationCap); rightY += 2; }
-    // Sync both columns to the lower of the two headings so content starts
-    // at the same baseline regardless of which heading is taller.
-    const headingEndY = Math.max(leftY, rightY);
-    leftY = headingEndY; rightY = headingEndY;
-
-    // ── Draw each column independently ───────────────────────────────────
-    // Columns are NOT drawn in lock-step — that caused the right column to
-    // jump to page 2 when experience had many more items than education,
-    // leaving a huge white gap on page 1.
-    //
-    // Instead each column flows naturally: when an entry doesn't fit on
-    // the current page we add a new page FOR THAT COLUMN only and continue.
-    // After both columns are done we sync y to the bottom of the longer one.
-    //
-    // Page-tracking: we record which jsPDF page each column is currently on
-    // so we can go back to the correct page when drawing the right column.
-
-    const startPage = (p as any).internal.getCurrentPageInfo().pageNumber;
-
-    // Left column — draw all experience entries
-    for (const e of exp) {
-      const h = estimateExpH(e);
-      if (leftY + h > BOTTOM) { leftY = np(); }
-      leftY = drawExpEntry(e, ML, leftY);
-    }
-    const leftEndPage = (p as any).internal.getCurrentPageInfo().pageNumber;
-    const leftEndY    = leftY;
-
-    // Right column — go back to the starting page, then draw education
-    // entries. We use setPage() to position jsPDF on the correct page.
-    (p as any).setPage(startPage);
-    rightY = headingEndY;
-
-    for (const e of edu) {
-      const h = estimateEduH(e);
-      if (rightY + h > BOTTOM) {
-        // Advance right column to next page.
-        // If left column already drew content on that page, we just setPage;
-        // otherwise addPage would create an extra blank page.
-        const curPage = (p as any).internal.getCurrentPageInfo().pageNumber;
-        if (curPage < leftEndPage) {
-          (p as any).setPage(curPage + 1);
-          reset(p); paintBg();
-          rightY = MT + 4;
-        } else {
-          rightY = np();
-        }
-      }
-      rightY = drawEduEntry(e, col2x, rightY);
-    }
-
-    // Ensure jsPDF is on the last page of whichever column went furthest
-    const rightEndPage = (p as any).internal.getCurrentPageInfo().pageNumber;
-    if (leftEndPage >= rightEndPage) {
-      (p as any).setPage(leftEndPage);
-      y = leftEndY;
-    } else {
-      y = rightY;
-    }
-  }
-
-  y = y + ITEM_GAP;
-
-  // ── Skills — categorised, 2-column bullet layout ───────────────────────────
-  const plSkillGroups = ([
-    ['Key Skills',          sk.subjects    || []],
-    ['Professional Skills', sk.soft_skills || []],
-    ['Languages',           sk.languages   || []],
-  ] as [string,string[]][]).filter(([,items])=>(items as string[]).length > 0);
-
-  if (plSkillGroups.length) {
-    y = sectionHeading(p,'Skills',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW,ICON.cogs);
-    y += 2;
-    const skColW2 = (PW-ML-MR-colGap)/2;
-    for (let g=0; g<plSkillGroups.length; g++) {
-      const [label, items] = plSkillGroups[g];
-      if (y+LINE_H>BOTTOM) y=np();
-      // Category label — bold, full width
-      p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
-      p.text(label as string, ML, y); y += LINE_H;
-      // Items in two columns
-      const col1i = (items as string[]).filter((_:string,i:number)=>i%2===0);
-      const col2i = (items as string[]).filter((_:string,i:number)=>i%2===1);
-      const maxR  = Math.max(col1i.length, col2i.length);
-      for (let r=0; r<maxR; r++) {
-        if (y+LINE_H>BOTTOM) y=np();
-        if (col1i[r]) { dot(p,ML+0.5,y-0.2,accent); p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51); p.text(col1i[r], ML+BULLET_INDENT, y); }
-        if (col2i[r]) { dot(p,ML+skColW2+colGap+0.5,y-0.2,accent); p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51); p.text(col2i[r], ML+skColW2+colGap+BULLET_INDENT, y); }
-        y += LINE_H;
-      }
-      y += ITEM_GAP + (g < plSkillGroups.length-1 ? 1 : 0);
-    }
-    y += 1;
-  }
-
-
-  y = drawCustom(p,customs,accent,'tag-underline',ML,y,PW-ML-MR,BOTTOM,np,GXW);
-  refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm,PL_BG,false);
-}
-
-// ── 21. CASUAL — Identical to Playful but fully single-column.
-// About Me → Experience → Education → Skills → Custom → References.
-function drawCasual(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
-  const accent:RGB  = [17,17,17];
-  const PL_BG:RGB   = [245,240,232];
-  const PL_MUT:RGB  = [85,85,85];
-  const PL_YEL:RGB  = [240,192,64];
-  const PL_TEA:RGB  = [74,184,184];
-
-  const paintBg = () => { fill(p,PL_BG[0],PL_BG[1],PL_BG[2]); p.rect(0,0,PW,PH,'F'); };
-  paintBg();
-
-  // Decorative blobs
-  fill(p,PL_YEL[0],PL_YEL[1],PL_YEL[2]); p.circle(0,0,33,'F');
-  fill(p,PL_TEA[0],PL_TEA[1],PL_TEA[2]); p.circle(10,44,7,'F');
-  fill(p,PL_YEL[0],PL_YEL[1],PL_YEL[2]); p.circle(PW,PH,40,'F');
-  fill(p,PL_TEA[0],PL_TEA[1],PL_TEA[2]); p.circle(PW-24,PH-10,20,'F');
-
-  reset(p);
-
-  // ── Header ───────────────────────────────────────────────────────────────
-  const nameParts = owner.trim().split(' ');
-  const lastName  = nameParts.length > 1 ? nameParts.pop()! : '';
-  const firstName = nameParts.join(' ');
-
-  p.setFont(F,'bold'); p.setFontSize(28); tc(p,17,17,17);
-  p.text(firstName || lastName, ML, MT+12);
-  if (firstName && lastName) p.text(lastName, ML, MT+12+14);
-
-  const contactItems = [pr.address, pr.phone, pr.email, pr.id_number?`ID: ${pr.id_number}`:null].filter(Boolean) as string[];
-  p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]);
-  let cy = MT+4;
-  for (const item of contactItems) { p.text(item, PW-MR-p.getTextWidth(item), cy); cy+=4; }
-
-  reset(p);
-  let y = MT + 36;
-  const np  = () => { p.addPage(); reset(p); paintBg(); return MT+4; };
-  const GXW = ():[number,number] => [ML, PW-ML-MR];
-  const W   = PW-ML-MR;
-
-  // ── About Me ──────────────────────────────────────────────────────────────
-  if (pr.bio) {
-    y = sectionHeading(p,'About Me',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.fileText);
-    y += 2;
-    p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51);
-    y = wrapped(p,pr.bio,ML,y,W,BOTTOM,np,GXW);
-    y += ITEM_GAP+2;
-  }
-
-  // ── Experience — full width ───────────────────────────────────────────────
-  if (exp.length) {
-    y = sectionHeading(p,isEdu?'Teaching Experience':'Experience',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.briefcase);
-    y += 2;
-    for (const e of exp) {
-      if (y+14>BOTTOM) y=np();
-      p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
-      const roleStr = `${(e.role||'').toUpperCase()}${e.school?' / '+e.school.toUpperCase():''}`;
-      const roleLines = p.splitTextToSize(roleStr, W) as string[];
-      roleLines.forEach((l:string)=>{ p.text(l,ML,y); y+=LINE_H-0.5; });
-      const ds = [e.from,e.to].filter(Boolean).join(' \u2013 ');
-      if (ds) { p.setFont(F,'normal'); p.setFontSize(8); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]); p.text(ds.toUpperCase(),ML,y); y+=LINE_H-0.5; }
-      if (e.description) {
-        p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,51,51,51);
-        for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))
-          y = bulletLine(p,l,ML,y,W,accent,BOTTOM,np,GXW);
-      }
-      y += ITEM_GAP;
-    }
-  }
-
-  // ── Education — full width ────────────────────────────────────────────────
-  if (edu.length) {
-    y = sectionHeading(p,'Education',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.graduationCap);
-    y += 2;
-    for (const e of edu) {
-      if (y+10>BOTTOM) y=np();
-      p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
-      const qLines = p.splitTextToSize((e.qualification||'').toUpperCase(), W) as string[];
-      qLines.forEach((l:string)=>{ p.text(l,ML,y); y+=LINE_H-0.5; });
-      if (e.institution||e.year) {
-        p.setFont(F,'normal'); p.setFontSize(8); tc(p,PL_MUT[0],PL_MUT[1],PL_MUT[2]);
-        p.text([e.institution,e.year].filter(Boolean).join(', ').toUpperCase(),ML,y);
-        y+=LINE_H-0.5;
-      }
-      if (e.description) {
-        p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,51,51,51);
-        y=wrapped(p,e.description,ML,y,W,BOTTOM,np,GXW);
-      }
-      y+=ITEM_GAP;
-    }
-  }
-
-  // ── Skills — categorised, 2-column bullets per category ──────────────────
-  const casSkillGroups = ([
-    ['Key Skills',          sk.subjects    || []],
-    ['Professional Skills', sk.soft_skills || []],
-    ['Languages',           sk.languages   || []],
-  ] as [string,string[]][]).filter(([,items])=>(items as string[]).length > 0);
-
-  if (casSkillGroups.length) {
-    y = sectionHeading(p,'Skills',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.cogs);
-    y += 2;
-    const skGap  = 10;
-    const skColW = (W-skGap)/2;
-    for (let g=0; g<casSkillGroups.length; g++) {
-      const [label, items] = casSkillGroups[g];
-      if (y+LINE_H>BOTTOM) y=np();
-      p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,17,17);
-      p.text(label as string, ML, y); y+=LINE_H;
-      const col1i = (items as string[]).filter((_:string,i:number)=>i%2===0);
-      const col2i = (items as string[]).filter((_:string,i:number)=>i%2===1);
-      const maxR  = Math.max(col1i.length, col2i.length);
-      for (let r=0; r<maxR; r++) {
-        if (y+LINE_H>BOTTOM) y=np();
-        if (col1i[r]) { dot(p,ML+0.5,y-0.2,accent); p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51); p.text(col1i[r],ML+BULLET_INDENT,y); }
-        if (col2i[r]) { dot(p,ML+skColW+skGap+0.5,y-0.2,accent); p.setFont(F,'normal'); p.setFontSize(9); tc(p,51,51,51); p.text(col2i[r],ML+skColW+skGap+BULLET_INDENT,y); }
-        y+=LINE_H;
-      }
-      y+=ITEM_GAP+(g<casSkillGroups.length-1?1:0);
-    }
-    y+=1;
-  }
-
-  y = drawCustom(p,customs,accent,'tag-underline',ML,y,W,BOTTOM,np,GXW);
-  refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm,PL_BG,false);
 }
