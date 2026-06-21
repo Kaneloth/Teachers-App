@@ -45,7 +45,7 @@ export const handler = async (event) => {
   }
 
   const cost = COSTS[type];
-  const DESCRIPTIONS: Record<string, string> = {
+  const DESCRIPTIONS = {
     cv_usage:       'CV generated (9 credits)',
     letter_usage:   'Cover letter / AI action (2 credits)',
     chat_start:     'New chat started (5 credits)',
