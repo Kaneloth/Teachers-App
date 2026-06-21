@@ -49,9 +49,7 @@ const TEMPLATES = [
   { id: 'classic',      name: 'Classic',      description: 'Clean dark-header layout. Trusted by SA government schools.',       category: 'Corporate' },
   { id: 'minimal',      name: 'Minimal',      description: 'Clean and simple. Lets your content speak for itself.',              category: 'Corporate' },
   { id: 'bold',         name: 'Bold',         description: 'Striking pink/magenta header. Eye-catching design.',                 category: 'Colourful' },
-  { id: 'stylish',      name: 'Stylish',      description: 'Coral accent with dot-skill ratings. Modern two-column.',            category: 'Colourful' },
   { id: 'traditional',  name: 'Traditional',  description: 'Left date column, horizontal rules. Classic formal look.',           category: 'Corporate' },
-  { id: 'timeline',     name: 'Timeline',     description: 'Dot timeline for experience. Centred header with photo.',            category: 'Colourful' },
   { id: 'shaded',       name: 'Shaded',       description: 'Grey shaded section headers. Formal and easy to scan.',              category: 'Corporate' },
   { id: 'crimson',      name: 'Crimson',      description: 'Bold red banner with italic headings. Right skills column.',         category: 'Colourful' },
   { id: 'sage',         name: 'Sage',         description: 'Soft green header card. Chip-style skill badges. Fresh feel.',       category: 'Colourful' },
@@ -67,7 +65,7 @@ interface Props { selected: string; onChange: (id: string) => void; isFree?: boo
 export default function CVStepTemplate({ selected, onChange, isFree = false }: Props) {
   const handleSelect = (id: string) => {
     if (isFree && id !== FREE_TEMPLATE) {
-      toast.info('Buy any credit pack to unlock all 12 templates.', { duration: 3000 });
+      toast.info('Buy any credit pack to unlock all 10 templates.', { duration: 3000 });
       return;
     }
     onChange(id);
@@ -80,7 +78,7 @@ export default function CVStepTemplate({ selected, onChange, isFree = false }: P
         <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2">
           <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
           <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug">
-            Free credits include the <strong>Classic</strong> template. Buy any credit pack to unlock all 12 templates — permanently.
+            Free credits include the <strong>Classic</strong> template. Buy any credit pack to unlock all 10 templates — permanently.
           </p>
         </div>
       )}
