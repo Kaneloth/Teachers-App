@@ -1,37 +1,18 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle, GraduationCap, Briefcase, FileText, Users } from 'lucide-react';
-
-interface Stats {
-  users: number;
-  cvs: number;
-  vacancies: number;
-}
-
-function formatCount(n: number): string {
-  // Round down to the nearest clean number people round to in marketing
-  // copy (e.g. 1,247 -> "1,200+") rather than showing an oddly precise
-  // figure — still strictly true ("+") and avoids implying false precision.
-  if (n >= 1000) return `${Math.floor(n / 100) * 100}+`;
-  if (n >= 100)  return `${Math.floor(n / 10) * 10}+`;
-  return `${n}`;
-}
+import { ArrowRight, CheckCircle, GraduationCap, Briefcase, FileText, Users, Sparkles, Clock } from 'lucide-react';
 
 export default function LandingHero() {
-  const [stats, setStats] = useState<Stats | null>(null);
-
-  useEffect(() => {
-    fetch('/.netlify/functions/landing-stats')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data) setStats(data); })
-      .catch(() => {}); // fail silently — card just omits the live numbers
-  }, []);
-
   return (
     <section className="bg-gradient-to-br from-[#f0fdfa] via-white to-[#f0fdf4] py-20 px-6">
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-12">
         {/* Left side */}
         <div className="flex-1 text-center md:text-left">
+          {/* Launch banner */}
+          <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
+            <Clock className="w-3.5 h-3.5 shrink-0" />
+            Launch offer · Advanced features free for 6 months
+          </div>
+
           <span className="inline-block text-xs font-semibold text-[#0d9488] bg-[#ccfbf1] px-3 py-1 rounded-full mb-4 tracking-wide uppercase">
             One Platform, Two Paths
           </span>
@@ -68,20 +49,35 @@ export default function LandingHero() {
           </div>
         </div>
 
-        {/* Right side - real stats card (no fabricated names or activity —
-            every number here is a live count from the database) */}
+        {/* Right side - platform feature highlights (no user counts) */}
         <div className="flex-1 flex justify-center">
           <div className="relative w-full max-w-sm">
-            <div className="bg-white rounded-3xl shadow-xl border border-[#e2e8f0] p-6">
-              <p className="text-xs font-semibold text-[#0d9488] uppercase tracking-widest mb-4">Real Numbers, No Fakes</p>
-              <div className="space-y-4">
-                <StatRow icon={Users}    label="Educators & Job Seekers" value={stats ? formatCount(stats.users) : '—'} />
-                <StatRow icon={FileText} label="CVs Created"             value={stats ? formatCount(stats.cvs) : '—'} />
-                <StatRow icon={Briefcase} label="Vacancies Listed"       value={stats ? formatCount(stats.vacancies) : '—'} />
+            {/* Launch promo card */}
+            <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl px-5 py-4 mb-3 flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+                <Sparkles className="w-4.5 h-4.5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-amber-800">Limited-Time Launch Offer</p>
+                <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                  All advanced search filters, transfer matching, and messaging are <strong>completely free</strong> for the first 6 months. No credit card needed.
+                </p>
               </div>
             </div>
+
+            <div className="bg-white rounded-3xl shadow-xl border border-[#e2e8f0] p-6">
+              <p className="text-xs font-semibold text-[#0d9488] uppercase tracking-widest mb-4">What You Get — Free</p>
+              <div className="space-y-4">
+                <FeatureRow emoji="🎓" label="Transfer matching" desc="Find educators across SA ready to swap schools" />
+                <FeatureRow emoji="📄" label="ATS-friendly professional CVs" desc="10 templates, AI-assisted summary" />
+                <FeatureRow emoji="✉️" label="Job-specific cover letters" desc="Tailored to each vacancy in seconds" />
+                <FeatureRow emoji="🔍" label="Advanced search & filters" desc="Province, subject, phase, radius — all free now" />
+                <FeatureRow emoji="💬" label="Direct messaging" desc="Chat with matched educators for free" />
+              </div>
+            </div>
+
             <div className="absolute -bottom-4 -right-4 bg-[#0d9488] text-white text-xs font-semibold px-4 py-2 rounded-2xl shadow-lg">
-              {stats ? formatCount(stats.users) : '...'} Educators & Job Seekers Joined
+              🇿🇦 Built for South Africa
             </div>
           </div>
         </div>
@@ -90,16 +86,16 @@ export default function LandingHero() {
   );
 }
 
-function StatRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+function FeatureRow({ emoji, label, desc }: { emoji: string; label: string; desc: string }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-xl bg-[#ccfbf1] flex items-center justify-center shrink-0">
-        <Icon className="w-5 h-5 text-[#0d9488]" />
+      <div className="w-10 h-10 rounded-xl bg-[#ccfbf1] flex items-center justify-center shrink-0 text-lg">
+        {emoji}
       </div>
-      <div className="flex-1">
-        <p className="text-xs text-[#64748b]">{label}</p>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-[#0f172a]">{label}</p>
+        <p className="text-xs text-[#64748b] leading-tight">{desc}</p>
       </div>
-      <p className="text-xl font-extrabold text-[#0f172a]">{value}</p>
     </div>
   );
 }

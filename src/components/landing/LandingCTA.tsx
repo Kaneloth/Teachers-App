@@ -8,7 +8,7 @@ export default function LandingCTA() {
         <p className="text-white/60 text-sm font-semibold uppercase tracking-widest mb-3">📱 Free to Download · Works on Any Device</p>
         <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">Start Your Journey Today</h2>
         <p className="text-white/80 text-lg mb-8 max-w-xl mx-auto">
-          Join hundreds of South African educators and job seekers. Build your CV, find transfer matches, and land your next opportunity – all free.
+          Build your CV, find transfer matches, write job-specific cover letters, and discover vacancies — all on one free platform built for South Africa.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link to="/register" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 bg-white text-[#0d9488] font-bold px-8 py-3.5 rounded-xl hover:bg-[#f0fdfa] transition-colors shadow-lg text-base">
@@ -18,7 +18,7 @@ export default function LandingCTA() {
             Sign In
           </Link>
         </div>
-        <p className="text-white/50 text-xs mt-6">No credit card required · Free plan available · Cancel anytime</p>
+        <p className="text-white/50 text-xs mt-6">No credit card required · Advanced features free for 6 months · No subscriptions</p>
       </div>
     </section>
   );
