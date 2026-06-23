@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, FileText, Briefcase, BookOpen, LayoutGrid, GraduationCap } from 'lucide-react';
+import { MapPin, FileText, Briefcase, BookOpen, LayoutGrid, GraduationCap, Search } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import GeneralHomePage from '@/pages/GeneralHomePage';
@@ -133,6 +134,23 @@ export default function Home() {
         ))}
       </div>
 
+      {/* CTA Banner */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="mt-4 mb-6 bg-primary rounded-2xl p-5 text-white"
+      >
+        <h3 className="font-bold text-base mb-1">Ready to find your match?</h3>
+        <p className="text-sm text-white/80 mb-4">
+          Search educators by province, subject, and phase to find your perfect exchange partner.
+        </p>
+        <Link to="/search">
+          <Button variant="outline" className="bg-white text-primary hover:bg-white/90 border-0 font-semibold rounded-xl h-9 text-sm gap-2">
+            <Search className="w-4 h-4" /> Start Searching
+          </Button>
+        </Link>
+      </motion.div>
 
     </div>
   );
