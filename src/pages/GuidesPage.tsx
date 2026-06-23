@@ -509,6 +509,8 @@ export default function GuidesPage() {
   const [lightbox, setLightbox]       = useState<string | null>(null);
   const [isPro, setIsPro]             = useState(false);
   const [showSubModal, setShowSubModal] = useState(false);
+  const { gates, loading: gatesLoading } = useFeatureGates();
+  const effectiveIsPro = !gatesLoading && (!gates.guides_access || isPro);
 
   useEffect(() => {
     if (!user) return;
