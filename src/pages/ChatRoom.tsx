@@ -538,7 +538,7 @@ export default function ChatRoom() {
       </div>
 
       {/* Credit gate — show banner if user hasn't sent before and has no credits */}
-      {hasSentBefore === false && !creditsLoading && balance < 5 && !isAdmin ? (
+      {hasSentBefore === false && chatGateActive && !creditsLoading && balance < 5 ? (
         <div className="px-4 py-3 border-t border-border bg-background">
           <div className="rounded-2xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
