@@ -1,11 +1,10 @@
 // src/pages/Search.tsx
 import { useState, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
-import { Search as SearchIcon, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Search as SearchIcon, ArrowLeft, RefreshCw, Sparkles, CheckCircle2, UserSearch, SlidersHorizontal, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
-import { useFeatureGates } from '@/hooks/useFeatureGates';
 import EducatorCard, { qualifiesForMatchesPage, MyProfile } from '@/components/search/EducatorCard';
 import SearchFilters, { Filters, DEFAULT_FILTERS } from '@/components/search/SearchFilters';
 import SubscriptionModal from '@/components/SubscriptionModal'; // shows credits purchase
@@ -25,7 +24,6 @@ interface Educator {
   user_id?: string;
   profile_type?: string;
   distance_km?: number;
-  is_hidden?: boolean;
 }
 
 interface Props {
@@ -41,25 +39,24 @@ export default function Search({ embedded = false }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
   const [isPro, setIsPro] = useState(false);
-  const { gates, loading: gatesLoading } = useFeatureGates();
-  // Gate off = everyone gets access regardless of purchase
-  const effectiveIsPro = !gatesLoading && (!gates.advanced_search || isPro);
   const [showSubModal, setShowSubModal] = useState(false);
 
   /* ── Fetch current user's profile + subscription status ─────── */
   useEffect(() => {
     if (!user) return;
+
     // Admins always get advanced search access
     if (user.user_metadata?.is_admin) { setIsPro(true); }
     else {
-      // Advanced search unlocked by R79+ purchase OR if gate is disabled globally/per-user
+      // Advanced search unlocked by R79+ purchase (pro_pack or business pack)
       supabase
         .from('credit_ledger')
         .select('id')
         .eq('user_id', user.id)
         .eq('type', 'purchase')
-        .gte('amount', 60)
+        .gte('amount', 60)  // pro_pack=60cr, business=200cr; standard=30cr excluded
         .limit(1)
         .then(({ data }) => {
           setIsPro(!!(data && data.length > 0));
@@ -84,11 +81,18 @@ export default function Search({ embedded = false }: Props) {
 
   /* ── Fetch educators ────────────────────────────────────────── */
   const fetchEducators = useCallback(async () => {
+    // Don't fetch until the user has applied a filter or typed a query
+    if (!query.trim() && !filters.province && !filters.phase &&
+        !(filters.subjects?.length) && !filters.town?.trim() &&
+        !filters.radiusKm && !filters.activeOnly) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     // Radius search is Pro-only and requires a geocoded town (set by
     // SearchFilters once the user types/blurs a valid place name).
-    const useRadius = effectiveIsPro && filters.radiusKm > 0 && filters.townLat != null && filters.townLng != null;
+    const useRadius = isPro && filters.radiusKm > 0 && filters.townLat != null && filters.townLng != null;
 
     let results: Educator[] = [];
 
@@ -168,24 +172,12 @@ export default function Search({ embedded = false }: Props) {
       );
     }
 
-    /* Filter hidden profiles — only when no specific filters are active.
-       If the user has applied province/subject/phase/town filters,
-       hidden profiles are still shown (they opted in to filtered visibility). */
-    const hasActiveFilters = !!(
-      filters.province || filters.phase ||
-      (filters.subjects && filters.subjects.length > 0) ||
-      filters.town.trim() || filters.radiusKm > 0
-    );
-    if (!hasActiveFilters) {
-      results = results.filter(e => !e.is_hidden);
-    }
-
     /* Exclude anyone who already qualifies for the Matches page (≥85% match
        or a town-swap opportunity) — avoids the same person being listed on
        both Search and Matches. Applies to all users: for free users this
        also means their best matches are reserved for the Pro-gated Matches
        page, consistent with "Pro unlocks your highest-quality matches". */
-    if (myProfile && !effectiveIsPro) {
+    if (myProfile && !isPro) {
       // For free users only: exclude high-match educators from Search so they
       // appear in the locked Matches tab instead (creating an incentive to upgrade).
       // R79+ users see ALL educators in one unified search — no exclusions.
@@ -200,6 +192,7 @@ export default function Search({ embedded = false }: Props) {
 
     setEducators(results);
     setLoading(false);
+    setHasSearched(true);
   }, [filters, query, user, myProfile, isPro]);
 
   useEffect(() => { fetchEducators(); }, [fetchEducators]);
@@ -209,6 +202,16 @@ export default function Search({ embedded = false }: Props) {
     await fetchEducators();
     setRefreshing(false);
   };
+
+  const isFiltered = !!(
+    query.trim() ||
+    filters.province ||
+    filters.phase ||
+    (filters.subjects && filters.subjects.length > 0) ||
+    filters.town?.trim() ||
+    filters.radiusKm > 0 ||
+    filters.activeOnly
+  );
 
   return (
     <div className={!embedded ? "max-w-2xl mx-auto" : ""}>
@@ -225,7 +228,7 @@ export default function Search({ embedded = false }: Props) {
             <h1 className="text-lg font-bold text-foreground">Find Educators</h1>
           </div>
           <p className="text-sm text-muted-foreground pl-1">
-            {effectiveIsPro
+            {isPro
               ? 'All educators shown with match scores — use filters to refine your search.'
               : <>Search educators · <span className="text-primary font-medium">R79+ pack</span> unlocks match scores &amp; advanced filters.</>}
           </p>
@@ -246,13 +249,76 @@ export default function Search({ embedded = false }: Props) {
         <SearchFilters
           filters={filters}
           onFiltersChange={setFilters}
-          isPro={effectiveIsPro}
+          isPro={isPro}
           onProGate={() => setShowSubModal(true)} // buy R79+ pack to unlock
         />
       </div>
 
-      {/* Results */}
-      {loading ? (
+      {/* Results — only shown when filters/search are active */}
+      {!isFiltered ? (
+        <div className="px-4 pb-6 space-y-4">
+
+          {/* Quick province filter chips */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Browse by Province</p>
+            <div className="flex flex-wrap gap-2">
+              {['Gauteng','KwaZulu-Natal','Western Cape','Eastern Cape','Limpopo','Mpumalanga','North West','Free State','Northern Cape'].map(province => (
+                <button
+                  key={province}
+                  onClick={() => setFilters(f => ({ ...f, province }))}
+                  className="text-xs px-3 py-1.5 rounded-full border border-border bg-card hover:border-primary hover:text-primary transition-colors text-muted-foreground font-medium"
+                >
+                  {province}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* How it works */}
+          <div className="bg-card rounded-2xl border border-border p-5">
+            <p className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-primary" /> How Transfer Matching Works
+            </p>
+            <div className="space-y-3">
+              {[
+                { icon: CheckCircle2, step: '1', title: 'Complete your profile', desc: 'Add your province, subjects, phase and preferred transfer locations.' },
+                { icon: SlidersHorizontal, step: '2', title: 'Use filters to search', desc: 'Filter by province, subject, phase or search by name to find educators.' },
+                { icon: UserSearch, step: '3', title: 'Check your match score', desc: 'Each card shows a % match — the higher the score, the better the fit for a swap.' },
+              ].map(({ icon: Icon, step, title, desc }) => (
+                <div key={step} className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Icon className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{title}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Launch offer banner */}
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl px-4 py-4 flex items-start gap-3">
+            <Sparkles className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-300">Launch Offer — Free for 6 Months</p>
+              <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 leading-relaxed">
+                Advanced search filters, transfer matching, and direct messaging are completely free during our launch period. No credit card required.
+              </p>
+            </div>
+          </div>
+
+          {/* Profile tip */}
+          <div className="bg-primary/5 border border-primary/20 rounded-2xl px-4 py-3 flex items-start gap-3">
+            <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+            <p className="text-xs text-primary leading-relaxed">
+              <strong>Tip:</strong> The more detail you add to your profile — subjects, phase, preferred provinces — the better your match scores will be.
+            </p>
+          </div>
+
+        </div>
+      ) : loading ? (
         <div className="flex justify-center py-16">
           <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
         </div>
