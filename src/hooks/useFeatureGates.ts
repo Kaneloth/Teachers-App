@@ -1,17 +1,16 @@
 /**
- * useFeatureGates — resolves feature gate state for the current user.
+ * useFeatureGates
  *
  * Resolution order (highest priority first):
- *   1. Admin → always true (admins bypass all gates)
- *   2. Per-user override in feature_gates table
- *   3. Global gate in feature_gates table
- *   4. Hardcoded default (true — gates are opt-in restrictions, not opt-in features)
+ *  1. Admin → all gates return true (bypass everything)
+ *  2. Per-user override in feature_gates table (user_id = current user)
+ *  3. Global gate in feature_gates table (user_id IS NULL)
+ *  4. Default: true (gates are restrictions — default is open)
  *
- * Usage:
- *   const { gates, loading } = useFeatureGates();
- *   if (!gates.advanced_search) show upgrade prompt;
+ * Gate semantics:
+ *  enabled = true  → gate is ACTIVE   (normal R79+ restriction applies)
+ *  enabled = false → gate is DISABLED (everyone gets access, no purchase needed)
  */
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -26,50 +25,39 @@ export type GateKey =
 
 export type Gates = Record<GateKey, boolean>;
 
-const DEFAULT_GATES: Gates = {
-  advanced_search: true,
-  matches_page:    true,
-  guides_access:   true,
-  cv_credits:      true,
-  chat_credits:    true,
-  id_verification: true,
-};
+const ALL_GATES: GateKey[] = [
+  'advanced_search', 'matches_page', 'guides_access',
+  'cv_credits', 'chat_credits', 'id_verification',
+];
 
 export function useFeatureGates() {
   const { user } = useAuth();
-  const [gates, setGates]   = useState<Gates>(DEFAULT_GATES);
+  const [gates, setGates]     = useState<Gates>(Object.fromEntries(ALL_GATES.map(k => [k, true])) as Gates);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
 
-    // Admins bypass everything
+    // Admins bypass all gates
     if (user.user_metadata?.is_admin) {
-      setGates(DEFAULT_GATES);
+      setGates(Object.fromEntries(ALL_GATES.map(k => [k, false])) as Gates); // false = gate off = access granted
       setLoading(false);
       return;
     }
 
-    // Fetch both global gates and this user's overrides in one query
     supabase
       .from('feature_gates')
       .select('gate_key, user_id, enabled')
       .or(`user_id.is.null,user_id.eq.${user.id}`)
       .then(({ data }) => {
-        if (!data) { setLoading(false); return; }
-
-        const resolved = { ...DEFAULT_GATES };
+        const resolved = Object.fromEntries(ALL_GATES.map(k => [k, true])) as Gates;
         // Apply global gates first
-        for (const row of data.filter(r => !r.user_id)) {
-          if (row.gate_key in resolved) {
-            (resolved as any)[row.gate_key] = row.enabled;
-          }
+        for (const row of (data || []).filter(r => !r.user_id)) {
+          if (row.gate_key in resolved) (resolved as any)[row.gate_key] = row.enabled;
         }
-        // Per-user overrides take precedence
-        for (const row of data.filter(r => r.user_id === user.id)) {
-          if (row.gate_key in resolved) {
-            (resolved as any)[row.gate_key] = row.enabled;
-          }
+        // Per-user overrides win
+        for (const row of (data || []).filter(r => r.user_id === user.id)) {
+          if (row.gate_key in resolved) (resolved as any)[row.gate_key] = row.enabled;
         }
         setGates(resolved);
         setLoading(false);

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Users } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useFeatureGates } from '@/hooks/useFeatureGates';
 import { useAuth } from '@/lib/AuthContext';
 import SearchPage from './Search';        // ✅ correct filename
 import MatchesPage from './MatchesPage'; // ✅ unchanged
@@ -11,6 +12,7 @@ export default function SearchAndMatches() {
   const [activeTab, setActiveTab] = useState('search');
   const [isPro, setIsPro] = useState(false);
   const [checked, setChecked] = useState(false);
+  const { gates, loading: gatesLoading } = useFeatureGates();
 
   /* ── R79+ purchase check ─────────────────────────────────────────────────
      Users who have purchased an R79+ credit pack get access to the Matches
@@ -38,7 +40,10 @@ export default function SearchAndMatches() {
 
   // Avoid a flash of the two-tab layout for Pro users while the
   // subscription check resolves.
-  if (!checked) {
+  // Gate off = everyone gets access regardless of purchase
+  const effectiveIsPro = !gatesLoading && (!gates.advanced_search || isPro);
+
+  if (!checked || gatesLoading) {
     return (
       <div className="flex justify-center py-16">
         <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
@@ -46,7 +51,7 @@ export default function SearchAndMatches() {
     );
   }
 
-  if (isPro) {
+  if (effectiveIsPro) {
     // R79+ users get a single unified search page:
     // — All educators shown (0–100% match), sorted/filtered freely
     // — Advanced filters enabled (radius search, distance etc.)

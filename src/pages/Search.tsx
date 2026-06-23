@@ -5,6 +5,7 @@ import { Search as SearchIcon, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { useFeatureGates } from '@/hooks/useFeatureGates';
 import EducatorCard, { qualifiesForMatchesPage, MyProfile } from '@/components/search/EducatorCard';
 import SearchFilters, { Filters, DEFAULT_FILTERS } from '@/components/search/SearchFilters';
 import SubscriptionModal from '@/components/SubscriptionModal'; // shows credits purchase
@@ -41,22 +42,22 @@ export default function Search({ embedded = false }: Props) {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
   const [isPro, setIsPro] = useState(false);
+  const { gates, loading: gatesLoading } = useFeatureGates();
   const [showSubModal, setShowSubModal] = useState(false);
 
   /* ── Fetch current user's profile + subscription status ─────── */
   useEffect(() => {
     if (!user) return;
-
     // Admins always get advanced search access
     if (user.user_metadata?.is_admin) { setIsPro(true); }
     else {
-      // Advanced search unlocked by R79+ purchase (pro_pack or business pack)
+      // Advanced search unlocked by R79+ purchase OR if gate is disabled globally/per-user
       supabase
         .from('credit_ledger')
         .select('id')
         .eq('user_id', user.id)
         .eq('type', 'purchase')
-        .gte('amount', 60)  // pro_pack=60cr, business=200cr; standard=30cr excluded
+        .gte('amount', 60)
         .limit(1)
         .then(({ data }) => {
           setIsPro(!!(data && data.length > 0));
@@ -85,7 +86,7 @@ export default function Search({ embedded = false }: Props) {
 
     // Radius search is Pro-only and requires a geocoded town (set by
     // SearchFilters once the user types/blurs a valid place name).
-    const useRadius = isPro && filters.radiusKm > 0 && filters.townLat != null && filters.townLng != null;
+    const useRadius = effectiveIsPro && filters.radiusKm > 0 && filters.townLat != null && filters.townLng != null;
 
     let results: Educator[] = [];
 
@@ -182,7 +183,7 @@ export default function Search({ embedded = false }: Props) {
        both Search and Matches. Applies to all users: for free users this
        also means their best matches are reserved for the Pro-gated Matches
        page, consistent with "Pro unlocks your highest-quality matches". */
-    if (myProfile && !isPro) {
+    if (myProfile && !effectiveIsPro) {
       // For free users only: exclude high-match educators from Search so they
       // appear in the locked Matches tab instead (creating an incentive to upgrade).
       // R79+ users see ALL educators in one unified search — no exclusions.
@@ -198,6 +199,9 @@ export default function Search({ embedded = false }: Props) {
     setEducators(results);
     setLoading(false);
   }, [filters, query, user, myProfile, isPro]);
+
+  // Gate override: if advanced_search gate is disabled (false), everyone gets access
+  const effectiveIsPro = !gatesLoading && (!gates.advanced_search || isPro);
 
   useEffect(() => { fetchEducators(); }, [fetchEducators]);
 
@@ -243,7 +247,7 @@ export default function Search({ embedded = false }: Props) {
         <SearchFilters
           filters={filters}
           onFiltersChange={setFilters}
-          isPro={isPro}
+          isPro={effectiveIsPro}
           onProGate={() => setShowSubModal(true)} // buy R79+ pack to unlock
         />
       </div>
@@ -270,7 +274,7 @@ export default function Search({ embedded = false }: Props) {
                 key={ed.id}
                 educator={ed}
                 myProfile={myProfile ?? undefined}
-                isPro={isPro}
+                isPro={effectiveIsPro}
                 index={i}
                 distanceKm={ed.distance_km}
               />

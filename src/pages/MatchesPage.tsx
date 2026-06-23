@@ -7,6 +7,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { useFeatureGates } from '@/hooks/useFeatureGates';
 import SubscriptionModal from '@/components/SubscriptionModal';
 import SearchFilters, { Filters, DEFAULT_FILTERS } from '@/components/search/SearchFilters';
 import { calculateMatch, qualifiesForMatchesPage, isTownSwapMatch } from '@/components/search/EducatorCard';
@@ -42,6 +43,8 @@ export default function MatchesPage({ embedded = false }: Props) {
   const [loading, setLoading] = useState(true);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [isPro, setIsPro] = useState(false);
+  const { gates, loading: gatesLoading } = useFeatureGates();
+  const effectiveIsPro = !gatesLoading && (!gates.matches_page || isPro);
   const [proChecked, setProChecked] = useState(false);
   const [showSubModal, setShowSubModal] = useState(false);
 
@@ -222,7 +225,7 @@ export default function MatchesPage({ embedded = false }: Props) {
       )}
 
       {/* ── Free users: full lock screen, no cards shown ─────────── */}
-      {!isPro ? (
+      {!effectiveIsPro ? (
         <div className="flex flex-col items-center justify-center text-center py-16 px-6">
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
             <Lock className="w-7 h-7 text-primary" />

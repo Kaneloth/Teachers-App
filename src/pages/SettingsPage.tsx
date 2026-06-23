@@ -1693,7 +1693,8 @@ export default function SettingsPage() {
 
   /* Build visible tabs */
   const visibleTabs = ALL_TABS.filter(t => {
-    if (t === 'Admin')        return isAdmin;
+    if (t === 'Admin') return isAdmin;
+    if (t === 'Gates') return isAdmin;
     return true;
   });
 
