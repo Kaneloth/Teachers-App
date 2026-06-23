@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle, GraduationCap, Briefcase, FileText, Users, Sparkles, Clock } from 'lucide-react';
+import { ArrowRight, CheckCircle, GraduationCap, Briefcase, Sparkles, Clock } from 'lucide-react';
 
 export default function LandingHero() {
   return (
@@ -49,13 +49,13 @@ export default function LandingHero() {
           </div>
         </div>
 
-        {/* Right side - platform feature highlights (no user counts) */}
+        {/* Right side - platform feature highlights */}
         <div className="flex-1 flex justify-center">
           <div className="relative w-full max-w-sm">
             {/* Launch promo card */}
             <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl px-5 py-4 mb-3 flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
-                <Sparkles className="w-4.5 h-4.5 text-amber-600" />
+                <Sparkles className="w-4 h-4 text-amber-600" />
               </div>
               <div>
                 <p className="text-sm font-bold text-amber-800">Limited-Time Launch Offer</p>
@@ -73,6 +73,7 @@ export default function LandingHero() {
                 <FeatureRow emoji="✉️" label="Job-specific cover letters" desc="Tailored to each vacancy in seconds" />
                 <FeatureRow emoji="🔍" label="Advanced search & filters" desc="Province, subject, phase, radius" />
                 <FeatureRow emoji="💬" label="Direct messaging" desc="Chat with matched educators" />
+                <FeatureRow emoji="🔔" label="Match alerts" desc="Get notified when a new transfer match is found" />
               </div>
             </div>
 
