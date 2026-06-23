@@ -5,6 +5,7 @@ import { Search as SearchIcon, ArrowLeft, RefreshCw, Sparkles, CheckCircle2, Use
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { useFeatureGates } from '@/hooks/useFeatureGates';
 import EducatorCard, { qualifiesForMatchesPage, MyProfile } from '@/components/search/EducatorCard';
 import SearchFilters, { Filters, DEFAULT_FILTERS } from '@/components/search/SearchFilters';
 import SubscriptionModal from '@/components/SubscriptionModal'; // shows credits purchase
@@ -41,6 +42,8 @@ export default function Search({ embedded = false }: Props) {
   const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [isPro, setIsPro] = useState(false);
+  const { gates, loading: gatesLoading } = useFeatureGates();
+  const effectiveIsPro = !gatesLoading && (!gates.advanced_search || isPro);
   const [showSubModal, setShowSubModal] = useState(false);
 
   /* ── Fetch current user's profile + subscription status ─────── */
