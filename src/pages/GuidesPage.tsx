@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
 import SubscriptionModal from '@/components/SubscriptionModal';
 import { useAuth } from '@/lib/AuthContext';
+import { useFeatureGates } from '@/hooks/useFeatureGates';
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, LevelFormat, BorderStyle, WidthType, ShadingType, HeadingLevel, PageBreak } from 'docx';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -498,8 +499,7 @@ const STEPS = [
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function GuidesPage() {
   const navigate = useNavigate();
-  const { user, session } = useAuth();
-  const isAdmin = !!(user?.user_metadata?.is_admin);
+  const { user } = useAuth();
   const [profile, setProfile] = useState<EducatorProfile>({
     full_name: '', current_school: '', current_province: '',
     phone: '', email: '', personal_number: '', post_level: '',
@@ -531,38 +531,32 @@ export default function GuidesPage() {
         post_level:       edu?.post_level       || '',
       });
 
-      // ── R79+ purchase check — unlocks guide downloads ──────────────────
-      const { data: purchaseData } = await supabase
-        .from('credit_ledger')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('type', 'purchase')
-        .gte('amount', 60)
-        .limit(1);
-      setIsPro(!!(purchaseData && purchaseData.length > 0));
+      // ── Subscription check (mirrors MatchesPage pattern) ──────────────
+      const metaPlan = u?.user_metadata?.subscription_plan as string | undefined;
+      const metaEnd  = u?.user_metadata?.subscription_end  as string | undefined;
+      const isProMeta = metaPlan && metaPlan !== 'free' && metaEnd && new Date(metaEnd) > new Date();
+      if (isProMeta) {
+        setIsPro(true);
+      } else {
+        const { data: profileRow } = await supabase
+          .from('profiles')
+          .select('subscription_plan, subscription_end')
+          .eq('id', user.id)
+          .single();
+        const proFromDb =
+          profileRow?.subscription_plan &&
+          profileRow.subscription_plan !== 'free' &&
+          profileRow.subscription_end &&
+          new Date(profileRow.subscription_end) > new Date();
+        setIsPro(!!proFromDb);
+      }
     };
     load();
   }, [user]);
 
   const handleDownload = async (templateKey: string, templateLabel: string) => {
-    if (!session?.access_token) { toast.error('Please sign in to download guides.'); return; }
     setDownloading(templateKey);
     try {
-      // Deduct 3 credits before generating (admins bypass)
-      if (!isAdmin) {
-      const deductRes = await fetch('/.netlify/functions/deduct-credits', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ type: 'guide_download', ref_id: `guide:${templateKey}:${Date.now()}` }),
-      });
-      const deductData = await deductRes.json();
-      if (deductRes.status === 402) {
-        toast.error(`Not enough credits. Downloading a guide costs 3 credits. You have ${deductData.balance}.`);
-        return;
-      }
-      if (!deductRes.ok) throw new Error(deductData.error || 'Credit deduction failed');
-      } // end !isAdmin
-
       const blob = await generateDocx(templateKey, profile);
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
@@ -572,10 +566,8 @@ export default function GuidesPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success(isAdmin ? 'Guide downloaded.' : 'Guide downloaded! 3 credits used.');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Template generation failed:', err);
-      toast.error(err.message || 'Download failed. Please try again.');
     } finally {
       setDownloading(null);
     }
@@ -624,7 +616,7 @@ export default function GuidesPage() {
       </div>
 
       {/* ── Upgrade banner for free users ── */}
-      {!isPro && !isAdmin && (
+      {!effectiveIsPro && (
         <div className="bg-primary/5 border border-primary/30 rounded-2xl px-4 py-4 mb-4 flex gap-3 items-start">
           <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
             <Lock className="w-4 h-4 text-primary" />
@@ -632,13 +624,13 @@ export default function GuidesPage() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-foreground mb-0.5">Pro Feature</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Purchase an R79+ credit pack to unlock all transfer guides. Each download costs 3 credits.
+              Upgrade to Pro to unlock all transfer steps, download templates, and get your documents pre-filled with your details.
             </p>
             <button
               onClick={() => setShowSubModal(true)}
               className="mt-2.5 flex items-center gap-1.5 bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5 rounded-xl hover:bg-primary/90 transition-colors"
             >
-              <Zap className="w-3 h-3" /> Get R79+ pack
+              <Zap className="w-3 h-3" /> Upgrade to Pro
             </button>
           </div>
         </div>
@@ -650,7 +642,7 @@ export default function GuidesPage() {
         {STEPS.map(step => {
           const isOpen = openStep === step.id;
           // Free users: only step 1 is openable (teaser), rest are locked
-          const isLocked = !isPro && !isAdmin && step.id > 1;
+          const isLocked = !effectiveIsPro && step.id > 1;
           return (
             <div key={step.id} className={`bg-card border rounded-2xl overflow-hidden transition-colors ${isLocked ? 'border-border opacity-75' : 'border-border'}`}>
               <button
@@ -712,14 +704,14 @@ export default function GuidesPage() {
             <button
               key={t.key}
               disabled={downloading === t.key}
-              onClick={() => (isPro || isAdmin) ? handleDownload(t.key, t.label) : setShowSubModal(true)}
-              className={`bg-card border rounded-2xl p-4 text-left transition-all ${(isPro || isAdmin) ? "border-border hover:border-primary/50 hover:bg-primary/5" : "border-border/60 opacity-70"}`}
+              onClick={() => effectiveIsPro ? handleDownload(t.key, t.label) : setShowSubModal(true)}
+              className={`bg-card border rounded-2xl p-4 text-left transition-all ${effectiveIsPro ? "border-border hover:border-primary/50 hover:bg-primary/5" : "border-border/60 opacity-70"}`}
             >
               <div className="text-2xl mb-2">{t.icon}</div>
               <div className="text-sm font-semibold text-foreground">{t.label}</div>
               <div className="text-xs text-muted-foreground mt-0.5">{t.desc}</div>
               <div className="flex items-center gap-1 mt-2 text-xs font-medium text-primary">
-                {!isPro && !isAdmin
+                {!effectiveIsPro
                   ? <><Lock className="w-3 h-3" /> Pro only</>
                   : downloading === t.key
                     ? <><FileText className="w-3 h-3" /> Generating…</>

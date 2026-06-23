@@ -154,6 +154,7 @@ function FeatureGatesTab() {
     { key: 'cv_credits',      label: 'CV Credit Gate',            desc: 'Whether CV downloads cost 9 credits' },
     { key: 'chat_credits',    label: 'Chat Credit Gate',          desc: 'Whether starting a new chat costs 5 credits' },
     { key: 'id_verification', label: 'ID Verification Gate',      desc: 'Whether ID verification requires R79+ purchase' },
+    { key: 'templates_access', label: 'CV Templates Gate',           desc: 'When off — all users get all 10 CV templates without purchasing' },
   ];
   const { session } = useAuth();
   const [globalGates, setGlobalGates] = useState<Record<string, boolean>>({});

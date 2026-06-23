@@ -43,6 +43,8 @@ export default function Search({ embedded = false }: Props) {
   const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
   const [isPro, setIsPro] = useState(false);
   const { gates, loading: gatesLoading } = useFeatureGates();
+  // Gate off = everyone gets access regardless of purchase
+  const effectiveIsPro = !gatesLoading && (!gates.advanced_search || isPro);
   const [showSubModal, setShowSubModal] = useState(false);
 
   /* ── Fetch current user's profile + subscription status ─────── */
@@ -200,9 +202,6 @@ export default function Search({ embedded = false }: Props) {
     setLoading(false);
   }, [filters, query, user, myProfile, isPro]);
 
-  // Gate override: if advanced_search gate is disabled (false), everyone gets access
-  const effectiveIsPro = !gatesLoading && (!gates.advanced_search || isPro);
-
   useEffect(() => { fetchEducators(); }, [fetchEducators]);
 
   const handleRefresh = async () => {
@@ -226,7 +225,7 @@ export default function Search({ embedded = false }: Props) {
             <h1 className="text-lg font-bold text-foreground">Find Educators</h1>
           </div>
           <p className="text-sm text-muted-foreground pl-1">
-            {isPro
+            {effectiveIsPro
               ? 'All educators shown with match scores — use filters to refine your search.'
               : <>Search educators · <span className="text-primary font-medium">R79+ pack</span> unlocks match scores &amp; advanced filters.</>}
           </p>
