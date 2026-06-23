@@ -66,13 +66,13 @@ export default function LandingHero() {
             </div>
 
             <div className="bg-white rounded-3xl shadow-xl border border-[#e2e8f0] p-6">
-              <p className="text-xs font-semibold text-[#0d9488] uppercase tracking-widest mb-4">What You Get — Free</p>
+              <p className="text-xs font-semibold text-[#0d9488] uppercase tracking-widest mb-4">What You Get</p>
               <div className="space-y-4">
                 <FeatureRow emoji="🎓" label="Transfer matching" desc="Find educators across SA ready to swap schools" />
                 <FeatureRow emoji="📄" label="ATS-friendly professional CVs" desc="10 templates, AI-assisted summary" />
                 <FeatureRow emoji="✉️" label="Job-specific cover letters" desc="Tailored to each vacancy in seconds" />
-                <FeatureRow emoji="🔍" label="Advanced search & filters" desc="Province, subject, phase, radius — all free now" />
-                <FeatureRow emoji="💬" label="Direct messaging" desc="Chat with matched educators for free" />
+                <FeatureRow emoji="🔍" label="Advanced search & filters" desc="Province, subject, phase, radius" />
+                <FeatureRow emoji="💬" label="Direct messaging" desc="Chat with matched educators" />
               </div>
             </div>
 
