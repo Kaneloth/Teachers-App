@@ -40,6 +40,38 @@ export const handler = async (event) => {
     return { statusCode: 200, body: JSON.stringify({ success: true, deducted: 0, new_balance: 999999 }) };
   }
 
+  // Check feature_gates — if the gate for this action is disabled globally
+  // or overridden OFF for this user, skip deduction entirely (free for everyone)
+  const GATE_MAP = {
+    cv_usage:       'cv_credits',
+    letter_usage:   'cv_credits',
+    chat_start:     'chat_credits',
+    guide_download: 'guides_access',
+    id_verify:      'id_verification',
+  };
+  const gateKey = GATE_MAP[type];
+  if (gateKey) {
+    // Check per-user override first, then global gate
+    const { data: gateRows } = await supabase
+      .from('feature_gates')
+      .select('gate_key, user_id, enabled')
+      .eq('gate_key', gateKey)
+      .or(`user_id.is.null,user_id.eq.${user.id}`);
+
+    if (gateRows && gateRows.length > 0) {
+      // Per-user override takes priority
+      const userOverride = gateRows.find(r => r.user_id === user.id);
+      const globalGate   = gateRows.find(r => !r.user_id);
+      const gateEnabled  = userOverride ? userOverride.enabled : (globalGate ? globalGate.enabled : true);
+
+      if (!gateEnabled) {
+        // Gate is OFF — action is free, skip deduction
+        console.log(`[deduct-credits] Gate '${gateKey}' disabled — free pass for ${user.email}, type=${type}`);
+        return { statusCode: 200, body: JSON.stringify({ success: true, deducted: 0, new_balance: 999999 }) };
+      }
+    }
+  }
+
   if (!COSTS[type]) {
     return { statusCode: 400, body: JSON.stringify({ error: `Unknown type "${type}"` }) };
   }
