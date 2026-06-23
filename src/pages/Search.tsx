@@ -1,7 +1,7 @@
 // src/pages/Search.tsx
 import { useState, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
-import { Search as SearchIcon, ArrowLeft, RefreshCw, Sparkles, CheckCircle2, UserSearch, SlidersHorizontal, Zap } from 'lucide-react';
+import { Search as SearchIcon, ArrowLeft, RefreshCw, Sparkles, CheckCircle2, UserSearch, SlidersHorizontal, Zap, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -284,6 +284,7 @@ export default function Search({ embedded = false }: Props) {
                 { icon: CheckCircle2, step: '1', title: 'Complete your profile', desc: 'Add your province, subjects, phase and preferred transfer locations.' },
                 { icon: SlidersHorizontal, step: '2', title: 'Use filters to search', desc: 'Filter by province, subject, phase or search by name to find educators.' },
                 { icon: UserSearch, step: '3', title: 'Check your match score', desc: 'Each card shows a % match — the higher the score, the better the fit for a swap.' },
+                { icon: MapPin, step: '4', title: 'Include your town for radius search', desc: 'Want to move to Pretoria? Your ideal match might teach in Centurion or Midrand. Radius search finds educators within a set distance of your preferred town — so you don\'t miss nearby matches just outside the boundary.' },
               ].map(({ icon: Icon, step, title, desc }) => (
                 <div key={step} className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
