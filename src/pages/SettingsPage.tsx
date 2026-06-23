@@ -1728,6 +1728,7 @@ export default function SettingsPage() {
         {tab === 'General'      && <GeneralTab />}
         {tab === 'Security'     && <SecurityTab />}
         {tab === 'Admin'        && isAdmin && <AdminTab />}
+        {tab === 'Gates'        && isAdmin && <FeatureGatesTab />}
       </div>
     </div>
   );
