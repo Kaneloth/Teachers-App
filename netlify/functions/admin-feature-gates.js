@@ -57,23 +57,31 @@ exports.handler = async (event) => {
 
     if (!user_id) {
       // Global gate — NULL user_id breaks upsert onConflict, so use UPDATE then INSERT
-      const { data: existing } = await supabase
+      const { data: existing, error: findErr } = await supabase
         .from('feature_gates')
-        .select('id')
+        .select('id, enabled')
         .eq('gate_key', gate_key)
         .is('user_id', null)
         .maybeSingle();
 
+      console.log(`[admin-feature-gates] gate_key=${gate_key} existing=`, JSON.stringify(existing), 'findErr=', findErr?.message);
+
       let error;
       if (existing) {
-        ({ error } = await supabase
+        const result = await supabase
           .from('feature_gates')
           .update({ enabled: !!enabled, updated_by: user.id, updated_at: now })
-          .eq('id', existing.id));
+          .eq('id', existing.id)
+          .select();
+        console.log(`[admin-feature-gates] UPDATE result=`, JSON.stringify(result.data), 'error=', result.error?.message);
+        error = result.error;
       } else {
-        ({ error } = await supabase
+        const result = await supabase
           .from('feature_gates')
-          .insert({ gate_key, user_id: null, enabled: !!enabled, updated_by: user.id, updated_at: now }));
+          .insert({ gate_key, user_id: null, enabled: !!enabled, updated_by: user.id, updated_at: now })
+          .select();
+        console.log(`[admin-feature-gates] INSERT result=`, JSON.stringify(result.data), 'error=', result.error?.message);
+        error = result.error;
       }
       if (error) return { statusCode: 500, body: JSON.stringify({ error: error.message }), headers };
     } else {

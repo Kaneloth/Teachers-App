@@ -53,13 +53,20 @@ export const handler = async (event) => {
   if (gateKey) {
     // Check per-user override first, then global gate
     // Fetch global gate and per-user override separately to avoid NULL comparison issues
-    const [{ data: globalRow }, { data: userRow }] = await Promise.all([
+    const [globalResult, userResult] = await Promise.all([
       supabase.from('feature_gates').select('enabled').eq('gate_key', gateKey).is('user_id', null).maybeSingle(),
       supabase.from('feature_gates').select('enabled').eq('gate_key', gateKey).eq('user_id', user.id).maybeSingle(),
     ]);
 
+    const globalRow = globalResult.data;
+    const userRow   = userResult.data;
+
+    console.log(`[deduct-credits] gate=${gateKey} globalRow=`, JSON.stringify(globalRow), 'globalErr=', globalResult.error?.message, 'userRow=', JSON.stringify(userRow));
+
     // Per-user override wins over global; global wins over default (true = gate active)
     const gateEnabled = userRow ? userRow.enabled : (globalRow ? globalRow.enabled : true);
+
+    console.log(`[deduct-credits] gateEnabled=${gateEnabled} for type=${type} user=${user.email}`);
 
     if (!gateEnabled) {
       console.log(`[deduct-credits] Gate '${gateKey}' disabled — free pass for ${user.email}, type=${type}`);
