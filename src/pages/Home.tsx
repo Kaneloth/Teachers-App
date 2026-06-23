@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Users, Flame, MapPin, ArrowRight, Search } from 'lucide-react';
+import { Flame, MapPin, ArrowRight, Search, FileText, Briefcase, BookOpen, LayoutGrid, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -22,14 +22,13 @@ interface Educator {
 }
 
 interface Stats {
-  educators: number;
-  active: number;
-  provinces: number;
+  cvs: number;
+  vacancies: number;
 }
 
 export default function Home() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats>({ educators: 0, active: 0, provinces: 0 });
+  const [stats, setStats] = useState<Stats>({ cvs: 0, vacancies: 0 });
   const [activeEducators, setActiveEducators] = useState<Educator[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPro, setIsPro] = useState(false);
@@ -80,16 +79,14 @@ export default function Home() {
     const fetchData = async () => {
       const educatorOnly = 'profile_type.eq.educator,profile_type.is.null';
 
-      const [{ count: total }, { count: active }, { data: educators }] = await Promise.all([
+      const [{ count: cvCount }, { count: vacCount }, { data: educators }] = await Promise.all([
         supabase
-          .from('educators')
+          .from('credit_ledger')
           .select('*', { count: 'exact', head: true })
-          .or(educatorOnly),
+          .eq('type', 'cv_usage'),
         supabase
-          .from('educators')
-          .select('*', { count: 'exact', head: true })
-          .eq('is_actively_looking', true)
-          .or(educatorOnly),
+          .from('vacancies')
+          .select('*', { count: 'exact', head: true }),
         supabase
           .from('educators')
           .select('*')
@@ -99,10 +96,7 @@ export default function Home() {
           .limit(50),
       ]);
 
-      const provinceSet = new Set<string>();
-      educators?.forEach(e => e.current_province && provinceSet.add(e.current_province));
-
-      setStats({ educators: total || 0, active: active || 0, provinces: provinceSet.size });
+      setStats({ cvs: cvCount || 0, vacancies: vacCount || 0 });
       setActiveEducators(educators || []);
       setLoading(false);
     };
@@ -140,11 +134,14 @@ export default function Home() {
 
       {/* Stats cards */}
       <div className="grid grid-cols-3 gap-3">
-        {[
-          { icon: Users,  value: stats.educators, label: 'Educators', color: 'text-primary',   bg: 'bg-primary/10' },
-          { icon: Flame,  value: stats.active,    label: 'Active',    color: 'text-amber-500', bg: 'bg-amber-50'   },
-          { icon: MapPin, value: stats.provinces, label: 'Provinces', color: 'text-slate-500', bg: 'bg-slate-100'  },
-        ].map(({ icon: Icon, value, label, color, bg }) => (
+        {([
+          { icon: FileText,    value: stats.cvs > 0 ? `${stats.cvs}+` : '—',       label: 'CVs Created',      color: 'text-primary',    bg: 'bg-primary/10'   },
+          { icon: Briefcase,   value: stats.vacancies > 0 ? `${stats.vacancies}+` : '—', label: 'Vacancies',  color: 'text-blue-500',   bg: 'bg-blue-50'      },
+          { icon: MapPin,      value: '9',                                           label: 'Provinces',        color: 'text-slate-500',  bg: 'bg-slate-100'    },
+          { icon: GraduationCap, value: '51',                                        label: 'CAPS Subjects',    color: 'text-emerald-600',bg: 'bg-emerald-50'   },
+          { icon: LayoutGrid,  value: '10',                                          label: 'CV Templates',     color: 'text-violet-500', bg: 'bg-violet-50'    },
+          { icon: BookOpen,    value: '4',                                           label: 'Tools in One App', color: 'text-amber-500',  bg: 'bg-amber-50'     },
+        ] as { icon: React.ElementType; value: string; label: string; color: string; bg: string }[]).map(({ icon: Icon, value, label, color, bg }) => (
           <motion.div
             key={label}
             initial={{ opacity: 0, y: 10 }}
@@ -155,7 +152,7 @@ export default function Home() {
               <Icon className={`w-5 h-5 ${color}`} strokeWidth={1.75} />
             </div>
             <span className="text-2xl font-bold text-foreground leading-none">{value}</span>
-            <span className="text-xs text-muted-foreground">{label}</span>
+            <span className="text-xs text-muted-foreground text-center leading-tight">{label}</span>
           </motion.div>
         ))}
       </div>
