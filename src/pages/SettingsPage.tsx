@@ -15,7 +15,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import DeleteAccountSection from '@/components/DeleteAccountSection';
 
-const ALL_TABS = ['General', 'Security', 'Admin'] as const;
+const ALL_TABS = ['General', 'Security', 'Admin', 'Gates'] as const;
 type Tab = typeof ALL_TABS[number];
 
 /* ── shared primitives ─────────────────────────────────────── */
@@ -142,6 +142,82 @@ function GeneralTab() {
         <div className="border-t border-border" />
         <SettingLinkRow icon={Headphones} label="Contact Support" onClick={() => navigate('/support')} />
       </Card>
+    </div>
+  );
+}
+
+/* ── Feature Gates tab ─────────────────────────────────────────── */
+function FeatureGatesTab() {
+  const GATES = [
+    { key: 'advanced_search', label: 'Advanced Search & Matches', desc: 'R79+ gate — unlocks filters, matches page, radius search for all users' },
+    { key: 'guides_access',   label: 'Guides Access',             desc: 'R79+ gate — unlocks guide downloads for all users' },
+    { key: 'cv_credits',      label: 'CV Credit Gate',            desc: 'Whether CV downloads cost 9 credits' },
+    { key: 'chat_credits',    label: 'Chat Credit Gate',          desc: 'Whether starting a new chat costs 5 credits' },
+    { key: 'id_verification', label: 'ID Verification Gate',      desc: 'Whether ID verification requires R79+ purchase' },
+  ];
+  const { session } = useAuth();
+  const [globalGates, setGlobalGates] = useState<Record<string, boolean>>({});
+  const [saving, setSaving]           = useState<string | null>(null);
+  const [loaded, setLoaded]           = useState(false);
+
+  useEffect(() => {
+    supabase.from('feature_gates').select('gate_key, enabled').is('user_id', null)
+      .then(({ data }) => {
+        const g: Record<string, boolean> = {};
+        for (const row of data || []) g[row.gate_key] = row.enabled;
+        setGlobalGates(g);
+        setLoaded(true);
+      });
+  }, []);
+
+  const toggle = async (key: string, value: boolean) => {
+    setSaving(key);
+    await supabase.from('feature_gates').upsert(
+      { gate_key: key, user_id: null, enabled: value, updated_at: new Date().toISOString() },
+      { onConflict: 'gate_key,user_id' }
+    );
+    setGlobalGates(p => ({ ...p, [key]: value }));
+    setSaving(null);
+    toast.success(`${value ? 'Enabled' : 'Disabled'} globally for all users.`);
+  };
+
+  if (!loaded) return <div className="flex justify-center py-12"><div className="w-5 h-5 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
+
+  return (
+    <div className="px-4 py-4 space-y-4">
+      <div>
+        <h2 className="text-base font-bold text-foreground">Global Feature Gates</h2>
+        <p className="text-xs text-muted-foreground mt-1">
+          Applies to ALL users. Per-user overrides (set in Edit User) take precedence.
+          Admins always bypass all gates regardless.
+        </p>
+      </div>
+      <div className="space-y-3">
+        {GATES.map(({ key, label, desc }) => {
+          const enabled = globalGates[key] !== false;
+          return (
+            <div key={key} className={`rounded-2xl border-2 px-4 py-4 transition-all ${enabled ? 'border-border bg-card' : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/10'}`}>
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-foreground">{label}</p>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${enabled ? 'bg-primary/10 text-primary' : 'bg-amber-100 text-amber-700 dark:bg-amber-800/30 dark:text-amber-400'}`}>
+                      {enabled ? 'Active' : 'Disabled globally'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
+                </div>
+                <Switch checked={enabled} onCheckedChange={v => toggle(key, v)} disabled={saving === key} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10 px-4 py-3">
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          ⚠️ Disabling a gate removes the restriction for ALL users. Use Edit User for individual overrides.
+        </p>
+      </div>
     </div>
   );
 }
@@ -597,6 +673,20 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
   const [isAdminFlag,       setIsAdminFlag]       = useState(user.is_admin);
   const [templatesUnlocked, setTemplatesUnlocked] = useState(!!(user.templates_unlocked));
   const [isHidden,          setIsHidden]          = useState(!!(user.is_hidden));
+  const [userGateOverrides, setUserGateOverrides] = useState<Record<string,boolean|undefined>>({});
+  const [gatesLoading,      setGatesLoading]      = useState(true);
+
+  // Load existing per-user gate overrides for this user
+  useEffect(() => {
+    supabase.from('feature_gates').select('gate_key, enabled')
+      .eq('user_id', user.id)
+      .then(({ data }) => {
+        const overrides: Record<string,boolean> = {};
+        for (const row of data || []) overrides[row.gate_key] = row.enabled;
+        setUserGateOverrides(overrides);
+        setGatesLoading(false);
+      });
+  }, [user.id]);
   const [saving,    setSaving]    = useState(false);
   const [verifying, setVerifying] = useState(false);
 
@@ -641,6 +731,17 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
       toast.success('User updated successfully.');
       if (isAdminFlag !== user.is_admin) {
         toast.info('Admin access change takes effect when the user next opens or refreshes the app.', { duration: 6000 });
+      }
+      // Save per-user gate overrides
+      for (const [gate_key, enabled] of Object.entries(userGateOverrides)) {
+        if (enabled === undefined) {
+          await supabase.from('feature_gates').delete().eq('gate_key', gate_key).eq('user_id', user.id);
+        } else {
+          await supabase.from('feature_gates').upsert(
+            { gate_key, user_id: user.id, enabled, updated_at: new Date().toISOString() },
+            { onConflict: 'gate_key,user_id' }
+          );
+        }
       }
       onSaved({
         ...user,
@@ -715,6 +816,44 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
               </div>
             </div>
             <Switch checked={isHidden} onCheckedChange={setIsHidden} />
+          </div>
+
+          {/* Per-user gate overrides */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Per-User Gate Overrides</p>
+            <p className="text-xs text-muted-foreground">These override the global gates for this user only. Leave unset to follow global settings.</p>
+            {[
+              { key: 'advanced_search', label: 'Advanced Search & Matches' },
+              { key: 'guides_access',   label: 'Guides Access (R79+ gate)' },
+              { key: 'cv_credits',      label: 'CV Credit Gate' },
+              { key: 'chat_credits',    label: 'Chat Credit Gate' },
+            ].map(({ key, label }) => {
+              const override = userGateOverrides[key];
+              return (
+                <div key={key} className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-border bg-muted/30">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">{label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {override === undefined ? 'Following global setting' : override ? 'Unlocked for this user' : 'Locked for this user'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => setUserGateOverrides(p => ({ ...p, [key]: true }))}
+                      className={`text-xs px-2 py-1 rounded-lg border transition-colors ${override === true ? 'bg-primary text-white border-primary' : 'border-border text-muted-foreground hover:border-primary'}`}>
+                      On
+                    </button>
+                    <button onClick={() => setUserGateOverrides(p => ({ ...p, [key]: false }))}
+                      className={`text-xs px-2 py-1 rounded-lg border transition-colors ${override === false ? 'bg-destructive text-white border-destructive' : 'border-border text-muted-foreground hover:border-destructive'}`}>
+                      Off
+                    </button>
+                    <button onClick={() => setUserGateOverrides(p => { const n = {...p}; delete n[key]; return n; })}
+                      className={`text-xs px-2 py-1 rounded-lg border transition-colors ${override === undefined ? 'bg-muted border-border text-foreground' : 'border-border text-muted-foreground hover:border-border'}`}>
+                      Global
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Admin flag */}
