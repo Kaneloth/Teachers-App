@@ -45,7 +45,7 @@ export default function LandingHero() {
           </div>
           <div className="mt-4 inline-flex items-center gap-2 bg-[#f0fdfa] border border-[#99f6e4] text-[#0d9488] text-sm font-semibold px-4 py-2 rounded-full">
             <CheckCircle className="w-4 h-4 shrink-0" />
-            No subscriptions · No hidden costs · Pay only for what you use
+            No subscriptions · No hidden costs
           </div>
         </div>
 
