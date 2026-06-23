@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { MapPin, BookOpen, Navigation, ShieldCheck, MessageCircle, ArrowLeft, Flame, Briefcase } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { useFeatureGates } from '@/hooks/useFeatureGates';
 import { toast } from 'sonner';
 
 interface Educator {
@@ -48,6 +49,8 @@ export default function EducatorProfile() {
   const navigate = useNavigate();
   const { user, session } = useAuth();
   const isAdmin = !!(user?.user_metadata?.is_admin);
+  const { gates, loading: gatesLoading } = useFeatureGates();
+  const chatGateActive = !gatesLoading && gates.chat_credits && !isAdmin;
   const [educator, setEducator] = useState<Educator | null>(null);
   const [loading, setLoading] = useState(true);
   const [messaging, setMessaging] = useState(false);
@@ -78,7 +81,7 @@ export default function EducatorProfile() {
 
       if (!existing?.length) {
         // Admins bypass the credit gate entirely
-        if (!isAdmin) {
+        if (chatGateActive) {
         // New conversation — deduct 5 credits before sending
         const deductRes = await fetch('/.netlify/functions/deduct-credits', {
           method: 'POST',
@@ -99,7 +102,7 @@ export default function EducatorProfile() {
           receiver_id: targetId,
           content:     `Hi ${educator.full_name}, I found your profile on Crosssa and would like to connect!`,
         }]);
-        toast.success(isAdmin ? `Message sent.` : `Message sent! 5 credits used.`);
+        toast.success(chatGateActive ? `Message sent! 5 credits used.` : `Message sent.`);
       }
 
       navigate(`/chat/${targetId}`);

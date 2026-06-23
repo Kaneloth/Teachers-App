@@ -6,6 +6,7 @@ import { ArrowLeft, Send, Check, CheckCheck, Copy, Trash, Trash2, Lock } from 'l
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
+import { useFeatureGates } from '@/hooks/useFeatureGates';
 import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
 import { isBlocked, blockUser } from '@/lib/blockUtils';
@@ -58,6 +59,9 @@ export default function ChatRoom() {
   const { user, session } = useAuth();
   const { balance, loading: creditsLoading } = useCredits();
   const isAdmin = !!(user?.user_metadata?.is_admin);
+  const { gates, loading: gatesLoading } = useFeatureGates();
+  // Gate off = chat is free for everyone (no 5-credit charge)
+  const chatGateActive = !gatesLoading && gates.chat_credits && !isAdmin;
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [partner, setPartner] = useState<PartnerInfo | null>(null);
@@ -315,8 +319,9 @@ export default function ChatRoom() {
       return;
     }
 
-    // If user hasn't sent to this partner before, deduct 5 credits (admins bypass)
-    if (!hasSentBefore && !isAdmin) {
+    // If user hasn't sent to this partner before, deduct 5 credits
+    // (admins bypass + gate off = free for everyone)
+    if (!hasSentBefore && chatGateActive) {
       if (creditsLoading) return; // wait for balance to load
       if (balance < 5) {
         toast.error('You need 5 credits to start this conversation. Please top up your credits.');
