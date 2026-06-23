@@ -53,32 +53,32 @@ export function useFeatureGates() {
       return;
     }
 
-    supabase
-      .from('feature_gates')
-      .select('gate_key, user_id, enabled')
-      .or(`user_id.is.null,user_id.eq.${user.id}`)
-      .then(({ data, error }) => {
-        if (error || !data) {
-          // Table missing or RLS blocked — keep defaults (all gates active)
-          console.warn('[useFeatureGates] Could not load gates:', error?.message);
-          setLoading(false);
-          return;
-        }
-
-        const resolved = { ...DEFAULTS };
-
-        // Apply global gates first (lower priority)
-        for (const row of data.filter(r => !r.user_id)) {
-          if (row.gate_key in resolved) (resolved as any)[row.gate_key] = row.enabled;
-        }
-        // Per-user overrides win (higher priority)
-        for (const row of data.filter(r => r.user_id === user.id)) {
-          if (row.gate_key in resolved) (resolved as any)[row.gate_key] = row.enabled;
-        }
-
-        setGates(resolved);
+    // Fetch global and per-user gates separately — using .or() with IS NULL
+    // is unreliable in Supabase JS client for NULL comparisons
+    Promise.all([
+      supabase.from('feature_gates').select('gate_key, enabled').is('user_id', null),
+      supabase.from('feature_gates').select('gate_key, enabled').eq('user_id', user.id),
+    ]).then(([{ data: globalRows, error }, { data: userRows }]) => {
+      if (error) {
+        console.warn('[useFeatureGates] Could not load gates:', error?.message);
         setLoading(false);
-      });
+        return;
+      }
+
+      const resolved = { ...DEFAULTS };
+
+      // Apply global gates first (lower priority)
+      for (const row of globalRows || []) {
+        if (row.gate_key in resolved) (resolved as any)[row.gate_key] = row.enabled;
+      }
+      // Per-user overrides win (higher priority)
+      for (const row of userRows || []) {
+        if (row.gate_key in resolved) (resolved as any)[row.gate_key] = row.enabled;
+      }
+
+      setGates(resolved);
+      setLoading(false);
+    });
   }, [user?.id, user?.user_metadata?.is_admin]);
 
   return { gates, loading };

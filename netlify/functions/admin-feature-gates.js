@@ -53,11 +53,38 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'gate_key and enabled required' }), headers };
     }
 
-    const { error } = await supabase.from('feature_gates').upsert(
-      { gate_key, user_id: user_id || null, enabled: !!enabled, updated_by: user.id, updated_at: new Date().toISOString() },
-      { onConflict: 'gate_key,user_id' }
-    );
-    if (error) return { statusCode: 500, body: JSON.stringify({ error: error.message }), headers };
+    const now = new Date().toISOString();
+
+    if (!user_id) {
+      // Global gate — NULL user_id breaks upsert onConflict, so use UPDATE then INSERT
+      const { data: existing } = await supabase
+        .from('feature_gates')
+        .select('id')
+        .eq('gate_key', gate_key)
+        .is('user_id', null)
+        .maybeSingle();
+
+      let error;
+      if (existing) {
+        ({ error } = await supabase
+          .from('feature_gates')
+          .update({ enabled: !!enabled, updated_by: user.id, updated_at: now })
+          .eq('id', existing.id));
+      } else {
+        ({ error } = await supabase
+          .from('feature_gates')
+          .insert({ gate_key, user_id: null, enabled: !!enabled, updated_by: user.id, updated_at: now }));
+      }
+      if (error) return { statusCode: 500, body: JSON.stringify({ error: error.message }), headers };
+    } else {
+      // Per-user gate — user_id is set so upsert conflict works normally
+      const { error } = await supabase.from('feature_gates').upsert(
+        { gate_key, user_id, enabled: !!enabled, updated_by: user.id, updated_at: now },
+        { onConflict: 'gate_key,user_id' }
+      );
+      if (error) return { statusCode: 500, body: JSON.stringify({ error: error.message }), headers };
+    }
+
     return { statusCode: 200, body: JSON.stringify({ success: true }), headers };
   }
 
