@@ -161,24 +161,38 @@ function FeatureGatesTab() {
   const [loaded, setLoaded]           = useState(false);
 
   useEffect(() => {
-    supabase.from('feature_gates').select('gate_key, enabled').is('user_id', null)
-      .then(({ data }) => {
+    if (!session?.access_token) return;
+    fetch('/.netlify/functions/admin-feature-gates', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then(r => r.json())
+      .then(data => {
         const g: Record<string, boolean> = {};
-        for (const row of data || []) g[row.gate_key] = row.enabled;
+        for (const row of (data.global || [])) g[row.gate_key] = row.enabled;
         setGlobalGates(g);
         setLoaded(true);
-      });
-  }, []);
+      })
+      .catch(() => setLoaded(true));
+  }, [session?.access_token]);
 
   const toggle = async (key: string, value: boolean) => {
+    if (!session?.access_token) return;
     setSaving(key);
-    await supabase.from('feature_gates').upsert(
-      { gate_key: key, user_id: null, enabled: value, updated_at: new Date().toISOString() },
-      { onConflict: 'gate_key,user_id' }
-    );
-    setGlobalGates(p => ({ ...p, [key]: value }));
+    const res = await fetch('/.netlify/functions/admin-feature-gates', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ gate_key: key, enabled: value }),
+    });
+    if (res.ok) {
+      setGlobalGates(p => ({ ...p, [key]: value }));
+      toast.success(`${value ? 'Enabled' : 'Disabled'} globally for all users.`);
+    } else {
+      toast.error('Failed to save gate — check Netlify function is deployed.');
+    }
     setSaving(null);
-    toast.success(`${value ? 'Enabled' : 'Disabled'} globally for all users.`);
   };
 
   if (!loaded) return <div className="flex justify-center py-12"><div className="w-5 h-5 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
@@ -676,16 +690,23 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
   const [userGateOverrides, setUserGateOverrides] = useState<Record<string,boolean|undefined>>({});
   const [gatesLoading,      setGatesLoading]      = useState(true);
 
-  // Load existing per-user gate overrides for this user
+  // Load existing per-user gate overrides for this user via Netlify function
   useEffect(() => {
-    supabase.from('feature_gates').select('gate_key, enabled')
-      .eq('user_id', user.id)
-      .then(({ data }) => {
-        const overrides: Record<string,boolean> = {};
-        for (const row of data || []) overrides[row.gate_key] = row.enabled;
-        setUserGateOverrides(overrides);
-        setGatesLoading(false);
-      });
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      if (!s?.access_token) { setGatesLoading(false); return; }
+      fetch('/.netlify/functions/admin-feature-gates', {
+        headers: { Authorization: `Bearer ${s.access_token}` },
+      })
+        .then(r => r.json())
+        .then(data => {
+          const overrides: Record<string,boolean> = {};
+          for (const row of (data.perUser || []).filter((r: any) => r.user_id === user.id))
+            overrides[row.gate_key] = row.enabled;
+          setUserGateOverrides(overrides);
+          setGatesLoading(false);
+        })
+        .catch(() => setGatesLoading(false));
+    });
   }, [user.id]);
   const [saving,    setSaving]    = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -732,15 +753,21 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
       if (isAdminFlag !== user.is_admin) {
         toast.info('Admin access change takes effect when the user next opens or refreshes the app.', { duration: 6000 });
       }
-      // Save per-user gate overrides
+      // Save per-user gate overrides via Netlify function (needs service role)
+      const tok = (await supabase.auth.getSession()).data.session?.access_token;
       for (const [gate_key, enabled] of Object.entries(userGateOverrides)) {
         if (enabled === undefined) {
-          await supabase.from('feature_gates').delete().eq('gate_key', gate_key).eq('user_id', user.id);
+          await fetch('/.netlify/functions/admin-feature-gates', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+            body: JSON.stringify({ gate_key, user_id: user.id }),
+          });
         } else {
-          await supabase.from('feature_gates').upsert(
-            { gate_key, user_id: user.id, enabled, updated_at: new Date().toISOString() },
-            { onConflict: 'gate_key,user_id' }
-          );
+          await fetch('/.netlify/functions/admin-feature-gates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+            body: JSON.stringify({ gate_key, user_id: user.id, enabled }),
+          });
         }
       }
       onSaved({
