@@ -147,7 +147,7 @@ export default function Onboarding() {
   // Grant signup credits — called once per user after role is chosen.
   // Keeping this here (not in a webhook/trigger) ensures credits are only
   // granted to users who have actually completed onboarding and chosen a role.
-  const grantSignupCredits = async (userId: string, email: string) => {
+  const grantSignupCredits = async (userId: string, email: string, profileType: 'educator' | 'general' = 'general') => {
     try {
       await fetch('/.netlify/functions/grant-signup-credits', {
         method: 'POST',
@@ -155,6 +155,7 @@ export default function Onboarding() {
         body: JSON.stringify({
           user_id: userId,
           email,
+          profile_type: profileType,
           device_fingerprint: navigator.userAgent + screen.width + screen.height,
         }),
       });
@@ -211,7 +212,7 @@ export default function Onboarding() {
     // key fields (town, subjects, etc.) are still empty, which matters for
     // search/matching.
     // Grant signup credits now that role is confirmed
-    grantSignupCredits(user.id, user.email ?? '').catch(() => {});
+    grantSignupCredits(user.id, user.email ?? '', (user.user_metadata?.profile_type as 'educator' | 'general') ?? 'general').catch(() => {});
 
     toast('Add a few details to your profile to get better matches.');
     navigate('/profile');
@@ -245,7 +246,7 @@ export default function Onboarding() {
       }
 
       // Grant signup credits now that role is confirmed
-      grantSignupCredits(user?.id ?? '', user?.email ?? '').catch(() => {});
+      grantSignupCredits(user?.id ?? '', user?.email ?? '', 'general').catch(() => {});
 
       toast.success('Profile created! Welcome to Crosssa!');
       toast('Tip: add a profile photo and bio to help others recognize you.');
@@ -280,7 +281,7 @@ export default function Onboarding() {
       }
 
       // Grant signup credits now that role is confirmed
-      grantSignupCredits(user?.id ?? '', user?.email ?? '').catch(() => {});
+      grantSignupCredits(user?.id ?? '', user?.email ?? '', 'educator').catch(() => {});
 
       toast.success('Profile created! Welcome to Crosssa!');
       toast('Add your current town to improve your search results and matches.');

@@ -11,7 +11,8 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const FREE_CREDITS   = 18;
+const FREE_CREDITS_EDUCATOR = 40;
+const FREE_CREDITS_GENERAL  = 18;
 const IP_WINDOW_DAYS = 30;
 const IP_MAX_GRANTS  = 2;
 
@@ -24,7 +25,7 @@ export const handler = async (event) => {
   try { body = JSON.parse(event.body); }
   catch { return { statusCode: 400, body: 'Invalid JSON' }; }
 
-  const { user_id, email, phone, device_fingerprint } = body;
+  const { user_id, email, phone, device_fingerprint, profile_type } = body;
   const ip = event.headers['x-forwarded-for']?.split(',')[0]?.trim()
            || event.headers['client-ip']
            || 'unknown';
@@ -133,9 +134,9 @@ export const handler = async (event) => {
   // Grant free credits
   const { error } = await supabase.rpc('add_credits', {
     p_user_id:     user_id,
-    p_amount:      FREE_CREDITS,
+    p_amount:      profile_type === 'educator' ? FREE_CREDITS_EDUCATOR : FREE_CREDITS_GENERAL,
     p_type:        'signup_bonus',
-    p_description: 'Welcome bonus — 18 free credits',
+    p_description: profile_type === 'educator' ? 'Welcome bonus — 40 free credits (educator)' : 'Welcome bonus — 18 free credits',
     p_ref_id:      null,
   });
 
@@ -144,10 +145,11 @@ export const handler = async (event) => {
     return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
   }
 
-  console.log(`[grant-signup-credits] Granted ${FREE_CREDITS} credits to ${user_id} (ip=${ip})`);
+  const granted = profile_type === 'educator' ? FREE_CREDITS_EDUCATOR : FREE_CREDITS_GENERAL;
+  console.log(`[grant-signup-credits] Granted ${granted} credits to ${user_id} (profile_type=${profile_type}, ip=${ip})`);
   return {
     statusCode: 200,
-    body: JSON.stringify({ granted: FREE_CREDITS, reason: 'clean_identity' }),
+    body: JSON.stringify({ granted, reason: 'clean_identity' }),
   };
 };
 

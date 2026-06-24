@@ -13,6 +13,7 @@ import { Coins, X, Check, Loader2, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCredits } from '@/hooks/useCredits';
 import { useAuth } from '@/lib/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 // ── Credit packages (mirror your screenshot) ────────────────────────────────
@@ -29,11 +30,22 @@ type PackageId = typeof PACKAGES[number]['id'];
 interface Props {
   showBuyButton?: boolean;
   variant?: 'chip' | 'full';
+  onlyAfterPurchase?: boolean;
 }
 
-export default function CreditBalance({ showBuyButton = false, variant = 'chip' }: Props) {
+export default function CreditBalance({ showBuyButton = false, variant = 'chip', onlyAfterPurchase = false }: Props) {
   const { balance, loading, refetch } = useCredits();
+  const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
+  const [hasPurchased, setHasPurchased] = useState<boolean | null>(null);
+
+  // Hide chip until user has made a purchase (onlyAfterPurchase mode)
+  useEffect(() => {
+    if (!onlyAfterPurchase || !user) { setHasPurchased(false); return; }
+    supabase.from('credit_ledger').select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id).eq('type', 'purchase')
+      .then(({ count }) => setHasPurchased((count ?? 0) > 0));
+  }, [user?.id, onlyAfterPurchase]);
 
   // After a PayFast redirect back to the app, the URL will contain
   // ?payment=success or ?payment=cancelled. The actual credit grant
@@ -67,6 +79,8 @@ export default function CreditBalance({ showBuyButton = false, variant = 'chip' 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  if (onlyAfterPurchase && hasPurchased === false) return null;
+
   if (variant === 'full') {
     return (
       <>
@@ -90,7 +104,7 @@ export default function CreditBalance({ showBuyButton = false, variant = 'chip' 
         {showBuyButton && (
           <button onClick={() => setShowModal(true)}
             className="text-xs text-primary font-medium hover:underline">
-            Buy more
+            Top up
           </button>
         )}
       </div>
@@ -130,8 +144,47 @@ function CreditCard({ balance, loading, onBuy }: { balance: number; loading: boo
         </div>
       )}
       <Button onClick={onBuy} className="w-full rounded-xl gap-2">
-        <Zap className="w-4 h-4" /> Buy Credits
+        <Zap className="w-4 h-4" /> Top Up Credits
       </Button>
+    </div>
+  );
+}
+
+// ── Balance display inside modal ─────────────────────────────────────────────
+function BalanceDisplay() {
+  const { balance, loading } = useCredits();
+  return (
+    <div className="mx-4 mt-4 bg-primary/5 border border-primary/20 rounded-2xl px-4 py-3 flex items-center justify-between">
+      <div>
+        <p className="text-xs text-muted-foreground">Your current balance</p>
+        <p className="text-2xl font-bold text-primary leading-tight">
+          {loading ? '…' : balance} <span className="text-sm font-normal text-muted-foreground">credits</span>
+        </p>
+      </div>
+      <Coins className="w-8 h-8 text-primary/30" />
+    </div>
+  );
+}
+
+// ── Low credits prompt — invite user to view packages, don't show them directly
+export function LowCreditsPrompt({ onViewPackages, message }: { onViewPackages: () => void; message?: string }) {
+  return (
+    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl px-4 py-4">
+      <div className="flex items-start gap-3">
+        <Coins className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Not enough credits</p>
+          <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 leading-relaxed">
+            {message || "You don't have enough credits for this action."}
+          </p>
+          <button
+            onClick={onViewPackages}
+            className="mt-2 text-xs font-semibold text-amber-800 dark:text-amber-300 underline underline-offset-2 hover:no-underline"
+          >
+            View credit packages →
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -182,13 +235,16 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
-            <h2 className="font-bold text-foreground">Buy Credits</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">CV = 9 credits · Cover letter = 1 credit</p>
+            <h2 className="font-bold text-foreground">Top Up Credits</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">CV = 9 credits · Cover letter = 2 credits · Chat = 5 credits</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
             <X className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>
+
+        {/* Current balance */}
+        <BalanceDisplay />
 
         {/* Package list */}
         <div className="p-4 space-y-3">
@@ -233,7 +289,7 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
             </p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              New users get 18 free credits on signup
+              Educators get 40 free credits · General users get 18
             </p>
             <p className="text-xs font-medium text-foreground mt-1 pt-1 border-t border-border">Credit costs:</p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
