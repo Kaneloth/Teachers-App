@@ -63,7 +63,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
 
   // Re-download the already-stored PDF — FREE, no credit deduction
   const handleRedownload = async () => {
-    const url = pdfUrl ?? existingPdfUrl;
+    const url = pdfUrl;
     if (!url) return;
     setSending(true);
     try {
@@ -305,15 +305,15 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
       )}
 
       <Button
-        onClick={(pdfUrl ?? existingPdfUrl) ? handleRedownload : handleGenerate}
-        disabled={sending || (!isAdmin && !(pdfUrl ?? existingPdfUrl) && !creditsLoading && balance < (aiUsed ? 7 : 9))}
+        onClick={pdfUrl ? handleRedownload : handleGenerate}
+        disabled={sending || (!isAdmin && !pdfUrl && !creditsLoading && balance < (aiUsed ? 7 : 9))}
         className="w-full h-12 rounded-xl text-sm font-semibold gap-2"
       >
         <Download className="w-4 h-4 shrink-0" />
         <span className="truncate">
           {sending
             ? 'Downloading...'
-            : (pdfUrl ?? existingPdfUrl)
+            : pdfUrl
               ? 'Download CV (free — already generated)'
               : `Download PDF · ${aiUsed ? 7 : 9} credits${shouldWatermark ? ' · watermarked' : ''}`}
         </span>
