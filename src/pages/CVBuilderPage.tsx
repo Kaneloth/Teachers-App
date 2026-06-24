@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Loader2, RotateCcw, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
-import { useFeatureGates } from '@/hooks/useFeatureGates';
 import { useCredits } from '@/hooks/useCredits';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -264,7 +263,6 @@ export default function CVBuilderPage() {
   // balance. If no → only the free Classic template is available.
   const [hasPurchased,      setHasPurchased]      = useState(false);
   const [templatesUnlocked, setTemplatesUnlocked] = useState(false);
-  const { gates, loading: gatesLoading } = useFeatureGates();
 
   useEffect(() => {
     if (!user) return;
@@ -287,8 +285,7 @@ export default function CVBuilderPage() {
   // isFree gates the template picker (CVStepTemplate): true = only Classic
   // template available. Admins, users who have purchased, or users with
   // admin-granted template access get all templates unlocked.
-  // templates_access gate off = everyone gets all templates freely
-  const isFree = !gatesLoading && gates.templates_access && !hasPurchased && !isAdmin && !templatesUnlocked;
+  const isFree = !hasPurchased && !isAdmin && !templatesUnlocked;
 
   const [showBuilder,      setShowBuilder]      = useState(initialState.showBuilder);
   const [step,             setStep]             = useState(initialState.draft?.step ?? 0);
