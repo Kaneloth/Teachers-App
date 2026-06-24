@@ -1,5 +1,6 @@
 /**
- * CV PDF Export — jsPDF direct drawing, full 17-template implementation
+ * CV PDF Export — jsPDF direct drawing — 10 templates (v2)
+ * Removed: Stylish, Timeline
  *
  * Every template is drawn with its true structure:
  *   - Left sidebar templates  : modern, sidebar, corporate
