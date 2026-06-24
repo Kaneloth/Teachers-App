@@ -229,9 +229,9 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-background rounded-2xl w-full max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-background rounded-2xl w-full max-w-sm shadow-xl my-auto min-h-0">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
