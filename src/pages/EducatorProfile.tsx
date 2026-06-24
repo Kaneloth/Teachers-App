@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { MapPin, BookOpen, Navigation, ShieldCheck, MessageCircle, ArrowLeft, Flame, Briefcase } from 'lucide-react';
+import { MapPin, BookOpen, Navigation, ShieldCheck, MessageCircle, ArrowLeft, Flame, Briefcase, Coins } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import CreditBalance from '@/components/credits/CreditBalance';
 import { useAuth } from '@/lib/AuthContext';
 import { useFeatureGates } from '@/hooks/useFeatureGates';
 import { toast } from 'sonner';
@@ -54,6 +55,8 @@ export default function EducatorProfile() {
   const [educator, setEducator] = useState<Educator | null>(null);
   const [loading, setLoading] = useState(true);
   const [messaging, setMessaging] = useState(false);
+  const [showChatUpsell, setShowChatUpsell] = useState(false);
+  const [hasChatAccess, setHasChatAccess] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -63,8 +66,22 @@ export default function EducatorProfile() {
     });
   }, [id]);
 
+  // Check if user has ever made an R79+ purchase (unlocks messaging)
+  useEffect(() => {
+    if (!user || isAdmin) { setHasChatAccess(true); return; }
+    supabase.from('credit_ledger').select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id).eq('type', 'purchase').gte('amount', 60)
+      .then(({ count }) => setHasChatAccess((count ?? 0) > 0));
+  }, [user, isAdmin]);
+
   const handleMessage = async () => {
     if (!user || !educator || !session?.access_token) return;
+    // If user hasn't made an R79+ purchase, show the chat upsell modal
+    // No lock icon shown on the button — just a smooth upsell on tap
+    if (hasChatAccess === false) {
+      setShowChatUpsell(true);
+      return;
+    }
     setMessaging(true);
     try {
       const targetId = educator.user_id ?? '';
@@ -90,7 +107,7 @@ export default function EducatorProfile() {
         });
         const deductData = await deductRes.json();
         if (deductRes.status === 402) {
-          toast.error(`Not enough credits. Starting a new chat costs 5 credits. You have ${deductData.balance}.`);
+          toast.error('Not enough credits to start a new chat. Top up your credits to continue.');
           setMessaging(false);
           return;
         }
@@ -102,7 +119,7 @@ export default function EducatorProfile() {
           receiver_id: targetId,
           content:     `Hi ${educator.full_name}, I found your profile on Crosssa and would like to connect!`,
         }]);
-        toast.success(chatGateActive ? `Message sent! 5 credits used.` : `Message sent.`);
+        toast.success('Message sent!');
       }
 
       navigate(`/chat/${targetId}`);
@@ -223,6 +240,42 @@ export default function EducatorProfile() {
               Not accepting messages
             </div>
           )}
+        </div>
+      )}
+
+      {/* Chat upsell modal */}
+      {showChatUpsell && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
+          onClick={e => { if (e.target === e.currentTarget) setShowChatUpsell(false); }}>
+          <div className="bg-background rounded-2xl w-full max-w-sm shadow-xl p-6 space-y-4">
+            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mx-auto">
+              <MessageCircle className="w-7 h-7 text-primary" />
+            </div>
+            <div className="text-center space-y-1.5">
+              <h2 className="text-lg font-bold text-foreground">Unlock Messaging</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                You've found a potential match! Top up with the <strong>Pro Credit Pack (R79)</strong> to start chatting.
+                60 credits gives you 12 conversations with potential transfer partners.
+              </p>
+            </div>
+            <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 space-y-1">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-semibold text-foreground">Pro Credit Pack</span>
+                <span className="font-bold text-primary text-lg">R79</span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>60 credits · 12 conversations</span>
+                <span className="flex items-center gap-1"><Coins className="w-3 h-3" /> R6.60/chat</span>
+              </div>
+            </div>
+            <CreditBalance variant="full" />
+            <button
+              onClick={() => setShowChatUpsell(false)}
+              className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-1"
+            >
+              Maybe later
+            </button>
+          </div>
         </div>
       )}
     </div>

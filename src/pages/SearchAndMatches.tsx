@@ -41,7 +41,8 @@ export default function SearchAndMatches() {
   // Avoid a flash of the two-tab layout for Pro users while the
   // subscription check resolves.
   // Gate off = everyone gets access regardless of purchase
-  const effectiveIsPro = !gatesLoading && (!gates.advanced_search || isPro);
+  // Advanced search and matches are now free for all users
+  const effectiveIsPro = true;
 
   if (!checked || gatesLoading) {
     return (

@@ -43,7 +43,8 @@ export default function Search({ embedded = false }: Props) {
   const [hasSearched, setHasSearched] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const { gates, loading: gatesLoading } = useFeatureGates();
-  const effectiveIsPro = !gatesLoading && (!gates.advanced_search || isPro);
+  // Advanced search is now free for all users — everyone gets full access
+  const effectiveIsPro = true;
   const [showSubModal, setShowSubModal] = useState(false);
 
   /* ── Fetch current user's profile + subscription status ─────── */
@@ -233,7 +234,7 @@ export default function Search({ embedded = false }: Props) {
           <p className="text-sm text-muted-foreground pl-1">
             {isPro
               ? 'All educators shown with match scores — use filters to refine your search.'
-              : <>Search educators · <span className="text-primary font-medium">R79+ pack</span> unlocks match scores &amp; advanced filters.</>}
+              : 'All educators shown — use filters to refine your search.'}
           </p>
         </div>
       )}

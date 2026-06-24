@@ -69,6 +69,16 @@ export default function ChatRoom() {
   const [selectedMsg, setSelectedMsg] = useState<Message | null>(null);
   const [chatBlocked, setChatBlocked] = useState(false);
   const [hasSentBefore, setHasSentBefore] = useState<boolean | null>(null);
+  const [hasChatAccess, setHasChatAccess] = useState<boolean | null>(null);
+  const [showChatUpsell, setShowChatUpsell] = useState(false);
+
+  // Check R79+ purchase — required to send/reply to messages
+  useEffect(() => {
+    if (!user || isAdmin) { setHasChatAccess(true); return; }
+    supabase.from('credit_ledger').select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id).eq('type', 'purchase').gte('amount', 60)
+      .then(({ count }) => setHasChatAccess((count ?? 0) > 0));
+  }, [user, isAdmin]);
   const [checkingBlock, setCheckingBlock] = useState(true);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -310,6 +320,11 @@ export default function ChatRoom() {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim() || !user || !partnerId || sending) return;
+    // R79+ required to send — show upsell if not purchased
+    if (hasChatAccess === false) {
+      setShowChatUpsell(true);
+      return;
+    }
 
     // Check block status BEFORE adding any message
     const blockedByMe = await isBlocked(user.id, partnerId);
@@ -537,43 +552,62 @@ export default function ChatRoom() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Credit gate — show banner if user hasn't sent before and has no credits */}
-      {hasSentBefore === false && chatGateActive && !creditsLoading && balance < 5 ? (
-        <div className="px-4 py-3 border-t border-border bg-background">
-          <div className="rounded-2xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">5 credits needed to reply</p>
-              <p className="text-xs text-amber-700 dark:text-amber-400">You have {balance} credit{balance !== 1 ? 's' : ''}. Top up to send your first message.</p>
+      {/* Always-visible input — send button triggers R79+ upsell if not purchased */}
+      <form
+        onSubmit={handleSend}
+        className="flex items-center gap-2 px-4 py-3 border-t border-border bg-background"
+      >
+        <Input
+          value={text}
+          onChange={e => setText(e.target.value)}
+          placeholder="Type a message..."
+          disabled={sending}
+          className="rounded-full flex-1 bg-muted/40 border-border"
+        />
+        <Button
+          type="submit"
+          size="icon"
+          disabled={sending || !text.trim()}
+          className="rounded-full shrink-0 w-10 h-10"
+        >
+          <Send className="w-4 h-4" />
+        </Button>
+      </form>
+
+      {/* R79+ chat upsell modal */}
+      {showChatUpsell && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
+          onClick={e => { if (e.target === e.currentTarget) setShowChatUpsell(false); }}>
+          <div className="bg-background rounded-2xl w-full max-w-sm shadow-xl p-6 space-y-4">
+            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mx-auto">
+              <MessageCircle className="w-7 h-7 text-primary" />
             </div>
-            <a
-              href="/credits"
-              className="shrink-0 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-xl transition-colors"
+            <div className="text-center space-y-1.5">
+              <h2 className="text-lg font-bold text-foreground">Unlock Messaging</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Top up with the <strong>Pro Credit Pack (R79)</strong> to send and reply to messages.
+                60 credits gives you 12 conversations with potential transfer partners.
+              </p>
+            </div>
+            <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 space-y-1">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-semibold text-foreground">Pro Credit Pack</span>
+                <span className="font-bold text-primary text-lg">R79</span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>60 credits · 12 conversations</span>
+                <span>R6.60/chat</span>
+              </div>
+            </div>
+            <CreditBalance variant="full" />
+            <button
+              onClick={() => setShowChatUpsell(false)}
+              className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-1"
             >
-              Top up
-            </a>
+              Maybe later
+            </button>
           </div>
         </div>
-      ) : (
-        <form
-          onSubmit={handleSend}
-          className="flex items-center gap-2 px-4 py-3 border-t border-border bg-background"
-        >
-          <Input
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder="Type a message..."
-            disabled={sending}
-            className="rounded-full flex-1 bg-muted/40 border-border"
-          />
-          <Button
-            type="submit"
-            size="icon"
-            disabled={sending || !text.trim()}
-            className="rounded-full shrink-0 w-10 h-10"
-          >
-            <Send className="w-4 h-4" />
-          </Button>
-        </form>
       )}
     </div>
   );
