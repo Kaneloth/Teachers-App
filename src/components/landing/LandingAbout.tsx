@@ -53,7 +53,7 @@ export default function LandingAbout() {
               <Heart className="w-5 h-5 text-[#0d9488]" />
             </div>
             <h3 className="text-base font-bold text-[#0f172a] mb-2">Fair Approach for SA</h3>
-            <p className="text-sm text-[#64748b]">We understand our economic reality. Free tier, free credits for new users, and reasonable prices – no one should pay a fortune for a good CV.</p>
+            <p className="text-sm text-[#64748b]">We understand our economic reality. Find matches for free, and only pay when you're ready to start chatting. Affordable CV tools with no fortune required.</p>
           </div>
         </div>
 
@@ -73,7 +73,7 @@ export default function LandingAbout() {
             <ul className="space-y-3">
               <li className="flex items-start gap-3"><CheckCircle className="w-5 h-5 text-[#0d9488] shrink-0 mt-0.5" /><span className="text-[#475569]">See other educators and message them directly</span></li>
               <li className="flex items-start gap-3"><CheckCircle className="w-5 h-5 text-[#0d9488] shrink-0 mt-0.5" /><span className="text-[#475569]">Create a professional CV & cover letter in minutes</span></li>
-              <li className="flex items-start gap-3"><CheckCircle className="w-5 h-5 text-[#0d9488] shrink-0 mt-0.5" /><span className="text-[#475569]">Free tier + free credits to start – no upfront payment</span></li>
+              <li className="flex items-start gap-3"><CheckCircle className="w-5 h-5 text-[#0d9488] shrink-0 mt-0.5" /><span className="text-[#475569]">Free search and matching – only pay when you're ready to connect</span></li>
               <li className="flex items-start gap-3"><CheckCircle className="w-5 h-5 text-[#0d9488] shrink-0 mt-0.5" /><span className="text-[#475569]">Affordable options that respect South African realities</span></li>
             </ul>
           </div>

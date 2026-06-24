@@ -18,7 +18,7 @@ export default function LandingCTA() {
             Sign In
           </Link>
         </div>
-        <p className="text-white/50 text-xs mt-6">No credit card required · Advanced features free for 6 months · No subscriptions</p>
+        <p className="text-white/50 text-xs mt-6">No credit card required · Search &amp; matching free · No subscriptions</p>
       </div>
     </section>
   );

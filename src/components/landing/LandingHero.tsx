@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle, GraduationCap, Briefcase, Sparkles, Clock } from 'lucide-react';
+import { ArrowRight, CheckCircle, GraduationCap, Briefcase } from 'lucide-react';
 
 export default function LandingHero() {
   return (
@@ -7,12 +7,6 @@ export default function LandingHero() {
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-12">
         {/* Left side */}
         <div className="flex-1 text-center md:text-left">
-          {/* Launch banner */}
-          <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
-            <Clock className="w-3.5 h-3.5 shrink-0" />
-            Launch offer · Advanced features free for 6 months
-          </div>
-
           <span className="inline-block text-xs font-semibold text-[#0d9488] bg-[#ccfbf1] px-3 py-1 rounded-full mb-4 tracking-wide uppercase">
             One Platform, Two Paths
           </span>
@@ -52,19 +46,6 @@ export default function LandingHero() {
         {/* Right side - platform feature highlights */}
         <div className="flex-1 flex justify-center">
           <div className="relative w-full max-w-sm">
-            {/* Launch promo card */}
-            <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl px-5 py-4 mb-3 flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
-                <Sparkles className="w-4 h-4 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-amber-800">Limited-Time Launch Offer</p>
-                <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
-                  All advanced search filters, transfer matching, and messaging are <strong>completely free</strong> for the first 6 months. No credit card needed.
-                </p>
-              </div>
-            </div>
-
             <div className="bg-white rounded-3xl shadow-xl border border-[#e2e8f0] p-6">
               <p className="text-xs font-semibold text-[#0d9488] uppercase tracking-widest mb-4">What You Get</p>
               <div className="space-y-4">

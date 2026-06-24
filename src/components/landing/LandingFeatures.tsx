@@ -35,7 +35,7 @@ export default function LandingFeatures() {
         </div>
         <div className="mt-8 text-center text-sm text-[#64748b]">
           <span className="inline-flex items-center gap-2 bg-[#f0fdfa] px-4 py-2 rounded-full">
-            <ShieldCheck className="w-4 h-4 text-[#0d9488]" /> SACE‑verified educators · All features free to start
+            <ShieldCheck className="w-4 h-4 text-[#0d9488]" /> SACE‑verified educators · Search &amp; matching always free
           </span>
         </div>
       </div>
