@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { User, Settings, LogOut, ShieldCheck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import CreditBalance from '@/components/credits/CreditBalance';
+import NotificationBell from '@/components/NotificationBell';
 
 export default function AppHeader() {
   const { user, logout } = useAuth();
@@ -39,11 +39,8 @@ export default function AppHeader() {
           <span className="hidden sm:inline text-xl font-extrabold text-foreground tracking-tight">Crosssa</span>
         </Link>
 
-        {/* Credit balance — always visible, tap to top up. Previously this
-            only existed on the dedicated /credits page, which users had no
-            obvious way to discover; surfacing it here on every page is the
-            fix for "no clear button to buy credits". */}
-        <CreditBalance onlyAfterPurchase />
+        {/* Notification bell — alerts user to new transfer matches */}
+        <NotificationBell />
 
         {/* Avatar + dropdown */}
         <div className="relative" ref={ref}>
