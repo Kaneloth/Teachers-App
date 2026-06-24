@@ -526,7 +526,6 @@ export async function exportElementAsPDF(
   // functions' signatures) — drawCustom reads sec.__resolvedIcon.
   for (const sec of customs) (sec as any).__resolvedIcon = customIcons.get((sec.title||'').trim()) ?? null;
   const tmpl    = data.template || 'classic';
-  console.log('[cvExport] template received:', data.template, '→ using:', tmpl);
   const isEdu    = data.cvType !== 'general';  // false = general CV, true = educator (default)
   const wm      = !!data.watermark;
   const owner   = pr.full_name || 'Applicant';

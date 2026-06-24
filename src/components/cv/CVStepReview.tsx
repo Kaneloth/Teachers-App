@@ -101,7 +101,6 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
 
     setSending(true);
     try {
-      console.log('[CVStepReview] Generating PDF with template:', data.template, 'full data keys:', Object.keys(data));
       const pdfBlob = await exportElementAsPDF(exportRef.current, fileName, { ...data, watermark: shouldWatermark });
 
       // ── 1. Trigger immediate device download ─────────────────────────────
