@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 
 // ── Credit packages (mirror your screenshot) ────────────────────────────────
 const PACKAGES = [
-  { id: 'single',   label: 'Single CV',            price: 19,  credits: 10,  note: '1 CV + 1 letter' },
+  { id: 'single',   label: 'Single CV',            price: 29,  credits: 10,  note: '1 CV + 1 letter' },
   { id: 'standard', label: 'Standard Credit Pack', price: 49,  credits: 30,  note: '3 CVs + 3 letters', popular: true },
   { id: 'pro_pack', label: 'Pro Credit Pack',       price: 79,  credits: 60,  note: '6 CVs + 6 letters' },
   { id: 'business', label: 'Business Credit Pack',  price: 199, credits: 200, note: '22 CVs + 2 letters' },
@@ -228,6 +228,13 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
     }
   };
 
+  // Hide bottom nav while modal is open, restore on close
+  useEffect(() => {
+    const nav = document.querySelector('nav.fixed.bottom-0') as HTMLElement | null;
+    if (nav) nav.style.display = 'none';
+    return () => { if (nav) nav.style.display = ''; };
+  }, []);
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -289,7 +296,7 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
             </p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              Educators get 40 free credits · General users get 18
+              All new users receive 18 free credits on signup
             </p>
             <p className="text-xs font-medium text-foreground mt-1 pt-1 border-t border-border">Credit costs:</p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
