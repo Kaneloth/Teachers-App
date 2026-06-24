@@ -475,8 +475,8 @@ export default function CVBuilderPage() {
               {step === 3 && <CVStepSkills data={data.skills} onChange={skills => setData(d => ({ ...d, skills }))} />}
               {step === 4 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} />}
               {step === 5 && <CVStepReferences data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
-              {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} isFree={isFree} />}
-              {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} isFree={isFree} aiUsed={aiUsed} />}
+              {step === 6 && <CVStepTemplate selected={data.template} onChange={template => { console.log('[CVBuilder] Template changed to:', template); setData(d => ({ ...d, template })); }} isFree={isFree} />}
+              {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} isFree={isFree} aiUsed={aiUsed} />}{step === 7 && console.log('[CVBuilder] At review step, data.template =', data.template)}
             </motion.div>
           </AnimatePresence>
         </div>
