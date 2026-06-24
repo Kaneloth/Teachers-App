@@ -43,7 +43,7 @@ export default function AppHeader() {
             only existed on the dedicated /credits page, which users had no
             obvious way to discover; surfacing it here on every page is the
             fix for "no clear button to buy credits". */}
-        <CreditBalance />
+        <CreditBalance onlyAfterPurchase />
 
         {/* Avatar + dropdown */}
         <div className="relative" ref={ref}>
