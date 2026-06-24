@@ -1,4 +1,4 @@
-const CACHE_NAME = 'crosssa-v8';
+const CACHE_NAME = 'crosssa-v9';
 const OFFLINE_URL = '/offline.html';
 
 // App shell — everything needed to run the app without a network connection.
