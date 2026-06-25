@@ -268,6 +268,8 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
         </div>
       </div>
 
+
+
       {/* Watermark notice for free users */}
       {!hasPurchased && !isAdmin && (
         <div className="flex items-start gap-2 bg-muted border border-border rounded-xl px-3 py-2.5">

@@ -5,7 +5,6 @@ import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Lo
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
-import CreditBalance from '@/components/credits/CreditBalance';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import CVStepPersonal from '@/components/cv/CVStepPersonal';
@@ -417,10 +416,7 @@ export default function CVBuilderPage() {
           </button>
           <FileText className="w-5 h-5 text-primary" />
           <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
-          <button
-            onClick={() => setShowTopUp(true)}
-            className="ml-auto flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold hover:bg-primary/20 transition-colors"
-          >
+          <button onClick={() => setShowTopUp(true)} className="ml-auto flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold hover:bg-primary/20 transition-colors">
             <Coins className="w-3 h-3" />
             {creditsLoading ? '…' : balance}
           </button>
@@ -444,19 +440,11 @@ export default function CVBuilderPage() {
         </button>
         <FileText className="w-5 h-5 text-primary" />
         <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
-        <button
-          onClick={() => setShowTopUp(true)}
-          className="ml-auto flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold hover:bg-primary/20 transition-colors"
-        >
+        <button onClick={() => setShowTopUp(true)} className="ml-auto flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold hover:bg-primary/20 transition-colors">
           <Coins className="w-3 h-3" />
           {creditsLoading ? '…' : balance}
         </button>
       </div>
-
-      {/* Top-up modal — auto-opens the purchase flow */}
-      {showTopUp && (
-        <AutoOpenCreditModal onClose={() => setShowTopUp(false)} />
-      )}
 
       <div className="px-4 pb-4 pt-1">
         <p className="text-sm text-muted-foreground">Build a professional CV in minutes</p>
@@ -529,20 +517,16 @@ export default function CVBuilderPage() {
           )}
         </div>
       </motion.div>
-    </div>
-  );
-}
 
-// Renders the CreditCard in an overlay — user taps "Top Up Credits" to open PurchaseModal
-function AutoOpenCreditModal({ onClose }: { onClose: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 bg-black/50 z-[60] flex items-start justify-center overflow-y-auto py-4 px-4"
-      onClick={onClose}
-    >
-      <div onClick={e => e.stopPropagation()} className="w-full max-w-sm my-auto">
-        <CreditBalance variant="full" />
-      </div>
+      {/* Credit top-up modal */}
+      {showTopUp && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-start justify-center overflow-y-auto py-4 px-4"
+          onClick={() => setShowTopUp(false)}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-sm my-auto">
+            <CreditBalance variant="full" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
