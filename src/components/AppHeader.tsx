@@ -2,18 +2,28 @@ import { useState, useRef, useEffect } from 'react';
 import { User, Settings, LogOut, ShieldCheck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
+import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
 
 export default function AppHeader() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [isEducator, setIsEducator] = useState<boolean | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   const meta = user?.user_metadata ?? {};
   const initial = (meta.full_name as string | undefined)?.[0]?.toUpperCase()
     || user?.email?.[0]?.toUpperCase()
     || 'U';
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('educators').select('profile_type').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => {
+        setIsEducator(!data || data.profile_type !== 'general');
+      });
+  }, [user?.id]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -39,8 +49,8 @@ export default function AppHeader() {
           <span className="hidden sm:inline text-xl font-extrabold text-foreground tracking-tight">Crosssa</span>
         </Link>
 
-        {/* Notification bell — alerts user to new transfer matches */}
-        <NotificationBell />
+        {/* Notification bell — educators only */}
+        {isEducator && <NotificationBell />}
 
         {/* Avatar + dropdown */}
         <div className="relative" ref={ref}>
