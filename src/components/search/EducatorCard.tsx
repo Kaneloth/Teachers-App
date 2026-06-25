@@ -8,33 +8,31 @@ export interface MyProfile {
   town?: string;
   subjects?: string[];
   preferred_districts?: string[];
-  // Geocoded coords for each preferred town — [{town, lat, lng}]
   preferred_town_coords?: { town: string; lat: number; lng: number }[];
-  // Own geocoded town coordinates (from geo_location column)
   town_lat?: number;
   town_lng?: number;
 }
 
-/** Haversine distance in km between two lat/lng points */
+/** Haversine distance in km */
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLng = (lng2 - lng1) * Math.PI / 180;
   const a = Math.sin(dLat / 2) ** 2
-    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
+    * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const TOWN_MATCH_RADIUS_KM = 50; // within 50km counts as a town match
+const TOWN_MATCH_RADIUS_KM = 50;
 
 /**
  * Weighted match formula:
  *   Phase 20% + Province 20% + Preferred-town proximity 20% + Subjects (Jaccard) 40%
  *
- * Preferred-town proximity (20%):
- *   - THEM's current town is within 50km of any of MY preferred towns, OR
- *   - MY current town is within 50km of any of THEIR preferred towns.
- *   Falls back to exact town-name match if coordinates are not available.
+ * Town proximity (20%): THEM's current town within 50km of MY preferred towns,
+ *   OR MY current town within 50km of THEIR preferred towns.
+ *   Falls back to exact name match if coords not yet geocoded.
  *
  * Hard rule: no common subjects → always 0%.
  */
@@ -52,55 +50,37 @@ export function calculateMatch(me: MyProfile, them: MyProfile): number {
   const provinceScore = me.current_province && them.current_province
                         && me.current_province === them.current_province ? 0.20 : 0;
 
-  // ── Town proximity score ──────────────────────────────────────────────────
-  // Check if THEM's current town is near any of MY preferred towns (or vice versa)
+  // ── Town proximity ────────────────────────────────────────────────────────
   let townScore = 0;
+  const myPrefCoords   = me.preferred_town_coords   || [];
+  const themPrefCoords = them.preferred_town_coords || [];
+  const themLat = them.town_lat, themLng = them.town_lng;
+  const meLat   = me.town_lat,   meLng   = me.town_lng;
+  let matched = false;
 
-  const myPreferredCoords  = me.preferred_town_coords   || [];
-  const themPreferredCoords = them.preferred_town_coords || [];
-
-  // Try coordinate-based distance first
-  const themLat = them.town_lat;
-  const themLng = them.town_lng;
-  const meLat   = me.town_lat;
-  const meLng   = me.town_lng;
-
-  let foundByCoords = false;
-
-  // MY preferred towns → THEIR current location
-  if (themLat != null && themLng != null && myPreferredCoords.length > 0) {
-    for (const pref of myPreferredCoords) {
-      if (haversineKm(pref.lat, pref.lng, themLat, themLng) <= TOWN_MATCH_RADIUS_KM) {
-        townScore = 0.20;
-        foundByCoords = true;
-        break;
-      }
+  // Coord-based: MY preferred towns vs THEIR current location
+  if (!matched && themLat != null && themLng != null && myPrefCoords.length > 0) {
+    for (const p of myPrefCoords) {
+      if (haversineKm(p.lat, p.lng, themLat, themLng) <= TOWN_MATCH_RADIUS_KM) { matched = true; break; }
     }
   }
-
-  // THEIR preferred towns → MY current location (if not already matched)
-  if (!foundByCoords && meLat != null && meLng != null && themPreferredCoords.length > 0) {
-    for (const pref of themPreferredCoords) {
-      if (haversineKm(pref.lat, pref.lng, meLat, meLng) <= TOWN_MATCH_RADIUS_KM) {
-        townScore = 0.20;
-        foundByCoords = true;
-        break;
-      }
+  // Coord-based: THEIR preferred towns vs MY current location
+  if (!matched && meLat != null && meLng != null && themPrefCoords.length > 0) {
+    for (const p of themPrefCoords) {
+      if (haversineKm(p.lat, p.lng, meLat, meLng) <= TOWN_MATCH_RADIUS_KM) { matched = true; break; }
     }
   }
-
-  // Fallback: exact town-name match (covers cases where coords not yet geocoded)
-  if (!foundByCoords) {
-    const myPreferredNames   = (me.preferred_districts   || []).map(t => t.toLowerCase());
-    const themPreferredNames = (them.preferred_districts || []).map(t => t.toLowerCase());
-    const themTown = them.town?.toLowerCase() || '';
-    const meTown   = me.town?.toLowerCase()   || '';
-
-    if ((themTown && myPreferredNames.includes(themTown)) ||
-        (meTown   && themPreferredNames.includes(meTown))) {
-      townScore = 0.20;
-    }
+  // Name fallback: exact string match
+  if (!matched) {
+    const myPrefNames   = (me.preferred_districts   || []).map(t => t.toLowerCase());
+    const themPrefNames = (them.preferred_districts || []).map(t => t.toLowerCase());
+    const themTown = (them.town || '').toLowerCase();
+    const meTown   = (me.town  || '').toLowerCase();
+    if ((themTown && myPrefNames.includes(themTown)) ||
+        (meTown   && themPrefNames.includes(meTown))) matched = true;
   }
+
+  if (matched) townScore = 0.20;
 
   return Math.round((phaseScore + provinceScore + townScore + subjectScore * 0.40) * 100);
 }
@@ -166,7 +146,11 @@ export default function EducatorCard({ educator, myProfile, isPro = false, index
 
   const locationParts = [educator.current_province, educator.town].filter(Boolean);
   const location      = locationParts.length ? locationParts.join(' – ') : '–';
-  const wants         = educator.preferred_provinces?.length ? educator.preferred_provinces.join(', ') : 'Any';
+  const wants = educator.preferred_districts?.length
+    ? educator.preferred_districts.join(', ')
+    : educator.preferred_provinces?.length
+    ? educator.preferred_provinces.join(', ')
+    : 'Any';
   const subjectsStr   = educator.subjects?.length
     ? `${educator.subjects.join(', ')}${educator.phase ? ` (${educator.phase})` : ''}`
     : '()';
