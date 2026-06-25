@@ -585,18 +585,18 @@ export default function ChatRoom() {
             <div className="text-center space-y-1.5">
               <h2 className="text-lg font-bold text-foreground">Unlock Messaging</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Top up with the <strong>Pro Credit Pack (R79)</strong> to send and reply to messages.
+                Top up with the <strong>Pro Credit Pack (R99)</strong> to send and reply to messages.
                 60 credits gives you 12 conversations with potential transfer partners.
               </p>
             </div>
             <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 space-y-1">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold text-foreground">Pro Credit Pack</span>
-                <span className="font-bold text-primary text-lg">R79</span>
+                <span className="font-bold text-primary text-lg">R99</span>
               </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>60 credits · 12 conversations</span>
-                <span>R6.60/chat</span>
+                <span>R8.25/chat</span>
               </div>
             </div>
             <CreditBalance variant="full" />

@@ -18,10 +18,10 @@ import { toast } from 'sonner';
 
 // ── Credit packages (mirror your screenshot) ────────────────────────────────
 const PACKAGES = [
-  { id: 'single',   label: 'Single CV',            price: 29,  credits: 10,  note: '1 CV + 1 letter' },
-  { id: 'standard', label: 'Standard Credit Pack', price: 49,  credits: 30,  note: '3 CVs + 3 letters', popular: true },
-  { id: 'pro_pack', label: 'Pro Credit Pack',       price: 79,  credits: 60,  note: '6 CVs + 6 letters' },
-  { id: 'business', label: 'Business Credit Pack',  price: 199, credits: 200, note: '22 CVs + 2 letters' },
+  { id: 'single',   label: 'Starter Pack',          price: 39,  credits: 10,  note: '1 CV + 1 letter' },
+  { id: 'standard', label: 'Standard Credit Pack',  price: 59,  credits: 30,  note: '3 CVs + 3 letters', popular: true },
+  { id: 'pro_pack', label: 'Pro Credit Pack',        price: 99,  credits: 60,  note: '6 CVs + 6 letters · unlocks messaging' },
+  { id: 'business', label: 'Business Credit Pack',   price: 199, credits: 200, note: '22 CVs + many chats · unlocks messaging' },
 ] as const;
 
 type PackageId = typeof PACKAGES[number]['id'];
@@ -309,7 +309,7 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
             </p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              R79+ pack unlocks advanced search filters
+              R99+ pack (60cr) unlocks direct messaging
             </p>
           </div>
         </div>

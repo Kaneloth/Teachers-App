@@ -254,7 +254,7 @@ export default function EducatorProfile() {
             <div className="text-center space-y-1.5">
               <h2 className="text-lg font-bold text-foreground">Unlock Messaging</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                You've found a potential match! Top up with the <strong>Pro Credit Pack (R79)</strong> to start chatting.
+                You've found a potential match! Top up with the <strong>Pro Credit Pack (R99)</strong> to start chatting.
                 60 credits gives you 12 conversations with potential transfer partners.
               </p>
             </div>
@@ -265,7 +265,7 @@ export default function EducatorProfile() {
               </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>60 credits · 12 conversations</span>
-                <span className="flex items-center gap-1"><Coins className="w-3 h-3" /> R6.60/chat</span>
+                <span className="flex items-center gap-1"><Coins className="w-3 h-3" /> R8.25/chat</span>
               </div>
             </div>
             <CreditBalance variant="full" />
