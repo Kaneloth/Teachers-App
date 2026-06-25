@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Lo
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
-import CreditBalance, { PurchaseModal } from '@/components/credits/CreditBalance';
+import CreditBalance from '@/components/credits/CreditBalance';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import CVStepPersonal from '@/components/cv/CVStepPersonal';
@@ -263,7 +263,6 @@ export default function CVBuilderPage() {
   // If yes → all 17 templates unlock permanently, regardless of current
   // balance. If no → only the free Classic template is available.
   const [hasPurchased,      setHasPurchased]      = useState(false);
-  const [showTopUp,          setShowTopUp]          = useState(false);
   const [templatesUnlocked, setTemplatesUnlocked] = useState(false);
 
   useEffect(() => {
@@ -411,17 +410,13 @@ export default function CVBuilderPage() {
   if (!showBuilder && lastCVData) {
     return (
       <div className="max-w-2xl mx-auto">
-      {showTopUp && <PurchaseModal onClose={() => setShowTopUp(false)} />}
         <div className="flex items-center gap-2 px-4 pt-4 pb-5">
           <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
           <FileText className="w-5 h-5 text-primary" />
           <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
-          <button onClick={() => setShowTopUp(true)} className="ml-auto flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold hover:bg-primary/20 transition-colors">
-            <Coins className="w-3 h-3" />
-            {creditsLoading ? '…' : balance}
-          </button>
+          <div className="ml-auto"><CreditBalance /></div>
         </div>
         <div className="px-4">
           <LastCVBanner
@@ -436,17 +431,13 @@ export default function CVBuilderPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {showTopUp && <PurchaseModal onClose={() => setShowTopUp(false)} />}
       <div className="flex items-center gap-2 px-4 pt-4 pb-1">
         <button onClick={handleBack} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
           <ArrowLeft className="w-5 h-5 text-foreground" />
         </button>
         <FileText className="w-5 h-5 text-primary" />
         <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
-        <button onClick={() => setShowTopUp(true)} className="ml-auto flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold hover:bg-primary/20 transition-colors">
-          <Coins className="w-3 h-3" />
-          {creditsLoading ? '…' : balance}
-        </button>
+        <div className="ml-auto"><CreditBalance /></div>
       </div>
 
       <div className="px-4 pb-4 pt-1">
