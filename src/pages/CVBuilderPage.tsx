@@ -291,16 +291,15 @@ export default function CVBuilderPage() {
   const [showBuilder,      setShowBuilder]      = useState(initialState.showBuilder);
   const [step,             setStep]             = useState(initialState.draft?.step ?? 0);
 
-  // Jump to a specific step if ?step=N is in the URL (e.g. from dashboard CV Templates card)
+  // If ?step=N is in the URL (e.g. from the CV Templates dashboard card),
+  // jump directly to that step and open the builder on first render.
   useEffect(() => {
-    const stepParam = searchParams.get('step');
-    if (stepParam !== null) {
-      const n = parseInt(stepParam, 10);
-      if (!isNaN(n) && n >= 0 && n < STEPS.length) {
-        setShowBuilder(true);
-        setStep(n);
-      }
+    const n = parseInt(searchParams.get('step') ?? '', 10);
+    if (!isNaN(n) && n >= 0 && n < STEPS.length) {
+      setShowBuilder(true);
+      setStep(n);
     }
+  // Run once on mount only
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [data,             setData]             = useState<CVData>(initialState.draft?.data ?? defaultData());
