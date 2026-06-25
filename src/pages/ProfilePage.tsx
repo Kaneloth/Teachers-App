@@ -16,10 +16,11 @@ import {
   Loader2, Camera, Flame, Save, ArrowLeft, RefreshCw, X, Plus,
   Phone, Mail, Users, CreditCard, BookOpen, Upload, ImagePlus,
   CheckCircle2, AlertCircle, XCircle, ShieldCheck, ShieldVerified, Copy,
-  GraduationCap, User, Lock, MapPin, EyeOff, EyeOff,
+  GraduationCap, User, Lock, MapPin,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { useFeatureGates } from '@/hooks/useFeatureGates';
 import BlockButton from '@/components/BlockButton';
 import { isBlocked } from '@/lib/blockUtils';
 import { geocodeLocation } from '@/lib/geocode';
@@ -115,7 +116,6 @@ interface Profile {
   preferred_districts: string[];
   available_from: string;
   is_actively_looking: boolean;
-  is_hidden: boolean;
   is_sace_verified?: boolean;
   years_experience: string;
   avatar_url: string;
@@ -538,7 +538,6 @@ export default function ProfilePage() {
         preferred_districts: [],
         available_from: '',
         is_actively_looking: false,
-        is_hidden: false,
         years_experience: '',
         avatar_url: '',
         profile_type: 'educator',
@@ -622,25 +621,6 @@ export default function ProfilePage() {
       );
     }
     setTogglingActive(false);
-  };
-
-  // Hides/shows profile in general browse lists.
-  // Hidden profiles still appear in filtered searches (province, subject, etc.)
-  const handleToggleHidden = async (value: boolean) => {
-    if (!user) return;
-    setProfileField('is_hidden', value);
-    const { error } = await supabase
-      .from('educators')
-      .update({ is_hidden: value })
-      .eq('user_id', user.id);
-    if (error) {
-      setProfileField('is_hidden', !value);
-      toast.error('Could not update visibility: ' + error.message);
-    } else {
-      toast.success(value
-        ? "Profile hidden — you won't appear in general browse lists."
-        : "Profile visible — you'll appear in browse and search results again.");
-    }
   };
 
   const handleRefresh = async () => {
@@ -784,7 +764,7 @@ export default function ProfilePage() {
   const daysSinceSave = lastSaved
     ? Math.floor((Date.now() - lastSaved.getTime()) / (1000 * 60 * 60 * 24))
     : null;
-  const canSave = daysSinceSave === null || daysSinceSave >= 30;
+  const canSave = !lockActive || daysSinceSave === null || daysSinceSave >= 30;
   const daysLeft = canSave ? 0 : 30 - daysSinceSave!;
 
   const handleSave = () => {
@@ -1040,32 +1020,6 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Profile visibility toggle — educators only */}
-          {isEducator && <div className={`rounded-2xl border-2 px-4 py-4 transition-all ${
-            profile.is_hidden
-              ? 'bg-slate-50 dark:bg-slate-900/20 border-slate-300 dark:border-slate-700'
-              : 'bg-card border-border'
-          }`}>
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                profile.is_hidden ? 'bg-slate-100 dark:bg-slate-800' : 'bg-primary/10'
-              }`}>
-                <EyeOff className={`w-5 h-5 ${profile.is_hidden ? 'text-slate-500' : 'text-primary'}`} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-bold ${profile.is_hidden ? 'text-slate-700 dark:text-slate-300' : 'text-foreground'}`}>
-                  {profile.is_hidden ? 'Profile Hidden' : 'Profile Visible'}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {profile.is_hidden
-                    ? "You won't appear in browse lists — but you still show in filtered searches."
-                    : "You appear in search and browse results normally."}
-                </p>
-              </div>
-              <Switch checked={!!profile.is_hidden} onCheckedChange={handleToggleHidden} />
-            </div>
-          </div>}
-
           <SectionCard label="Personal Information">
             <Field label="Full Name">
               <Input value={profile.full_name} onChange={e => setProfileField('full_name', e.target.value)} placeholder="Your full name" className="rounded-xl" />
@@ -1275,7 +1229,7 @@ export default function ProfilePage() {
           >
             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5" /> Save Profile</>}
           </Button>
-          {!canSave && (
+          {!canSave && lockActive && (
             <p className="text-xs text-center text-muted-foreground">
               Profile updates are limited to once every 30 days.{' '}
               <span className="font-medium text-foreground">{daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining.</span>
