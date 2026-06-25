@@ -1,4 +1,3 @@
-import { TOWNS_BY_DISTRICT } from '@/lib/saEducationData';
 import { MapPin, Navigation, Monitor, ChevronRight, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -14,38 +13,54 @@ export interface MyProfile {
   town_lng?: number;
 }
 
-/** Haversine distance in km */
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2
-    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
-    * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+// District → towns lookup (inline to avoid import dependency issues)
+const DISTRICT_TOWNS: Record<string, string[]> = {
+  'Capricorn South':['Polokwane','Seshego','Other'],'Capricorn North':['Bela-Bela','Mokopane','Other'],
+  'Tshwane North':['Pretoria North','Soshanguve','Hammanskraal','Other'],'Tshwane South':['Centurion','Pretoria East','Other'],'Tshwane West':['Atteridgeville','Ga-Rankuwa','Other'],
+  'Johannesburg Central':['Johannesburg CBD','Soweto','Orlando','Other'],'Johannesburg North':['Sandton','Randburg','Midrand','Other'],'Johannesburg East':['Bedfordview','Edenvale','Katlehong','Other'],'Johannesburg South':['Lenasia','Ennerdale','Orange Farm','Other'],
+  'Ekurhuleni North':['Tembisa','Kempton Park','Edenvale','Other'],'Ekurhuleni South':['Alberton','Germiston','Boksburg','Other'],
+  'Gauteng North':['Pretoria North','Soshanguve','Mabopane','Other'],'Gauteng West':['Krugersdorp','Randfontein','Westonaria','Other'],
+  'Sedibeng East':['Vereeniging','Vanderbijlpark','Sebokeng','Other'],'Sedibeng West':['Heidelberg GP','Balfour','Other'],
+  'Mopani East':['Tzaneen','Letsitele','Other'],'Mopani West':['Phalaborwa','Giyani','Other'],
+  'Vhembe East':['Thohoyandou','Malamulele','Other'],'Vhembe West':['Louis Trichardt','Musina','Other'],
+  'Sekhukhune East':['Marble Hall','Groblersdal','Other'],'Sekhukhune South':['Burgersfort','Jane Furse','Other'],
+  'Waterberg':['Mokopane','Lephalale','Thabazimbi','Other'],'Mogalakwena':['Mokopane','Mahwelereng','Other'],
+  'Bohlabela':['Bushbuckridge','Acornhoek','Other'],'Ehlanzeni':['Mbombela','White River','Hazyview','Other'],
+  'Gert Sibande':['Ermelo','Secunda','Standerton','Other'],'Nkangala':['Witbank','Middelburg MP','Bronkhorstspruit','Other'],
+  'Amajuba':['Newcastle','Utrecht','Dannhauser','Other'],'Harry Gwala':['Ixopo','Kokstad','Umzimkulu','Other'],
+  'Umgungundlovu':['Pietermaritzburg','Howick','Camperdown','Other'],'Ugu':['Port Shepstone','Margate','Hibiscus Coast','Other'],
+  'Umzinyathi':['Dundee','Greytown','Nqutu','Other'],'Uthukela':['Ladysmith','Estcourt','Bergville','Other'],
+  'Ilembe':['KwaDukuza','Stanger','Mandeni','Other'],'King Cetshwayo':['Richards Bay','Empangeni','Nkandla','Other'],
+  'Bojanala':['Rustenburg','Brits','Phokeng','Other'],'Dr Kenneth Kaunda':['Klerksdorp','Orkney','Stilfontein','Other'],
+  'Ngaka Modiri Molema':['Mafikeng','Zeerust','Lichtenburg','Other'],'Dr Ruth Segomotsi Mompati':['Vryburg','Schweizer-Reneke','Other'],
+  'Frances Baard':['Kimberley','Barkly West','Other'],'John Taolo Gaetsewe':['Kuruman','Kathu','Other'],
+  'Metro Central':['Cape Town CBD','Bellville','Parow','Other'],'Metro East':['Mitchells Plain','Khayelitsha','Strand','Other'],
+  'Metro North':['Durbanville','Kraaifontein','Brackenfell','Other'],'Metro South':['Wynberg','Retreat','Muizenberg','Other'],
+  'Cape Winelands':['Stellenbosch','Paarl','Worcester','Franschhoek','Other'],
+  'Eden and Central Karoo':['George','Mossel Bay','Knysna','Oudtshoorn','Other'],
+  'Motheo':['Bloemfontein','Botshabelo','Thaba Nchu','Other'],'Thabo Mofutsanyana':['Phuthaditjhaba','Harrismith','Bethlehem','Other'],
+  'Amatole West':['East London','King Williams Town','Stutterheim','Komani','Other'],
+  'Nelson Mandela Bay':['Port Elizabeth','Uitenhage','Kariega','Other'],
+  'OR Tambo Inland':['Mthatha','Qumbu','Tsolo','Other'],
+};
 
-const TOWN_MATCH_RADIUS_KM = 50;
-
-function townMatchesPreferred(
-  town: string,
-  preferred: string[],
-  prefCoords: { town: string; lat: number; lng: number }[],
-  townLat?: number | null,
-  townLng?: number | null,
-): boolean {
+/** Check if a town is within the preferred locations (exact name, district lookup, or coord proximity) */
+function townInPreferred(town: string, preferred: string[], prefCoords: {lat:number;lng:number}[], tLat?: number|null, tLng?: number|null): boolean {
   if (!town || !preferred.length) return false;
-  const townLower = town.toLowerCase();
-  // 1. Exact name match (new data: preferred_districts stores town names)
-  if (preferred.some(p => p.toLowerCase() === townLower)) return true;
-  // 2. District lookup (legacy data: preferred_districts stores district names)
-  for (const pref of preferred) {
-    if ((TOWNS_BY_DISTRICT[pref] || []).some(t => t.toLowerCase() === townLower)) return true;
+  const t = town.toLowerCase();
+  // 1. Exact name match (new data: town names stored directly)
+  if (preferred.some(p => p.toLowerCase() === t)) return true;
+  // 2. District lookup (legacy data: district names stored)
+  for (const d of preferred) {
+    if ((DISTRICT_TOWNS[d] || []).some(x => x.toLowerCase() === t)) return true;
   }
   // 3. Coord proximity within 50km
-  if (townLat != null && townLng != null) {
+  if (tLat != null && tLng != null && prefCoords.length) {
     for (const p of prefCoords) {
-      if (haversineKm(p.lat, p.lng, townLat, townLng) <= TOWN_MATCH_RADIUS_KM) return true;
+      const dLat = (p.lat - tLat) * Math.PI / 180;
+      const dLng = (p.lng - tLng) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(tLat*Math.PI/180)*Math.cos(p.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+      if (6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) <= 50) return true;
     }
   }
   return false;
@@ -60,22 +75,20 @@ export function calculateMatch(me: MyProfile, them: MyProfile): number {
   const setA = new Set((me.subjects || []).map(s => s.toLowerCase()));
   const setB = new Set((them.subjects || []).map(s => s.toLowerCase()));
   const common = [...setA].filter(s => setB.has(s)).length;
-
   if (common === 0) return 0;
 
   const totalDistinct = new Set([...setA, ...setB]).size;
   const subjectScore  = totalDistinct > 0 ? common / totalDistinct : 0;
-
   const phaseScore    = me.phase && them.phase && me.phase === them.phase ? 0.20 : 0;
   const provinceScore = me.current_province && them.current_province
-                        && me.current_province === them.current_province ? 0.20 : 0;
+                     && me.current_province === them.current_province ? 0.20 : 0;
 
-  const meCoords   = me.preferred_town_coords   || [];
-  const themCoords = them.preferred_town_coords || [];
+  const mePrefCoords   = (me.preferred_town_coords   || []) as {lat:number;lng:number}[];
+  const themPrefCoords = (them.preferred_town_coords || []) as {lat:number;lng:number}[];
 
   const townScore = (
-    townMatchesPreferred(them.town || '', me.preferred_districts   || [], meCoords,   them.town_lat, them.town_lng) ||
-    townMatchesPreferred(me.town   || '', them.preferred_districts || [], themCoords, me.town_lat,   me.town_lng)
+    townInPreferred(them.town||'', me.preferred_districts||[],   mePrefCoords,   them.town_lat, them.town_lng) ||
+    townInPreferred(me.town||'',   them.preferred_districts||[], themPrefCoords, me.town_lat,   me.town_lng)
   ) ? 0.20 : 0;
 
   return Math.round((phaseScore + provinceScore + townScore + subjectScore * 0.40) * 100);
