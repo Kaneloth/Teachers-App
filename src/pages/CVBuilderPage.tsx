@@ -411,6 +411,14 @@ export default function CVBuilderPage() {
   if (!showBuilder && lastCVData) {
     return (
       <div className="max-w-2xl mx-auto">
+        {showTopUp && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4"
+            onClick={() => setShowTopUp(false)}>
+            <div onClick={e => e.stopPropagation()} className="w-full max-w-sm my-auto">
+              <CreditBalance variant="full" />
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-2 px-4 pt-4 pb-5">
           <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
             <ArrowLeft className="w-5 h-5 text-foreground" />
@@ -435,6 +443,14 @@ export default function CVBuilderPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      {showTopUp && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4"
+          onClick={() => setShowTopUp(false)}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-sm my-auto">
+            <CreditBalance variant="full" />
+          </div>
+        </div>
+      )}
       <div className="flex items-center gap-2 px-4 pt-4 pb-1">
         <button onClick={handleBack} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
           <ArrowLeft className="w-5 h-5 text-foreground" />
@@ -519,15 +535,6 @@ export default function CVBuilderPage() {
         </div>
       </motion.div>
 
-      {/* Credit top-up modal */}
-      {showTopUp && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-start justify-center overflow-y-auto py-4 px-4"
-          onClick={() => setShowTopUp(false)}>
-          <div onClick={e => e.stopPropagation()} className="w-full max-w-sm my-auto">
-            <CreditBalance variant="full" />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
