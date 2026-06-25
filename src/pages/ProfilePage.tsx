@@ -220,6 +220,10 @@ function VerifyBadge({ state, message }: { state: VerifyState; message: string }
 
 function IdentityVerificationSection() {
   const { user } = useAuth();
+  const { gates, loading: gatesLoading } = useFeatureGates();
+  const isAdmin = !!(user?.user_metadata?.is_admin);
+  // When gate is OFF, the 30-day lock is disabled — anyone can edit freely
+  const lockActive = !gatesLoading && gates.profile_edit_lock && !isAdmin;
   const meta = user?.user_metadata ?? {};
 
   const [docType,        setDocType]        = useState<DocType>((meta.doc_type as DocType) || 'id');
@@ -467,6 +471,10 @@ function IdentityVerificationSection() {
 export default function ProfilePage() {
   const { userId: routeUserId } = useParams<{ userId: string }>();
   const { user } = useAuth();
+  const { gates, loading: gatesLoading } = useFeatureGates();
+  const isAdmin = !!(user?.user_metadata?.is_admin);
+  // When gate is OFF, the 30-day lock is disabled — anyone can edit freely
+  const lockActive = !gatesLoading && gates.profile_edit_lock && !isAdmin;
   const navigate = useNavigate();
   const isOwnProfile = !routeUserId || routeUserId === user?.id;
 
