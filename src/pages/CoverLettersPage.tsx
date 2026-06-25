@@ -225,6 +225,17 @@ export default function CoverLettersPage() {
 
   /* ── Credits ───────────────────────────────────────────────── */
   const { balance, loading: creditsLoading, deduct } = useCredits();
+  const [isEducator,   setIsEducator]   = useState(false);
+  const [hasPurchased, setHasPurchased] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('educators').select('profile_type').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => setIsEducator(!data || data.profile_type !== 'general'));
+    supabase.from('credit_ledger').select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id).in('type', ['purchase', 'monthly_pro'])
+      .then(({ count }) => setHasPurchased((count ?? 0) > 0));
+  }, [user?.id]);
 
   /* ── Letter state ───────────────────────────────────────────── */
   const [category,   setCategory]  = useState<string>('education');
@@ -395,7 +406,12 @@ export default function CoverLettersPage() {
       <div className="px-4 pt-5 pb-3">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-bold text-foreground">Cover Letters</h1>
-          <CreditBalance />
+          {!isEducator || hasPurchased ? <CreditBalance /> : (
+            <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold">
+              <Coins className="w-3 h-3" />
+              {creditsLoading ? '…' : balance}
+            </div>
+          )}
         </div>
         <p className="text-sm text-muted-foreground mt-0.5">
           Pick a category, customise the letter, download as Word.
