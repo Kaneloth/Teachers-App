@@ -222,7 +222,6 @@ function IdentityVerificationSection() {
   const { user } = useAuth();
   const { gates, loading: gatesLoading } = useFeatureGates();
   const isAdmin = !!(user?.user_metadata?.is_admin);
-  // When gate is OFF, the 30-day lock is disabled — anyone can edit freely
   const lockActive = !gatesLoading && gates.profile_edit_lock && !isAdmin;
   const meta = user?.user_metadata ?? {};
 
@@ -473,7 +472,6 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const { gates, loading: gatesLoading } = useFeatureGates();
   const isAdmin = !!(user?.user_metadata?.is_admin);
-  // When gate is OFF, the 30-day lock is disabled — anyone can edit freely
   const lockActive = !gatesLoading && gates.profile_edit_lock && !isAdmin;
   const navigate = useNavigate();
   const isOwnProfile = !routeUserId || routeUserId === user?.id;
@@ -696,8 +694,9 @@ export default function ProfilePage() {
   };
 
   const handleDistrictSelect = (v: string) => {
-    setProfileField('district', v);
-    setProfileField('town', ''); // reset town when district changes
+    // Merge both changes into one setProfile call — calling setProfileField
+    // twice reads stale closure state and the second call overwrites the first.
+    if (profile) setProfile({ ...profile, district: v, town: '' });
     setTownCoords(null);
     setTownGeocodeTarget('');
     lastGeocodedTownRef.current = '';
