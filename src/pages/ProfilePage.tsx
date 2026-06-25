@@ -792,15 +792,30 @@ export default function ProfilePage() {
     if (!user || !profile) return;
     setSaving(true);
     try {
-      const { id: _id, is_sace_verified: _sv, ...rest } = profile;
       const yearsExp = profile.years_experience ? parseInt(profile.years_experience, 10) : null;
-      const townText = rest.town.trim();
+      const townText = profile.town.trim();
+      // Explicitly list columns to avoid spreading is_hidden, is_admin, email
+      // or other fields that could cause RLS violations or silent save failures.
       const payload = {
-        ...rest,
-        town: townText,
-        user_id: user.id,
-        years_experience: (yearsExp !== null && !isNaN(yearsExp)) ? yearsExp : null,
-        available_from: profile.available_from || null,
+        user_id:             user.id,
+        full_name:           profile.full_name,
+        phone:               profile.phone,
+        gender:              profile.gender,
+        bio:                 profile.bio,
+        sace_number:         profile.sace_number,
+        current_school:      profile.current_school,
+        current_province:    profile.current_province,
+        district:            profile.district,
+        town:                townText,
+        phase:               profile.phase,
+        subjects:            profile.subjects,
+        preferred_provinces: profile.preferred_provinces,
+        preferred_districts: profile.preferred_districts,
+        available_from:      profile.available_from || null,
+        is_actively_looking: profile.is_actively_looking,
+        years_experience:    (yearsExp !== null && !isNaN(yearsExp)) ? yearsExp : null,
+        avatar_url:          profile.avatar_url,
+        profile_type:        profile.profile_type,
       };
       if (profile.id) {
         const { error } = await supabase.from('educators').update(payload).eq('id', profile.id);
