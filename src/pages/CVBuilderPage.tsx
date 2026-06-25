@@ -5,7 +5,8 @@ import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Lo
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import CreditBalance from '@/components/credits/CreditBalance';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import CVStepPersonal from '@/components/cv/CVStepPersonal';
 import CVStepEducation from '@/components/cv/CVStepEducation';
@@ -234,7 +235,6 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
 export default function CVBuilderPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { balance, loading: creditsLoading, deduct } = useCredits();
 
   const [initialState] = useState(() => {
@@ -263,6 +263,7 @@ export default function CVBuilderPage() {
   // If yes → all 17 templates unlock permanently, regardless of current
   // balance. If no → only the free Classic template is available.
   const [hasPurchased,      setHasPurchased]      = useState(false);
+  const [showTopUp,          setShowTopUp]          = useState(false);
   const [templatesUnlocked, setTemplatesUnlocked] = useState(false);
 
   useEffect(() => {
@@ -290,18 +291,6 @@ export default function CVBuilderPage() {
 
   const [showBuilder,      setShowBuilder]      = useState(initialState.showBuilder);
   const [step,             setStep]             = useState(initialState.draft?.step ?? 0);
-
-  // If ?step=N is in the URL (e.g. from the CV Templates dashboard card),
-  // jump directly to that step and open the builder on first render.
-  useEffect(() => {
-    const n = parseInt(searchParams.get('step') ?? '', 10);
-    if (!isNaN(n) && n >= 0 && n < STEPS.length) {
-      setShowBuilder(true);
-      setStep(n);
-    }
-  // Run once on mount only
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   const [data,             setData]             = useState<CVData>(initialState.draft?.data ?? defaultData());
   const [draftSavedAt,     setDraftSavedAt]     = useState<string | null>(initialState.draft?.savedAt ?? null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -428,10 +417,13 @@ export default function CVBuilderPage() {
           </button>
           <FileText className="w-5 h-5 text-primary" />
           <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
-          <div className="ml-auto flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold">
+          <button
+            onClick={() => setShowTopUp(true)}
+            className="ml-auto flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold hover:bg-primary/20 transition-colors"
+          >
             <Coins className="w-3 h-3" />
             {creditsLoading ? '…' : balance}
-          </div>
+          </button>
         </div>
         <div className="px-4">
           <LastCVBanner
@@ -452,11 +444,24 @@ export default function CVBuilderPage() {
         </button>
         <FileText className="w-5 h-5 text-primary" />
         <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
-        <div className="ml-auto flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold">
+        <button
+          onClick={() => setShowTopUp(true)}
+          className="ml-auto flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold hover:bg-primary/20 transition-colors"
+        >
           <Coins className="w-3 h-3" />
           {creditsLoading ? '…' : balance}
-        </div>
+        </button>
       </div>
+
+      {/* Top-up modal */}
+      {showTopUp && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4"
+          onClick={() => setShowTopUp(false)}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-sm my-auto">
+            <CreditBalance variant="full" />
+          </div>
+        </div>
+      )}
 
       <div className="px-4 pb-4 pt-1">
         <p className="text-sm text-muted-foreground">Build a professional CV in minutes</p>

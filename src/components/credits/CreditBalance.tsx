@@ -124,7 +124,7 @@ function CreditCard({ balance, loading, onBuy }: { balance: number; loading: boo
           </div>
           <div>
             <p className="text-sm font-semibold text-foreground">Your Credits</p>
-            <p className="text-xs text-muted-foreground">CV = 9 credits · Letter = 1 credit</p>
+            <p className="text-xs text-muted-foreground">CV = 9 credits · Letter = 2 credits</p>
           </div>
         </div>
         <div className="text-right">
