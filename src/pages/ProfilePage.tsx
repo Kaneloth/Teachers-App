@@ -1195,7 +1195,7 @@ export default function ProfilePage() {
                   }}
                   options={Object.values(TOWNS_BY_DISTRICT).flat().filter(
                     (t, i, arr) => arr.indexOf(t) === i && !profile.preferred_districts.includes(t)
-                  )}
+                  ).sort((a, b) => a.localeCompare(b))}
                   placeholder={profile.preferred_districts.length ? 'Add another town…' : 'Select a town…'}
                   searchPlaceholder="Search towns…"
                   allowCustom

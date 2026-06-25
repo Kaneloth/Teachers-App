@@ -201,12 +201,18 @@ export default function Search({ embedded = false }: Props) {
 
   useEffect(() => { fetchEducators(); }, [fetchEducators]);
 
-  // Refetch when the user returns to this page (e.g. after editing their profile)
-  // so educator cards always show fresh data.
+  // Refetch when the user returns to this page (e.g. after editing their profile).
+  // Uses visibilitychange (fires when tab/app comes back into view) AND
+  // focus (fires when browser window regains focus) for maximum coverage.
   useEffect(() => {
-    const onFocus = () => fetchEducators();
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchEducators(); };
+    const onFocus   = () => fetchEducators();
+    document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [fetchEducators]);
 
   const handleRefresh = async () => {
