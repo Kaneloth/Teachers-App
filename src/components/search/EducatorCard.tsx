@@ -13,7 +13,7 @@ export interface MyProfile {
   town_lng?: number;
 }
 
-// District → towns lookup (inline to avoid import dependency issues)
+// District → towns map (inline — no external import needed)
 const DISTRICT_TOWNS: Record<string, string[]> = {
   'Capricorn South':['Polokwane','Seshego','Other'],'Capricorn North':['Bela-Bela','Mokopane','Other'],
   'Tshwane North':['Pretoria North','Soshanguve','Hammanskraal','Other'],'Tshwane South':['Centurion','Pretoria East','Other'],'Tshwane West':['Atteridgeville','Ga-Rankuwa','Other'],
@@ -32,29 +32,25 @@ const DISTRICT_TOWNS: Record<string, string[]> = {
   'Umzinyathi':['Dundee','Greytown','Nqutu','Other'],'Uthukela':['Ladysmith','Estcourt','Bergville','Other'],
   'Ilembe':['KwaDukuza','Stanger','Mandeni','Other'],'King Cetshwayo':['Richards Bay','Empangeni','Nkandla','Other'],
   'Bojanala':['Rustenburg','Brits','Phokeng','Other'],'Dr Kenneth Kaunda':['Klerksdorp','Orkney','Stilfontein','Other'],
-  'Ngaka Modiri Molema':['Mafikeng','Zeerust','Lichtenburg','Other'],'Dr Ruth Segomotsi Mompati':['Vryburg','Schweizer-Reneke','Other'],
-  'Frances Baard':['Kimberley','Barkly West','Other'],'John Taolo Gaetsewe':['Kuruman','Kathu','Other'],
+  'Ngaka Modiri Molema':['Mafikeng','Zeerust','Lichtenburg','Other'],
+  'Frances Baard':['Kimberley','Barkly West','Other'],
   'Metro Central':['Cape Town CBD','Bellville','Parow','Other'],'Metro East':['Mitchells Plain','Khayelitsha','Strand','Other'],
   'Metro North':['Durbanville','Kraaifontein','Brackenfell','Other'],'Metro South':['Wynberg','Retreat','Muizenberg','Other'],
   'Cape Winelands':['Stellenbosch','Paarl','Worcester','Franschhoek','Other'],
-  'Eden and Central Karoo':['George','Mossel Bay','Knysna','Oudtshoorn','Other'],
-  'Motheo':['Bloemfontein','Botshabelo','Thaba Nchu','Other'],'Thabo Mofutsanyana':['Phuthaditjhaba','Harrismith','Bethlehem','Other'],
-  'Amatole West':['East London','King Williams Town','Stutterheim','Komani','Other'],
-  'Nelson Mandela Bay':['Port Elizabeth','Uitenhage','Kariega','Other'],
+  'Motheo':['Bloemfontein','Botshabelo','Thaba Nchu','Other'],
   'OR Tambo Inland':['Mthatha','Qumbu','Tsolo','Other'],
+  'Nelson Mandela Bay':['Port Elizabeth','Uitenhage','Kariega','Other'],
 };
 
-/** Check if a town is within the preferred locations (exact name, district lookup, or coord proximity) */
 function townInPreferred(town: string, preferred: string[], prefCoords: {lat:number;lng:number}[], tLat?: number|null, tLng?: number|null): boolean {
   if (!town || !preferred.length) return false;
   const t = town.toLowerCase();
-  // 1. Exact name match (new data: town names stored directly)
-  if (preferred.some(p => p.toLowerCase() === t)) return true;
-  // 2. District lookup (legacy data: district names stored)
-  for (const d of preferred) {
-    if ((DISTRICT_TOWNS[d] || []).some(x => x.toLowerCase() === t)) return true;
+  for (const p of preferred) {
+    const pLower = p.toLowerCase();
+    if (pLower === t) return true;                                        // exact town name match
+    if ((DISTRICT_TOWNS[p] || []).some(x => x.toLowerCase() === t)) return true; // district lookup
   }
-  // 3. Coord proximity within 50km
+  // coord proximity
   if (tLat != null && tLng != null && prefCoords.length) {
     for (const p of prefCoords) {
       const dLat = (p.lat - tLat) * Math.PI / 180;
@@ -76,21 +72,17 @@ export function calculateMatch(me: MyProfile, them: MyProfile): number {
   const setB = new Set((them.subjects || []).map(s => s.toLowerCase()));
   const common = [...setA].filter(s => setB.has(s)).length;
   if (common === 0) return 0;
-
   const totalDistinct = new Set([...setA, ...setB]).size;
   const subjectScore  = totalDistinct > 0 ? common / totalDistinct : 0;
   const phaseScore    = me.phase && them.phase && me.phase === them.phase ? 0.20 : 0;
   const provinceScore = me.current_province && them.current_province
                      && me.current_province === them.current_province ? 0.20 : 0;
-
   const mePrefCoords   = (me.preferred_town_coords   || []) as {lat:number;lng:number}[];
   const themPrefCoords = (them.preferred_town_coords || []) as {lat:number;lng:number}[];
-
   const townScore = (
     townInPreferred(them.town||'', me.preferred_districts||[],   mePrefCoords,   them.town_lat, them.town_lng) ||
     townInPreferred(me.town||'',   them.preferred_districts||[], themPrefCoords, me.town_lat,   me.town_lng)
   ) ? 0.20 : 0;
-
   return Math.round((phaseScore + provinceScore + townScore + subjectScore * 0.40) * 100);
 }
 

@@ -153,27 +153,26 @@ export default function MatchesPage({ embedded = false }: Props) {
     const scored = results.map(e => {
       const score = calculateMatch(
         {
-          phase:               myProfile.phase,
-          current_province:    myProfile.current_province,
-          town:                myProfile.town,
-          subjects:            myProfile.subjects,
-          preferred_districts: myProfile.preferred_districts,
-          preferred_town_coords: (myProfile as any).preferred_town_coords,
-          town_lat:            (myProfile as any).town_lat,
-          town_lng:            (myProfile as any).town_lng,
+          phase:                myProfile.phase,
+          current_province:     myProfile.current_province,
+          town:                 myProfile.town,
+          subjects:             myProfile.subjects,
+          preferred_districts:  myProfile.preferred_districts,
+          preferred_town_coords:(myProfile as any).preferred_town_coords,
+          town_lat:             (myProfile as any).town_lat,
+          town_lng:             (myProfile as any).town_lng,
         },
         {
-          phase:               e.phase,
-          current_province:    e.current_province,
-          town:                e.town,
-          subjects:            e.subjects,
-          preferred_districts: e.preferred_districts,
-          preferred_town_coords: (e as any).preferred_town_coords,
-          town_lat:            (e as any).town_lat,
-          town_lng:            (e as any).town_lng,
+          phase:                e.phase,
+          current_province:     e.current_province,
+          town:                 e.town,
+          subjects:             e.subjects,
+          preferred_districts:  e.preferred_districts,
+          preferred_town_coords:(e as any).preferred_town_coords,
+          town_lat:             (e as any).town_lat,
+          town_lng:             (e as any).town_lng,
         }
       );
-      console.log('[MATCHES SCORE]', e.full_name, 'score=', score, 'pref=', e.preferred_districts, 'town=', e.town);
       return { ...e, score, isDistrictSwap: isTownSwapMatch(myProfile, e) };
     });
 
