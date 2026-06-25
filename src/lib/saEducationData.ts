@@ -1,5 +1,3 @@
-// Shared SA education district → towns mapping
-// Used in ProfilePage (dropdown) and EducatorCard (match scoring fallback)
 export const TOWNS_BY_DISTRICT: Record<string, string[]> = {
   'Alfred Nzo East': ['Bizana','Flagstaff','Other'],'Alfred Nzo West': ['Mount Frere','Matatiele','Maluti','Other'],
   'Amatole East': ['Butterworth','Idutywa','Ngqamakhwe','Other'],'Amatole West': ['East London','King Williams Town','Stutterheim','Komani','Other'],
@@ -38,5 +36,26 @@ export const TOWNS_BY_DISTRICT: Record<string, string[]> = {
   'Overberg': ['Hermanus','Bredasdorp','Swellendam','Other'],'West Coast': ['Moorreesburg','Malmesbury','Vredenburg','Other'],
 };
 
-/** All unique town names across all districts, sorted A→Z */
 export const ALL_TOWNS: string[] = [...new Set(Object.values(TOWNS_BY_DISTRICT).flat())].sort((a, b) => a.localeCompare(b));
+
+export function getDistrictForTown(town: string): string | undefined {
+  const n = town.toLowerCase().trim();
+  for (const [d, towns] of Object.entries(TOWNS_BY_DISTRICT)) {
+    if (towns.some(t => t.toLowerCase().trim() === n)) return d;
+  }
+  return undefined;
+}
+
+export function isTownInPreferredDistricts(town: string, preferredDistricts: string[]): boolean {
+  if (!town || !preferredDistricts.length) return false;
+  const d = getDistrictForTown(town);
+  return d ? preferredDistricts.includes(d) : false;
+}
+
+export function getTownsForDistricts(preferredDistricts: string[]): string[] {
+  const all = new Set<string>();
+  for (const d of preferredDistricts) {
+    for (const t of (TOWNS_BY_DISTRICT[d] || [])) { if (t !== 'Other') all.add(t); }
+  }
+  return [...all];
+}
