@@ -116,7 +116,7 @@ export default function Home() {
           { icon: Briefcase,   value: stats.vacancies > 0 ? `${stats.vacancies}+` : '—', label: 'Vacancies',        color: 'text-blue-500',   bg: 'bg-blue-50',     to: '/vacancies'        },
           { icon: MapPin,      value: '9',                                                label: 'Provinces',        color: 'text-slate-500',  bg: 'bg-slate-100',   to: '/search'           },
           { icon: GraduationCap, value: '51',                                             label: 'CAPS Subjects',    color: 'text-emerald-600',bg: 'bg-emerald-50',  to: null                },
-          { icon: LayoutGrid,  value: '10',                                               label: 'CV Templates',     color: 'text-violet-500', bg: 'bg-violet-50',   to: '/cv-builder?step=7' },
+          { icon: LayoutGrid,  value: '10',                                               label: 'CV Templates',     color: 'text-violet-500', bg: 'bg-violet-50',   to: '/cv-builder?step=6' },
           { icon: BookOpen,    value: '4',                                                label: 'Tools in One App', color: 'text-amber-500',  bg: 'bg-amber-50',    to: null                },
         ] as { icon: React.ElementType; value: string; label: string; color: string; bg: string; to: string | null }[]).map(({ icon: Icon, value, label, color, bg, to }) => {
           const card = (
