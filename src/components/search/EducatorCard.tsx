@@ -1,3 +1,4 @@
+import { TOWNS_BY_DISTRICT } from '@/lib/saEducationData';
 import { MapPin, Navigation, Monitor, ChevronRight, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -8,24 +9,54 @@ export interface MyProfile {
   town?: string;
   subjects?: string[];
   preferred_districts?: string[];
+  preferred_town_coords?: { town: string; lat: number; lng: number }[];
+  town_lat?: number;
+  town_lng?: number;
+}
+
+/** Haversine distance in km */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
+    * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const TOWN_MATCH_RADIUS_KM = 50;
+
+function townMatchesPreferred(
+  town: string,
+  preferred: string[],
+  prefCoords: { town: string; lat: number; lng: number }[],
+  townLat?: number | null,
+  townLng?: number | null,
+): boolean {
+  if (!town || !preferred.length) return false;
+  const townLower = town.toLowerCase();
+  // 1. Exact name match (new data: preferred_districts stores town names)
+  if (preferred.some(p => p.toLowerCase() === townLower)) return true;
+  // 2. District lookup (legacy data: preferred_districts stores district names)
+  for (const pref of preferred) {
+    if ((TOWNS_BY_DISTRICT[pref] || []).some(t => t.toLowerCase() === townLower)) return true;
+  }
+  // 3. Coord proximity within 50km
+  if (townLat != null && townLng != null) {
+    for (const p of prefCoords) {
+      if (haversineKm(p.lat, p.lng, townLat, townLng) <= TOWN_MATCH_RADIUS_KM) return true;
+    }
+  }
+  return false;
 }
 
 /**
  * Weighted match formula:
- *   Phase 20% + Province 20% + District 20% + Subjects (Jaccard) 40%
+ *   Phase 20% + Province 20% + Preferred-town proximity 20% + Subjects (Jaccard) 40%
  * Hard rule: no common subjects → always 0%.
  */
 export function calculateMatch(me: MyProfile, them: MyProfile): number {
-  console.log('[MATCH DEBUG]', JSON.stringify({
-    me_town: me.town,
-    me_pref: me.preferred_districts,
-    me_lat: me.town_lat,
-    me_lng: me.town_lng,
-    them_town: them.town,
-    them_pref: them.preferred_districts,
-    them_lat: them.town_lat,
-    them_lng: them.town_lng,
-  }));
   const setA = new Set((me.subjects || []).map(s => s.toLowerCase()));
   const setB = new Set((them.subjects || []).map(s => s.toLowerCase()));
   const common = [...setA].filter(s => setB.has(s)).length;
@@ -38,9 +69,16 @@ export function calculateMatch(me: MyProfile, them: MyProfile): number {
   const phaseScore    = me.phase && them.phase && me.phase === them.phase ? 0.20 : 0;
   const provinceScore = me.current_province && them.current_province
                         && me.current_province === them.current_province ? 0.20 : 0;
-  const districtScore = me.town && them.town && me.town === them.town ? 0.20 : 0;
 
-  return Math.round((phaseScore + provinceScore + districtScore + subjectScore * 0.40) * 100);
+  const meCoords   = me.preferred_town_coords   || [];
+  const themCoords = them.preferred_town_coords || [];
+
+  const townScore = (
+    townMatchesPreferred(them.town || '', me.preferred_districts   || [], meCoords,   them.town_lat, them.town_lng) ||
+    townMatchesPreferred(me.town   || '', them.preferred_districts || [], themCoords, me.town_lat,   me.town_lng)
+  ) ? 0.20 : 0;
+
+  return Math.round((phaseScore + provinceScore + townScore + subjectScore * 0.40) * 100);
 }
 
 /** Matches page shows scores ≥ this threshold, plus any town-swap matches. */
@@ -104,7 +142,9 @@ export default function EducatorCard({ educator, myProfile, isPro = false, index
 
   const locationParts = [educator.current_province, educator.town].filter(Boolean);
   const location      = locationParts.length ? locationParts.join(' – ') : '–';
-  const wants         = educator.preferred_provinces?.length ? educator.preferred_provinces.join(', ') : 'Any';
+  const wants = educator.preferred_districts?.length
+    ? educator.preferred_districts.join(', ')
+    : educator.preferred_provinces?.length ? educator.preferred_provinces.join(', ') : 'Any';
   const subjectsStr   = educator.subjects?.length
     ? `${educator.subjects.join(', ')}${educator.phase ? ` (${educator.phase})` : ''}`
     : '()';
