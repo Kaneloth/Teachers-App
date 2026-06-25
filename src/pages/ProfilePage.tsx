@@ -114,6 +114,7 @@ interface Profile {
   subjects: string[];
   preferred_provinces: string[];
   preferred_districts: string[];
+  preferred_town_coords?: { town: string; lat: number; lng: number }[];
   available_from: string;
   is_actively_looking: boolean;
   is_sace_verified?: boolean;
@@ -816,6 +817,7 @@ export default function ProfilePage() {
         years_experience:    (yearsExp !== null && !isNaN(yearsExp)) ? yearsExp : null,
         avatar_url:          profile.avatar_url,
         profile_type:        profile.profile_type,
+        // preferred_town_coords updated separately after save (geocoding step below)
       };
       if (profile.id) {
         const { error } = await supabase.from('educators').update(payload).eq('id', profile.id);
@@ -842,9 +844,33 @@ export default function ProfilePage() {
               p_lat:     coords.latitude,
             });
             if (geoErr) console.error('[ProfilePage] set_educator_geo_location error:', geoErr);
+            // Also store as plain columns for JS-side distance calculations
+            await supabase.from('educators').update({
+              town_lat: coords.latitude,
+              town_lng: coords.longitude,
+            }).eq('user_id', user.id);
           }
         } catch (geoErr) {
           console.error('[ProfilePage] geocode error:', geoErr);
+        }
+      }
+
+      // Geocode all preferred towns and store coords for distance-based matching
+      if (profile.preferred_districts.length > 0) {
+        try {
+          const coordResults = await Promise.all(
+            profile.preferred_districts.map(async (town) => {
+              const coords = await geocodeLocation(`${town}, South Africa`);
+              return coords ? { town, lat: coords.latitude, lng: coords.longitude } : null;
+            })
+          );
+          const validCoords = coordResults.filter(Boolean) as { town: string; lat: number; lng: number }[];
+          if (validCoords.length > 0) {
+            await supabase.from('educators').update({ preferred_town_coords: validCoords })
+              .eq('user_id', user.id);
+          }
+        } catch (geoErr) {
+          console.warn('[ProfilePage] preferred town geocoding failed (non-fatal):', geoErr);
         }
       }
 

@@ -70,12 +70,34 @@ export default function Search({ embedded = false }: Props) {
     // preferred_districts is needed for the town-swap exclusion check below.
     supabase
       .from('educators')
-      .select('phase, current_province, town, subjects, preferred_districts')
+      .select('phase, current_province, town, subjects, preferred_districts, preferred_town_coords, town_lat, town_lng')
       .eq('user_id', user.id)
       .limit(1)
       .then(({ data }) => {
         setMyProfile(data?.[0] ?? null);
       });
+  }, [user]);
+
+  // Re-fetch own profile on visibility change so match % uses fresh data
+  // after the user edits their profile (province, phase, subjects etc.)
+  useEffect(() => {
+    if (!user) return;
+    const refresh = () => {
+      if (document.visibilityState === 'visible') {
+        supabase
+          .from('educators')
+          .select('phase, current_province, town, subjects, preferred_districts, preferred_town_coords, town_lat, town_lng')
+          .eq('user_id', user.id)
+          .limit(1)
+          .then(({ data }) => { if (data?.[0]) setMyProfile(data[0]); });
+      }
+    };
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('focus', refresh);
+    };
   }, [user]);
 
   /* ── Search bar query update ─────────────────────────────────── */
@@ -200,20 +222,6 @@ export default function Search({ embedded = false }: Props) {
   }, [filters, query, user, myProfile, isPro]);
 
   useEffect(() => { fetchEducators(); }, [fetchEducators]);
-
-  // Refetch when the user returns to this page (e.g. after editing their profile).
-  // Uses visibilitychange (fires when tab/app comes back into view) AND
-  // focus (fires when browser window regains focus) for maximum coverage.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchEducators(); };
-    const onFocus   = () => fetchEducators();
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', onFocus);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', onFocus);
-    };
-  }, [fetchEducators]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
