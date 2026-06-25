@@ -264,6 +264,7 @@ export default function CVBuilderPage() {
   // balance. If no → only the free Classic template is available.
   const [hasPurchased,      setHasPurchased]      = useState(false);
   const [templatesUnlocked, setTemplatesUnlocked] = useState(false);
+  const [isEducator,         setIsEducator]         = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -277,10 +278,13 @@ export default function CVBuilderPage() {
     // Check admin-granted template unlock
     supabase
       .from('educators')
-      .select('templates_unlocked')
+      .select('templates_unlocked, profile_type')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(({ data }) => setTemplatesUnlocked(!!(data?.templates_unlocked)));
+      .then(({ data }) => {
+        setTemplatesUnlocked(!!(data?.templates_unlocked));
+        setIsEducator(!data || data.profile_type !== 'general');
+      });
   }, [user]);
 
   // isFree gates the template picker (CVStepTemplate): true = only Classic
@@ -416,7 +420,14 @@ export default function CVBuilderPage() {
           </button>
           <FileText className="w-5 h-5 text-primary" />
           <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
-          <div className="ml-auto"><CreditBalance /></div>
+          <div className="ml-auto">
+            {!isEducator || hasPurchased ? <CreditBalance /> : (
+              <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold">
+                <Coins className="w-3 h-3" />
+                {creditsLoading ? '…' : balance}
+              </div>
+            )}
+          </div>
         </div>
         <div className="px-4">
           <LastCVBanner
@@ -437,7 +448,14 @@ export default function CVBuilderPage() {
         </button>
         <FileText className="w-5 h-5 text-primary" />
         <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
-        <div className="ml-auto"><CreditBalance /></div>
+        <div className="ml-auto">
+          {!isEducator || hasPurchased ? <CreditBalance /> : (
+            <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold">
+              <Coins className="w-3 h-3" />
+              {creditsLoading ? '…' : balance}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="px-4 pb-4 pt-1">
