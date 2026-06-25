@@ -20,6 +20,9 @@ interface Educator {
   town?: string;
   preferred_provinces?: string[];
   preferred_districts?: string[];
+  preferred_town_coords?: { town: string; lat: number; lng: number }[];
+  town_lat?: number;
+  town_lng?: number;
   subjects?: string[];
   phase?: string;
   user_id?: string;
