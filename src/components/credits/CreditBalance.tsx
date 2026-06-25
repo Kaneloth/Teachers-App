@@ -190,7 +190,7 @@ export function LowCreditsPrompt({ onViewPackages, message }: { onViewPackages: 
 }
 
 // ── Purchase modal ────────────────────────────────────────────────────────────
-function PurchaseModal({ onClose }: { onClose: () => void }) {
+export function PurchaseModal({ onClose }: { onClose: () => void }) {
   const { session, user } = useAuth();
   const [purchasing, setPurchasing] = useState<PackageId | null>(null);
   const [profileType, setProfileType] = useState<'educator' | 'general' | null>(null);
