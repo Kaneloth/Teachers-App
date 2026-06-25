@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 
 // ── Credit packages (mirror your screenshot) ────────────────────────────────
 const PACKAGES = [
-  { id: 'single',   label: 'Starter Pack',          price: 39,  credits: 10,  note: '1 CV + 1 letter' },
+  { id: 'single',   label: 'Starter Pack',          price: 39,  credits: 15,  note: '1 CV + 1 letter' },
   { id: 'standard', label: 'Standard Credit Pack',  price: 59,  credits: 30,  note: '3 CVs + 3 letters', popular: true },
   { id: 'pro_pack', label: 'Pro Credit Pack',        price: 99,  credits: 60,  note: '6 CVs + 6 letters · unlocks messaging' },
   { id: 'business', label: 'Business Credit Pack',   price: 199, credits: 200, note: '22 CVs + many chats · unlocks messaging' },
@@ -191,8 +191,17 @@ export function LowCreditsPrompt({ onViewPackages, message }: { onViewPackages: 
 
 // ── Purchase modal ────────────────────────────────────────────────────────────
 function PurchaseModal({ onClose }: { onClose: () => void }) {
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   const [purchasing, setPurchasing] = useState<PackageId | null>(null);
+  const [profileType, setProfileType] = useState<'educator' | 'general' | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('educators').select('profile_type').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => setProfileType((data?.profile_type as 'educator' | 'general') ?? 'educator'));
+  }, [user?.id]);
+
+  const isGeneral = profileType === 'general';
 
   const handlePurchase = async (pkg: typeof PACKAGES[number]) => {
     if (!session?.access_token) { toast.error('Please sign in first.'); return; }
@@ -243,7 +252,7 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
             <h2 className="font-bold text-foreground">Top Up Credits</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">CV = 9 credits · Cover letter = 2 credits · Chat = 5 credits</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{isGeneral ? 'CV = 9 credits · Cover letter = 2 credits' : 'CV = 9cr · Cover letter = 2cr · New chat = 5cr'}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
             <X className="w-4 h-4 text-muted-foreground" />
@@ -301,16 +310,20 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
             <p className="text-xs font-medium text-foreground mt-1 pt-1 border-t border-border">Credit costs:</p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              CV download = 9cr · Cover letter = 2cr · New chat = 5cr
+              CV download = 9 credits · Cover letter = 2 credits
             </p>
-            <p className="text-xs text-muted-foreground flex items-start gap-1.5">
-              <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              Guide download = 3cr · ID verification = 30cr
-            </p>
-            <p className="text-xs text-muted-foreground flex items-start gap-1.5">
-              <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              R99+ pack (60cr) unlocks direct messaging
-            </p>
+            {!isGeneral && (
+              <>
+                <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+                  <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
+                  New chat = 5cr · Guide download = 3cr · ID verification = 30cr
+                </p>
+                <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+                  <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
+                  R99+ pack (60cr) unlocks direct messaging
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>
