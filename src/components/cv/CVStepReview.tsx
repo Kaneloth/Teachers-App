@@ -8,6 +8,7 @@ import { exportElementAsPDF } from '@/utils/cvExport';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
+import CreditBalance from '@/components/credits/CreditBalance';
 import TestimonialPromptModal from '@/components/TestimonialPromptModal';
 
 // Builds correct public storage URL — getPublicUrl() sometimes omits /public/
@@ -30,6 +31,7 @@ interface Props { data: CVData; onGenerated?: (url: string) => void; isFree?: bo
 export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed = false }: Props) {
   const { user } = useAuth();
   const { balance, loading: creditsLoading, deduct } = useCredits();
+  const [showTopUp, setShowTopUp] = useState(false);
   const [showInsufficientModal, setShowInsufficientModal] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [view, setView] = useState<'preview' | 'summary'>('preview');
@@ -63,7 +65,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
 
   // Re-download the already-stored PDF — FREE, no credit deduction
   const handleRedownload = async () => {
-    const url = pdfUrl;
+    const url = pdfUrl ?? existingPdfUrl;
     if (!url) return;
     setSending(true);
     try {
@@ -268,16 +270,28 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
         </div>
       </div>
 
-      {/* Credit balance indicator */}
-      <div className="flex items-center justify-between bg-muted rounded-xl px-4 py-2.5">
+      {/* Credit balance indicator — clickable to top up if user has purchased before */}
+      <button
+        onClick={() => hasPurchased && setShowTopUp(true)}
+        className={`w-full flex items-center justify-between bg-muted rounded-xl px-4 py-2.5 ${hasPurchased ? 'hover:bg-muted/70 transition-colors cursor-pointer' : 'cursor-default'}`}
+      >
         <div className="flex items-center gap-2">
           <Coins className="w-4 h-4 text-primary" />
           <span className="text-sm text-foreground font-medium">
             {creditsLoading ? '…' : balance} credit{balance !== 1 ? 's' : ''} available
           </span>
         </div>
-        <span className="text-xs text-muted-foreground">{aiUsed ? 'CV costs 7 more credits (2 used on AI)' : 'CV costs 9 credits'}</span>
-      </div>
+        <span className="text-xs text-muted-foreground">{hasPurchased ? 'Tap to top up' : aiUsed ? 'CV costs 7 more credits (2 used on AI)' : 'CV costs 9 credits'}</span>
+      </button>
+
+      {showTopUp && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4"
+          onClick={() => setShowTopUp(false)}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-sm my-auto">
+            <CreditBalance variant="full" />
+          </div>
+        </div>
+      )}
 
       {/* Watermark notice for free users */}
       {!hasPurchased && !isAdmin && (
@@ -305,15 +319,15 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
       )}
 
       <Button
-        onClick={pdfUrl ? handleRedownload : handleGenerate}
-        disabled={sending || (!isAdmin && !pdfUrl && !creditsLoading && balance < (aiUsed ? 7 : 9))}
+        onClick={(pdfUrl ?? existingPdfUrl) ? handleRedownload : handleGenerate}
+        disabled={sending || (!isAdmin && !(pdfUrl ?? existingPdfUrl) && !creditsLoading && balance < (aiUsed ? 7 : 9))}
         className="w-full h-12 rounded-xl text-sm font-semibold gap-2"
       >
         <Download className="w-4 h-4 shrink-0" />
         <span className="truncate">
           {sending
             ? 'Downloading...'
-            : pdfUrl
+            : (pdfUrl ?? existingPdfUrl)
               ? 'Download CV (free — already generated)'
               : `Download PDF · ${aiUsed ? 7 : 9} credits${shouldWatermark ? ' · watermarked' : ''}`}
         </span>

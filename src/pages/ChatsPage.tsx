@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, RefreshCw, CheckCheck, Trash2, ArrowLeft, UserX } from 'lucide-react';
+import { MessageCircle, RefreshCw, CheckCheck, Trash2, ArrowLeft, UserX, Coins } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import CreditBalance from '@/components/credits/CreditBalance';
+import { useCredits } from '@/hooks/useCredits';
 import { format, isThisYear, isToday } from 'date-fns';
 import { toast } from 'sonner';
 import {
@@ -35,12 +37,20 @@ function formatThreadTime(iso: string) {
 
 export default function ChatsPage() {
   const { user } = useAuth();
+  const { balance, loading: creditsLoading } = useCredits();
+  const [hasPurchased, setHasPurchased] = useState(false);
+  const [showTopUp, setShowTopUp] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('credit_ledger').select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id).eq('type', 'purchase')
+      .then(({ count }) => setHasPurchased((count ?? 0) > 0));
+  }, [user?.id]);
   const navigate = useNavigate();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [isActivelyLooking, setIsActivelyLooking] = useState<boolean | null>(null);
-  const [togglingActive, setTogglingActive] = useState(false);
 
   // Delete‑chat & block states
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
@@ -174,40 +184,6 @@ export default function ChatsPage() {
 
   useEffect(() => { fetchThreads(); }, [fetchThreads]);
 
-  // Fetch the educator's actively looking status to show nudge banner
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from('educators')
-      .select('is_actively_looking, profile_type')
-      .eq('user_id', user.id)
-      .single()
-      .then(({ data }) => {
-        // Only show nudge for educators, not general users
-        if (data?.profile_type === 'educator' || data?.profile_type == null) {
-          setIsActivelyLooking(data?.is_actively_looking ?? false);
-        }
-      });
-  }, [user]);
-
-  const handleToggleActive = async () => {
-    if (!user || isActivelyLooking === null) return;
-    setTogglingActive(true);
-    const newVal = !isActivelyLooking;
-    const { error } = await supabase
-      .from('educators')
-      .update({ is_actively_looking: newVal })
-      .eq('user_id', user.id);
-    if (!error) {
-      setIsActivelyLooking(newVal);
-      toast.success(newVal
-        ? 'You are now visible as Actively Looking — others can message you.'
-        : 'Actively Looking turned off — you will no longer receive new messages.'
-      );
-    }
-    setTogglingActive(false);
-  };
-
   // Real-time listener: refresh threads on new messages or deletions.
   // Listens on the user-specific channel that ChatRoom broadcasts to.
   // This guarantees last-message stays accurate after sends and deletes.
@@ -267,6 +243,28 @@ export default function ChatsPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      {/* Credit balance chip — only after first purchase */}
+      {hasPurchased && (
+        <div className="flex items-center justify-between px-4 pt-3 pb-1">
+          <button
+            onClick={() => setShowTopUp(true)}
+            className="flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-full text-sm font-semibold hover:bg-primary/20 transition-colors"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            {creditsLoading ? '…' : balance} credits · Tap to top up
+          </button>
+        </div>
+      )}
+
+      {showTopUp && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4"
+          onClick={() => setShowTopUp(false)}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-sm my-auto">
+            <CreditBalance variant="full" />
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-2 px-4 pt-4 pb-4">
         <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
           <ArrowLeft className="w-5 h-5 text-foreground" />
@@ -276,38 +274,6 @@ export default function ChatsPage() {
           <RefreshCw className={`w-4 h-4 text-primary ${refreshing ? 'animate-spin' : ''}`} />
         </button>
       </div>
-
-      {/* Nudge banner — shown to educators who are NOT actively looking */}
-      {isActivelyLooking === false && (
-        <div className="mx-4 mb-3 rounded-2xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3.5">
-          <div className="flex items-start gap-3">
-            <span className="text-xl shrink-0 mt-0.5">🔕</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-amber-800 dark:text-amber-300">
-                You appear in search but cannot be messaged
-              </p>
-              <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                Your <strong>Actively Looking</strong> status is off. You are visible in search results but other educators cannot send you messages. Turn it on to open your inbox to transfer opportunities.
-              </p>
-              <button
-                onClick={handleToggleActive}
-                disabled={togglingActive}
-                className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl transition-colors disabled:opacity-60"
-              >
-                {togglingActive ? '...' : '🔥 Turn on Actively Looking'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isActivelyLooking === true && threads.length === 0 && !loading && (
-        <div className="mx-4 mb-3 rounded-2xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 px-4 py-3">
-          <p className="text-xs font-medium text-green-800 dark:text-green-300">
-            ✅ You are Actively Looking — other educators can message you about transfer opportunities.
-          </p>
-        </div>
-      )}
 
       {loading ? (
         <div className="flex justify-center py-16">
