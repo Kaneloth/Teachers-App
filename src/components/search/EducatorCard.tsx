@@ -43,8 +43,10 @@ const TOWNS_BY_DISTRICT: Record<string, string[]> = {
 export interface MyProfile {
   phase?: string;
   current_province?: string;
+  preferred_provinces?: string[];
   town?: string;
   subjects?: string[];
+  preferred_provinces?: string[];
   preferred_districts?: string[];
   preferred_town_coords?: { town: string; lat: number; lng: number }[];
   town_lat?: number;
@@ -106,8 +108,16 @@ export function calculateMatch(me: MyProfile, them: MyProfile): number {
   const totalDistinct = new Set([...setA, ...setB]).size;
   const subjectScore = totalDistinct > 0 ? common / totalDistinct : 0;
   const phaseScore = me.phase && them.phase && me.phase === them.phase ? 0.20 : 0;
-  const provinceScore = me.current_province && them.current_province &&
-    me.current_province === them.current_province ? 0.20 : 0;
+
+  // Province (20%): THEIR current province is in MY preferred provinces,
+  // OR MY current province is in THEIR preferred provinces.
+  // Asymmetric — A's score for B may differ from B's score for A.
+  const myPrefProvinces   = me.preferred_provinces   || [];
+  const themPrefProvinces = them.preferred_provinces || [];
+  const provinceScore = (
+    (them.current_province && myPrefProvinces.includes(them.current_province)) ||
+    (me.current_province   && themPrefProvinces.includes(me.current_province))
+  ) ? 0.20 : 0;
 
   const mePrefCoords = (me.preferred_town_coords || []) as { lat: number; lng: number }[];
   const themPrefCoords = (them.preferred_town_coords || []) as { lat: number; lng: number }[];
@@ -161,6 +171,7 @@ interface Educator {
   is_sace_verified?: boolean;
   current_province?: string;
   town?: string;
+  preferred_provinces?: string[];
   preferred_provinces?: string[];
   preferred_districts?: string[];
   preferred_town_coords?: { town: string; lat: number; lng: number }[];

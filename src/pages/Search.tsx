@@ -20,9 +20,6 @@ interface Educator {
   town?: string;
   preferred_provinces?: string[];
   preferred_districts?: string[];
-  preferred_town_coords?: { town: string; lat: number; lng: number }[];
-  town_lat?: number;
-  town_lng?: number;
   subjects?: string[];
   phase?: string;
   user_id?: string;
@@ -73,34 +70,12 @@ export default function Search({ embedded = false }: Props) {
     // preferred_districts is needed for the town-swap exclusion check below.
     supabase
       .from('educators')
-      .select('phase, current_province, town, subjects, preferred_districts, preferred_town_coords, town_lat, town_lng')
+      .select('phase, current_province, preferred_provinces, town, subjects, preferred_districts, preferred_town_coords, town_lat, town_lng')
       .eq('user_id', user.id)
       .limit(1)
       .then(({ data }) => {
         setMyProfile(data?.[0] ?? null);
       });
-  }, [user]);
-
-  // Re-fetch own profile on visibility change so match % uses fresh data
-  // after the user edits their profile (province, phase, subjects etc.)
-  useEffect(() => {
-    if (!user) return;
-    const refresh = () => {
-      if (document.visibilityState === 'visible') {
-        supabase
-          .from('educators')
-          .select('phase, current_province, town, subjects, preferred_districts, preferred_town_coords, town_lat, town_lng')
-          .eq('user_id', user.id)
-          .limit(1)
-          .then(({ data }) => { if (data?.[0]) setMyProfile(data[0]); });
-      }
-    };
-    document.addEventListener('visibilitychange', refresh);
-    window.addEventListener('focus', refresh);
-    return () => {
-      document.removeEventListener('visibilitychange', refresh);
-      window.removeEventListener('focus', refresh);
-    };
   }, [user]);
 
   /* ── Search bar query update ─────────────────────────────────── */
