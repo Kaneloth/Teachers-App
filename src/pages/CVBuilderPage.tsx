@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Lo
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
+import CreditBalance from '@/components/credits/CreditBalance';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import CVStepPersonal from '@/components/cv/CVStepPersonal';
