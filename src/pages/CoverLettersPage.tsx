@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
+import CreditBalance from '@/components/credits/CreditBalance';
 import { supabase } from '@/lib/supabase';
 
 /* ── Template definitions ────────────────────────────────────── */
@@ -394,10 +395,7 @@ export default function CoverLettersPage() {
       <div className="px-4 pt-5 pb-3">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-bold text-foreground">Cover Letters</h1>
-          <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold">
-            <Coins className="w-3 h-3" />
-            {creditsLoading ? '…' : balance}
-          </div>
+          <CreditBalance />
         </div>
         <p className="text-sm text-muted-foreground mt-0.5">
           Pick a category, customise the letter, download as Word.
