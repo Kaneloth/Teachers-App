@@ -98,6 +98,10 @@ function townInPreferred(
 }
 
 export function calculateMatch(me: MyProfile, them: MyProfile): number {
+  // TEMP DEBUG
+  const _town = (townInPreferred(them.town||'', me.preferred_districts||[], (me.preferred_town_coords||[]) as any, them.town_lat, them.town_lng) ||
+                 townInPreferred(me.town||'',   them.preferred_districts||[], (them.preferred_town_coords||[]) as any, me.town_lat, me.town_lng));
+  if (them.town || me.town) console.log('[CALC]', me.town, '->', me.preferred_districts, '|', them.town, '->', them.preferred_districts, '| townMatch:', _town);
   const setA = new Set((me.subjects || []).map(s => s.toLowerCase().trim()));
   const setB = new Set((them.subjects || []).map(s => s.toLowerCase().trim()));
   const common = [...setA].filter(s => setB.has(s)).length;
