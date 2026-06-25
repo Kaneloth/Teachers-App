@@ -453,14 +453,9 @@ export default function CVBuilderPage() {
         </button>
       </div>
 
-      {/* Top-up modal */}
+      {/* Top-up modal — auto-opens the purchase flow */}
       {showTopUp && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4"
-          onClick={() => setShowTopUp(false)}>
-          <div onClick={e => e.stopPropagation()} className="w-full max-w-sm my-auto">
-            <CreditBalance variant="full" />
-          </div>
-        </div>
+        <AutoOpenCreditModal onClose={() => setShowTopUp(false)} />
       )}
 
       <div className="px-4 pb-4 pt-1">
@@ -534,6 +529,20 @@ export default function CVBuilderPage() {
           )}
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+// Renders the CreditCard in an overlay — user taps "Top Up Credits" to open PurchaseModal
+function AutoOpenCreditModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 z-[60] flex items-start justify-center overflow-y-auto py-4 px-4"
+      onClick={onClose}
+    >
+      <div onClick={e => e.stopPropagation()} className="w-full max-w-sm my-auto">
+        <CreditBalance variant="full" />
+      </div>
     </div>
   );
 }
