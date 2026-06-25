@@ -201,6 +201,14 @@ export default function Search({ embedded = false }: Props) {
 
   useEffect(() => { fetchEducators(); }, [fetchEducators]);
 
+  // Refetch when the user returns to this page (e.g. after editing their profile)
+  // so educator cards always show fresh data.
+  useEffect(() => {
+    const onFocus = () => fetchEducators();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [fetchEducators]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchEducators();

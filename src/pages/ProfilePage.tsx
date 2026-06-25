@@ -1187,38 +1187,20 @@ export default function ProfilePage() {
                     ))}
                   </div>
                 )}
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      value={prefTownInput}
-                      onChange={e => setPrefTownInput(e.target.value)}
-                      onBlur={e => setPrefTownGeocodeTarget(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') { e.preventDefault(); setPrefTownGeocodeTarget(e.currentTarget.value); addPreferredTown(); }
-                      }}
-                      placeholder="e.g. Polokwane"
-                      className="rounded-xl pl-9"
-                    />
-                  </div>
-                  <Button type="button" size="icon" variant="outline" onClick={addPreferredTown}
-                    disabled={!prefTownInput.trim()}
-                    className="rounded-xl shrink-0 h-10 w-10"><Plus className="w-4 h-4" /></Button>
-                </div>
-                {prefTownGeocoding ? (
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Looking up "{prefTownInput}"…
-                  </p>
-                ) : prefTownCoords ? (
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
-                    <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
-                    Found: {prefTownCoords.displayName || `${prefTownCoords.latitude.toFixed(4)}°, ${prefTownCoords.longitude.toFixed(4)}°`}
-                  </p>
-                ) : prefTownInput.trim().length >= 3 ? (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">Place not found — check the spelling.</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground mt-1.5">Add one or more towns you'd consider transferring to.</p>
-                )}
+                <SearchableSelect
+                  value=""
+                  onValueChange={v => {
+                    if (v && profile && !profile.preferred_districts.includes(v))
+                      setProfileField('preferred_districts', [...profile.preferred_districts, v]);
+                  }}
+                  options={Object.values(TOWNS_BY_DISTRICT).flat().filter(
+                    (t, i, arr) => arr.indexOf(t) === i && !profile.preferred_districts.includes(t)
+                  )}
+                  placeholder={profile.preferred_districts.length ? 'Add another town…' : 'Select a town…'}
+                  searchPlaceholder="Search towns…"
+                  allowCustom
+                />
+                <p className="text-xs text-muted-foreground mt-1">Select towns you'd consider transferring to. You can add multiple.</p>
               </Field>
 
               <Field label="Available From">
