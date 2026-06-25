@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Lo
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import CVStepPersonal from '@/components/cv/CVStepPersonal';
 import CVStepEducation from '@/components/cv/CVStepEducation';
@@ -234,6 +234,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
 export default function CVBuilderPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { balance, loading: creditsLoading, deduct } = useCredits();
 
   const [initialState] = useState(() => {
@@ -289,6 +290,19 @@ export default function CVBuilderPage() {
 
   const [showBuilder,      setShowBuilder]      = useState(initialState.showBuilder);
   const [step,             setStep]             = useState(initialState.draft?.step ?? 0);
+
+  // Jump to a specific step if ?step=N is in the URL (e.g. from dashboard CV Templates card)
+  useEffect(() => {
+    const stepParam = searchParams.get('step');
+    if (stepParam !== null) {
+      const n = parseInt(stepParam, 10);
+      if (!isNaN(n) && n >= 0 && n < STEPS.length) {
+        setShowBuilder(true);
+        setStep(n);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [data,             setData]             = useState<CVData>(initialState.draft?.data ?? defaultData());
   const [draftSavedAt,     setDraftSavedAt]     = useState<string | null>(initialState.draft?.savedAt ?? null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);

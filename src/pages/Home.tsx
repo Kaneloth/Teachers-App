@@ -112,26 +112,29 @@ export default function Home() {
       {/* Stats cards */}
       <div className="grid grid-cols-3 gap-3">
         {([
-          { icon: FileText,    value: stats.cvs > 0 ? `${stats.cvs}+` : '—',       label: 'CVs Created',      color: 'text-primary',    bg: 'bg-primary/10'   },
-          { icon: Briefcase,   value: stats.vacancies > 0 ? `${stats.vacancies}+` : '—', label: 'Vacancies',  color: 'text-blue-500',   bg: 'bg-blue-50'      },
-          { icon: MapPin,      value: '9',                                           label: 'Provinces',        color: 'text-slate-500',  bg: 'bg-slate-100'    },
-          { icon: GraduationCap, value: '51',                                        label: 'CAPS Subjects',    color: 'text-emerald-600',bg: 'bg-emerald-50'   },
-          { icon: LayoutGrid,  value: '10',                                          label: 'CV Templates',     color: 'text-violet-500', bg: 'bg-violet-50'    },
-          { icon: BookOpen,    value: '4',                                           label: 'Tools in One App', color: 'text-amber-500',  bg: 'bg-amber-50'     },
-        ] as { icon: React.ElementType; value: string; label: string; color: string; bg: string }[]).map(({ icon: Icon, value, label, color, bg }) => (
-          <motion.div
-            key={label}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-card rounded-2xl border border-border p-4 flex flex-col items-center gap-2"
-          >
-            <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center`}>
-              <Icon className={`w-5 h-5 ${color}`} strokeWidth={1.75} />
-            </div>
-            <span className="text-2xl font-bold text-foreground leading-none">{value}</span>
-            <span className="text-xs text-muted-foreground text-center leading-tight">{label}</span>
-          </motion.div>
-        ))}
+          { icon: FileText,    value: stats.cvs > 0 ? `${stats.cvs}+` : '—',            label: 'CVs Created',      color: 'text-primary',    bg: 'bg-primary/10',  to: '/career-tools'     },
+          { icon: Briefcase,   value: stats.vacancies > 0 ? `${stats.vacancies}+` : '—', label: 'Vacancies',        color: 'text-blue-500',   bg: 'bg-blue-50',     to: '/vacancies'        },
+          { icon: MapPin,      value: '9',                                                label: 'Provinces',        color: 'text-slate-500',  bg: 'bg-slate-100',   to: '/search'           },
+          { icon: GraduationCap, value: '51',                                             label: 'CAPS Subjects',    color: 'text-emerald-600',bg: 'bg-emerald-50',  to: null                },
+          { icon: LayoutGrid,  value: '10',                                               label: 'CV Templates',     color: 'text-violet-500', bg: 'bg-violet-50',   to: '/career-tools?step=6' },
+          { icon: BookOpen,    value: '4',                                                label: 'Tools in One App', color: 'text-amber-500',  bg: 'bg-amber-50',    to: null                },
+        ] as { icon: React.ElementType; value: string; label: string; color: string; bg: string; to: string | null }[]).map(({ icon: Icon, value, label, color, bg, to }) => {
+          const card = (
+            <motion.div
+              key={label}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`bg-card rounded-2xl border border-border p-4 flex flex-col items-center gap-2 ${to ? 'hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer' : ''}`}
+            >
+              <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center`}>
+                <Icon className={`w-5 h-5 ${color}`} strokeWidth={1.75} />
+              </div>
+              <span className="text-2xl font-bold text-foreground leading-none">{value}</span>
+              <span className="text-xs text-muted-foreground text-center leading-tight">{label}</span>
+            </motion.div>
+          );
+          return to ? <Link key={label} to={to}>{card}</Link> : <React.Fragment key={label}>{card}</React.Fragment>;
+        })}
       </div>
 
       {/* CTA Banner */}
