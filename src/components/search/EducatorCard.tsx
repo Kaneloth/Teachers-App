@@ -183,7 +183,6 @@ interface Props {
 
 export default function EducatorCard({ educator, myProfile, isPro = false, index = 0, distanceKm }: Props) {
   const match = myProfile ? calculateMatch(myProfile, educator) : 0;
-  if (educator.town) console.log('[RING]', educator.full_name, 'town:', educator.town, 'pref:', educator.preferred_districts, '=> match:', match);
   const initial = educator.full_name?.[0]?.toUpperCase() || '?';
 
   const locationParts = [educator.current_province, educator.town].filter(Boolean);
