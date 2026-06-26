@@ -109,22 +109,23 @@ export function calculateMatch(me: MyProfile, them: MyProfile): number {
   const subjectScore = totalDistinct > 0 ? common / totalDistinct : 0;
   const phaseScore = me.phase && them.phase && me.phase === them.phase ? 0.20 : 0;
 
-  // Province (20%): THEIR current province is in MY preferred provinces,
-  // OR MY current province is in THEIR preferred provinces.
-  // Asymmetric — A's score for B may differ from B's score for A.
+  // Province (20%): THEIR current is in MY preferred AND MY current is in THEIR preferred.
+  // Both directions must match — genuine mutual transfer opportunity.
   const myPrefProvinces   = me.preferred_provinces   || [];
   const themPrefProvinces = them.preferred_provinces || [];
   const provinceScore = (
-    (them.current_province && myPrefProvinces.includes(them.current_province)) ||
-    (me.current_province   && themPrefProvinces.includes(me.current_province))
+    them.current_province && myPrefProvinces.includes(them.current_province) &&
+    me.current_province   && themPrefProvinces.includes(me.current_province)
   ) ? 0.20 : 0;
 
   const mePrefCoords = (me.preferred_town_coords || []) as { lat: number; lng: number }[];
   const themPrefCoords = (them.preferred_town_coords || []) as { lat: number; lng: number }[];
 
+  // Town (20%): THEIR current town is in MY preferred AND MY current town is in THEIR preferred.
+  // Both directions must match — genuine mutual transfer opportunity.
   const townScore = (
-    townInPreferred(them.town || '', me.preferred_districts || [], mePrefCoords, them.town_lat, them.town_lng) ||
-    townInPreferred(me.town || '', them.preferred_districts || [], themPrefCoords, me.town_lat, me.town_lng)
+    townInPreferred(them.town || '', me.preferred_districts   || [], mePrefCoords,   them.town_lat, them.town_lng) &&
+    townInPreferred(me.town   || '', them.preferred_districts || [], themPrefCoords, me.town_lat,   me.town_lng)
   ) ? 0.20 : 0;
 
   return Math.round((phaseScore + provinceScore + townScore + subjectScore * 0.40) * 100);
