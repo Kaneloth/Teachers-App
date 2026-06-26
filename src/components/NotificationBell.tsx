@@ -253,7 +253,7 @@ export default function NotificationBell() {
 
             {/* Footer */}
             {notifications.length > 0 && (
-              <div className="px-4 py-2.5 border-t border-border">
+              <div className="px-4 py-2.5 border-t border-border flex items-center justify-between">
                 <Link
                   to="/notifications"
                   onClick={() => setOpen(false)}
@@ -261,6 +261,12 @@ export default function NotificationBell() {
                 >
                   View all notifications
                 </Link>
+                <button
+                  onClick={() => { markAllRead(); setOpen(false); }}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Mark all read
+                </button>
               </div>
             )}
           </motion.div>

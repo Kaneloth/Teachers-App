@@ -34,6 +34,7 @@ import SupportPage from '@/pages/SupportPage';
 import CreditsPage from '@/pages/CreditsPage';
 // AboutPage import removed
 import NotFound from '@/pages/not-found';
+import NotificationsPage from '@/pages/NotificationsPage';
 
 const queryClient = new QueryClient();
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -143,6 +144,7 @@ export default function App() {
                   <Route path="/settings"      element={<SettingsPage />} />
                   <Route path="/support"       element={<SupportPage />} />
                   <Route path="/credits"       element={<CreditsPage />} />
+                  <Route path="/notifications"  element={<NotificationsPage />} />
                 </Route>
                 </Route>
               </Route>
