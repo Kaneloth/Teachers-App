@@ -40,13 +40,41 @@ const DISTRICT_TOWNS = {
   'Bojanala':['Rustenburg','Brits'],'Metro Central':['Cape Town CBD','Bellville'],
 };
 
-function townInPreferred(town, preferred) {
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
+    * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const TOWN_MATCH_RADIUS_KM = 50;
+
+// town: current town name
+// preferred: preferred_districts array (town names or district names)
+// prefCoords: preferred_town_coords array [{lat, lng}]
+// tLat/tLng: geocoded coords of the current town
+function townInPreferred(town, preferred, prefCoords, tLat, tLng) {
   if (!town || !preferred.length) return false;
   const t = town.toLowerCase();
+
+  // 1. Exact name match
   for (const p of preferred) {
     if (p.toLowerCase() === t) return true;
     if ((DISTRICT_TOWNS[p] || []).some(x => x.toLowerCase() === t)) return true;
   }
+
+  // 2. Coord proximity within 50km
+  if (tLat != null && tLng != null && prefCoords && prefCoords.length) {
+    for (const p of prefCoords) {
+      if (p.lat != null && p.lng != null) {
+        if (haversineKm(p.lat, p.lng, tLat, tLng) <= TOWN_MATCH_RADIUS_KM) return true;
+      }
+    }
+  }
+
   return false;
 }
 
@@ -70,8 +98,8 @@ function calculateMatch(me, them) {
 
   // Town: bidirectional — both must want each other's current town
   const townScore = (
-    townInPreferred(them.town || '', me.preferred_districts   || []) &&
-    townInPreferred(me.town   || '', them.preferred_districts || [])
+    townInPreferred(them.town || '', me.preferred_districts   || [], me.preferred_town_coords   || [], them.town_lat, them.town_lng) &&
+    townInPreferred(me.town   || '', them.preferred_districts || [], them.preferred_town_coords || [], me.town_lat,   me.town_lng)
   ) ? 0.20 : 0;
 
   return Math.round((phaseScore + provinceScore + townScore + subjectScore * 0.40) * 100);
@@ -81,9 +109,8 @@ function isTownSwap(a, b) {
   const subA = new Set((a.subjects || []).map(s => s.toLowerCase()));
   const subB = new Set((b.subjects || []).map(s => s.toLowerCase()));
   if (![...subA].some(s => subB.has(s))) return false;
-  // Bidirectional — both must want each other's town
-  return townInPreferred(b.town || '', a.preferred_districts || []) &&
-         townInPreferred(a.town || '', b.preferred_districts || []);
+  return townInPreferred(b.town || '', a.preferred_districts || [], a.preferred_town_coords || [], b.town_lat, b.town_lng) &&
+         townInPreferred(a.town || '', b.preferred_districts || [], b.preferred_town_coords || [], a.town_lat, a.town_lng);
 }
 
 function pairKey(idA, idB) {
@@ -159,8 +186,8 @@ export const handler = async (event) => {
         a.current_province && themPrefProvinces.includes(a.current_province)
       );
       const townMatch = (
-        townInPreferred(b.town || '', a.preferred_districts || []) &&
-        townInPreferred(a.town || '', b.preferred_districts || [])
+        townInPreferred(b.town || '', a.preferred_districts || [], a.preferred_town_coords || [], b.town_lat, b.town_lng) &&
+        townInPreferred(a.town || '', b.preferred_districts || [], b.preferred_town_coords || [], a.town_lat, a.town_lng)
       );
 
       console.log('[match-scan] Checking:', a.full_name, '↔', b.full_name, '| score:', score, '| province:', provinceMatch, '| town:', townMatch, '| a.pref_prov:', myPrefProvinces, '| b.current_prov:', b.current_province, '| a.pref_dist:', a.preferred_districts, '| b.town:', b.town);
@@ -175,7 +202,7 @@ export const handler = async (event) => {
         type:    'match_found',
         title:   `New transfer match found!`,
         body:    `${b.full_name || 'An educator'} could be a great transfer partner — ${matchLabel}.`,
-        data:    { matched_educator_id: b.id, matched_user_id: b.user_id, score, is_town_swap: isTown },
+        data:    { matched_educator_id: b.id, matched_user_id: b.user_id, score, is_town_swap: false },
       });
 
       // Notification for B about A
@@ -184,7 +211,7 @@ export const handler = async (event) => {
         type:    'match_found',
         title:   `New transfer match found!`,
         body:    `${a.full_name || 'An educator'} could be a great transfer partner — ${matchLabel}.`,
-        data:    { matched_educator_id: a.id, matched_user_id: a.user_id, score, is_town_swap: isTown },
+        data:    { matched_educator_id: a.id, matched_user_id: a.user_id, score, is_town_swap: false },
       });
 
       // Record pair so we don't notify again
