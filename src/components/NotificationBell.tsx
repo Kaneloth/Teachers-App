@@ -47,6 +47,18 @@ export default function NotificationBell() {
     loadNotifications();
   }, [loadNotifications]);
 
+  // Refetch when user returns to the app (e.g. after match-scan runs)
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') loadNotifications(); };
+    const onFocus   = () => loadNotifications();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [loadNotifications]);
+
   // Real-time subscription — new notification pops the bell
   useEffect(() => {
     if (!user) return;
@@ -57,9 +69,10 @@ export default function NotificationBell() {
         schema: 'public',
         table: 'notifications',
         filter: `user_id=eq.${user.id}`,
-      }, payload => {
-        setNotifications(prev => [payload.new as Notification, ...prev]);
-        setUnread(n => n + 1);
+      }, () => {
+        // Re-fetch on any insert — more reliable than relying on payload
+        // since service-role inserts may not include RLS-filtered payload
+        loadNotifications();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
