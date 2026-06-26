@@ -59,7 +59,7 @@ export default function NotificationBell() {
     };
   }, [loadNotifications]);
 
-  // Real-time subscription — new notification pops the bell
+  // Real-time subscription — fetch directly to avoid stale closure
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -70,9 +70,17 @@ export default function NotificationBell() {
         table: 'notifications',
         filter: `user_id=eq.${user.id}`,
       }, () => {
-        // Re-fetch on any insert — more reliable than relying on payload
-        // since service-role inserts may not include RLS-filtered payload
-        loadNotifications();
+        // Fetch directly — avoids stale loadNotifications closure
+        supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(30)
+          .then(({ data }) => {
+            setNotifications(data || []);
+            setUnread((data || []).filter((n: any) => !n.read).length);
+          });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
