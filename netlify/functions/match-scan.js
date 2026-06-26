@@ -22,7 +22,30 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || proce
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const MATCH_NOTIFY_THRESHOLD = 40; // minimum score to notify
+// District → towns for fallback town matching (inline)
+const DISTRICT_TOWNS = {
+  'Capricorn South':['Polokwane','Seshego'],'Capricorn North':['Bela-Bela','Mokopane'],
+  'Tshwane North':['Pretoria North','Soshanguve','Hammanskraal'],'Tshwane South':['Centurion','Pretoria East'],'Tshwane West':['Atteridgeville','Ga-Rankuwa'],
+  'Johannesburg Central':['Johannesburg CBD','Soweto','Orlando'],'Johannesburg North':['Sandburg','Randburg','Midrand'],'Johannesburg East':['Bedfordview','Edenvale','Katlehong'],'Johannesburg South':['Lenasia','Ennerdale','Orange Farm'],
+  'Ekurhuleni North':['Tembisa','Kempton Park'],'Ekurhuleni South':['Alberton','Germiston','Boksburg'],
+  'Mopani East':['Tzaneen','Letsitele'],'Mopani West':['Phalaborwa','Giyani'],
+  'Vhembe East':['Thohoyandou','Malamulele'],'Vhembe West':['Louis Trichardt','Musina'],
+  'Umgungundlovu':['Pietermaritzburg','Howick'],'Ugu':['Port Shepstone','Margate'],
+  'Ilembe':['KwaDukuza','Stanger'],'King Cetshwayo':['Richards Bay','Empangeni'],
+  'Pinetown':['Pinetown','Westville','Kloof'],
+  'Motheo':['Bloemfontein','Botshabelo'],'Ehlanzeni':['Mbombela','White River'],
+  'Bojanala':['Rustenburg','Brits'],'Metro Central':['Cape Town CBD','Bellville'],
+};
+
+function townInPreferred(town, preferred) {
+  if (!town || !preferred.length) return false;
+  const t = town.toLowerCase();
+  for (const p of preferred) {
+    if (p.toLowerCase() === t) return true;
+    if ((DISTRICT_TOWNS[p] || []).some(x => x.toLowerCase() === t)) return true;
+  }
+  return false;
+}
 
 function calculateMatch(me, them) {
   const setA   = new Set((me.subjects   || []).map(s => s.toLowerCase()));
@@ -33,20 +56,31 @@ function calculateMatch(me, them) {
   const totalDistinct = new Set([...setA, ...setB]).size;
   const subjectScore  = totalDistinct > 0 ? common / totalDistinct : 0;
   const phaseScore    = me.phase && them.phase && me.phase === them.phase ? 0.20 : 0;
-  const provinceScore = me.current_province && them.current_province
-                        && me.current_province === them.current_province ? 0.20 : 0;
-  const districtScore = me.town && them.town && me.town === them.town ? 0.20 : 0;
 
-  return Math.round((phaseScore + provinceScore + districtScore + subjectScore * 0.40) * 100);
+  // Province: bidirectional — both must want each other's current province
+  const myPrefProvinces   = me.preferred_provinces   || [];
+  const themPrefProvinces = them.preferred_provinces || [];
+  const provinceScore = (
+    them.current_province && myPrefProvinces.includes(them.current_province) &&
+    me.current_province   && themPrefProvinces.includes(me.current_province)
+  ) ? 0.20 : 0;
+
+  // Town: bidirectional — both must want each other's current town
+  const townScore = (
+    townInPreferred(them.town || '', me.preferred_districts   || []) &&
+    townInPreferred(me.town   || '', them.preferred_districts || [])
+  ) ? 0.20 : 0;
+
+  return Math.round((phaseScore + provinceScore + townScore + subjectScore * 0.40) * 100);
 }
 
 function isTownSwap(a, b) {
   const subA = new Set((a.subjects || []).map(s => s.toLowerCase()));
   const subB = new Set((b.subjects || []).map(s => s.toLowerCase()));
   if (![...subA].some(s => subB.has(s))) return false;
-  const iWantTheirTown  = !!(b.town && (a.preferred_districts || []).includes(b.town));
-  const theyWantMyTown  = !!(a.town && (b.preferred_districts || []).includes(a.town));
-  return iWantTheirTown || theyWantMyTown;
+  // Bidirectional — both must want each other's town
+  return townInPreferred(b.town || '', a.preferred_districts || []) &&
+         townInPreferred(a.town || '', b.preferred_districts || []);
 }
 
 function pairKey(idA, idB) {
@@ -70,7 +104,7 @@ export const handler = async (event) => {
   // 1. Load all actively-looking educators
   const { data: educators, error } = await supabase
     .from('educators')
-    .select('id, user_id, full_name, current_province, preferred_provinces, preferred_districts, phase, subjects, town, is_actively_looking, profile_type, is_hidden')
+    .select('id, user_id, full_name, current_province, preferred_provinces, preferred_districts, preferred_town_coords, town_lat, town_lng, phase, subjects, town, is_actively_looking, profile_type, is_hidden')
     .eq('is_actively_looking', true)
     .eq('is_hidden', false)
     .or('profile_type.eq.educator,profile_type.is.null');
@@ -100,13 +134,31 @@ export const handler = async (event) => {
       const key = pairKey(a.user_id, b.user_id);
       if (notifiedPairs.has(key)) continue;
 
-      const score   = calculateMatch(a, b);
-      const isTown  = isTownSwap(a, b);
-      if (score < MATCH_NOTIFY_THRESHOLD && !isTown) continue;
+      const score = calculateMatch(a, b);
 
-      const matchLabel = isTown && score < MATCH_NOTIFY_THRESHOLD
-        ? 'Town-swap match'
-        : `${score}% match`;
+      // Minimum requirements:
+      // 1. At least 1 common subject
+      // 2. At least one location criterion matches (province OR town bidirectional)
+      const setA = new Set((a.subjects || []).map(s => s.toLowerCase()));
+      const setB = new Set((b.subjects || []).map(s => s.toLowerCase()));
+      const hasCommonSubject = [...setA].some(s => setB.has(s));
+      if (!hasCommonSubject) continue;
+
+      // Check if province or town match (bidirectional)
+      const myPrefProvinces   = a.preferred_provinces || [];
+      const themPrefProvinces = b.preferred_provinces || [];
+      const provinceMatch = (
+        b.current_province && myPrefProvinces.includes(b.current_province) &&
+        a.current_province && themPrefProvinces.includes(a.current_province)
+      );
+      const townMatch = (
+        townInPreferred(b.town || '', a.preferred_districts || []) &&
+        townInPreferred(a.town || '', b.preferred_districts || [])
+      );
+
+      if (!provinceMatch && !townMatch) continue;
+
+      const matchLabel = `${score}% match`;
 
       // Notification for A about B
       newNotifications.push({
