@@ -106,11 +106,11 @@ export const handler = async (event) => {
     .from('educators')
     .select('id, user_id, full_name, current_province, preferred_provinces, preferred_districts, preferred_town_coords, town_lat, town_lng, phase, subjects, town, is_actively_looking, profile_type, is_hidden')
     .eq('is_actively_looking', true)
-    .eq('is_hidden', false)
     .or('profile_type.eq.educator,profile_type.is.null');
 
   if (error) return { statusCode: 500, body: JSON.stringify({ error: error.message }), headers };
-  if (!educators?.length) return { statusCode: 200, body: JSON.stringify({ notified: 0 }), headers };
+  console.log('[match-scan] Loaded', educators?.length ?? 0, 'actively-looking educators');
+  if (!educators?.length) return { statusCode: 200, body: JSON.stringify({ notified: 0, debug: 'no actively-looking educators found' }), headers };
 
   // 2. Load already-notified pairs to avoid duplicates
   const { data: logRows } = await supabase
@@ -142,7 +142,10 @@ export const handler = async (event) => {
       const setA = new Set((a.subjects || []).map(s => s.toLowerCase()));
       const setB = new Set((b.subjects || []).map(s => s.toLowerCase()));
       const hasCommonSubject = [...setA].some(s => setB.has(s));
-      if (!hasCommonSubject) continue;
+      if (!hasCommonSubject) {
+        console.log('[match-scan] Skip (no common subjects):', a.full_name, '↔', b.full_name);
+        continue;
+      }
 
       // Check if province or town match (bidirectional)
       const myPrefProvinces   = a.preferred_provinces || [];
@@ -155,6 +158,8 @@ export const handler = async (event) => {
         townInPreferred(b.town || '', a.preferred_districts || []) &&
         townInPreferred(a.town || '', b.preferred_districts || [])
       );
+
+      console.log('[match-scan] Checking:', a.full_name, '↔', b.full_name, '| score:', score, '| province:', provinceMatch, '| town:', townMatch, '| a.pref_prov:', myPrefProvinces, '| b.current_prov:', b.current_province, '| a.pref_dist:', a.preferred_districts, '| b.town:', b.town);
 
       if (!provinceMatch && !townMatch) continue;
 
