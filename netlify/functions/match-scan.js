@@ -20,6 +20,9 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL             = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('[match-scan] Missing Supabase env vars');
+}
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // District → towns for fallback town matching (inline)
@@ -89,6 +92,7 @@ function pairKey(idA, idB) {
 
 export const handler = async (event) => {
   const headers = { 'Content-Type': 'application/json' };
+  try {
 
   // Auth — only admins may trigger manually
   if (event.httpMethod === 'POST') {
@@ -209,10 +213,18 @@ export const handler = async (event) => {
     await supabase.from('match_notification_log').upsert(newLogEntries, { onConflict: 'user_a,user_b' });
   }
 
-  console.log(`[match-scan] Inserted ${inserted} notifications for ${newLogEntries.length} new pairs`);
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ notified: inserted, pairs: newLogEntries.length }),
-    headers,
-  };
+    console.log(`[match-scan] Inserted ${inserted} notifications for ${newLogEntries.length} new pairs`);
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ notified: inserted, pairs: newLogEntries.length }),
+      headers,
+    };
+  } catch (err) {
+    console.error('[match-scan] Uncaught error:', err);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err?.message || String(err) }),
+      headers,
+    };
+  }
 };
