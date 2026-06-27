@@ -78,36 +78,6 @@ export const handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: `Unknown type "${type}"` }) };
   }
 
-  // ── Career tools cap (cv_usage, letter_usage) ─────────────────────────────
-  // Educators get 40 free credits but max 18 can be spent on career tools.
-  // Once 18 career-tool credits are used from the free signup bonus,
-  // the user must purchase credits to continue. Bypassed if user has purchased.
-  const CAREER_TOOL_TYPES = ['cv_usage', 'letter_usage'];
-  if (CAREER_TOOL_TYPES.includes(type)) {
-    const { count: purchaseCount } = await supabase
-      .from('credit_ledger').select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id).eq('type', 'purchase');
-
-    if ((purchaseCount ?? 0) === 0) {
-      const { data: careerUsage } = await supabase
-        .from('credit_ledger').select('amount')
-        .eq('user_id', user.id).in('type', CAREER_TOOL_TYPES);
-
-      const totalCareerSpent = (careerUsage || []).reduce((sum, r) => sum + Math.abs(r.amount), 0);
-      if (totalCareerSpent >= 18) {
-        const { data: balance } = await supabase.rpc('get_credit_balance', { p_user_id: user.id });
-        return {
-          statusCode: 402,
-          body: JSON.stringify({
-            error: 'career_cap_reached',
-            message: "You've used your 18 free career tool credits. Top up to continue generating CVs and cover letters.",
-            balance: balance ?? 0,
-          }),
-        };
-      }
-    }
-  }
-
   const cost = COSTS[type];
   const DESCRIPTIONS = {
     cv_usage:       'CV generated (9 credits)',
