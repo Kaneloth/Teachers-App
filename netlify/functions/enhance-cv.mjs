@@ -389,27 +389,27 @@ export const handler = async (event) => {
         let summary   = (await callGroq(prompt, false)).trim();
         if (!summary) throw new Error('Empty summary from AI');
 
-        // Post-process: if applying for an IT job but summary opens with "educator",
-        // replace the first sentence with one that leads with ICT experience.
+        // Post-process: if applying for an IT job, always replace the first sentence
+        // with one built from real ICT experience data — never trust the model to lead correctly.
         if (jobDesc) {
-          const isItJob = /it support|technician|hardware|software|network|lan.wan|desktop|laptop|device|configure|deploy|reimage/i.test(jobDesc);
-          const startsWithEducator = /^i am (an? )?(experienced |dedicated |passionate |qualified )?(educator|teacher|lecturer|tutor)/i.test(summary);
+          const isItJob = /it support|technician|hardware|software|network|lan|wan|desktop|laptop|device|configure|deploy|reimage|technical support/i.test(jobDesc);
 
-          if (isItJob && startsWithEducator) {
+          if (isItJob) {
             const exp = (body.cvData?.experience || []);
+            // Find ICT/tech experience entry
             const ictEntry = exp.find(e =>
-              /ict|coordinator|technolog|computer|network|device/i.test((e.role || '') + ' ' + (e.description || ''))
+              /ict|coordinator|technolog|computer|network|device|it /i.test((e.role || '') + ' ' + (e.description || ''))
             ) || exp[0];
 
             if (ictEntry) {
-              const role   = ictEntry.role   || 'ICT professional';
-              const org    = ictEntry.school || '';
-              const from   = ictEntry.from   || '';
+              const role     = ictEntry.role   || 'IT professional';
+              const org      = ictEntry.school || '';
+              const from     = ictEntry.from   || '';
               const orgPart  = org  ? ` at ${org}`      : '';
               const yearPart = from ? `, since ${from}` : '';
-              const opener = `I am an experienced ${role}${orgPart}${yearPart}, with proven hands-on skills in ICT coordination, device management, hardware/software configuration, and technical support.`;
-              // Replace first sentence of model output with our opener
-              const rest = summary.replace(/^[^.!?]+[.!?][ \n]*/,'').trim();
+              const opener   = `I am an experienced ${role}${orgPart}${yearPart}, with hands-on experience in ICT coordination, device management, hardware and software configuration, and technical support.`;
+              // Always replace the first sentence regardless of what model wrote
+              const rest = summary.replace(/^[^.!?]+[.!?]\s*/,'').trim();
               summary = opener + (rest ? ' ' + rest : '');
             }
           }
