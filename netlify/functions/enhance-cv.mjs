@@ -595,8 +595,7 @@ Reply with exactly one of: ${AVAILABLE_ICONS.join(', ')}`;
   }
 
   try {
-    const textLimit = jobDescription ? 5000 : 8000; // smaller cap when JD adds to prompt size
-    const truncatedText = rawText.slice(0, textLimit);
+    const truncatedText = rawText.slice(0, 8000);
     const prompt   = buildStructurePrompt(truncatedText, cvType, false, jobDescription);
     const rawJson  = await callGroq(prompt, true);
     const parsed   = safeParseJson(rawJson);
