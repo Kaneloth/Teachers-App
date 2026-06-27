@@ -910,6 +910,33 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
             <Switch checked={templatesUnlocked} onCheckedChange={setTemplatesUnlocked} />
           </div>
 
+          {/* CV Watermark — per-user override */}
+          <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-border">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileText className="w-4 h-4 text-orange-500 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">CV Watermark</p>
+                <p className="text-xs text-muted-foreground">
+                  {userGateOverrides['cv_watermark'] === undefined
+                    ? 'Following global setting'
+                    : userGateOverrides['cv_watermark'] ? 'Override ON — watermark shown' : 'Override OFF — no watermark'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setUserGateOverrides(p => ({ ...p, cv_watermark: undefined }))}
+                className="text-[10px] text-muted-foreground hover:text-foreground border border-border rounded-full px-2 py-0.5 transition-colors"
+              >
+                Reset
+              </button>
+              <Switch
+                checked={userGateOverrides['cv_watermark'] ?? true}
+                onCheckedChange={v => setUserGateOverrides(p => ({ ...p, cv_watermark: v }))}
+              />
+            </div>
+          </div>
+
           {/* Manual email verification — only shown for unverified users */}
           {!user.email_confirmed && (
             <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
