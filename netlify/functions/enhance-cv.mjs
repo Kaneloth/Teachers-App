@@ -341,7 +341,13 @@ async function callGroq(prompt, jsonMode = true) {
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
     };
-    if (jsonMode) body.response_format = { type: 'json_object' };
+    // Only add JSON mode for the primary model — fallbacks may not support it
+    if (jsonMode && model === GROQ_MODELS[0]) {
+      body.response_format = { type: 'json_object' };
+    } else if (jsonMode) {
+      // Fallback model: enforce JSON via prompt since response_format may not be supported
+      body.messages[0].content = 'You must respond with valid JSON only. No markdown, no explanation, no code blocks. Just raw JSON.\n\n' + body.messages[0].content;
+    }
 
     try {
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -355,9 +361,12 @@ async function callGroq(prompt, jsonMode = true) {
 
       const data = await response.json();
 
-      // Rate limited or model unavailable — try next model
-      if (response.status === 429 || response.status === 503 || data.error?.code === 'rate_limit_exceeded') {
-        console.warn(`[enhance-cv] Model ${model} rate-limited or unavailable, trying next...`);
+      // Rate limited, model unavailable, or JSON mode not supported — try next model
+      if (response.status === 429 || response.status === 503 ||
+          data.error?.code === 'rate_limit_exceeded' ||
+          data.error?.message?.includes('json') ||
+          data.error?.message?.includes('response_format')) {
+        console.warn(`[enhance-cv] Model ${model} unavailable/unsupported: ${data.error?.message}, trying next...`);
         lastError = new Error(data.error?.message || `Model ${model} unavailable`);
         continue;
       }
