@@ -364,16 +364,16 @@ async function callGroq(prompt, jsonMode = true) {
 
       if (!response.ok) throw new Error(data.error?.message || 'Groq API error');
       const raw = data.choices[0].message.content || '';
-  // Strip chain-of-thought <think> blocks emitted by reasoning models (e.g. Qwen, GPT-OSS)
-  // Some models put the answer AFTER </think>, others put everything inside <think>
-  const thinkEnd = raw.lastIndexOf('</think>');
-  if (thinkEnd !== -1) {
-    const afterThink = raw.slice(thinkEnd + '</think>'.length).trim();
-    if (afterThink.length > 20) return afterThink; // answer is after the think block
-    // Answer was inside the think block — strip tags only, return inner text
-    return raw.replace(/<think>/gi, '').replace(/</think>/gi, '').trim();
-  }
-  return raw.trim();
+      // Strip <think> blocks from reasoning models — find last </think> and take what's after
+      const thinkClose = '</think>';
+      const thinkEnd = raw.lastIndexOf(thinkClose);
+      if (thinkEnd !== -1) {
+        const afterThink = raw.slice(thinkEnd + thinkClose.length).trim();
+        if (afterThink.length > 20) return afterThink;
+        // All content was inside think block — strip open/close tags and return inner text
+        return raw.split('<think>').join('').split(thinkClose).join('').trim();
+      }
+      return raw.trim();
     } catch (err) {
       lastError = err;
       // Only continue on rate-limit related errors
