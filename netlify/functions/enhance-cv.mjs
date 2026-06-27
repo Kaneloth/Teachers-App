@@ -157,6 +157,31 @@ function buildSummaryPrompt(cvData, userBlurb, jobDescription) {
     ? 'Based on their work experience, this person is an educator — mention subjects taught, phase/grade level, and teaching strengths.'
     : 'This person works in a non-education professional field (or has no work experience yet) — mention their actual industry/field of study, role level, key technical skills, and career achievements. Do NOT describe them as an educator, teacher, or anything education-related unless their work experience explicitly says so.';
 
+  // When a job description is provided, pre-compute the most relevant experience
+  // to give the model an explicit "lead with this" instruction it cannot ignore
+  let leadInstruction = '';
+  if (jobDescription) {
+    const jdLower = jobDescription.toLowerCase();
+    const isItRole = /it support|technician|hardware|software|network|lan|wan|desktop|laptop|device|configure|deploy|reimage/i.test(jdLower);
+    const isFinanceRole = /accountant|finance|audit|tax|bookkeep|payroll|financial/i.test(jdLower);
+    const isAdminRole = /administrator|admin|office manager|clerk|receptionist|personal assistant/i.test(jdLower);
+    const isMgmtRole = /manager|management|director|head of|operations|strategy/i.test(jdLower);
+
+    const hasIctExp = expList && /ict|coordinator|device|technolog|computer|network|admin console|hardware|software/i.test(expList);
+    const hasFinanceExp = expList && /account|finance|audit|tax|bookkeep|bank/i.test(expList);
+    const hasAdminExp = expList && /admin|administrator|assistant|clerk|office/i.test(expList);
+
+    if (isItRole && hasIctExp) {
+      leadInstruction = `FIRST SENTENCE MUST START WITH the person's ICT/technology experience — specifically name their ICT role and employer. Do NOT start with "educator" or any teaching-related identity even if they are primarily a teacher. The hiring manager is looking for IT skills — lead with those.`;
+    } else if (isFinanceRole && hasFinanceExp) {
+      leadInstruction = `FIRST SENTENCE MUST START WITH the person's finance/accounting experience. Lead with that role and employer specifically.`;
+    } else if (isAdminRole && hasAdminExp) {
+      leadInstruction = `FIRST SENTENCE MUST START WITH the person's administrative experience. Lead with that role and employer specifically.`;
+    } else if (jobDescription) {
+      leadInstruction = `The person is applying for: "${jobDescription.slice(0, 200)}...". FIRST SENTENCE must lead with whichever part of their experience is most relevant to this role — not their primary job title if a more relevant role exists.`;
+    }
+  }
+
   return `You are a professional CV writer specialising in South African CVs for ALL industries and professions.
 
 Write a Professional Summary (bio) for a CV. It must be:
@@ -183,7 +208,7 @@ FORBIDDEN — you must NEVER:
 
 ${professionHint}
 
-ABSOLUTE RULE — DO NOT VIOLATE THIS UNDER ANY CIRCUMSTANCES:
+${leadInstruction ? leadInstruction + '\n\n' : ''}ABSOLUTE RULE — DO NOT VIOLATE THIS UNDER ANY CIRCUMSTANCES:
 You must NEVER invent, assume, exaggerate, or upgrade ANY fact that is not explicitly present in the information below. This includes (but is not limited to):
 - Job titles or seniority levels (e.g. do not call someone a "Manager", "Director", "Senior X", or "Head of Y" unless that exact title or an unambiguous equivalent appears in their work experience below)
 - Years of experience (e.g. do not state "X years of experience" unless dates are given that actually support that number — and if no work experience is listed at all, do NOT claim any years of experience)
