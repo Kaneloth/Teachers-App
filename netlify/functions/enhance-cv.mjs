@@ -350,10 +350,11 @@ Return ONLY the letter text. No labels, no JSON, no preamble or postamble. Just 
 
 // Models tried in order — fallback on rate-limit or error
 const GROQ_MODELS = [
-  'llama-3.3-70b-versatile',
-  'llama-3.3-70b-specdec',
-  'llama-3.1-8b-instant',
-  'gemma2-9b-it',
+  'llama-3.3-70b-versatile',   // primary
+  'openai/gpt-oss-120b',       // Groq recommended replacement for llama-3.3-70b
+  'qwen/qwen3.6-27b',          // alternative recommended by Groq
+  'openai/gpt-oss-20b',        // smaller fallback
+  'llama-3.1-8b-instant',      // fast last resort
 ];
 
 async function callGroq(prompt, jsonMode = true) {
