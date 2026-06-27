@@ -389,30 +389,56 @@ export const handler = async (event) => {
         let summary   = (await callGroq(prompt, false)).trim();
         if (!summary) throw new Error('Empty summary from AI');
 
-        console.log('[summary] jobDesc length:', jobDesc.length, 'summary start:', summary.slice(0, 80));
-        // Post-process: if applying for an IT job, always replace the first sentence
-        // with one built from real ICT experience data — never trust the model to lead correctly.
+        // Post-process: when a job description is provided, build first 2 sentences
+        // from real CV data so the summary leads with the most relevant experience.
         if (jobDesc) {
-          const isItJob = /it support|technician|hardware|software|network|lan|wan|desktop|laptop|device|configure|deploy|reimage|technical support/i.test(jobDesc);
+          const cvData  = body.cvData || {};
+          const exp     = cvData.experience || [];
+          const edu     = cvData.education  || [];
+          const allText = exp.map(e => (e.role||'') + ' ' + (e.description||'')).join(' ');
+          const jdL     = jobDesc.toLowerCase();
 
-          console.log('[summary] isItJob:', isItJob);
-          if (isItJob) {
-            const exp = (body.cvData?.experience || []);
-            // Find ICT/tech experience entry
-            const ictEntry = exp.find(e =>
-              /ict|coordinator|technolog|computer|network|device|it /i.test((e.role || '') + ' ' + (e.description || ''))
-            ) || exp[0];
+          const cats = [
+            { key: 'it',      jdRe: /it support|technician|hardware|software|network|lan|wan|desktop|laptop|device|configure|reimage|technical support/i, expRe: /ict|coordinator|technolog|computer|network|device|it /i,
+              skills: [[/device|laptop|desktop|hardware/i,'device management and hardware configuration'],[/google admin|gmail|domain/i,'Google Admin Console administration'],[/lan|wan|network/i,'LAN/WAN networking'],[/software|install|configur|reimage/i,'software installation and configuration'],[/support|troubleshoot|technical/i,'first-level technical support']] },
+            { key: 'finance', jdRe: /accountant|finance|audit|tax|bookkeep|payroll|financial/i, expRe: /account|finance|audit|tax|bookkeep|bank|creditor|debtor/i,
+              skills: [[/reconcil|ledger/i,'financial reconciliation'],[/audit/i,'audit and compliance'],[/tax|vat/i,'tax and VAT compliance'],[/payroll/i,'payroll administration'],[/budget/i,'budgeting and reporting']] },
+            { key: 'admin',   jdRe: /administrator|admin|office manager|clerk|receptionist|personal assistant|data capture/i, expRe: /admin|administrator|assistant|clerk|office|filing|reception/i,
+              skills: [[/filing|record/i,'records management'],[/schedule|diary/i,'diary and schedule management'],[/data captur/i,'data capture'],[/client|customer/i,'client liaison'],[/report/i,'report preparation']] },
+            { key: 'hr',      jdRe: /human resources|hr manager|recruiter|talent|labour relations/i, expRe: /human resources|hr|recrui|payroll|labour|talent/i,
+              skills: [[/recrui|interview/i,'recruitment and onboarding'],[/payroll/i,'payroll administration'],[/labour|disciplinary/i,'labour relations'],[/training/i,'training and development']] },
+            { key: 'nursing', jdRe: /nurse|nursing|clinical|healthcare|hospital|patient/i, expRe: /nurse|nursing|clinical|patient|ward|hospital/i,
+              skills: [[/icu|intensive/i,'ICU and critical care'],[/patient|care/i,'patient care'],[/medication/i,'medication administration'],[/ward/i,'ward management']] },
+            { key: 'sales',   jdRe: /sales|business development|account manager|revenue|target/i, expRe: /sales|business development|account|client|revenue/i,
+              skills: [[/target|quota/i,'achieving sales targets'],[/client|relationship/i,'client relationship management'],[/business development/i,'business development']] },
+            { key: 'management', jdRe: /manager|management|director|head of|operations manager/i, expRe: /manager|head|director|departmental|management/i,
+              skills: [[/budget/i,'budget management'],[/team|staff/i,'team leadership'],[/strateg|plan/i,'strategic planning'],[/operati/i,'operations management']] },
+          ];
 
-            if (ictEntry) {
-              const role     = ictEntry.role   || 'IT professional';
-              const org      = ictEntry.school || '';
-              const from     = ictEntry.from   || '';
-              const orgPart  = org  ? ` at ${org}`      : '';
-              const yearPart = from ? `, since ${from}` : '';
-              const opener   = `I am an experienced ${role}${orgPart}${yearPart}, with hands-on experience in ICT coordination, device management, hardware and software configuration, and technical support.`;
-              // Always replace the first sentence regardless of what model wrote
-              const rest = summary.replace(/^[^.!?]+[.!?]\s*/,'').trim();
-              summary = opener + (rest ? ' ' + rest : '');
+          const match = cats.find(c => c.jdRe.test(jdL) && c.expRe.test(allText));
+          if (match) {
+            const relevantEntry = exp.find(e => match.expRe.test((e.role||'') + ' ' + (e.description||''))) || exp[0];
+            const matched = match.skills.filter(([re]) => re.test(allText)).map(([,label]) => label).slice(0, 3);
+            if (matched.length === 0) matched.push('relevant professional experience');
+
+            const RANK = [/doctor|phd/i,/master/i,/honours/i,/bachelor|b\.ed|b\.sc|b\.com/i,/diploma/i,/certificate/i];
+            const sortedEdu = [...edu].sort((a,b) => {
+              const ra = RANK.findIndex(r => r.test(a.qualification||''));
+              const rb = RANK.findIndex(r => r.test(b.qualification||''));
+              return (ra===-1?99:ra) - (rb===-1?99:rb);
+            });
+            const topEdu = sortedEdu[0];
+            const qualStr = topEdu
+              ? 'I hold a ' + topEdu.qualification + ' from ' + topEdu.institution + (edu.length > 1 ? ' and ' + (edu.length-1) + ' additional qualification' + (edu.length > 2 ? 's' : '') : '') + '.'
+              : '';
+
+            if (relevantEntry) {
+              const role = relevantEntry.role   || 'professional';
+              const org  = relevantEntry.school || '';
+              const from = relevantEntry.from   || '';
+              const s1 = 'I am an experienced ' + role + (org ? ' at ' + org : '') + (from ? ', since ' + from : '') + ', with proven experience in ' + matched.join(', ') + '.';
+              let rest = summary.replace(/^[^.!?]+[.!?]\s*/,'').replace(/^[^.!?]+[.!?]\s*/,'').trim();
+              summary = s1 + (qualStr ? ' ' + qualStr : '') + (rest ? ' ' + rest : '');
             }
           }
         }
