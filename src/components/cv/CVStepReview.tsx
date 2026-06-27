@@ -8,6 +8,7 @@ import { exportElementAsPDF } from '@/utils/cvExport';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
+import { useFeatureGates } from '@/hooks/useFeatureGates';
 import TestimonialPromptModal from '@/components/TestimonialPromptModal';
 
 // Builds correct public storage URL — getPublicUrl() sometimes omits /public/
@@ -30,6 +31,7 @@ interface Props { data: CVData; onGenerated?: (url: string) => void; isFree?: bo
 export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed = false }: Props) {
   const { user } = useAuth();
   const { balance, loading: creditsLoading, deduct } = useCredits();
+  const { gates, loading: gatesLoading } = useFeatureGates();
   const [showInsufficientModal, setShowInsufficientModal] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [view, setView] = useState<'preview' | 'summary'>('preview');
@@ -49,7 +51,9 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
 
   // Watermark = user has never paid (only has free signup credits)
   const isAdmin = !!(user?.user_metadata?.is_admin);
-  const shouldWatermark = !hasPurchased && !isAdmin;
+  // cv_watermark gate: when OFF, watermark disabled for everyone
+  const watermarkGateActive = !gatesLoading && gates.cv_watermark !== false;
+  const shouldWatermark = watermarkGateActive && !hasPurchased && !isAdmin;
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);

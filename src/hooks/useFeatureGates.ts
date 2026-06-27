@@ -28,7 +28,8 @@ export type GateKey =
   | 'chat_credits'
   | 'id_verification'
   | 'templates_access'
-  | 'profile_edit_lock';
+  | 'profile_edit_lock'
+  | 'cv_watermark';
 
 export type Gates = Record<GateKey, boolean>;
 
@@ -36,6 +37,7 @@ const ALL_GATES: GateKey[] = [
   'advanced_search', 'matches_page', 'guides_access',
   'cv_credits', 'chat_credits', 'id_verification', 'templates_access',
   'profile_edit_lock',
+  'cv_watermark',
 ];
 
 const DEFAULTS: Gates = Object.fromEntries(ALL_GATES.map(k => [k, true])) as Gates;
