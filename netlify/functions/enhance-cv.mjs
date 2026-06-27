@@ -348,57 +348,26 @@ Return ONLY the letter text. No labels, no JSON, no preamble or postamble. Just 
   };
 }
 
-// Models tried in order — fallback on rate-limit or error
-const GROQ_MODELS = [
-  'llama-3.3-70b-versatile',
-  'llama-3.1-70b-versatile',
-  'llama3-70b-8192',
-  'mixtral-8x7b-32768',
-  'gemma2-9b-it',
-];
-
 async function callGroq(prompt, jsonMode = true) {
-  let lastError;
-  for (const model of GROQ_MODELS) {
-    const body = {
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
-    };
-    if (jsonMode) body.response_format = { type: 'json_object' };
+  const body = {
+    model: 'llama-3.3-70b-versatile',
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.3,
+  };
+  if (jsonMode) body.response_format = { type: 'json_object' };
 
-    try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
 
-      const data = await response.json();
-
-      // Rate limited or model unavailable — try next model
-      if (response.status === 429 || response.status === 503 || data.error?.code === 'rate_limit_exceeded') {
-        console.warn(`[enhance-cv] Model ${model} rate-limited or unavailable, trying next...`);
-        lastError = new Error(data.error?.message || `Model ${model} unavailable`);
-        continue;
-      }
-
-      if (!response.ok) throw new Error(data.error?.message || 'Groq API error');
-      return data.choices[0].message.content;
-    } catch (err) {
-      lastError = err;
-      // Only continue on rate-limit related errors
-      if (err.message?.includes('rate') || err.message?.includes('limit') || err.message?.includes('unavailable')) {
-        console.warn(`[enhance-cv] Model ${model} failed: ${err.message}, trying next...`);
-        continue;
-      }
-      throw err; // Non-rate-limit error — fail immediately
-    }
-  }
-  throw lastError || new Error('All Groq models rate-limited. Please try again later.');
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error?.message || 'Groq API error');
+  return data.choices[0].message.content;
 }
 
 export const handler = async (event) => {
@@ -633,64 +602,11 @@ Reply with exactly one of: ${AVAILABLE_ICONS.join(', ')}`;
   }
 
   try {
-    const prompt   = buildStructurePrompt(rawText, cvType, false, jobDescription);
-    const rawJson  = await callGroq(prompt, true);
-    const parsed   = JSON.parse(rawJson);
-
-    // Post-process bio/summary in the parsed result using same job-tailoring logic
-    if (jobDescription && parsed?.personal?.bio) {
-      const jdL     = jobDescription.toLowerCase();
-      const exp     = parsed.experience || [];
-      const edu     = parsed.education  || [];
-      const allText = exp.map(e => (e.role||'') + ' ' + (e.description||'')).join(' ');
-
-      const cats = [
-        { jdRe: /it support|technician|hardware|software|network|lan|wan|desktop|laptop|device|configure|reimage|technical support/i, expRe: /ict|coordinator|technolog|computer|network|device|it /i,
-          skills: [[/device|laptop|desktop|hardware/i,'device management and hardware configuration'],[/google admin|gmail|domain/i,'Google Admin Console administration'],[/lan|wan|network/i,'LAN/WAN networking'],[/software|install|configur|reimage/i,'software installation and configuration'],[/support|troubleshoot|technical/i,'first-level technical support']] },
-        { jdRe: /accountant|finance|audit|tax|bookkeep|payroll|financial/i, expRe: /account|finance|audit|tax|bookkeep|bank|creditor|debtor/i,
-          skills: [[/reconcil|ledger/i,'financial reconciliation'],[/audit/i,'audit and compliance'],[/tax|vat/i,'tax compliance'],[/payroll/i,'payroll administration'],[/budget/i,'budgeting']] },
-        { jdRe: /administrator|admin|office manager|clerk|receptionist|personal assistant|data capture/i, expRe: /admin|administrator|assistant|clerk|office|filing|reception/i,
-          skills: [[/filing|record/i,'records management'],[/schedule|diary/i,'scheduling'],[/data captur/i,'data capture'],[/client|customer/i,'client liaison']] },
-        { jdRe: /human resources|hr manager|recruiter|talent|labour relations/i, expRe: /human resources|hr|recrui|payroll|labour|talent/i,
-          skills: [[/recrui/i,'recruitment'],[/payroll/i,'payroll'],[/labour/i,'labour relations'],[/training/i,'training and development']] },
-        { jdRe: /nurse|nursing|clinical|healthcare|hospital|patient/i, expRe: /nurse|nursing|clinical|patient|ward/i,
-          skills: [[/icu/i,'ICU care'],[/patient/i,'patient care'],[/medication/i,'medication administration']] },
-        { jdRe: /sales|business development|account manager|revenue|target/i, expRe: /sales|business development|account|revenue/i,
-          skills: [[/target/i,'sales targets'],[/client|relationship/i,'client management'],[/business development/i,'business development']] },
-        { jdRe: /manager|management|director|head of|operations manager/i, expRe: /manager|head|director|departmental/i,
-          skills: [[/budget/i,'budget management'],[/team|staff/i,'team leadership'],[/strateg/i,'strategic planning']] },
-      ];
-
-      const match = cats.find(c => c.jdRe.test(jdL) && c.expRe.test(allText));
-      if (match) {
-        const entry   = exp.find(e => match.expRe.test((e.role||'') + ' ' + (e.description||''))) || exp[0];
-        const matched = match.skills.filter(([re]) => re.test(allText)).map(([,label]) => label).slice(0, 3);
-        if (matched.length === 0) matched.push('relevant professional experience');
-
-        const RANK = [/doctor|phd/i,/master/i,/honours/i,/bachelor|b.ed|b.sc|b.com/i,/diploma/i,/certificate/i];
-        const topEdu = [...edu].sort((a,b) => {
-          const ra = RANK.findIndex(r => r.test(a.qualification||''));
-          const rb = RANK.findIndex(r => r.test(b.qualification||''));
-          return (ra===-1?99:ra) - (rb===-1?99:rb);
-        })[0];
-        const qualStr = topEdu
-          ? 'I hold a ' + topEdu.qualification + ' from ' + topEdu.institution + (edu.length > 1 ? ' and ' + (edu.length-1) + ' additional qualification' + (edu.length > 2 ? 's' : '') : '') + '.'
-          : '';
-
-        if (entry) {
-          const role = entry.role || 'professional';
-          const org  = entry.school || '';
-          const from = entry.from || '';
-          const s1 = 'I am an experienced ' + role + (org ? ' at ' + org : '') + (from ? ', since ' + from : '') + ', with proven experience in ' + matched.join(', ') + '.';
-          let rest = parsed.personal.bio.replace(/^[^.!?]+[.!?]s*/,'').replace(/^[^.!?]+[.!?]s*/,'').trim();
-          parsed.personal.bio = s1 + (qualStr ? ' ' + qualStr : '') + (rest ? ' ' + rest : '');
-        }
-      }
-    }
-
+    const prompt  = buildStructurePrompt(rawText, cvType, false, jobDescription);
+    const content = await callGroq(prompt, true);
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true, data: parsed }),
+      body: JSON.stringify({ success: true, data: JSON.parse(content) }),
     };
   } catch (err) {
     console.error('Unexpected error:', err);
