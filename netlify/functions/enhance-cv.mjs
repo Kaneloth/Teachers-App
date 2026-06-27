@@ -171,7 +171,7 @@ MANDATORY CONTENT RULES — you MUST include ALL of the following that exist in 
 3. The ACTUAL YEARS OF EXPERIENCE — only if dates are given and support a count
 4. The ACTUAL SUBJECTS TAUGHT or TECHNICAL SKILLS — e.g. "Mathematics and Computer Applications Technology"
 5. The ACTUAL QUALIFICATIONS and INSTITUTION NAMES — e.g. "BEd Honours from UNISA", "Bachelor of Education from University of Pretoria"
-6. Any NOTABLE ACHIEVEMENTS explicitly mentioned — e.g. "100% matric pass rate", "National Teaching Awards nomination"
+6. Any NOTABLE ACHIEVEMENTS explicitly mentioned — e.g. "100% matric pass rate", "National Teaching Awards nomination", "developed a system used across all schools". Include 1-2 standout achievements if they exist — they make the summary memorable and specific.
 
 FORBIDDEN — you must NEVER:
 - Say "motivated individual eager to begin my career" or ANY similar generic phrase when the person HAS work experience
@@ -212,7 +212,28 @@ ${eduList   ? `Education: ${eduList}` : ''}
 ${userBlurb ? `In their own words: "${userBlurb}"` : ''}
 ${cvData?.personal?.bio ? `Existing summary (improve the WRITING of this without adding new unsupported facts): "${cvData.personal.bio}"` : ''}
 
-${jobDescription ? `\nTARGET JOB DESCRIPTION (the role this person is applying for):\n"""\n${jobDescription.slice(0, 1500)}\n"""\n\nIMPORTANT PRIORITY ORDER for the summary:\n1. ALWAYS lead with and prominently feature the person's REAL qualifications, actual employers/schools/organisations, and genuine experience as listed above — these must appear specifically by name, never vaguely.\n2. THEN, where relevant keywords from the job description genuinely align with the person's real background, weave those keywords in naturally.\n3. Do NOT let the job description push out or overshadow the person's actual qualifications and history. The person's real details are always the primary content — the job description only shapes how they are framed.\n4. Do NOT invent, imply, or add any skill, role, or achievement not explicitly present in the person's information above.` : ''}
+${jobDescription ? `\nTARGET JOB DESCRIPTION (the role this person is applying for):\n"""\n${jobDescription.slice(0, 1500)}\n"""\n\nIMPORTANT PRIORITY ORDER for the summary:\n1. IDENTIFY which parts of the person's REAL experience are most relevant to the target job — lead with those. For example, if the job is IT Support and the person has ICT coordination and device management experience, lead with that — not their teaching duties.\n2. ALWAYS name real employers, institutions, qualifications, and skills specifically by name — never vaguely.\n3. Weave in job description keywords ONLY where they honestly match the person's real background. Use the job's language to describe what the person actually did.\n4. Include 1-2 standout achievements if they exist and are relevant to the role.\n5. Do NOT invent, imply, or add any skill, role, or achievement not explicitly present in the person's information above.` : ''}
+
+EXAMPLE (showing exactly what is expected when a job description is provided):
+
+EXAMPLE PERSON'S DATA:
+- Work Experience: ICT Coordinator & Educator at Sgodiphola Secondary School (2014–present); Administrator Assistant at ABSA Trust (2008–2009)
+- Education: BEd Honours in Mathematics Education, UNISA (2017); Bachelor of Education, University of Pretoria (2013); BSc Computing, UNISA (current)
+- Skills: Device management, Google Admin console, Microsoft Office, LAN/WAN, hardware/software configuration, Mathematics, CAT
+- Achievements: Developed online spreadsheet for GDE device monitoring adopted across all schools; 100% CAT matric pass rate
+
+EXAMPLE TARGET JOB: IT Support Technician at Hanani Project Management Solutions — configuring/reimaging laptops and desktops, hardware diagnostics, LAN/WAN support, device deployment
+
+EXAMPLE CORRECT OUTPUT:
+"I am an experienced ICT Coordinator at Sgodiphola Secondary School with over 6 years managing GDE classroom devices, including hardware configuration, software imaging, Google Admin console administration, and LAN/WAN oversight. I hold a BEd Honours in Mathematics Education from UNISA and a Bachelor of Education from the University of Pretoria, and am currently completing a BSc in Computing at UNISA. I developed an online device monitoring spreadsheet that was adopted across all GDE schools, demonstrating my ability to create scalable IT solutions. My hands-on experience coordinating device roll-outs, conducting quality assurance, and providing first-level technical support aligns directly with this IT Support Technician role at Hanani Project Management Solutions."
+
+EXAMPLE WRONG OUTPUT (do NOT produce this):
+"I am a motivated individual eager to begin my career, with a strong foundation in my field of study."
+(WRONG because: ignores 10+ years of real experience, names no employer, names no qualification, uses generic filler)
+
+ANOTHER WRONG OUTPUT (do NOT produce this):
+"I am a dedicated educator with experience as an ICT Coordinator at Sgodiphola Secondary School."
+(WRONG when applying for an IT job because: leads with "educator" identity instead of the ICT/IT skills most relevant to the target role)
 
 Return ONLY the summary paragraph. No labels, no JSON, no preamble. Just the summary, as short or as long as the real information above actually supports.`;
 }
