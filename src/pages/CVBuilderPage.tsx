@@ -126,20 +126,37 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
     if (!ok) return; // insufficient credits — toast already shown
 
     setUploading(true);
-    const formData = new FormData();
-    formData.append('cvFile', file);
-    formData.append('cvType', 'general');
-    if (jobDesc.trim()) formData.append('jobDescription', jobDesc.trim());
-    try {
-      const res    = await fetch('/.netlify/functions/enhance-cv', { method: 'POST', body: formData });
-      const result = await res.json();
-      if (!res.ok || !result.success) throw new Error(result.error || 'Failed to process CV');
-      mergeAndEmit(result.data, defaultData());
-      onAiUsed(); // AI used — reduces CV download cost by 1
-      toast.success('CV imported! 1 credit used. Review and complete your details.');
-    } catch (err: any) {
-      toast.error(err.message || 'AI processing failed. Please try again.');
-    } finally { setUploading(false); }
+    const MAX_UPLOAD_ATTEMPTS = 3;
+    for (let attempt = 0; attempt < MAX_UPLOAD_ATTEMPTS; attempt++) {
+      try {
+        if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 3000));
+        const formData = new FormData();
+        formData.append('cvFile', file);
+        formData.append('cvType', 'general');
+        if (jobDesc.trim()) formData.append('jobDescription', jobDesc.trim());
+        const res    = await fetch('/.netlify/functions/enhance-cv', { method: 'POST', body: formData });
+        const result = await res.json();
+        const isRateLimit = res.status === 429 || res.status === 503 ||
+          result.error?.toLowerCase().includes('rate') ||
+          result.error?.toLowerCase().includes('busy') ||
+          result.error?.toLowerCase().includes('limit');
+        if (isRateLimit && attempt < MAX_UPLOAD_ATTEMPTS - 1) continue;
+        if (!res.ok || !result.success) throw new Error(result.error || 'Failed to process CV');
+        mergeAndEmit(result.data, defaultData());
+        onAiUsed();
+        toast.success('CV imported! 1 credit used. Review and complete your details.');
+        setUploading(false);
+        return;
+      } catch (err: any) {
+        const isRateLimit = err?.message?.toLowerCase().includes('rate') ||
+          err?.message?.toLowerCase().includes('busy') ||
+          err?.message?.toLowerCase().includes('limit');
+        if (isRateLimit && attempt < MAX_UPLOAD_ATTEMPTS - 1) continue;
+        toast.error('AI processing failed — please try again in a moment.');
+        break;
+      }
+    }
+    setUploading(false);
   };
 
   const processFreeText = async () => {
@@ -150,20 +167,37 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
     if (!ok) return; // insufficient credits — toast already shown
 
     setUploading(true);
-    try {
-      const res    = await fetch('/.netlify/functions/enhance-cv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'process_freetext', text: freeText, cvType: 'general', jobDescription: jobDesc.trim() || undefined }),
-      });
-      const result = await res.json();
-      if (!res.ok || !result.success) throw new Error(result.error || 'AI processing failed');
-      mergeAndEmit(result.data, defaultData());
-      onAiUsed(); // AI used — reduces CV download cost by 1
-      toast.success('AI has structured your info! 1 credit used. Review and complete your details.');
-    } catch (err: any) {
-      toast.error(err.message || 'AI processing failed. Please try again.');
-    } finally { setUploading(false); }
+    const MAX_FT_ATTEMPTS = 3;
+    for (let attempt = 0; attempt < MAX_FT_ATTEMPTS; attempt++) {
+      try {
+        if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 3000));
+        const res = await fetch('/.netlify/functions/enhance-cv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'process_freetext', text: freeText, cvType: 'general', jobDescription: jobDesc.trim() || undefined }),
+        });
+        const result = await res.json();
+        const isRateLimit = res.status === 429 || res.status === 503 ||
+          result.error?.toLowerCase().includes('rate') ||
+          result.error?.toLowerCase().includes('busy') ||
+          result.error?.toLowerCase().includes('limit');
+        if (isRateLimit && attempt < MAX_FT_ATTEMPTS - 1) continue;
+        if (!res.ok || !result.success) throw new Error(result.error || 'AI processing failed');
+        mergeAndEmit(result.data, defaultData());
+        onAiUsed();
+        toast.success('AI has structured your info! 1 credit used. Review and complete your details.');
+        setUploading(false);
+        return;
+      } catch (err: any) {
+        const isRateLimit = err?.message?.toLowerCase().includes('rate') ||
+          err?.message?.toLowerCase().includes('busy') ||
+          err?.message?.toLowerCase().includes('limit');
+        if (isRateLimit && attempt < MAX_FT_ATTEMPTS - 1) continue;
+        toast.error('AI processing failed — please try again in a moment.');
+        break;
+      }
+    }
+    setUploading(false);
   };
 
   return (

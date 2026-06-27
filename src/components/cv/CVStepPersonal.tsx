@@ -26,21 +26,14 @@ interface PersonalData {
 
 interface Props {
   data: PersonalData;
-  // Full CV data (experience/education/skills) — needed so "Generate with
-  // AI" can actually see what the user provided elsewhere in the CV.
-  // Previously this component only ever sent { personal: data } to the
-  // AI, meaning experience/education/skills were always missing from the
-  // prompt regardless of what the user had filled in — the AI was telling
-  // the truth when it said "details not provided", because they genuinely
-  // weren't being sent.
   fullCvData?: {
     education?: { institution: string; qualification: string; year: string }[];
     experience?: { school: string; role: string; from: string; to: string; description: string }[];
     skills?: { subjects: string[]; soft_skills: string[]; languages: string[] };
   };
   onChange: (d: PersonalData) => void;
-  onAiUsed?: () => void;  // called when AI summary is successfully generated
-  jobDescription?: string;  // optional job description to tailor summary
+  onAiUsed?: () => void;
+  jobDescription?: string;
 }
 
 export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, jobDescription }: Props) {
@@ -52,10 +45,8 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
   const fileRef   = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
-  // Pre-fill locked fields from profile on mount
   useEffect(() => {
     if (!user) return;
-    // Only pre-fill if fields are still empty (don't overwrite user edits)
     if (data.full_name && data.email) return;
     supabase.from('educators').select('full_name, phone, bio, town, current_province')
       .eq('user_id', user.id).maybeSingle()
@@ -76,40 +67,56 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
   const set = (field: keyof PersonalData, value: string) => onChange({ ...data, [field]: value });
 
   const generateSummary = async () => {
-    // Deduct 2 credits BEFORE calling the AI to prevent abuse.
-    // If AI succeeds, CV download cost is reduced from 9 → 7 credits (onAiUsed).
     const aiRef = `ai_summary_${Date.now()}`;
-    // Admins bypass credit deduction
     if (!isAdmin) {
       const ok = await deduct('letter_usage', aiRef);
       if (!ok) return;
     }
 
     setGeneratingSummary(true);
-    try {
-      const res = await fetch('/.netlify/functions/enhance-cv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'generate_summary',
-          cvData: {
-            personal:   data,
-            education:  fullCvData?.education  ?? [],
-            experience: fullCvData?.experience ?? [],
-            skills:     fullCvData?.skills      ?? { subjects: [], soft_skills: [], languages: [] },
-          },
-          userBlurb: data.bio || '',
-          jobDescription: jobDescription || '',
-        }),
-      });
-      const result = await res.json();
-      if (!res.ok || !result.success) throw new Error(result.error || 'AI failed');
-      set('bio', result.summary);
-      if (onAiUsed) onAiUsed(); // notify parent — reduces download cost by 1
-      toast.success('Professional summary generated! 2 credits used.');
-    } catch (err: any) {
-      toast.error('Could not generate summary: ' + (err?.message ?? 'Unknown error'));
-    } finally { setGeneratingSummary(false); }
+    const MAX_ATTEMPTS = 3;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      try {
+        if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 3000));
+        const res = await fetch('/.netlify/functions/enhance-cv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'generate_summary',
+            cvData: {
+              personal:   data,
+              education:  fullCvData?.education  ?? [],
+              experience: fullCvData?.experience ?? [],
+              skills:     fullCvData?.skills      ?? { subjects: [], soft_skills: [], languages: [] },
+            },
+            userBlurb: data.bio || '',
+            jobDescription: jobDescription || '',
+          }),
+        });
+        const result = await res.json();
+        const isRateLimit = res.status === 429 || res.status === 503 ||
+          result.error?.toLowerCase().includes('rate') ||
+          result.error?.toLowerCase().includes('busy') ||
+          result.error?.toLowerCase().includes('limit');
+        if (isRateLimit && attempt < MAX_ATTEMPTS - 1) continue;
+        if (!res.ok || !result.success) throw new Error(result.error || 'AI failed');
+        set('bio', result.summary);
+        if (onAiUsed) onAiUsed();
+        toast.success('Professional summary generated! 2 credits used.');
+        setGeneratingSummary(false);
+        return;
+      } catch (err: any) {
+        const isRateLimit = err?.message?.toLowerCase().includes('rate') ||
+          err?.message?.toLowerCase().includes('busy') ||
+          err?.message?.toLowerCase().includes('limit');
+        if (isRateLimit && attempt < MAX_ATTEMPTS - 1) continue;
+        toast.error(err?.message?.includes('credits') || err?.message?.includes('insufficient')
+          ? err.message
+          : 'Could not generate summary — please try again in a moment.');
+        break;
+      }
+    }
+    setGeneratingSummary(false);
   };
 
   const toJpeg = (file: File, maxPx = 800, q = 0.85): Promise<Blob> =>
