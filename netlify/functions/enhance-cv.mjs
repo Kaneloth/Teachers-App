@@ -49,7 +49,8 @@ ${inputText}
 """
 
 CV TYPE (app context — a HINT only, not a fact): ${cvType === 'educator' ? 'South African Educator CV' : 'General Professional CV'}
-${jobDescription ? `\nTARGET JOB DESCRIPTION (the role this CV is being built for):\n"""\n${jobDescription.slice(0, 1500)}\n"""\nWhen writing the bio/summary and structuring experience descriptions, naturally incorporate keywords from the job description WHERE THEY HONESTLY APPLY to the person's actual background. Do NOT fabricate skills, qualifications, or experience to match the job. Honest alignment only — leave out anything that does not genuinely apply.` : ''}
+${jobDescription ? `\nTARGET JOB DESCRIPTION:\n"""
+${jobDescription.slice(0, 800)}\n"""\nIncorporate relevant keywords in the bio WHERE THEY HONESTLY APPLY. Do not fabricate anything.` : ''}
 
 IMPORTANT: The CV TYPE above reflects which section of the app the user is in, NOT necessarily their actual profession. The TEXT ABOVE is the only real source of truth about who this person is and what they do. If the input text contains no mention of teaching, schools, learners, or education-related work, do NOT frame this person as an educator, regardless of the CV TYPE hint — base the bio and all framing strictly on what the text actually says about their field (e.g. accounting, IT, retail, etc.) or their studies if they have no work experience yet.
 
@@ -351,16 +352,38 @@ async function callGroq(prompt, jsonMode = true) {
         body: JSON.stringify(body),
       });
 
+      // Check content-type before parsing — HTML means a gateway/auth error
+      const ct = response.headers.get('content-type') || '';
+      if (ct.includes('text/html')) {
+        const html = await response.text();
+        console.error('[enhance-cv] Gemini returned HTML (status ' + response.status + '):', html.slice(0, 200));
+        if (response.status === 401 || response.status === 403) throw new Error('Gemini API key invalid or missing — check GEMINI_API_KEY in Netlify env vars');
+        if (response.status === 429 || response.status === 503) { continue; }
+        if (response.status === 400) throw new Error('Request too large or invalid — try with a shorter CV or job description');
+        throw new Error('Gemini returned unexpected HTML response (status ' + response.status + ')');
+      }
+
       const data = await response.json();
 
       if (response.status === 429 || response.status === 503) {
         console.warn('[enhance-cv] ' + model + ' rate-limited, trying next...');
         continue;
       }
-      if (!response.ok) throw new Error(data.error?.message || 'Gemini API error');
+      if (!response.ok) {
+        const msg = data.error?.message || ('Gemini API error ' + response.status);
+        console.error('[enhance-cv] Gemini error on ' + model + ':', msg);
+        throw new Error(msg);
+      }
 
       const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      if (!raw) throw new Error('Empty response from Gemini');
+      if (!raw) {
+        // Log finish reason to diagnose safety blocks or empty responses
+        const reason = data.candidates?.[0]?.finishReason || 'unknown';
+        console.error('[enhance-cv] Empty response from Gemini. finishReason:', reason);
+        if (reason === 'SAFETY') throw new Error('Content was blocked by Gemini safety filters — try rephrasing the input');
+        if (reason === 'MAX_TOKENS') throw new Error('Response too long — try with less input text');
+        throw new Error('Empty response from Gemini (finishReason: ' + reason + ')');
+      }
       return raw.trim();
     } catch (err) {
       if (err.message?.includes('429') || err.message?.includes('rate')) { continue; }
@@ -389,6 +412,7 @@ function safeParseJson(raw) {
   if (opens > closes) {
     try { return JSON.parse(text + '}'.repeat(opens - closes)); } catch {}
   }
+  console.error('[enhance-cv] Failed to parse JSON. Raw response start:', raw.slice(0, 200));
   throw new Error('Failed to parse JSON from model response');
 }
 
@@ -571,7 +595,9 @@ Reply with exactly one of: ${AVAILABLE_ICONS.join(', ')}`;
   }
 
   try {
-    const prompt   = buildStructurePrompt(rawText, cvType, false, jobDescription);
+    const textLimit = jobDescription ? 5000 : 8000; // smaller cap when JD adds to prompt size
+    const truncatedText = rawText.slice(0, textLimit);
+    const prompt   = buildStructurePrompt(truncatedText, cvType, false, jobDescription);
     const rawJson  = await callGroq(prompt, true);
     const parsed   = safeParseJson(rawJson);
 
