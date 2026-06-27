@@ -334,7 +334,7 @@ async function callGroq(prompt, jsonMode = true) {
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set in Netlify environment variables');
 
   const bodyObj = {
-    model: 'claude-haiku-4-5',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 4096,
     messages: [{ role: 'user', content: prompt }],
   };
@@ -374,7 +374,62 @@ async function callGroq(prompt, jsonMode = true) {
 }
 
 
+// Safely parse JSON from model output — handles markdown blocks and truncated responses
+function safeParseJson(raw) {
+  if (!raw) throw new Error('Empty response from AI model');
+  let text = raw.replace(/^```jsons*/i, '').replace(/^```s*/i, '').replace(/```s*$/i, '').trim();
+  try { return JSON.parse(text); } catch {}
+  const start = text.indexOf('{');
+  const end   = text.lastIndexOf('}');
+  if (start !== -1 && end !== -1 && end > start) {
+    try { return JSON.parse(text.slice(start, end + 1)); } catch {}
+  }
+  const opens  = (text.match(/{/g) || []).length;
+  const closes = (text.match(/}/g) || []).length;
+  if (opens > closes) {
+    try { return JSON.parse(text + '}'.repeat(opens - closes)); } catch {}
+  }
+  console.error('[enhance-cv] Failed to parse JSON. Raw start:', raw.slice(0, 200));
+  throw new Error('Failed to parse JSON from model response');
+}
+
+// Normalise ALL CAPS institution/employer names to Title Case
+const KEEP_UPPER = new Set(['UNISA','GDE','DBE','SACE','ABSA','CAT','ICT','IT','SA','BEd','BTech','PhD','MSc','BSc','MBA','LLB','CA','CPA','HR','PA','CEO','CFO','COO','NQF','CAPS','SASAMS','HTML','CSS','VBA','UK','US','EU']);
+const FORCE_LOWER = new Set(['OF','THE','AND','IN','AT','FOR','TO','A','AN','BY','OR','ON','AS','WITH']);
+
+function toTitleCase(str) {
+  if (!str || typeof str !== 'string') return str;
+  const upper = (str.match(/[A-Z]/g) || []).length;
+  const lower = (str.match(/[a-z]/g) || []).length;
+  if (lower > upper) return str;
+  return str.replace(/\b([A-Z]+)\b/g, (word) => {
+    if (FORCE_LOWER.has(word)) return word.toLowerCase();
+    if (KEEP_UPPER.has(word)) return word;
+    if (word.length <= 2) return word;
+    return word.charAt(0) + word.slice(1).toLowerCase();
+  });
+}
+
+function normaliseParsed(data) {
+  if (!data) return data;
+  if (Array.isArray(data.education)) {
+    data.education = data.education.map(e => ({ ...e, institution: toTitleCase(e.institution) }));
+  }
+  if (Array.isArray(data.experience)) {
+    data.experience = data.experience.map(e => ({ ...e, school: toTitleCase(e.school) }));
+  }
+  if (data.personal?.bio) {
+    data.personal.bio = data.personal.bio.replace(/\b([A-Z]{4,})\b/g, (word) => {
+      if (KEEP_UPPER.has(word)) return word;
+      return word.charAt(0) + word.slice(1).toLowerCase();
+    });
+  }
+  return data;
+}
+
+
 export const handler = async (event) => {
+  console.log('[enhance-cv] handler called, ANTHROPIC_API_KEY set:', !!process.env.ANTHROPIC_API_KEY);
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
