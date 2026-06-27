@@ -138,6 +138,7 @@ export default function App() {
                   <Route path="/vacancies"     element={<VacanciesPage />} />
                   <Route path="/matches"       element={<MatchesPage />} />
                   <Route path="/profile"       element={<ProfilePage />} />
+                  <Route path="/profile/:userId"  element={<ProfilePage />} />
                   <Route path="/cv-builder"    element={<CVBuilderPage />} />
                   <Route path="/career-tools"  element={<CareerToolsPage />} />
                   <Route path="/cover-letters" element={<CoverLettersPage />} />
