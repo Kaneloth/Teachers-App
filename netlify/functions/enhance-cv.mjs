@@ -397,7 +397,8 @@ async function callGroq(prompt, jsonMode = true) {
 
 // Convert ALL CAPS words to Title Case (e.g. "UNISA" → keep, "SGODIPHOLA SECONDARY SCHOOL" → "Sgodiphola Secondary School")
 // Preserves known acronyms like UNISA, GDE, ABSA, CAT, ICT, etc.
-const KEEP_UPPER = new Set(['UNISA','GDE','DBE','SACE','ABSA','CAT','ICT','IT','SA','BEd','BTech','PhD','MSc','BSc','MBA','LLB','CA','CPA','HR','PA','CEO','CFO','COO','NQF','CAPS','SASAMS','HTML','CSS','VBA']);
+const KEEP_UPPER = new Set(['UNISA','GDE','DBE','SACE','ABSA','CAT','ICT','IT','SA','BEd','BTech','PhD','MSc','BSc','MBA','LLB','CA','CPA','HR','PA','CEO','CFO','COO','NQF','CAPS','SASAMS','HTML','CSS','VBA','UK','US','EU']);
+const FORCE_LOWER = new Set(['OF','THE','AND','IN','AT','FOR','TO','A','AN','BY','OR','ON','AS','WITH']);
 function toTitleCase(str) {
   if (!str || typeof str !== 'string') return str;
   // Only process if string is mostly uppercase
@@ -405,9 +406,10 @@ function toTitleCase(str) {
   const lower = (str.match(/[a-z]/g) || []).length;
   if (lower > upper) return str; // already mixed case — leave alone
   return str.replace(/\b([A-Z]+)\b/g, (word) => {
-    if (KEEP_UPPER.has(word)) return word;
-    if (word.length <= 2) return word; // keep short acronyms
-    return word.charAt(0) + word.slice(1).toLowerCase();
+    if (FORCE_LOWER.has(word)) return word.toLowerCase(); // "OF" → "of"
+    if (KEEP_UPPER.has(word)) return word;                // "UNISA" → "UNISA"
+    if (word.length <= 2) return word;                    // keep short acronyms like "IT"
+    return word.charAt(0) + word.slice(1).toLowerCase();  // "PRETORIA" → "Pretoria"
   });
 }
 
