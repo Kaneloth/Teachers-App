@@ -333,11 +333,16 @@ async function callGroq(prompt, jsonMode = true) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set in Netlify environment variables');
 
-  // For JSON mode, prefill the assistant turn with '{' to guarantee JSON output
-  const userMessages = [{ role: 'user', content: prompt }];
-  const messages = jsonMode
-    ? [...userMessages, { role: 'assistant', content: '{' }]
-    : userMessages;
+  const bodyObj = {
+    model: 'claude-haiku-4-5',
+    max_tokens: 4096,
+    messages: [{ role: 'user', content: prompt }],
+  };
+
+  // For JSON mode use a system prompt — more reliable than prefilling
+  if (jsonMode) {
+    bodyObj.system = 'You must respond with valid JSON only. No markdown code blocks, no explanation, no preamble. Raw JSON object only.';
+  }
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -346,18 +351,14 @@ async function callGroq(prompt, jsonMode = true) {
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5',
-      max_tokens: 4096,
-      messages,
-    }),
+    body: JSON.stringify(bodyObj),
   });
 
   const rawBody = await response.text();
   let data;
   try { data = JSON.parse(rawBody); }
   catch {
-    console.error('[enhance-cv] Failed to parse Anthropic response:', rawBody.slice(0, 200));
+    console.error('[enhance-cv] Failed to parse Anthropic response:', rawBody.slice(0, 300));
     throw new Error('Unexpected response from AI service');
   }
 
@@ -369,9 +370,7 @@ async function callGroq(prompt, jsonMode = true) {
 
   const raw = data.content?.[0]?.text || '';
   if (!raw) throw new Error('Empty response from AI');
-
-  // Prepend the '{' prefill we used to force JSON mode
-  return jsonMode ? ('{' + raw.trim()) : raw.trim();
+  return raw.trim();
 }
 
 
