@@ -325,80 +325,50 @@ Return ONLY the letter text. No labels, no JSON, no preamble or postamble. Just 
 }
 
 // Models tried in order — fallback on rate-limit or error
-const GROQ_MODELS = [
-  'llama-3.3-70b-versatile',   // primary
-  'openai/gpt-oss-20b',        // smaller non-reasoning fallback
-  'llama-3.1-8b-instant',      // fast last resort
-  // Note: reasoning models (qwen3, gpt-oss-120b) excluded — they emit <think> blocks
-  // that interfere with plain text CV generation
-];
+// Google Gemini API — 1,500 req/day free, 1M TPM
+// Get API key at: https://aistudio.google.com/app/apikey
+// Add GEMINI_API_KEY to Netlify environment variables
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
 
 async function callGroq(prompt, jsonMode = true) {
-  let lastError;
-  console.log('[enhance-cv] Trying models:', GROQ_MODELS.join(', '));
-  for (const model of GROQ_MODELS) {
-    const body = {
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
-    };
-    // Only add JSON mode for the primary model — fallbacks may not support it
-    if (jsonMode && model === GROQ_MODELS[0]) {
-      body.response_format = { type: 'json_object' };
-    } else if (jsonMode) {
-      // Fallback model: enforce JSON via prompt since response_format may not be supported
-      body.messages[0].content = 'You must respond with valid JSON only. No markdown, no explanation, no code blocks. Just raw JSON.\n\n' + body.messages[0].content;
-    }
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set in environment variables');
 
+  for (const model of GEMINI_MODELS) {
     try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-          'Content-Type': 'application/json',
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const body = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
         },
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
       const data = await response.json();
 
-      // Rate limited, model unavailable, or JSON mode not supported — try next model
-      if (response.status === 429 || response.status === 503 ||
-          data.error?.code === 'rate_limit_exceeded' ||
-          data.error?.message?.includes('json') ||
-          data.error?.message?.includes('response_format')) {
-        console.warn('[enhance-cv] Model ' + model + ' failed: ' + (data.error?.message || response.status) + ' — trying next');
-        lastError = new Error(data.error?.message || `Model ${model} unavailable`);
+      if (response.status === 429 || response.status === 503) {
+        console.warn('[enhance-cv] ' + model + ' rate-limited, trying next...');
         continue;
       }
+      if (!response.ok) throw new Error(data.error?.message || 'Gemini API error');
 
-      if (!response.ok) throw new Error(data.error?.message || 'Groq API error');
-      const raw = data.choices[0].message.content || '';
-      // Strip <think> blocks from reasoning models — find last </think> and take what's after
-      const thinkClose = '</think>';
-      const thinkEnd = raw.lastIndexOf(thinkClose);
-      if (thinkEnd !== -1) {
-        const afterThink = raw.slice(thinkEnd + thinkClose.length).trim();
-        if (afterThink.length > 20) return afterThink;
-        // All content was inside think block — strip open/close tags and return inner text
-        return raw.split('<think>').join('').split(thinkClose).join('').trim();
-      }
+      const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (!raw) throw new Error('Empty response from Gemini');
       return raw.trim();
     } catch (err) {
-      lastError = err;
-      // Only continue on rate-limit related errors
-      if (err.message?.includes('rate') || err.message?.includes('limit') || err.message?.includes('unavailable')) {
-        console.warn(`[enhance-cv] Model ${model} failed: ${err.message}, trying next...`);
-        continue;
-      }
-      throw err; // Non-rate-limit error — fail immediately
+      if (err.message?.includes('429') || err.message?.includes('rate')) { continue; }
+      throw err;
     }
   }
-  const finalMsg = lastError?.message || 'All models unavailable';
-  console.error('[enhance-cv] All models failed. Last error:', finalMsg);
-  throw new Error('No response from AI model — ' + finalMsg);
+  throw new Error('Gemini rate-limited. Please try again in a moment.');
 }
-
 
 // Safely extract JSON from model output — handles markdown code blocks and truncated responses
 function safeParseJson(raw) {
