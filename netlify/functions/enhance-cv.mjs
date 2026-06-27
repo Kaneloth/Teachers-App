@@ -327,10 +327,10 @@ Return ONLY the letter text. No labels, no JSON, no preamble or postamble. Just 
 // Models tried in order — fallback on rate-limit or error
 const GROQ_MODELS = [
   'llama-3.3-70b-versatile',   // primary
-  'openai/gpt-oss-120b',       // Groq recommended replacement for llama-3.3-70b
-  'qwen/qwen3.6-27b',          // alternative recommended by Groq
-  'openai/gpt-oss-20b',        // smaller fallback
+  'openai/gpt-oss-20b',        // smaller non-reasoning fallback
   'llama-3.1-8b-instant',      // fast last resort
+  // Note: reasoning models (qwen3, gpt-oss-120b) excluded — they emit <think> blocks
+  // that interfere with plain text CV generation
 ];
 
 async function callGroq(prompt, jsonMode = true) {
@@ -365,7 +365,15 @@ async function callGroq(prompt, jsonMode = true) {
       if (!response.ok) throw new Error(data.error?.message || 'Groq API error');
       const raw = data.choices[0].message.content || '';
   // Strip chain-of-thought <think> blocks emitted by reasoning models (e.g. Qwen, GPT-OSS)
-  return raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  // Some models put the answer AFTER </think>, others put everything inside <think>
+  const thinkEnd = raw.lastIndexOf('</think>');
+  if (thinkEnd !== -1) {
+    const afterThink = raw.slice(thinkEnd + '</think>'.length).trim();
+    if (afterThink.length > 20) return afterThink; // answer is after the think block
+    // Answer was inside the think block — strip tags only, return inner text
+    return raw.replace(/<think>/gi, '').replace(/</think>/gi, '').trim();
+  }
+  return raw.trim();
     } catch (err) {
       lastError = err;
       // Only continue on rate-limit related errors
