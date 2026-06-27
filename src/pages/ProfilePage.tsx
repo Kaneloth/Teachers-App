@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { useFeatureGates } from '@/hooks/useFeatureGates';
 import BlockButton from '@/components/BlockButton';
 import { isBlocked } from '@/lib/blockUtils';
 import { geocodeLocation } from '@/lib/geocode';
@@ -469,6 +470,9 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const isAdmin = !!(user?.user_metadata?.is_admin);
   const isOwnProfile = !routeUserId || routeUserId === user?.id || isAdmin;
+  const { gates, loading: gatesLoading } = useFeatureGates();
+  // lockActive: gate ON = 30-day lock enforced; gate OFF = anyone can edit freely
+  const lockActive = !gatesLoading && gates.profile_edit_lock === true && !isAdmin;
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -764,7 +768,7 @@ export default function ProfilePage() {
   const daysSinceSave = lastSaved
     ? Math.floor((Date.now() - lastSaved.getTime()) / (1000 * 60 * 60 * 24))
     : null;
-  const canSave = isAdmin || daysSinceSave === null || daysSinceSave >= 30;
+  const canSave = isAdmin || !lockActive || daysSinceSave === null || daysSinceSave >= 30;
   const daysLeft = canSave ? 0 : 30 - daysSinceSave!;
 
   const handleSave = () => {
@@ -1229,7 +1233,7 @@ export default function ProfilePage() {
           >
             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5" /> Save Profile</>}
           </Button>
-          {!canSave && (
+          {!canSave && lockActive && (
             <p className="text-xs text-center text-muted-foreground">
               Profile updates are limited to once every 30 days.{' '}
               <span className="font-medium text-foreground">{daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining.</span>
