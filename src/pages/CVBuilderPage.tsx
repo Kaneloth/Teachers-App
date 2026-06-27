@@ -41,6 +41,7 @@ interface CVData {
   references: RefEntry[];
   custom_sections: CustomSection[];
   template: string;
+  job_description?: string;
 }
 
 function defaultData(): CVData {
@@ -56,6 +57,7 @@ function defaultData(): CVData {
     ],
     custom_sections: [],
     template: 'classic',
+    job_description: '',
   };
 }
 
@@ -89,17 +91,20 @@ function StepStepper({ steps, current, onSelect }: { steps: string[]; current: n
 }
 
 /* ── Upload / AI Zone ───────────────────────────────────────── */
-function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoading }: {
+function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoading, onJobDesc }: {
   onDataExtracted: (data: CVData) => void;
   deduct: (type: 'cv_usage' | 'letter_usage', refId?: string) => Promise<boolean>;
   onAiUsed: () => void;
   balance: number;
   creditsLoading: boolean;
+  onJobDesc?: (jd: string) => void;
 }) {
-  const [uploading,  setUploading]  = useState(false);
-  const [dragActive, setDragActive] = useState(false);
-  const [freeText,   setFreeText]   = useState('');
-  const [activeTab,  setActiveTab]  = useState<'upload' | 'freetext'>('upload');
+  const [uploading,     setUploading]     = useState(false);
+  const [dragActive,    setDragActive]    = useState(false);
+  const [freeText,      setFreeText]      = useState('');
+  const [activeTab,     setActiveTab]     = useState<'upload' | 'freetext'>('upload');
+  const [jobDesc,       setJobDesc]       = useState('');
+  const [showJobDesc,   setShowJobDesc]   = useState(false);
 
   const mergeAndEmit = (parsed: Partial<CVData>, base: CVData) => {
     if (parsed.education?.length)        base.education       = parsed.education;
@@ -124,6 +129,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
     const formData = new FormData();
     formData.append('cvFile', file);
     formData.append('cvType', 'general');
+    if (jobDesc.trim()) formData.append('jobDescription', jobDesc.trim());
     try {
       const res    = await fetch('/.netlify/functions/enhance-cv', { method: 'POST', body: formData });
       const result = await res.json();
@@ -148,7 +154,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
       const res    = await fetch('/.netlify/functions/enhance-cv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'process_freetext', text: freeText, cvType: 'general' }),
+        body: JSON.stringify({ action: 'process_freetext', text: freeText, cvType: 'general', jobDescription: jobDesc.trim() || undefined }),
       });
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error || 'AI processing failed');
@@ -166,6 +172,31 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
         Speed up your CV — import an existing CV or describe yourself and our AI will fill in the sections for you.{' '}
         <span className="font-medium text-primary">1 credit per AI action.</span>
       </p>
+      {/* Optional job description */}
+      <div className="mb-3">
+        <button
+          onClick={() => setShowJobDesc(v => !v)}
+          className="flex items-center gap-1.5 text-xs text-primary font-semibold hover:text-primary/80 transition-colors mb-2"
+        >
+          <Briefcase className="w-3.5 h-3.5" />
+          {showJobDesc ? 'Hide job description' : '+ Tailor CV to a job description (optional)'}
+        </button>
+        {showJobDesc && (
+          <div className="space-y-1.5">
+            <p className="text-xs text-muted-foreground">
+              Paste the job description below. AI will tailor your professional summary to match the role's keywords — without exaggerating your qualifications.
+            </p>
+            <textarea
+              value={jobDesc}
+              onChange={e => { setJobDesc(e.target.value); onJobDesc?.(e.target.value); }}
+              placeholder="Paste the job posting or description here..."
+              rows={5}
+              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+            />
+          </div>
+        )}
+      </div>
+
       <div className="flex gap-1 bg-muted p-1 rounded-xl mb-3">
         <button onClick={() => setActiveTab('upload')}
           className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-lg transition-all ${activeTab === 'upload' ? 'bg-card shadow text-foreground' : 'text-muted-foreground'}`}>
@@ -462,7 +493,7 @@ export default function CVBuilderPage() {
         <p className="text-sm text-muted-foreground">Build a professional CV in minutes</p>
       </div>
 
-      {step === 0 && <CVUploadZone onDataExtracted={handleAIDataExtracted} deduct={deduct} onAiUsed={() => setAiUsed(true)} balance={balance} creditsLoading={creditsLoading} />}
+      {step === 0 && <CVUploadZone onDataExtracted={handleAIDataExtracted} deduct={deduct} onAiUsed={() => setAiUsed(true)} balance={balance} creditsLoading={creditsLoading} onJobDesc={jd => setData(d => ({ ...d, job_description: jd }))} />}
 
       <motion.div key="builder" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
         <div className="px-4 pb-2">
@@ -479,7 +510,7 @@ export default function CVBuilderPage() {
         <div className="px-4">
           <AnimatePresence mode="wait">
             <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
-              {step === 0 && <CVStepPersonal data={data.personal} fullCvData={data} onChange={personal => setData(d => ({ ...d, personal }))} onAiUsed={() => setAiUsed(true)} />}
+              {step === 0 && <CVStepPersonal data={data.personal} fullCvData={data} onChange={personal => setData(d => ({ ...d, personal }))} onAiUsed={() => setAiUsed(true)} jobDescription={data.job_description} />}
               {step === 1 && <CVStepEducation data={data.education} onChange={education => setData(d => ({ ...d, education }))} />}
               {step === 2 && <CVStepExperience data={data.experience} onChange={experience => setData(d => ({ ...d, experience }))} />}
               {step === 3 && <CVStepSkills data={data.skills} onChange={skills => setData(d => ({ ...d, skills }))} />}

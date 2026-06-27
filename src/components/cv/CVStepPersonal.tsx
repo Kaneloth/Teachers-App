@@ -40,9 +40,10 @@ interface Props {
   };
   onChange: (d: PersonalData) => void;
   onAiUsed?: () => void;  // called when AI summary is successfully generated
+  jobDescription?: string;  // optional job description to tailor summary
 }
 
-export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed }: Props) {
+export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, jobDescription }: Props) {
   const { user } = useAuth();
   const isAdmin = !!(user?.user_metadata?.is_admin);
   const { balance, loading: creditsLoading, deduct } = useCredits();
@@ -98,6 +99,7 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed }:
             skills:     fullCvData?.skills      ?? { subjects: [], soft_skills: [], languages: [] },
           },
           userBlurb: data.bio || '',
+          jobDescription: jobDescription || '',
         }),
       });
       const result = await res.json();

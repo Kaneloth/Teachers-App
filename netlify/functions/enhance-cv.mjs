@@ -35,7 +35,8 @@ Your job is to take raw text (either from an uploaded CV or free-form user input
 6. NEVER invent information. This is an absolute rule: do not add job titles, seniority levels (e.g. "Manager", "Senior", "Director"), years of experience, skills, achievements, or qualifications that are not explicitly present in the input text. If someone has no work experience, the experience array should be empty — do not fabricate a role to fill it. If information is sparse, the output should be sparse and honest, not padded with plausible-sounding invented detail.
 7. NEVER assume someone is an educator unless they explicitly mention teaching, schools, or education`;
 
-function buildStructurePrompt(inputText, cvType, isFreeText = false) {
+function buildStructurePrompt(inputText, cvType, isFreeText = false, jobDescription) {
+  jobDescription = jobDescription || "";
   const inputLabel = isFreeText
     ? 'FREE-FORM USER INPUT (the user has typed information about themselves in their own words)'
     : 'CV DOCUMENT TEXT (extracted from an uploaded PDF or Word document)';
@@ -48,6 +49,7 @@ ${inputText}
 """
 
 CV TYPE (app context — a HINT only, not a fact): ${cvType === 'educator' ? 'South African Educator CV' : 'General Professional CV'}
+${jobDescription ? `\nTARGET JOB DESCRIPTION (the role this CV is being built for):\n"""\n${jobDescription.slice(0, 1500)}\n"""\nWhen writing the bio/summary and structuring experience descriptions, naturally incorporate keywords from the job description WHERE THEY HONESTLY APPLY to the person's actual background. Do NOT fabricate skills, qualifications, or experience to match the job. Honest alignment only — leave out anything that does not genuinely apply.` : ''}
 
 IMPORTANT: The CV TYPE above reflects which section of the app the user is in, NOT necessarily their actual profession. The TEXT ABOVE is the only real source of truth about who this person is and what they do. If the input text contains no mention of teaching, schools, learners, or education-related work, do NOT frame this person as an educator, regardless of the CV TYPE hint — base the bio and all framing strictly on what the text actually says about their field (e.g. accounting, IT, retail, etc.) or their studies if they have no work experience yet.
 
@@ -134,7 +136,8 @@ Return ONLY valid JSON matching this exact structure:
 }`;
 }
 
-function buildSummaryPrompt(cvData, userBlurb) {
+function buildSummaryPrompt(cvData, userBlurb, jobDescription) {
+  jobDescription = jobDescription || "";
   const name     = cvData?.personal?.full_name || 'the applicant';
   // Determine profession from experience roles — don't assume educator
   const roles    = (cvData?.experience || []).filter(e => e.role).map(e => e.role);
@@ -189,6 +192,8 @@ ${softSkills ? `Key Skills: ${softSkills}` : ''}
 ${eduList   ? `Education: ${eduList}` : ''}
 ${userBlurb ? `In their own words: "${userBlurb}"` : ''}
 ${cvData?.personal?.bio ? `Existing summary (improve the WRITING of this without adding new unsupported facts): "${cvData.personal.bio}"` : ''}
+
+${jobDescription ? `\nTARGET JOB DESCRIPTION (the role this person is applying for):\n"""\n${jobDescription.slice(0, 1500)}\n"""\n\nUsing this job description, incorporate relevant keywords and phrases into the summary WHERE THEY HONESTLY APPLY to the person's real background, qualifications, and experience. Do NOT invent or imply skills, roles, or achievements the person does not have. If a keyword from the job does not genuinely match their background, leave it out. Honest, specific alignment only.` : ''}
 
 Return ONLY the summary paragraph. No labels, no JSON, no preamble. Just the summary, as short or as long as the real information above actually supports.`;
 }
@@ -314,7 +319,7 @@ export const handler = async (event) => {
       const body = JSON.parse(event.body || '{}');
 
       if (body.action === 'generate_summary') {
-        const prompt  = buildSummaryPrompt(body.cvData, body.userBlurb || '');
+        const prompt  = buildSummaryPrompt(body.cvData, body.userBlurb || '', body.jobDescription || '');
         const summary = await callGroq(prompt, false);
         return {
           statusCode: 200,
@@ -324,7 +329,7 @@ export const handler = async (event) => {
 
       // ── Mode 2: Process free-text "tell us about yourself" ─────────────
       if (body.action === 'process_freetext') {
-        const prompt  = buildStructurePrompt(body.text, body.cvType || 'general', true);
+        const prompt  = buildStructurePrompt(body.text, body.cvType || 'general', true, body.jobDescription || '');
         const content = await callGroq(prompt, true);
         return {
           statusCode: 200,
@@ -453,7 +458,11 @@ Reply with exactly one of: ${AVAILABLE_ICONS.join(', ')}`;
       file.on('data', chunk => chunks.push(chunk));
       file.on('end', () => { fileBuffer = Buffer.concat(chunks); });
     });
-    bb.on('field', (name, value) => { if (name === 'cvType') cvType = value; });
+    let jobDescription = '';
+    bb.on('field', (name, value) => {
+      if (name === 'cvType') cvType = value;
+      if (name === 'jobDescription') jobDescription = value;
+    });
     bb.on('finish', resolve);
     bb.on('error', reject);
     bb.end(Buffer.from(event.body, 'base64'));
@@ -471,7 +480,7 @@ Reply with exactly one of: ${AVAILABLE_ICONS.join(', ')}`;
   }
 
   try {
-    const prompt  = buildStructurePrompt(rawText, cvType, false);
+    const prompt  = buildStructurePrompt(rawText, cvType, false, jobDescription);
     const content = await callGroq(prompt, true);
     return {
       statusCode: 200,
