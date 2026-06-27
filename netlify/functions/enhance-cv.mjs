@@ -160,10 +160,26 @@ function buildSummaryPrompt(cvData, userBlurb, jobDescription) {
   return `You are a professional CV writer specialising in South African CVs for ALL industries and professions.
 
 Write a Professional Summary (bio) for a CV. It must be:
-- 1 to 4 sentences — length depends ENTIRELY on how much real information is provided below. A person with little or no work history should get a SHORT summary (even just 1 sentence). Do not pad a short summary with invented detail to reach 3-4 sentences.
+- 3 to 5 sentences for someone with work experience, 1 to 2 sentences for someone with no work experience
 - Written in first person ("I am...", "I have...")
 - Professional and clear in tone
-- Based STRICTLY on the information given below — nothing else
+- Based STRICTLY on the real information given below — NEVER use generic filler phrases
+
+MANDATORY CONTENT RULES — you MUST include ALL of the following that exist in the data below:
+1. The person's ACTUAL JOB TITLE(S) from their work experience — e.g. "Mathematics Educator", "ICT Coordinator", "Acting HoD"
+2. The ACTUAL NAME(S) of employers/schools/organisations they have worked at — e.g. "Sgodiphola Secondary School", "ABSA Trust", "Deloitte"
+3. The ACTUAL YEARS OF EXPERIENCE — only if dates are given and support a count
+4. The ACTUAL SUBJECTS TAUGHT or TECHNICAL SKILLS — e.g. "Mathematics and Computer Applications Technology"
+5. The ACTUAL QUALIFICATIONS and INSTITUTION NAMES — e.g. "BEd Honours from UNISA", "Bachelor of Education from University of Pretoria"
+6. Any NOTABLE ACHIEVEMENTS explicitly mentioned — e.g. "100% matric pass rate", "National Teaching Awards nomination"
+
+FORBIDDEN — you must NEVER:
+- Say "motivated individual eager to begin my career" or ANY similar generic phrase when the person HAS work experience
+- Say "strong foundation in my field of study" when actual qualifications are listed — name them
+- Replace a real employer name with "a reputable organisation" or "a leading company"
+- Replace a real qualification with "my studies" or "my qualifications"
+- Claim the person has NO experience when experience IS listed below
+- Use ANY generic filler that ignores the specific real details provided
 
 ${professionHint}
 
