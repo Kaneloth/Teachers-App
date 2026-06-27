@@ -188,11 +188,22 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
             </p>
             <textarea
               value={jobDesc}
-              onChange={e => { setJobDesc(e.target.value); onJobDesc?.(e.target.value); }}
+              onChange={e => {
+                const val = e.target.value;
+                if (val.length > 3000) {
+                  toast.error('Job description is too long. Please keep it under 3,000 characters (currently ' + val.length + '). Try pasting only the key requirements section.');
+                  return;
+                }
+                setJobDesc(val);
+                onJobDesc?.(val);
+              }}
               placeholder="Paste the job posting or description here..."
               rows={5}
-              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+              className={`w-full rounded-xl border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none ${jobDesc.length > 2800 ? 'border-amber-400' : 'border-input'}`}
             />
+            <p className={`text-xs text-right mt-1 ${jobDesc.length > 2800 ? 'text-amber-500 font-medium' : 'text-muted-foreground'}`}>
+              {jobDesc.length} / 3,000 characters{jobDesc.length > 2800 ? ' — approaching limit' : ''}
+            </p>
           </div>
         )}
       </div>
