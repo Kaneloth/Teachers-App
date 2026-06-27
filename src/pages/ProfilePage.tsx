@@ -471,7 +471,6 @@ export default function ProfilePage() {
   const isAdmin = !!(user?.user_metadata?.is_admin);
   const isOwnProfile = !routeUserId || routeUserId === user?.id || isAdmin;
   const { gates, loading: gatesLoading } = useFeatureGates();
-  // lockActive: gate ON = 30-day lock enforced; gate OFF = anyone can edit freely
   const lockActive = !gatesLoading && gates.profile_edit_lock === true && !isAdmin;
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -770,6 +769,8 @@ export default function ProfilePage() {
     : null;
   const canSave = isAdmin || !lockActive || daysSinceSave === null || daysSinceSave >= 30;
   const daysLeft = canSave ? 0 : 30 - daysSinceSave!;
+  // Professional fields (subjects, position, preferences) are always saveable
+  const canSaveProfessional = true;
 
   const handleSave = () => {
     if (!user || !profile) return;
@@ -778,10 +779,49 @@ export default function ProfilePage() {
       return;
     }
     if (!canSave) {
-      toast.error(`Profiles can only be updated once every 30 days. ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining.`);
+      toast.error(`Personal details can only be updated once every 30 days. ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining.`);
       return;
     }
+    // Admins skip the confirmation dialog and save directly
+    if (isAdmin) { doSave(); return; }
     setShowConfirmDialog(true);
+  };
+
+  // Save only professional fields — no 30-day lock applies
+  const handleSaveProfessional = async () => {
+    if (!user || !profile) return;
+    setSaving(true);
+    try {
+      const professionalFields = {
+        user_id:              user.id,
+        current_school:       profile.current_school,
+        current_province:     profile.current_province,
+        town:                 profile.town.trim(),
+        town_lat:             profile.town_lat,
+        town_lng:             profile.town_lng,
+        phase:                profile.phase,
+        subjects:             profile.subjects,
+        years_experience:     profile.years_experience ? parseInt(profile.years_experience, 10) : null,
+        available_from:       profile.available_from || null,
+        preferred_provinces:  profile.preferred_provinces,
+        preferred_districts:  profile.preferred_districts,
+        preferred_town_coords:profile.preferred_town_coords,
+        bio:                  profile.bio,
+        looking_for_work:     profile.looking_for_work,
+      };
+      if (profile.id) {
+        const { error } = await supabase.from('educators').update(professionalFields).eq('id', profile.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('educators').insert({ ...professionalFields }).select().single();
+        if (error) throw error;
+      }
+      toast.success('Professional details updated!');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const doSave = async () => {
@@ -1225,17 +1265,27 @@ export default function ProfilePage() {
           )}
         </div>
 
-        <div className="px-4 pt-2 pb-6 space-y-2">
+        <div className="px-4 pt-2 pb-6 space-y-3">
+          {/* Professional details — always saveable */}
+          <Button
+            onClick={handleSaveProfessional}
+            disabled={saving}
+            variant="outline"
+            className="w-full h-12 rounded-2xl text-base font-semibold gap-2"
+          >
+            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5" /> Save Position & Subjects</>}
+          </Button>
+          {/* Personal details — 30-day lock */}
           <Button
             onClick={handleSave}
             disabled={saving || !canSave}
             className="w-full h-12 rounded-2xl text-base font-semibold gap-2"
           >
-            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5" /> Save Profile</>}
+            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5" /> Save Personal Details</>}
           </Button>
           {!canSave && lockActive && (
             <p className="text-xs text-center text-muted-foreground">
-              Profile updates are limited to once every 30 days.{' '}
+              Personal details are limited to once every 30 days.{' '}
               <span className="font-medium text-foreground">{daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining.</span>
             </p>
           )}
@@ -1247,7 +1297,7 @@ export default function ProfilePage() {
               <AlertDialogTitle>Double-check your details</AlertDialogTitle>
               <AlertDialogDescription>
                 Please make sure all your information is correct before saving.
-                You will only be able to update your profile again in 30 days.
+                You will only be able to update your personal details again in 30 days. Position, subjects and preferences can still be updated anytime.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
