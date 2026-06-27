@@ -335,62 +335,81 @@ async function callGroq(prompt, jsonMode = true) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set in environment variables');
 
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
   for (const model of GEMINI_MODELS) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const body = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.3,
-          ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
-        },
-      };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const body = {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.3,
+            ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
+          },
+        };
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
 
-      // Check content-type before parsing — HTML means a gateway/auth error
-      const ct = response.headers.get('content-type') || '';
-      if (ct.includes('text/html')) {
-        const html = await response.text();
-        console.error('[enhance-cv] Gemini returned HTML (status ' + response.status + '):', html.slice(0, 200));
-        if (response.status === 401 || response.status === 403) throw new Error('Gemini API key invalid or missing — check GEMINI_API_KEY in Netlify env vars');
-        if (response.status === 429 || response.status === 503) { continue; }
-        if (response.status === 400) throw new Error('Request too large or invalid — try with a shorter CV or job description');
-        throw new Error('Gemini returned unexpected HTML response (status ' + response.status + ')');
+        const ct = response.headers.get('content-type') || '';
+        if (ct.includes('text/html')) {
+          const html = await response.text();
+          console.error('[enhance-cv] HTML response (status ' + response.status + '):', html.slice(0, 200));
+          if (response.status === 401 || response.status === 403) throw new Error('Gemini API key invalid — check GEMINI_API_KEY in Netlify env vars');
+          if (response.status === 400) throw new Error('Request too large — try with a shorter CV or job description');
+          if (response.status === 429 || response.status === 503) {
+            const wait = (attempt + 1) * 4000;
+            console.warn('[enhance-cv] Rate limited, retrying in ' + wait + 'ms (attempt ' + (attempt+1) + '/3)');
+            await sleep(wait);
+            continue;
+          }
+          throw new Error('Unexpected response from AI service (status ' + response.status + ')');
+        }
+
+        const data = await response.json();
+
+        if (response.status === 429 || response.status === 503 ||
+            data.error?.status === 'RESOURCE_EXHAUSTED') {
+          const wait = (attempt + 1) * 4000;
+          console.warn('[enhance-cv] ' + model + ' rate-limited, retrying in ' + wait + 'ms (attempt ' + (attempt+1) + '/3)');
+          await sleep(wait);
+          continue;
+        }
+
+        if (!response.ok) {
+          const msg = data.error?.message || ('Gemini error ' + response.status);
+          console.error('[enhance-cv] Error on ' + model + ':', msg);
+          throw new Error(msg);
+        }
+
+        const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (!raw) {
+          const reason = data.candidates?.[0]?.finishReason || 'unknown';
+          console.error('[enhance-cv] Empty Gemini response. finishReason:', reason);
+          if (reason === 'SAFETY') throw new Error('Content was blocked by safety filters — try rephrasing');
+          if (reason === 'MAX_TOKENS') throw new Error('Response too long — try with less input text');
+          throw new Error('Empty response from AI (finishReason: ' + reason + ')');
+        }
+        return raw.trim();
+
+      } catch (err) {
+        const isRateLimit = err.message?.includes('429') || err.message?.includes('rate') ||
+                            err.message?.includes('RESOURCE_EXHAUSTED') || err.message?.includes('503');
+        if (isRateLimit && attempt < 2) {
+          const wait = (attempt + 1) * 4000;
+          console.warn('[enhance-cv] Rate limit, retrying in ' + wait + 'ms...');
+          await sleep(wait);
+          continue;
+        }
+        if (!isRateLimit) throw err; // non-rate-limit error — fail immediately
       }
-
-      const data = await response.json();
-
-      if (response.status === 429 || response.status === 503) {
-        console.warn('[enhance-cv] ' + model + ' rate-limited, trying next...');
-        continue;
-      }
-      if (!response.ok) {
-        const msg = data.error?.message || ('Gemini API error ' + response.status);
-        console.error('[enhance-cv] Gemini error on ' + model + ':', msg);
-        throw new Error(msg);
-      }
-
-      const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      if (!raw) {
-        // Log finish reason to diagnose safety blocks or empty responses
-        const reason = data.candidates?.[0]?.finishReason || 'unknown';
-        console.error('[enhance-cv] Empty response from Gemini. finishReason:', reason);
-        if (reason === 'SAFETY') throw new Error('Content was blocked by Gemini safety filters — try rephrasing the input');
-        if (reason === 'MAX_TOKENS') throw new Error('Response too long — try with less input text');
-        throw new Error('Empty response from Gemini (finishReason: ' + reason + ')');
-      }
-      return raw.trim();
-    } catch (err) {
-      if (err.message?.includes('429') || err.message?.includes('rate')) { continue; }
-      throw err;
     }
   }
-  throw new Error('Gemini rate-limited. Please try again in a moment.');
+  throw new Error('The AI is briefly busy — please wait a few seconds and try again.');
 }
 
 // Safely extract JSON from model output — handles markdown code blocks and truncated responses
