@@ -177,10 +177,13 @@ You must NEVER invent, assume, exaggerate, or upgrade ANY fact that is not expli
 If the person has NO work experience listed (e.g. a recent graduate or first-time job seeker), the summary must reflect that honestly — for example, describing them as a motivated graduate or candidate eager to begin their career, based on their education/skills only. Do NOT describe them as experienced, do NOT invent a job title, and do NOT claim years of experience they do not have. A short, honest, well-written summary for someone with no experience is the correct and expected output — it is NOT a failure to be "compelling".
 
 CRITICAL — SPECIFICITY IS REQUIRED, NOT OPTIONAL:
-"Don't invent information" does NOT mean "stay vague". You MUST name the actual, specific details given below — never replace a real fact with a vague generic phrase. For example:
-- If the qualification is "B.Com in Accounting" or the subjects are "Mathematics, Accounting", say exactly that — NEVER write a vague substitute like "my field of study" or "my area of expertise" when the real subject/qualification name is sitting right there in the information below.
-- If a skill, subject, or qualification is explicitly listed, USE ITS ACTUAL NAME in the summary. Vagueness when specific real information is available is just as wrong as fabrication — both fail to represent the person accurately.
-- Being brief (for someone with little experience) and being specific (naming the real subjects/qualifications/skills they do have) are NOT in conflict — a one-sentence summary should still name the actual field of study or subjects if those are provided, rather than describing them in generic terms.
+"Don't invent information" does NOT mean "stay vague". You MUST name the actual, specific details given below — never replace a real fact with a vague generic phrase. Specifically:
+- ALWAYS name the actual employer(s) or organisation(s) from their work experience (e.g. "Sgodiphola Secondary School", "Deloitte", "Netcare"). Never say "a leading organisation" or "a reputable company".
+- ALWAYS name the actual institution(s) from their education (e.g. "UNISA", "University of Pretoria"). Never say "a tertiary institution".
+- ALWAYS name the actual qualification(s) (e.g. "B.Ed", "B.Com in Accounting", "National Diploma in IT"). Never say "my studies" or "my qualification".
+- ALWAYS name the actual subjects, skills, or specialisations (e.g. "Mathematics and Physical Sciences", "Python and AWS"). Never say "technical skills" or "my area of expertise".
+- If a skill, subject, or qualification is explicitly listed, USE ITS ACTUAL NAME. Vagueness when specific real information is available is just as wrong as fabrication — both fail to represent the person accurately.
+- Being brief (for someone with little experience) and being specific (naming real employers, qualifications, subjects) are NOT in conflict — even a one-sentence summary should name what is actually there.
 
 When in doubt about whether a detail is supported by the information given, LEAVE IT OUT. Truthful and brief is always correct; impressive-sounding but fabricated is always wrong, even if it reads better. But when a detail IS supported and explicitly given, name it specifically — do not water it down into a vague paraphrase.
 
