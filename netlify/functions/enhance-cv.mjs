@@ -335,6 +335,7 @@ const GROQ_MODELS = [
 
 async function callGroq(prompt, jsonMode = true) {
   let lastError;
+  console.log('[enhance-cv] Trying models:', GROQ_MODELS.join(', '));
   for (const model of GROQ_MODELS) {
     const body = {
       model,
@@ -366,7 +367,7 @@ async function callGroq(prompt, jsonMode = true) {
           data.error?.code === 'rate_limit_exceeded' ||
           data.error?.message?.includes('json') ||
           data.error?.message?.includes('response_format')) {
-        console.warn(`[enhance-cv] Model ${model} unavailable/unsupported: ${data.error?.message}, trying next...`);
+        console.warn('[enhance-cv] Model ' + model + ' failed: ' + (data.error?.message || response.status) + ' — trying next');
         lastError = new Error(data.error?.message || `Model ${model} unavailable`);
         continue;
       }
@@ -393,7 +394,9 @@ async function callGroq(prompt, jsonMode = true) {
       throw err; // Non-rate-limit error — fail immediately
     }
   }
-  throw lastError || new Error('All Groq models rate-limited. Please try again later.');
+  const finalMsg = lastError?.message || 'All models unavailable';
+  console.error('[enhance-cv] All models failed. Last error:', finalMsg);
+  throw new Error('No response from AI model — ' + finalMsg);
 }
 
 
