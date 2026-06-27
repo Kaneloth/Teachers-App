@@ -389,11 +389,13 @@ export const handler = async (event) => {
         let summary   = (await callGroq(prompt, false)).trim();
         if (!summary) throw new Error('Empty summary from AI');
 
+        console.log('[summary] jobDesc length:', jobDesc.length, 'summary start:', summary.slice(0, 80));
         // Post-process: if applying for an IT job, always replace the first sentence
         // with one built from real ICT experience data — never trust the model to lead correctly.
         if (jobDesc) {
           const isItJob = /it support|technician|hardware|software|network|lan|wan|desktop|laptop|device|configure|deploy|reimage|technical support/i.test(jobDesc);
 
+          console.log('[summary] isItJob:', isItJob);
           if (isItJob) {
             const exp = (body.cvData?.experience || []);
             // Find ICT/tech experience entry
