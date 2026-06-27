@@ -157,30 +157,6 @@ function buildSummaryPrompt(cvData, userBlurb, jobDescription) {
     ? 'Based on their work experience, this person is an educator — mention subjects taught, phase/grade level, and teaching strengths.'
     : 'This person works in a non-education professional field (or has no work experience yet) — mention their actual industry/field of study, role level, key technical skills, and career achievements. Do NOT describe them as an educator, teacher, or anything education-related unless their work experience explicitly says so.';
 
-  // When a job description is provided, pre-compute the most relevant experience
-  // to give the model an explicit "lead with this" instruction it cannot ignore
-  let leadInstruction = '';
-  if (jobDescription) {
-    const jdLower = jobDescription.toLowerCase();
-    const isItRole = /it support|technician|hardware|software|network|lan|wan|desktop|laptop|device|configure|deploy|reimage/i.test(jdLower);
-    const isFinanceRole = /accountant|finance|audit|tax|bookkeep|payroll|financial/i.test(jdLower);
-    const isAdminRole = /administrator|admin|office manager|clerk|receptionist|personal assistant/i.test(jdLower);
-    const isMgmtRole = /manager|management|director|head of|operations|strategy/i.test(jdLower);
-
-    const hasIctExp = expList && /ict|coordinator|device|technolog|computer|network|admin console|hardware|software/i.test(expList);
-    const hasFinanceExp = expList && /account|finance|audit|tax|bookkeep|bank/i.test(expList);
-    const hasAdminExp = expList && /admin|administrator|assistant|clerk|office/i.test(expList);
-
-    if (isItRole && hasIctExp) {
-      leadInstruction = `FIRST SENTENCE MUST START WITH the person's ICT/technology experience — specifically name their ICT role and employer. Do NOT start with "educator" or any teaching-related identity even if they are primarily a teacher. The hiring manager is looking for IT skills — lead with those.`;
-    } else if (isFinanceRole && hasFinanceExp) {
-      leadInstruction = `FIRST SENTENCE MUST START WITH the person's finance/accounting experience. Lead with that role and employer specifically.`;
-    } else if (isAdminRole && hasAdminExp) {
-      leadInstruction = `FIRST SENTENCE MUST START WITH the person's administrative experience. Lead with that role and employer specifically.`;
-    } else if (jobDescription) {
-      leadInstruction = `The person is applying for: "${jobDescription.slice(0, 200)}...". FIRST SENTENCE must lead with whichever part of their experience is most relevant to this role — not their primary job title if a more relevant role exists.`;
-    }
-  }
 
   return `You are a professional CV writer specialising in South African CVs for ALL industries and professions.
 
@@ -208,7 +184,7 @@ FORBIDDEN — you must NEVER:
 
 ${professionHint}
 
-${leadInstruction ? leadInstruction + '\n\n' : ''}ABSOLUTE RULE — DO NOT VIOLATE THIS UNDER ANY CIRCUMSTANCES:
+ABSOLUTE RULE — DO NOT VIOLATE THIS UNDER ANY CIRCUMSTANCES:
 You must NEVER invent, assume, exaggerate, or upgrade ANY fact that is not explicitly present in the information below. This includes (but is not limited to):
 - Job titles or seniority levels (e.g. do not call someone a "Manager", "Director", "Senior X", or "Head of Y" unless that exact title or an unambiguous equivalent appears in their work experience below)
 - Years of experience (e.g. do not state "X years of experience" unless dates are given that actually support that number — and if no work experience is listed at all, do NOT claim any years of experience)
@@ -348,26 +324,99 @@ Return ONLY the letter text. No labels, no JSON, no preamble or postamble. Just 
   };
 }
 
+// Models tried in order — fallback on rate-limit or error
+const GROQ_MODELS = [
+  'llama-3.3-70b-versatile',   // primary
+  'openai/gpt-oss-20b',        // smaller non-reasoning fallback
+  'llama-3.1-8b-instant',      // fast last resort
+  // Note: reasoning models (qwen3, gpt-oss-120b) excluded — they emit <think> blocks
+  // that interfere with plain text CV generation
+];
+
 async function callGroq(prompt, jsonMode = true) {
-  const body = {
-    model: 'llama-3.3-70b-versatile',
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.3,
-  };
-  if (jsonMode) body.response_format = { type: 'json_object' };
+  let lastError;
+  for (const model of GROQ_MODELS) {
+    const body = {
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.3,
+    };
+    // Only add JSON mode for the primary model — fallbacks may not support it
+    if (jsonMode && model === GROQ_MODELS[0]) {
+      body.response_format = { type: 'json_object' };
+    } else if (jsonMode) {
+      // Fallback model: enforce JSON via prompt since response_format may not be supported
+      body.messages[0].content = 'You must respond with valid JSON only. No markdown, no explanation, no code blocks. Just raw JSON.\n\n' + body.messages[0].content;
+    }
 
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
 
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error?.message || 'Groq API error');
-  return data.choices[0].message.content;
+      const data = await response.json();
+
+      // Rate limited, model unavailable, or JSON mode not supported — try next model
+      if (response.status === 429 || response.status === 503 ||
+          data.error?.code === 'rate_limit_exceeded' ||
+          data.error?.message?.includes('json') ||
+          data.error?.message?.includes('response_format')) {
+        console.warn(`[enhance-cv] Model ${model} unavailable/unsupported: ${data.error?.message}, trying next...`);
+        lastError = new Error(data.error?.message || `Model ${model} unavailable`);
+        continue;
+      }
+
+      if (!response.ok) throw new Error(data.error?.message || 'Groq API error');
+      const raw = data.choices[0].message.content || '';
+      // Strip <think> blocks from reasoning models — find last </think> and take what's after
+      const thinkClose = '</think>';
+      const thinkEnd = raw.lastIndexOf(thinkClose);
+      if (thinkEnd !== -1) {
+        const afterThink = raw.slice(thinkEnd + thinkClose.length).trim();
+        if (afterThink.length > 20) return afterThink;
+        // All content was inside think block — strip open/close tags and return inner text
+        return raw.split('<think>').join('').split(thinkClose).join('').trim();
+      }
+      return raw.trim();
+    } catch (err) {
+      lastError = err;
+      // Only continue on rate-limit related errors
+      if (err.message?.includes('rate') || err.message?.includes('limit') || err.message?.includes('unavailable')) {
+        console.warn(`[enhance-cv] Model ${model} failed: ${err.message}, trying next...`);
+        continue;
+      }
+      throw err; // Non-rate-limit error — fail immediately
+    }
+  }
+  throw lastError || new Error('All Groq models rate-limited. Please try again later.');
+}
+
+
+// Safely extract JSON from model output — handles markdown code blocks and truncated responses
+function safeParseJson(raw) {
+  if (!raw) throw new Error('Empty response from AI model');
+  // Strip markdown code blocks if present
+  let text = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  // Try direct parse first
+  try { return JSON.parse(text); } catch {}
+  // Try to find JSON object boundaries
+  const start = text.indexOf('{');
+  const end   = text.lastIndexOf('}');
+  if (start !== -1 && end !== -1 && end > start) {
+    try { return JSON.parse(text.slice(start, end + 1)); } catch {}
+  }
+  // Last resort: truncated JSON — try to close open brackets
+  const opens  = (text.match(/{/g) || []).length;
+  const closes = (text.match(/}/g) || []).length;
+  if (opens > closes) {
+    try { return JSON.parse(text + '}'.repeat(opens - closes)); } catch {}
+  }
+  throw new Error('Failed to parse JSON from model response');
 }
 
 export const handler = async (event) => {
@@ -389,33 +438,6 @@ export const handler = async (event) => {
         let summary   = (await callGroq(prompt, false)).trim();
         if (!summary) throw new Error('Empty summary from AI');
 
-        console.log('[summary] jobDesc length:', jobDesc.length, 'summary start:', summary.slice(0, 80));
-        // Post-process: if applying for an IT job, always replace the first sentence
-        // with one built from real ICT experience data — never trust the model to lead correctly.
-        if (jobDesc) {
-          const isItJob = /it support|technician|hardware|software|network|lan|wan|desktop|laptop|device|configure|deploy|reimage|technical support/i.test(jobDesc);
-
-          console.log('[summary] isItJob:', isItJob);
-          if (isItJob) {
-            const exp = (body.cvData?.experience || []);
-            // Find ICT/tech experience entry
-            const ictEntry = exp.find(e =>
-              /ict|coordinator|technolog|computer|network|device|it /i.test((e.role || '') + ' ' + (e.description || ''))
-            ) || exp[0];
-
-            if (ictEntry) {
-              const role     = ictEntry.role   || 'IT professional';
-              const org      = ictEntry.school || '';
-              const from     = ictEntry.from   || '';
-              const orgPart  = org  ? ` at ${org}`      : '';
-              const yearPart = from ? `, since ${from}` : '';
-              const opener   = `I am an experienced ${role}${orgPart}${yearPart}, with hands-on experience in ICT coordination, device management, hardware and software configuration, and technical support.`;
-              // Always replace the first sentence regardless of what model wrote
-              const rest = summary.replace(/^[^.!?]+[.!?]\s*/,'').trim();
-              summary = opener + (rest ? ' ' + rest : '');
-            }
-          }
-        }
 
         return {
           statusCode: 200,
@@ -429,7 +451,7 @@ export const handler = async (event) => {
         const content = await callGroq(prompt, true);
         return {
           statusCode: 200,
-          body: JSON.stringify({ success: true, data: JSON.parse(content) }),
+          body: JSON.stringify({ success: true, data: safeParseJson(content) }),
         };
       }
 
@@ -576,11 +598,14 @@ Reply with exactly one of: ${AVAILABLE_ICONS.join(', ')}`;
   }
 
   try {
-    const prompt  = buildStructurePrompt(rawText, cvType, false, jobDescription);
-    const content = await callGroq(prompt, true);
+    const prompt   = buildStructurePrompt(rawText, cvType, false, jobDescription);
+    const rawJson  = await callGroq(prompt, true);
+    const parsed   = safeParseJson(rawJson);
+
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true, data: JSON.parse(content) }),
+      body: JSON.stringify({ success: true, data: parsed }),
     };
   } catch (err) {
     console.error('Unexpected error:', err);
