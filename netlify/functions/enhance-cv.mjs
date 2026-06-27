@@ -325,154 +325,55 @@ Return ONLY the letter text. No labels, no JSON, no preamble or postamble. Just 
   };
 }
 
-// Models tried in order — fallback on rate-limit or error
-// Google Gemini API — 1,500 req/day free, 1M TPM
-// Get API key at: https://aistudio.google.com/app/apikey
-// Add GEMINI_API_KEY to Netlify environment variables
-const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+// Anthropic Claude API — fast, reliable, no daily rate limits
+// Get API key: https://console.anthropic.com/
+// Add ANTHROPIC_API_KEY to Netlify environment variables
 
 async function callGroq(prompt, jsonMode = true) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY not set in environment variables');
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set in Netlify environment variables');
 
-  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  // For JSON mode, prefill the assistant turn with '{' to guarantee JSON output
+  const userMessages = [{ role: 'user', content: prompt }];
+  const messages = jsonMode
+    ? [...userMessages, { role: 'assistant', content: '{' }]
+    : userMessages;
 
-  for (const model of GEMINI_MODELS) {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-        const body = {
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.3,
-            ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
-          },
-        };
-
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-
-        const ct = response.headers.get('content-type') || '';
-        if (ct.includes('text/html')) {
-          const html = await response.text();
-          console.error('[enhance-cv] HTML response (status ' + response.status + '):', html.slice(0, 200));
-          if (response.status === 401 || response.status === 403) throw new Error('Gemini API key invalid — check GEMINI_API_KEY in Netlify env vars');
-          if (response.status === 400) throw new Error('Request too large — try with a shorter CV or job description');
-          if (response.status === 429 || response.status === 503) {
-            const wait = (attempt + 1) * 4000;
-            console.warn('[enhance-cv] Rate limited, retrying in ' + wait + 'ms (attempt ' + (attempt+1) + '/3)');
-            await sleep(wait);
-            continue;
-          }
-          throw new Error('Unexpected response from AI service (status ' + response.status + ')');
-        }
-
-        const data = await response.json();
-
-        if (response.status === 429 || response.status === 503 ||
-            data.error?.status === 'RESOURCE_EXHAUSTED') {
-          const wait = (attempt + 1) * 4000;
-          console.warn('[enhance-cv] ' + model + ' rate-limited, retrying in ' + wait + 'ms (attempt ' + (attempt+1) + '/3)');
-          await sleep(wait);
-          continue;
-        }
-
-        if (!response.ok) {
-          const msg = data.error?.message || ('Gemini error ' + response.status);
-          console.error('[enhance-cv] Error on ' + model + ':', msg);
-          throw new Error(msg);
-        }
-
-        const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        if (!raw) {
-          const reason = data.candidates?.[0]?.finishReason || 'unknown';
-          console.error('[enhance-cv] Empty Gemini response. finishReason:', reason);
-          if (reason === 'SAFETY') throw new Error('Content was blocked by safety filters — try rephrasing');
-          if (reason === 'MAX_TOKENS') throw new Error('Response too long — try with less input text');
-          throw new Error('Empty response from AI (finishReason: ' + reason + ')');
-        }
-        return raw.trim();
-
-      } catch (err) {
-        const isRateLimit = err.message?.includes('429') || err.message?.includes('rate') ||
-                            err.message?.includes('RESOURCE_EXHAUSTED') || err.message?.includes('503');
-        if (isRateLimit && attempt < 2) {
-          const wait = (attempt + 1) * 4000;
-          console.warn('[enhance-cv] Rate limit, retrying in ' + wait + 'ms...');
-          await sleep(wait);
-          continue;
-        }
-        if (!isRateLimit) throw err; // non-rate-limit error — fail immediately
-      }
-    }
-  }
-  throw new Error('The AI is briefly busy — please wait a few seconds and try again.');
-}
-
-// Safely extract JSON from model output — handles markdown code blocks and truncated responses
-
-// Convert ALL CAPS words to Title Case (e.g. "UNISA" → keep, "SGODIPHOLA SECONDARY SCHOOL" → "Sgodiphola Secondary School")
-// Preserves known acronyms like UNISA, GDE, ABSA, CAT, ICT, etc.
-const KEEP_UPPER = new Set(['UNISA','GDE','DBE','SACE','ABSA','CAT','ICT','IT','SA','BEd','BTech','PhD','MSc','BSc','MBA','LLB','CA','CPA','HR','PA','CEO','CFO','COO','NQF','CAPS','SASAMS','HTML','CSS','VBA','UK','US','EU']);
-const FORCE_LOWER = new Set(['OF','THE','AND','IN','AT','FOR','TO','A','AN','BY','OR','ON','AS','WITH']);
-function toTitleCase(str) {
-  if (!str || typeof str !== 'string') return str;
-  // Only process if string is mostly uppercase
-  const upper = (str.match(/[A-Z]/g) || []).length;
-  const lower = (str.match(/[a-z]/g) || []).length;
-  if (lower > upper) return str; // already mixed case — leave alone
-  return str.replace(/\b([A-Z]+)\b/g, (word) => {
-    if (FORCE_LOWER.has(word)) return word.toLowerCase(); // "OF" → "of"
-    if (KEEP_UPPER.has(word)) return word;                // "UNISA" → "UNISA"
-    if (word.length <= 2) return word;                    // keep short acronyms like "IT"
-    return word.charAt(0) + word.slice(1).toLowerCase();  // "PRETORIA" → "Pretoria"
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5',
+      max_tokens: 4096,
+      messages,
+    }),
   });
+
+  const rawBody = await response.text();
+  let data;
+  try { data = JSON.parse(rawBody); }
+  catch {
+    console.error('[enhance-cv] Failed to parse Anthropic response:', rawBody.slice(0, 200));
+    throw new Error('Unexpected response from AI service');
+  }
+
+  if (!response.ok) {
+    const msg = data.error?.message || ('Anthropic API error ' + response.status);
+    console.error('[enhance-cv] Anthropic error:', msg);
+    throw new Error(msg);
+  }
+
+  const raw = data.content?.[0]?.text || '';
+  if (!raw) throw new Error('Empty response from AI');
+
+  // Prepend the '{' prefill we used to force JSON mode
+  return jsonMode ? ('{' + raw.trim()) : raw.trim();
 }
 
-function normaliseParsed(data) {
-  if (!data) return data;
-  // Fix education institution names
-  if (Array.isArray(data.education)) {
-    data.education = data.education.map(e => ({ ...e, institution: toTitleCase(e.institution) }));
-  }
-  // Fix experience employer names
-  if (Array.isArray(data.experience)) {
-    data.experience = data.experience.map(e => ({ ...e, school: toTitleCase(e.school) }));
-  }
-  // Fix bio/personal
-  if (data.personal?.bio) {
-    data.personal.bio = data.personal.bio.replace(/\b([A-Z]{4,})\b/g, (word) => {
-      if (KEEP_UPPER.has(word)) return word;
-      return word.charAt(0) + word.slice(1).toLowerCase();
-    });
-  }
-  return data;
-}
-
-function safeParseJson(raw) {
-  if (!raw) throw new Error('Empty response from AI model');
-  // Strip markdown code blocks if present
-  let text = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-  // Try direct parse first
-  try { return JSON.parse(text); } catch {}
-  // Try to find JSON object boundaries
-  const start = text.indexOf('{');
-  const end   = text.lastIndexOf('}');
-  if (start !== -1 && end !== -1 && end > start) {
-    try { return JSON.parse(text.slice(start, end + 1)); } catch {}
-  }
-  // Last resort: truncated JSON — try to close open brackets
-  const opens  = (text.match(/{/g) || []).length;
-  const closes = (text.match(/}/g) || []).length;
-  if (opens > closes) {
-    try { return JSON.parse(text + '}'.repeat(opens - closes)); } catch {}
-  }
-  console.error('[enhance-cv] Failed to parse JSON. Raw response start:', raw.slice(0, 200));
-  throw new Error('Failed to parse JSON from model response');
-}
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
