@@ -468,6 +468,7 @@ Reply with exactly one of: ${AVAILABLE_ICONS.join(', ')}`;
   let fileBuffer = null;
   let fileMimeType = null;
   let cvType = 'general';
+  let jobDescription = '';
 
   await new Promise((resolve, reject) => {
     const bb = busboy({ headers: { 'content-type': contentType } });
@@ -477,7 +478,6 @@ Reply with exactly one of: ${AVAILABLE_ICONS.join(', ')}`;
       file.on('data', chunk => chunks.push(chunk));
       file.on('end', () => { fileBuffer = Buffer.concat(chunks); });
     });
-    let jobDescription = '';
     bb.on('field', (name, value) => {
       if (name === 'cvType') cvType = value;
       if (name === 'jobDescription') jobDescription = value;
