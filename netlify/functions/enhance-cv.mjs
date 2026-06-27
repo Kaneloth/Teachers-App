@@ -348,26 +348,57 @@ Return ONLY the letter text. No labels, no JSON, no preamble or postamble. Just 
   };
 }
 
+// Models tried in order — fallback on rate-limit or error
+const GROQ_MODELS = [
+  'llama-3.3-70b-versatile',
+  'llama-3.1-70b-versatile',
+  'llama3-70b-8192',
+  'mixtral-8x7b-32768',
+  'gemma2-9b-it',
+];
+
 async function callGroq(prompt, jsonMode = true) {
-  const body = {
-    model: 'llama-3.3-70b-versatile',
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.3,
-  };
-  if (jsonMode) body.response_format = { type: 'json_object' };
+  let lastError;
+  for (const model of GROQ_MODELS) {
+    const body = {
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.3,
+    };
+    if (jsonMode) body.response_format = { type: 'json_object' };
 
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
 
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error?.message || 'Groq API error');
-  return data.choices[0].message.content;
+      const data = await response.json();
+
+      // Rate limited or model unavailable — try next model
+      if (response.status === 429 || response.status === 503 || data.error?.code === 'rate_limit_exceeded') {
+        console.warn(`[enhance-cv] Model ${model} rate-limited or unavailable, trying next...`);
+        lastError = new Error(data.error?.message || `Model ${model} unavailable`);
+        continue;
+      }
+
+      if (!response.ok) throw new Error(data.error?.message || 'Groq API error');
+      return data.choices[0].message.content;
+    } catch (err) {
+      lastError = err;
+      // Only continue on rate-limit related errors
+      if (err.message?.includes('rate') || err.message?.includes('limit') || err.message?.includes('unavailable')) {
+        console.warn(`[enhance-cv] Model ${model} failed: ${err.message}, trying next...`);
+        continue;
+      }
+      throw err; // Non-rate-limit error — fail immediately
+    }
+  }
+  throw lastError || new Error('All Groq models rate-limited. Please try again later.');
 }
 
 export const handler = async (event) => {
