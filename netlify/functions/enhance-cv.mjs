@@ -396,6 +396,29 @@ async function callGroq(prompt, jsonMode = true) {
   throw lastError || new Error('All Groq models rate-limited. Please try again later.');
 }
 
+
+// Safely extract JSON from model output — handles markdown code blocks and truncated responses
+function safeParseJson(raw) {
+  if (!raw) throw new Error('Empty response from AI model');
+  // Strip markdown code blocks if present
+  let text = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  // Try direct parse first
+  try { return JSON.parse(text); } catch {}
+  // Try to find JSON object boundaries
+  const start = text.indexOf('{');
+  const end   = text.lastIndexOf('}');
+  if (start !== -1 && end !== -1 && end > start) {
+    try { return JSON.parse(text.slice(start, end + 1)); } catch {}
+  }
+  // Last resort: truncated JSON — try to close open brackets
+  const opens  = (text.match(/{/g) || []).length;
+  const closes = (text.match(/}/g) || []).length;
+  if (opens > closes) {
+    try { return JSON.parse(text + '}'.repeat(opens - closes)); } catch {}
+  }
+  throw new Error('Failed to parse JSON from model response');
+}
+
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
@@ -428,7 +451,7 @@ export const handler = async (event) => {
         const content = await callGroq(prompt, true);
         return {
           statusCode: 200,
-          body: JSON.stringify({ success: true, data: JSON.parse(content) }),
+          body: JSON.stringify({ success: true, data: safeParseJson(content) }),
         };
       }
 
@@ -577,7 +600,7 @@ Reply with exactly one of: ${AVAILABLE_ICONS.join(', ')}`;
   try {
     const prompt   = buildStructurePrompt(rawText, cvType, false, jobDescription);
     const rawJson  = await callGroq(prompt, true);
-    const parsed   = JSON.parse(rawJson);
+    const parsed   = safeParseJson(rawJson);
 
 
     return {
