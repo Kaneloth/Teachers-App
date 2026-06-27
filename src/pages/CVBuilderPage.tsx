@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Loader2, RotateCcw, Coins } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Loader2, RotateCcw, Coins, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
