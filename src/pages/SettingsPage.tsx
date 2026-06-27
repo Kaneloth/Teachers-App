@@ -686,6 +686,7 @@ interface AdminUser {
 
 function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: () => void; onSaved: (u: AdminUser) => void }) {
   const { session } = useAuth();
+  const navigate = useNavigate();
   const [accountStatus,     setAccountStatus]     = useState(user.account_status || 'active');
   const [isAdminFlag,       setIsAdminFlag]       = useState(user.is_admin);
   const [templatesUnlocked, setTemplatesUnlocked] = useState(!!(user.templates_unlocked));
@@ -798,9 +799,17 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
               <p className="text-xs font-mono font-semibold text-primary mt-0.5">{user.user_code}</p>
             )}
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted transition-colors shrink-0">
-            <X className="w-4 h-4 text-muted-foreground" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => { onClose(); navigate(`/profile/${user.id}`); }}
+              className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors px-2.5 py-1.5 rounded-xl"
+            >
+              <User className="w-3.5 h-3.5" /> Edit Profile
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted transition-colors">
+              <X className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </div>
         </div>
 
         <div className="px-5 py-4 space-y-4">

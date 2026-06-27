@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
-import { useFeatureGates } from '@/hooks/useFeatureGates';
 import BlockButton from '@/components/BlockButton';
 import { isBlocked } from '@/lib/blockUtils';
 import { geocodeLocation } from '@/lib/geocode';
@@ -114,7 +113,6 @@ interface Profile {
   subjects: string[];
   preferred_provinces: string[];
   preferred_districts: string[];
-  preferred_town_coords?: { town: string; lat: number; lng: number }[];
   available_from: string;
   is_actively_looking: boolean;
   is_sace_verified?: boolean;
@@ -221,9 +219,6 @@ function VerifyBadge({ state, message }: { state: VerifyState; message: string }
 
 function IdentityVerificationSection() {
   const { user } = useAuth();
-  const { gates, loading: gatesLoading } = useFeatureGates();
-  const isAdmin = !!(user?.user_metadata?.is_admin);
-  const lockActive = !gatesLoading && gates.profile_edit_lock && !isAdmin;
   const meta = user?.user_metadata ?? {};
 
   const [docType,        setDocType]        = useState<DocType>((meta.doc_type as DocType) || 'id');
@@ -471,11 +466,9 @@ function IdentityVerificationSection() {
 export default function ProfilePage() {
   const { userId: routeUserId } = useParams<{ userId: string }>();
   const { user } = useAuth();
-  const { gates, loading: gatesLoading } = useFeatureGates();
-  const isAdmin = !!(user?.user_metadata?.is_admin);
-  const lockActive = !gatesLoading && gates.profile_edit_lock && !isAdmin;
   const navigate = useNavigate();
-  const isOwnProfile = !routeUserId || routeUserId === user?.id;
+  const isAdmin = !!(user?.user_metadata?.is_admin);
+  const isOwnProfile = !routeUserId || routeUserId === user?.id || isAdmin;
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -590,7 +583,7 @@ export default function ProfilePage() {
   }, [user, routeUserId]);
 
   useEffect(() => {
-    if (!isOwnProfile || !user) return;
+    if ((!isOwnProfile && !isAdmin) || !user) return;
     const fetchMeta = async () => {
       const { data: freshUser } = await supabase.auth.getUser();
       const meta = freshUser?.user?.user_metadata ?? {};
@@ -637,7 +630,7 @@ export default function ProfilePage() {
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user || !isOwnProfile) return;
+    if (!user || (!isOwnProfile && !isAdmin)) return;
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
@@ -695,9 +688,8 @@ export default function ProfilePage() {
   };
 
   const handleDistrictSelect = (v: string) => {
-    // Merge both changes into one setProfile call — calling setProfileField
-    // twice reads stale closure state and the second call overwrites the first.
-    if (profile) setProfile({ ...profile, district: v, town: '' });
+    setProfileField('district', v);
+    setProfileField('town', ''); // reset town when district changes
     setTownCoords(null);
     setTownGeocodeTarget('');
     lastGeocodedTownRef.current = '';
@@ -772,7 +764,7 @@ export default function ProfilePage() {
   const daysSinceSave = lastSaved
     ? Math.floor((Date.now() - lastSaved.getTime()) / (1000 * 60 * 60 * 24))
     : null;
-  const canSave = !lockActive || daysSinceSave === null || daysSinceSave >= 30;
+  const canSave = isAdmin || daysSinceSave === null || daysSinceSave >= 30;
   const daysLeft = canSave ? 0 : 30 - daysSinceSave!;
 
   const handleSave = () => {
@@ -793,31 +785,15 @@ export default function ProfilePage() {
     if (!user || !profile) return;
     setSaving(true);
     try {
+      const { id: _id, is_sace_verified: _sv, ...rest } = profile;
       const yearsExp = profile.years_experience ? parseInt(profile.years_experience, 10) : null;
-      const townText = profile.town.trim();
-      // Explicitly list columns to avoid spreading is_hidden, is_admin, email
-      // or other fields that could cause RLS violations or silent save failures.
+      const townText = rest.town.trim();
       const payload = {
-        user_id:             user.id,
-        full_name:           profile.full_name,
-        phone:               profile.phone,
-        gender:              profile.gender,
-        bio:                 profile.bio,
-        sace_number:         profile.sace_number,
-        current_school:      profile.current_school,
-        current_province:    profile.current_province,
-        district:            profile.district,
-        town:                townText,
-        phase:               profile.phase,
-        subjects:            profile.subjects,
-        preferred_provinces: profile.preferred_provinces,
-        preferred_districts: profile.preferred_districts,
-        available_from:      profile.available_from || null,
-        is_actively_looking: profile.is_actively_looking,
-        years_experience:    (yearsExp !== null && !isNaN(yearsExp)) ? yearsExp : null,
-        avatar_url:          profile.avatar_url,
-        profile_type:        profile.profile_type,
-        // preferred_town_coords updated separately after save (geocoding step below)
+        ...rest,
+        town: townText,
+        user_id: user.id,
+        years_experience: (yearsExp !== null && !isNaN(yearsExp)) ? yearsExp : null,
+        available_from: profile.available_from || null,
       };
       if (profile.id) {
         const { error } = await supabase.from('educators').update(payload).eq('id', profile.id);
@@ -844,33 +820,9 @@ export default function ProfilePage() {
               p_lat:     coords.latitude,
             });
             if (geoErr) console.error('[ProfilePage] set_educator_geo_location error:', geoErr);
-            // Also store as plain columns for JS-side distance calculations
-            await supabase.from('educators').update({
-              town_lat: coords.latitude,
-              town_lng: coords.longitude,
-            }).eq('user_id', user.id);
           }
         } catch (geoErr) {
           console.error('[ProfilePage] geocode error:', geoErr);
-        }
-      }
-
-      // Geocode all preferred towns and store coords for distance-based matching
-      if (profile.preferred_districts.length > 0) {
-        try {
-          const coordResults = await Promise.all(
-            profile.preferred_districts.map(async (town) => {
-              const coords = await geocodeLocation(`${town}, South Africa`);
-              return coords ? { town, lat: coords.latitude, lng: coords.longitude } : null;
-            })
-          );
-          const validCoords = coordResults.filter(Boolean) as { town: string; lat: number; lng: number }[];
-          if (validCoords.length > 0) {
-            await supabase.from('educators').update({ preferred_town_coords: validCoords })
-              .eq('user_id', user.id);
-          }
-        } catch (geoErr) {
-          console.warn('[ProfilePage] preferred town geocoding failed (non-fatal):', geoErr);
         }
       }
 
@@ -1228,20 +1180,38 @@ export default function ProfilePage() {
                     ))}
                   </div>
                 )}
-                <SearchableSelect
-                  value=""
-                  onValueChange={v => {
-                    if (v && profile && !profile.preferred_districts.includes(v))
-                      setProfileField('preferred_districts', [...profile.preferred_districts, v]);
-                  }}
-                  options={Object.values(TOWNS_BY_DISTRICT).flat().filter(
-                    (t, i, arr) => arr.indexOf(t) === i && !profile.preferred_districts.includes(t)
-                  ).sort((a, b) => a.localeCompare(b))}
-                  placeholder={profile.preferred_districts.length ? 'Add another town…' : 'Select a town…'}
-                  searchPlaceholder="Search towns…"
-                  allowCustom
-                />
-                <p className="text-xs text-muted-foreground mt-1">Select towns you'd consider transferring to. You can add multiple.</p>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      value={prefTownInput}
+                      onChange={e => setPrefTownInput(e.target.value)}
+                      onBlur={e => setPrefTownGeocodeTarget(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); setPrefTownGeocodeTarget(e.currentTarget.value); addPreferredTown(); }
+                      }}
+                      placeholder="e.g. Polokwane"
+                      className="rounded-xl pl-9"
+                    />
+                  </div>
+                  <Button type="button" size="icon" variant="outline" onClick={addPreferredTown}
+                    disabled={!prefTownInput.trim()}
+                    className="rounded-xl shrink-0 h-10 w-10"><Plus className="w-4 h-4" /></Button>
+                </div>
+                {prefTownGeocoding ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Looking up "{prefTownInput}"…
+                  </p>
+                ) : prefTownCoords ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
+                    <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
+                    Found: {prefTownCoords.displayName || `${prefTownCoords.latitude.toFixed(4)}°, ${prefTownCoords.longitude.toFixed(4)}°`}
+                  </p>
+                ) : prefTownInput.trim().length >= 3 ? (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">Place not found — check the spelling.</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1.5">Add one or more towns you'd consider transferring to.</p>
+                )}
               </Field>
 
               <Field label="Available From">
@@ -1259,7 +1229,7 @@ export default function ProfilePage() {
           >
             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5" /> Save Profile</>}
           </Button>
-          {!canSave && lockActive && (
+          {!canSave && (
             <p className="text-xs text-center text-muted-foreground">
               Profile updates are limited to once every 30 days.{' '}
               <span className="font-medium text-foreground">{daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining.</span>
