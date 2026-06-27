@@ -50,7 +50,7 @@ ${inputText}
 
 CV TYPE (app context — a HINT only, not a fact): ${cvType === 'educator' ? 'South African Educator CV' : 'General Professional CV'}
 ${jobDescription ? `\nTARGET JOB DESCRIPTION:\n"""
-${jobDescription.slice(0, 800)}\n"""\nIncorporate relevant keywords in the bio WHERE THEY HONESTLY APPLY. Do not fabricate anything.` : ''}
+${jobDescription.slice(0, 3000)}\n"""\nIncorporate relevant keywords in the bio WHERE THEY HONESTLY APPLY. Do not fabricate anything.` : ''}
 
 IMPORTANT: The CV TYPE above reflects which section of the app the user is in, NOT necessarily their actual profession. The TEXT ABOVE is the only real source of truth about who this person is and what they do. If the input text contains no mention of teaching, schools, learners, or education-related work, do NOT frame this person as an educator, regardless of the CV TYPE hint — base the bio and all framing strictly on what the text actually says about their field (e.g. accounting, IT, retail, etc.) or their studies if they have no work experience yet.
 
@@ -214,7 +214,7 @@ ${eduList   ? `Education: ${eduList}` : ''}
 ${userBlurb ? `In their own words: "${userBlurb}"` : ''}
 ${cvData?.personal?.bio ? `Existing summary (improve the WRITING of this without adding new unsupported facts): "${cvData.personal.bio}"` : ''}
 
-${jobDescription ? `\nTARGET JOB DESCRIPTION (the role this person is applying for):\n"""\n${jobDescription.slice(0, 1500)}\n"""\n\nCRITICAL RULE WHEN A JOB DESCRIPTION IS PROVIDED:\nThe summary MUST be written FROM THE PERSPECTIVE of someone applying for that specific job — not as a general career summary.\n\nSTEP 1: Read the job description and identify the 2-3 most important skills/experience it requires.\nSTEP 2: Find where the person's REAL background matches those requirements.\nSTEP 3: Open the summary with those matching skills/experience — even if they are NOT the person's primary job title.\n\nEXAMPLE: Person is a teacher applying for an IT Support job. The job needs device management, LAN/WAN, hardware config. The person has 6 years of ICT coordination managing devices. CORRECT: open with the device/ICT experience. WRONG: open with "I am a dedicated educator".\n\nPRIORITY ORDER:\n1. Lead with the experience most relevant to the TARGET JOB — name the real employer and role specifically\n2. Name real qualifications and institutions\n3. Include 1-2 standout achievements relevant to the role\n4. Use the job description's own language where it honestly matches the person's background\n5. Never invent anything not in the person's data above` : ''}
+${jobDescription ? `\nTARGET JOB DESCRIPTION (the role this person is applying for):\n"""\n${jobDescription.slice(0, 3000)}\n"""\n\nCRITICAL RULE WHEN A JOB DESCRIPTION IS PROVIDED:\nThe summary MUST be written FROM THE PERSPECTIVE of someone applying for that specific job — not as a general career summary.\n\nSTEP 1: Read the job description and identify the 2-3 most important skills/experience it requires.\nSTEP 2: Find where the person's REAL background matches those requirements.\nSTEP 3: Open the summary with those matching skills/experience — even if they are NOT the person's primary job title.\n\nEXAMPLE: Person is a teacher applying for an IT Support job. The job needs device management, LAN/WAN, hardware config. The person has 6 years of ICT coordination managing devices. CORRECT: open with the device/ICT experience. WRONG: open with "I am a dedicated educator".\n\nPRIORITY ORDER:\n1. Lead with the experience most relevant to the TARGET JOB — name the real employer and role specifically\n2. Name real qualifications and institutions\n3. Include 1-2 standout achievements relevant to the role\n4. Use the job description's own language where it honestly matches the person's background\n5. Never invent anything not in the person's data above` : ''}
 
 EXAMPLE (showing exactly what is expected when a job description is provided):
 
@@ -394,6 +394,43 @@ async function callGroq(prompt, jsonMode = true) {
 }
 
 // Safely extract JSON from model output — handles markdown code blocks and truncated responses
+
+// Convert ALL CAPS words to Title Case (e.g. "UNISA" → keep, "SGODIPHOLA SECONDARY SCHOOL" → "Sgodiphola Secondary School")
+// Preserves known acronyms like UNISA, GDE, ABSA, CAT, ICT, etc.
+const KEEP_UPPER = new Set(['UNISA','GDE','DBE','SACE','ABSA','CAT','ICT','IT','SA','BEd','BTech','PhD','MSc','BSc','MBA','LLB','CA','CPA','HR','PA','CEO','CFO','COO','NQF','CAPS','SASAMS','HTML','CSS','VBA']);
+function toTitleCase(str) {
+  if (!str || typeof str !== 'string') return str;
+  // Only process if string is mostly uppercase
+  const upper = (str.match(/[A-Z]/g) || []).length;
+  const lower = (str.match(/[a-z]/g) || []).length;
+  if (lower > upper) return str; // already mixed case — leave alone
+  return str.replace(/\b([A-Z]+)\b/g, (word) => {
+    if (KEEP_UPPER.has(word)) return word;
+    if (word.length <= 2) return word; // keep short acronyms
+    return word.charAt(0) + word.slice(1).toLowerCase();
+  });
+}
+
+function normaliseParsed(data) {
+  if (!data) return data;
+  // Fix education institution names
+  if (Array.isArray(data.education)) {
+    data.education = data.education.map(e => ({ ...e, institution: toTitleCase(e.institution) }));
+  }
+  // Fix experience employer names
+  if (Array.isArray(data.experience)) {
+    data.experience = data.experience.map(e => ({ ...e, school: toTitleCase(e.school) }));
+  }
+  // Fix bio/personal
+  if (data.personal?.bio) {
+    data.personal.bio = data.personal.bio.replace(/\b([A-Z]{4,})\b/g, (word) => {
+      if (KEEP_UPPER.has(word)) return word;
+      return word.charAt(0) + word.slice(1).toLowerCase();
+    });
+  }
+  return data;
+}
+
 function safeParseJson(raw) {
   if (!raw) throw new Error('Empty response from AI model');
   // Strip markdown code blocks if present
@@ -448,7 +485,7 @@ export const handler = async (event) => {
         const content = await callGroq(prompt, true);
         return {
           statusCode: 200,
-          body: JSON.stringify({ success: true, data: safeParseJson(content) }),
+          body: JSON.stringify({ success: true, data: normaliseParsed(safeParseJson(content)) }),
         };
       }
 
@@ -598,7 +635,7 @@ Reply with exactly one of: ${AVAILABLE_ICONS.join(', ')}`;
     const truncatedText = rawText.slice(0, 8000);
     const prompt   = buildStructurePrompt(truncatedText, cvType, false, jobDescription);
     const rawJson  = await callGroq(prompt, true);
-    const parsed   = safeParseJson(rawJson);
+    const parsed   = normaliseParsed(safeParseJson(rawJson));
 
 
     return {
