@@ -384,11 +384,40 @@ export const handler = async (event) => {
       const body = JSON.parse(event.body || '{}');
 
       if (body.action === 'generate_summary') {
-        const prompt  = buildSummaryPrompt(body.cvData, body.userBlurb || '', body.jobDescription || '');
-        const summary = await callGroq(prompt, false);
+        const jobDesc = body.jobDescription || '';
+        const prompt  = buildSummaryPrompt(body.cvData, body.userBlurb || '', jobDesc);
+        let summary   = (await callGroq(prompt, false)).trim();
+        if (!summary) throw new Error('Empty summary from AI');
+
+        // Post-process: if applying for an IT job but summary opens with "educator",
+        // replace the first sentence with one that leads with ICT experience.
+        if (jobDesc) {
+          const isItJob = /it support|technician|hardware|software|network|lan.wan|desktop|laptop|device|configure|deploy|reimage/i.test(jobDesc);
+          const startsWithEducator = /^i am (an? )?(experienced |dedicated |passionate |qualified )?(educator|teacher|lecturer|tutor)/i.test(summary);
+
+          if (isItJob && startsWithEducator) {
+            const exp = (body.cvData?.experience || []);
+            const ictEntry = exp.find(e =>
+              /ict|coordinator|technolog|computer|network|device/i.test((e.role || '') + ' ' + (e.description || ''))
+            ) || exp[0];
+
+            if (ictEntry) {
+              const role   = ictEntry.role   || 'ICT professional';
+              const org    = ictEntry.school || '';
+              const from   = ictEntry.from   || '';
+              const orgPart  = org  ? ` at ${org}`      : '';
+              const yearPart = from ? `, since ${from}` : '';
+              const opener = `I am an experienced ${role}${orgPart}${yearPart}, with proven hands-on skills in ICT coordination, device management, hardware/software configuration, and technical support.`;
+              // Replace first sentence of model output with our opener
+              const rest = summary.replace(/^[^.!?]+[.!?][ \n]*/,'').trim();
+              summary = opener + (rest ? ' ' + rest : '');
+            }
+          }
+        }
+
         return {
           statusCode: 200,
-          body: JSON.stringify({ success: true, summary: summary.trim() }),
+          body: JSON.stringify({ success: true, summary }),
         };
       }
 
