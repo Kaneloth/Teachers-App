@@ -66,22 +66,19 @@ export default function EducatorProfile() {
     });
   }, [id]);
 
-  // After returning from PayFast with payment=success, if messaging not yet unlocked,
-  // auto-deduct 60 credits as messaging_unlock
+  // Auto-deduct messaging_unlock when returning from PayFast via Send Message upsell
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment') !== 'success') return;
     if (!user || !session?.access_token || isAdmin) return;
-    // Check if came from messaging upsell (stored in sessionStorage)
     const fromMessaging = sessionStorage.getItem('crosssa_messaging_upsell') === '1';
     if (!fromMessaging) return;
     sessionStorage.removeItem('crosssa_messaging_upsell');
-    // Auto-deduct messaging unlock
     fetch('/.netlify/functions/deduct-credits', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ type: 'messaging_unlock' }),
-    }).then(res => res.json()).then(data => {
+    }).then(r => r.json()).then(data => {
       if (data.success && !data.already_unlocked) {
         setHasChatAccess(true);
         toast.success('Messaging unlocked! You can now send messages.');
@@ -89,7 +86,7 @@ export default function EducatorProfile() {
         setHasChatAccess(true);
       }
     }).catch(console.error);
-  }, [user, session, isAdmin]);
+  }, [user?.id, session, isAdmin]);
 
   // Check if user has a messaging_unlock ledger entry
   useEffect(() => {
@@ -97,7 +94,7 @@ export default function EducatorProfile() {
     supabase.from('credit_ledger').select('id', { count: 'exact', head: true })
       .eq('user_id', user.id).eq('type', 'messaging_unlock')
       .then(({ count }) => setHasChatAccess((count ?? 0) > 0));
-  }, [user, isAdmin]);
+  }, [user?.id, isAdmin]);
 
   const handleMessage = async () => {
     if (!user || !educator || !session?.access_token) return;
@@ -281,7 +278,7 @@ export default function EducatorProfile() {
               <h2 className="text-lg font-bold text-foreground">Unlock Messaging</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 You've found a potential match! Purchase the <strong>Pro Credit Pack (R99)</strong> to unlock messaging.
-                60 credits will be reserved for messaging access — remaining credits can be used for CVs and letters.
+                60 credits will be reserved for messaging access — you keep any remaining credits for CVs and letters.
               </p>
             </div>
             <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 space-y-1">
@@ -290,11 +287,39 @@ export default function EducatorProfile() {
                 <span className="font-bold text-primary text-lg">R99</span>
               </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>60 credits reserved for messaging unlock</span>
+                <span>60 credits · messaging unlock included</span>
                 <span className="flex items-center gap-1"><Coins className="w-3 h-3" /> One-time unlock</span>
               </div>
             </div>
-            <CreditBalance variant="full" />
+            <Button
+              className="w-full rounded-xl gap-2"
+              onClick={async () => {
+                if (!session?.access_token) return;
+                try {
+                  const res = await fetch('/.netlify/functions/payfast-initiate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+                    body: JSON.stringify({ package_id: 'pro_pack' }),
+                  });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error || 'Could not start payment');
+                  const form = document.createElement('form');
+                  form.method = 'POST';
+                  form.action = data.action_url;
+                  Object.entries(data.fields as Record<string, string>).forEach(([k, v]) => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden'; input.name = k; input.value = v;
+                    form.appendChild(input);
+                  });
+                  document.body.appendChild(form);
+                  form.submit();
+                } catch (e: any) {
+                  toast.error(e.message || 'Could not start payment');
+                }
+              }}
+            >
+              <Coins className="w-4 h-4" /> Buy Pro Pack · R99
+            </Button>
             <button
               onClick={() => setShowChatUpsell(false)}
               className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-1"
