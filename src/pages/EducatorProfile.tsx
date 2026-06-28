@@ -60,9 +60,14 @@ export default function EducatorProfile() {
 
   useEffect(() => {
     if (!id) return;
-    supabase.from('educators').select('*').eq('id', id).single().then(({ data }) => {
-      setEducator(data);
-      setLoading(false);
+    // Try user_id first (when navigating from chat), fall back to row id
+    supabase.from('educators').select('*').eq('user_id', id).maybeSingle().then(({ data }) => {
+      if (data) { setEducator(data); setLoading(false); return; }
+      // Fall back to row id (existing /educator/:id links)
+      supabase.from('educators').select('*').eq('id', id).maybeSingle().then(({ data: d2 }) => {
+        setEducator(d2);
+        setLoading(false);
+      });
     });
   }, [id]);
 
