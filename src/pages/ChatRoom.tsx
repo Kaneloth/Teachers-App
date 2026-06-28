@@ -421,9 +421,9 @@ export default function ChatRoom() {
           <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
-          <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+          <button onClick={() => navigate(`/educator/${partnerId}`)} className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0 hover:ring-2 hover:ring-primary/40 transition-all">
             <span className="text-sm font-bold text-primary">{partnerInitials}</span>
-          </div>
+          </button>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm text-foreground leading-tight">{partner?.full_name || 'Educator'}</p>
             {partner?.current_province && (
@@ -448,9 +448,9 @@ export default function ChatRoom() {
         <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
           <ArrowLeft className="w-5 h-5 text-foreground" />
         </button>
-        <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+        <button onClick={() => navigate(`/educator/${partnerId}`)} className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0 hover:ring-2 hover:ring-primary/40 transition-all">
           <span className="text-sm font-bold text-primary">{partnerInitials}</span>
-        </div>
+        </button>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm text-foreground leading-tight">{partner?.full_name || 'Educator'}</p>
           {partner?.current_province && (
