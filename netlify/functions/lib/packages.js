@@ -7,8 +7,8 @@
  */
 
 export const PACKAGES = {
-  single:   { credits: 10,   price_zar: 19,  label: 'Single CV Pack' },
+  single:   { credits: 15,  price_zar: 39,  label: 'Starter Pack' },
   standard: { credits: 30,  price_zar: 49,  label: 'Standard Credit Pack' },
-  pro_pack: { credits: 60,  price_zar: 79,  label: 'Pro Credit Pack' },
+  pro_pack: { credits: 60,  price_zar: 99,  label: 'Pro Credit Pack' },
   business: { credits: 200, price_zar: 199, label: 'Business Credit Pack' },
 };

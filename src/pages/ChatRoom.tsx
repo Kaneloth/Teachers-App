@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Send, Check, CheckCheck, Copy, Trash, Trash2, Lock } from 'lucide-react';
+import { ArrowLeft, Send, Check, CheckCheck, Copy, Trash, Trash2, Lock, MessageCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
@@ -72,13 +72,13 @@ export default function ChatRoom() {
   const [hasChatAccess, setHasChatAccess] = useState<boolean | null>(null);
   const [showChatUpsell, setShowChatUpsell] = useState(false);
 
-  // Check R79+ purchase — required to send/reply to messages
+  // Check messaging_unlock — required to send/reply to messages
   useEffect(() => {
     if (!user || isAdmin) { setHasChatAccess(true); return; }
     supabase.from('credit_ledger').select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id).eq('type', 'purchase').gte('amount', 60)
+      .eq('user_id', user.id).eq('type', 'messaging_unlock')
       .then(({ count }) => setHasChatAccess((count ?? 0) > 0));
-  }, [user, isAdmin]);
+  }, [user?.id, isAdmin]);
   const [checkingBlock, setCheckingBlock] = useState(true);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -320,7 +320,7 @@ export default function ChatRoom() {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim() || !user || !partnerId || sending) return;
-    // R79+ required to send — show upsell if not purchased
+    // messaging_unlock required to send — show upsell if not purchased
     if (hasChatAccess === false) {
       setShowChatUpsell(true);
       return;
@@ -552,7 +552,7 @@ export default function ChatRoom() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Always-visible input — send button triggers R79+ upsell if not purchased */}
+      {/* Always-visible input — send button triggers upsell if messaging not unlocked */}
       <form
         onSubmit={handleSend}
         className="flex items-center gap-2 px-4 py-3 border-t border-border bg-background"
@@ -574,7 +574,7 @@ export default function ChatRoom() {
         </Button>
       </form>
 
-      {/* R79+ chat upsell modal */}
+      {/* Messaging unlock upsell modal */}
       {showChatUpsell && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
           onClick={e => { if (e.target === e.currentTarget) setShowChatUpsell(false); }}>
@@ -585,7 +585,7 @@ export default function ChatRoom() {
             <div className="text-center space-y-1.5">
               <h2 className="text-lg font-bold text-foreground">Unlock Messaging</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Top up with the <strong>Pro Credit Pack (R99)</strong> to send and reply to messages.
+                Top up with the <strong>Pro Credit Pack (R99)</strong> to unlock messaging and send replies.
                 60 credits gives you 12 conversations with potential transfer partners.
               </p>
             </div>
@@ -596,10 +596,40 @@ export default function ChatRoom() {
               </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>60 credits · 12 conversations</span>
-                <span>R8.25/chat</span>
+                <span>R6.60/chat</span>
               </div>
             </div>
-            <CreditBalance variant="full" />
+            <Button
+              className="w-full rounded-xl gap-2"
+              onClick={async () => {
+                if (!session?.access_token) return;
+                try {
+                  sessionStorage.setItem('crosssa_messaging_upsell', '1');
+                  const res = await fetch('/.netlify/functions/payfast-initiate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+                    body: JSON.stringify({ package_id: 'pro_pack' }),
+                  });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error || 'Could not start payment');
+                  const form = document.createElement('form');
+                  form.method = 'POST';
+                  form.action = data.action_url;
+                  Object.entries(data.fields as Record<string, string>).forEach(([k, v]) => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden'; input.name = k; input.value = v;
+                    form.appendChild(input);
+                  });
+                  document.body.appendChild(form);
+                  form.submit();
+                } catch (e: any) {
+                  sessionStorage.removeItem('crosssa_messaging_upsell');
+                  toast.error(e.message || 'Could not start payment');
+                }
+              }}
+            >
+              Buy Pro Pack · R99
+            </Button>
             <button
               onClick={() => setShowChatUpsell(false)}
               className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-1"
