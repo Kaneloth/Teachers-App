@@ -595,8 +595,8 @@ export default function ChatRoom() {
                 <span className="font-bold text-primary text-lg">R99</span>
               </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>60 credits · 12 conversations</span>
-                <span>R6.60/chat</span>
+                <span>One-time messaging unlock</span>
+                <span>No credits added to balance</span>
               </div>
             </div>
             <Button
