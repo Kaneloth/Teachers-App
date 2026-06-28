@@ -278,7 +278,7 @@ export default function EducatorProfile() {
               <h2 className="text-lg font-bold text-foreground">Unlock Messaging</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 You've found a potential match! Purchase the <strong>Pro Credit Pack (R99)</strong> to unlock messaging.
-                60 credits will be reserved for messaging access — you keep any remaining credits for CVs and letters.
+                This is a one-time access fee — the 60 credits cover your unlock and are not added to your credit balance.
               </p>
             </div>
             <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 space-y-1">
@@ -287,8 +287,8 @@ export default function EducatorProfile() {
                 <span className="font-bold text-primary text-lg">R99</span>
               </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>60 credits · messaging unlock included</span>
-                <span className="flex items-center gap-1"><Coins className="w-3 h-3" /> One-time unlock</span>
+                <span>One-time messaging unlock</span>
+                <span className="flex items-center gap-1"><Coins className="w-3 h-3" /> No credits added to balance</span>
               </div>
             </div>
             <Button

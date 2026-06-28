@@ -20,7 +20,7 @@ import { toast } from 'sonner';
 const PACKAGES = [
   { id: 'single',   label: 'Single CV',            price: 29,  credits: 10,  note: '1 CV + 1 letter' },
   { id: 'standard', label: 'Standard Credit Pack', price: 49,  credits: 30,  note: '3 CVs + 3 letters' },
-  { id: 'pro_pack', label: 'Pro Credit Pack',       price: 99,  credits: 60,  note: 'Includes messaging unlock', popular: true },
+  { id: 'pro_pack', label: 'Pro Credit Pack',       price: 99,  credits: 60,  note: 'Messaging unlock (credits not added to balance)', popular: true },
   { id: 'business', label: 'Business Credit Pack',  price: 199, credits: 200, note: '22 CVs + 2 letters' },
 ] as const;
 
@@ -135,7 +135,7 @@ export default function CreditBalance({ showBuyButton = false, variant = 'chip',
                 <h2 className="text-lg font-bold text-foreground">Unlock Messaging?</h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Your credits are in! Would you like to unlock messaging so you can connect with potential transfer partners?
-                  This deducts <strong>60 credits</strong> as a one-time fee.
+                  This uses <strong>60 credits</strong> as a one-time unlock fee — these credits will be deducted from your balance.
                 </p>
               </div>
               <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 space-y-1">
@@ -191,7 +191,7 @@ export default function CreditBalance({ showBuyButton = false, variant = 'chip',
               <h2 className="text-lg font-bold text-foreground">Unlock Messaging?</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Your credits are in! Would you like to unlock messaging so you can connect with potential transfer partners?
-                This deducts <strong>60 credits</strong> as a one-time fee.
+                This uses <strong>60 credits</strong> as a one-time unlock fee — these credits will be deducted from your balance.
               </p>
             </div>
             <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 space-y-1">

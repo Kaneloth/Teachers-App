@@ -585,8 +585,8 @@ export default function ChatRoom() {
             <div className="text-center space-y-1.5">
               <h2 className="text-lg font-bold text-foreground">Unlock Messaging</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Top up with the <strong>Pro Credit Pack (R99)</strong> to unlock messaging and send replies.
-                60 credits gives you 12 conversations with potential transfer partners.
+                Purchase the <strong>Pro Credit Pack (R99)</strong> to unlock messaging.
+                This is a one-time messaging fee — the 60 credits cover your access and are not added to your balance.
               </p>
             </div>
             <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 space-y-1">
