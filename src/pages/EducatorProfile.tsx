@@ -57,6 +57,7 @@ export default function EducatorProfile() {
   const [messaging, setMessaging] = useState(false);
   const [showChatUpsell, setShowChatUpsell] = useState(false);
   const [hasChatAccess, setHasChatAccess] = useState<boolean | null>(null);
+  const [hasExistingChat, setHasExistingChat] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -70,6 +71,16 @@ export default function EducatorProfile() {
       });
     });
   }, [id]);
+
+  // Check if user already has a conversation with this educator
+  useEffect(() => {
+    if (!user || !educator) return;
+    const targetId = educator.user_id;
+    if (!targetId || targetId === user.id) return;
+    supabase.from('messages').select('id', { count: 'exact', head: true })
+      .or(`and(sender_id.eq.${user.id},receiver_id.eq.${targetId}),and(sender_id.eq.${targetId},receiver_id.eq.${user.id})`)
+      .then(({ count }) => setHasExistingChat((count ?? 0) > 0));
+  }, [user, educator]);
 
   // Auto-deduct messaging_unlock when returning from PayFast via Send Message upsell
   useEffect(() => {
@@ -253,7 +264,17 @@ export default function EducatorProfile() {
       {/* Sticky Send Message button — only shown for actively looking educators */}
       {!isOwn && (
         <div className="fixed bottom-16 left-0 right-0 px-4 pb-3 bg-background/90 backdrop-blur-sm">
-          {educator.is_actively_looking ? (
+          {hasExistingChat ? (
+            <Button
+              onClick={handleMessage}
+              disabled={messaging}
+              variant="outline"
+              className="w-full h-12 rounded-2xl text-base font-semibold gap-2"
+            >
+              <MessageCircle className="w-5 h-5" />
+              {messaging ? 'Opening…' : 'Continue Chat'}
+            </Button>
+          ) : educator.is_actively_looking ? (
             <Button
               onClick={handleMessage}
               disabled={messaging}
