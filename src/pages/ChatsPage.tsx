@@ -18,7 +18,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { blockUser, isBlocked } from '@/lib/blockUtils';
-
 interface Thread {
   partnerId: string;
   partnerName: string;
@@ -27,20 +26,17 @@ interface Thread {
   unread: number;
   isMine: boolean;
 }
-
 function formatThreadTime(iso: string) {
   const d = new Date(iso);
   if (isToday(d)) return format(d, 'HH:mm');
   if (isThisYear(d)) return format(d, 'd MMM');
   return format(d, 'd MMM yyyy');
 }
-
 export default function ChatsPage() {
   const { user } = useAuth();
   const { balance, loading: creditsLoading } = useCredits();
   const [hasPurchased, setHasPurchased] = useState(false);
   const [showTopUp, setShowTopUp] = useState(false);
-
   useEffect(() => {
     if (!user) return;
     supabase.from('credit_ledger').select('id', { count: 'exact', head: true })
@@ -51,7 +47,6 @@ export default function ChatsPage() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
   // Delete‑chat & block states
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -60,7 +55,6 @@ export default function ChatsPage() {
   const longPressTriggered = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const userEventsChannelRef = useRef<any>(null);
-
   // Close context menu on outside click
   useEffect(() => {
     const handle = (e: MouseEvent | TouchEvent) => {
@@ -75,7 +69,6 @@ export default function ChatsPage() {
       document.removeEventListener('touchstart', handle);
     };
   }, []);
-
   const startLongPress = (partnerId: string) => {
     longPressTriggered.current = false;
     longPressRef.current = setTimeout(() => {
@@ -83,11 +76,9 @@ export default function ChatsPage() {
       setSelectedThread(partnerId);
     }, 400);
   };
-
   const cancelLongPress = () => {
     if (longPressRef.current) clearTimeout(longPressRef.current);
   };
-
   const handleRowClick = (partnerId: string) => {
     if (longPressTriggered.current) {
       longPressTriggered.current = false;
@@ -99,7 +90,6 @@ export default function ChatsPage() {
     }
     navigate(`/chat/${partnerId}`);
   };
-
   // Fetch threads, excluding blocked users
   const fetchThreads = useCallback(async () => {
     if (!user) return;
@@ -112,30 +102,25 @@ export default function ChatsPage() {
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .order('created_at', { ascending: false })
         .limit(200);
-
       if (!messages) {
         setThreads([]);
         setLoading(false);
         return;
       }
-
       // 2. Get blocks (both directions)
       const { data: blocksGiven } = await supabase
         .from('user_blocks')
         .select('blocked_id')
         .eq('blocker_id', user.id);
       const blockedByMe = new Set(blocksGiven?.map(b => b.blocked_id) || []);
-
       const { data: blocksReceived } = await supabase
         .from('user_blocks')
         .select('blocker_id')
         .eq('blocked_id', user.id);
       const blockedByThem = new Set(blocksReceived?.map(b => b.blocker_id) || []);
-
       // 3. Build threads, skipping any partner that is blocked in either direction
       const seenPartners = new Set<string>();
       const threadMap: Thread[] = [];
-
       // Count unread per partner first (messages sent TO me that are unread)
       const unreadCount = new Map<string, number>();
       for (const msg of messages) {
@@ -144,7 +129,6 @@ export default function ChatsPage() {
           unreadCount.set(pid, (unreadCount.get(pid) || 0) + 1);
         }
       }
-
       for (const msg of messages) {
         const partnerId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
         if (blockedByMe.has(partnerId) || blockedByThem.has(partnerId)) continue;
@@ -160,7 +144,6 @@ export default function ChatsPage() {
           });
         }
       }
-
       // 4. Fetch display names
       const partnerIds = [...seenPartners];
       if (partnerIds.length) {
@@ -173,7 +156,6 @@ export default function ChatsPage() {
           if (nameMap.has(t.partnerId)) t.partnerName = nameMap.get(t.partnerId)!;
         });
       }
-
       setThreads(threadMap);
     } catch (error) {
       console.error('Error fetching threads:', error);
@@ -181,21 +163,14 @@ export default function ChatsPage() {
       setLoading(false);
     }
   }, [user]);
-
   useEffect(() => { fetchThreads(); }, [fetchThreads]);
-
-  // Real-time listener: refresh threads on new messages or deletions.
-  // Listens on the user-specific channel that ChatRoom broadcasts to.
-  // This guarantees last-message stays accurate after sends and deletes.
   useEffect(() => {
     if (!user) return;
     const channel = supabase
       .channel(`user-events-${user.id}`)
-      // thread_changed: fired by ChatRoom on send or delete-for-everyone
       .on('broadcast', { event: 'thread_changed' }, async () => {
         await fetchThreads();
       })
-      // Also catch incoming new messages via postgres_changes (works without Replica Identity)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${user.id}` },
@@ -205,13 +180,11 @@ export default function ChatsPage() {
     userEventsChannelRef.current = channel;
     return () => { supabase.removeChannel(channel); };
   }, [user, fetchThreads]);
-
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchThreads();
     setRefreshing(false);
   };
-
   const handleDeleteChat = async (partnerId: string) => {
     if (!user) return;
     await supabase
@@ -225,7 +198,6 @@ export default function ChatsPage() {
     setSelectedThread(null);
     setConfirmDelete(null);
   };
-
   const handleBlock = async (partnerId: string) => {
     setBlockingPartner(partnerId);
     const success = await blockUser(partnerId);
@@ -238,9 +210,7 @@ export default function ChatsPage() {
     }
     setBlockingPartner(null);
   };
-
   const deletingPartner = confirmDelete ? threads.find(t => t.partnerId === confirmDelete) : null;
-
   return (
     <div className="max-w-2xl mx-auto">
       {/* Credit balance chip — only after first purchase */}
@@ -255,7 +225,6 @@ export default function ChatsPage() {
           </button>
         </div>
       )}
-
       {showTopUp && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4"
           onClick={() => setShowTopUp(false)}>
@@ -264,7 +233,6 @@ export default function ChatsPage() {
           </div>
         </div>
       )}
-
       <div className="flex items-center gap-2 px-4 pt-4 pb-4">
         <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
           <ArrowLeft className="w-5 h-5 text-foreground" />
@@ -274,7 +242,6 @@ export default function ChatsPage() {
           <RefreshCw className={`w-4 h-4 text-primary ${refreshing ? 'animate-spin' : ''}`} />
         </button>
       </div>
-
       {loading ? (
         <div className="flex justify-center py-16">
           <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
@@ -290,7 +257,6 @@ export default function ChatsPage() {
           {threads.map(t => {
             const isSelected = selectedThread === t.partnerId;
             const initials = t.partnerName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
-
             return (
               <div key={t.partnerId} className="relative">
                 <div
@@ -308,9 +274,12 @@ export default function ChatsPage() {
                       : 'border-border'
                   }`}
                 >
-                  <div className="w-11 h-11 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                  <button
+                    onClick={e => { e.stopPropagation(); navigate(`/educator/${t.partnerId}`); }}
+                    className="w-11 h-11 rounded-full bg-primary/15 flex items-center justify-center shrink-0 hover:ring-2 hover:ring-primary/40 transition-all"
+                  >
                     <span className="text-sm font-bold text-primary">{initials}</span>
-                  </div>
+                  </button>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-0.5">
                       <p className={`text-sm truncate ${t.unread > 0 ? 'font-bold text-foreground' : 'font-semibold text-foreground'}`}>
@@ -335,7 +304,6 @@ export default function ChatsPage() {
                     </div>
                   </div>
                 </div>
-
                 {isSelected && (
                   <div
                     ref={menuRef}
@@ -366,7 +334,6 @@ export default function ChatsPage() {
           })}
         </div>
       )}
-
       <AlertDialog open={!!confirmDelete} onOpenChange={open => { if (!open) setConfirmDelete(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
