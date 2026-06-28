@@ -12,7 +12,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const PACKAGES = {
   single:   { credits: 15,  price_zar: 39,  label: 'Starter Pack' },
   standard: { credits: 30,  price_zar: 59,  label: 'Standard Credit Pack' },
-  pro_pack: { credits: 60,  price_zar: 99,  label: 'Pro Credit Pack' },
+  pro_pack: { credits: 60,  price_zar: 99,  label: 'Pro Credit Pack (includes messaging unlock)' },
   business: { credits: 200, price_zar: 199, label: 'Business Credit Pack' },
 };
 

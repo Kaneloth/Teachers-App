@@ -66,11 +66,36 @@ export default function EducatorProfile() {
     });
   }, [id]);
 
-  // Check if user has ever made an R79+ purchase (unlocks messaging)
+  // After returning from PayFast with payment=success, if messaging not yet unlocked,
+  // auto-deduct 60 credits as messaging_unlock
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') !== 'success') return;
+    if (!user || !session?.access_token || isAdmin) return;
+    // Check if came from messaging upsell (stored in sessionStorage)
+    const fromMessaging = sessionStorage.getItem('crosssa_messaging_upsell') === '1';
+    if (!fromMessaging) return;
+    sessionStorage.removeItem('crosssa_messaging_upsell');
+    // Auto-deduct messaging unlock
+    fetch('/.netlify/functions/deduct-credits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ type: 'messaging_unlock' }),
+    }).then(res => res.json()).then(data => {
+      if (data.success && !data.already_unlocked) {
+        setHasChatAccess(true);
+        toast.success('Messaging unlocked! You can now send messages.');
+      } else if (data.already_unlocked) {
+        setHasChatAccess(true);
+      }
+    }).catch(console.error);
+  }, [user, session, isAdmin]);
+
+  // Check if user has a messaging_unlock ledger entry
   useEffect(() => {
     if (!user || isAdmin) { setHasChatAccess(true); return; }
     supabase.from('credit_ledger').select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id).eq('type', 'purchase').gte('amount', 60)
+      .eq('user_id', user.id).eq('type', 'messaging_unlock')
       .then(({ count }) => setHasChatAccess((count ?? 0) > 0));
   }, [user, isAdmin]);
 
@@ -79,6 +104,7 @@ export default function EducatorProfile() {
     // If user hasn't made an R79+ purchase, show the chat upsell modal
     // No lock icon shown on the button — just a smooth upsell on tap
     if (hasChatAccess === false) {
+      sessionStorage.setItem('crosssa_messaging_upsell', '1');
       setShowChatUpsell(true);
       return;
     }
@@ -254,18 +280,18 @@ export default function EducatorProfile() {
             <div className="text-center space-y-1.5">
               <h2 className="text-lg font-bold text-foreground">Unlock Messaging</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                You've found a potential match! Top up with the <strong>Pro Credit Pack (R99)</strong> to start chatting.
-                60 credits gives you 12 conversations with potential transfer partners.
+                You've found a potential match! Purchase the <strong>Pro Credit Pack (R99)</strong> to unlock messaging.
+                60 credits will be reserved for messaging access — remaining credits can be used for CVs and letters.
               </p>
             </div>
             <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 space-y-1">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold text-foreground">Pro Credit Pack</span>
-                <span className="font-bold text-primary text-lg">R79</span>
+                <span className="font-bold text-primary text-lg">R99</span>
               </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>60 credits · 12 conversations</span>
-                <span className="flex items-center gap-1"><Coins className="w-3 h-3" /> R8.25/chat</span>
+                <span>60 credits reserved for messaging unlock</span>
+                <span className="flex items-center gap-1"><Coins className="w-3 h-3" /> One-time unlock</span>
               </div>
             </div>
             <CreditBalance variant="full" />

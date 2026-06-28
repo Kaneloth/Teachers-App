@@ -9,8 +9,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { Coins, X, Check, Loader2, Zap } from 'lucide-react';
+import { Coins, X, Check, Loader2, Zap, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCredits } from '@/hooks/useCredits';
 import { useAuth } from '@/lib/AuthContext';
@@ -19,10 +18,10 @@ import { toast } from 'sonner';
 
 // ── Credit packages (mirror your screenshot) ────────────────────────────────
 const PACKAGES = [
-  { id: 'single',   label: 'Starter Pack',          price: 39,  credits: 15,  note: '1 CV + 1 letter' },
-  { id: 'standard', label: 'Standard Credit Pack',  price: 59,  credits: 30,  note: '3 CVs + 3 letters', popular: true },
-  { id: 'pro_pack', label: 'Pro Credit Pack',        price: 99,  credits: 60,  note: '6 CVs + 6 letters · unlocks messaging' },
-  { id: 'business', label: 'Business Credit Pack',   price: 199, credits: 200, note: '22 CVs + many chats · unlocks messaging' },
+  { id: 'single',   label: 'Single CV',            price: 29,  credits: 10,  note: '1 CV + 1 letter' },
+  { id: 'standard', label: 'Standard Credit Pack', price: 49,  credits: 30,  note: '3 CVs + 3 letters', popular: true },
+  { id: 'pro_pack', label: 'Pro Credit Pack',       price: 99,  credits: 60,  note: 'Includes messaging unlock' },
+  { id: 'business', label: 'Business Credit Pack',  price: 199, credits: 200, note: '22 CVs + 2 letters' },
 ] as const;
 
 type PackageId = typeof PACKAGES[number]['id'];
@@ -36,17 +35,26 @@ interface Props {
 
 export default function CreditBalance({ showBuyButton = false, variant = 'chip', onlyAfterPurchase = false }: Props) {
   const { balance, loading, refetch } = useCredits();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [hasPurchased, setHasPurchased] = useState<boolean | null>(null);
+  const [showUnlockPrompt, setShowUnlockPrompt] = useState(false);
+  const [hasMessagingAccess, setHasMessagingAccess] = useState<boolean | null>(null);
 
-  // Hide chip until user has made a purchase (onlyAfterPurchase mode)
   useEffect(() => {
     if (!onlyAfterPurchase || !user) { setHasPurchased(false); return; }
     supabase.from('credit_ledger').select('id', { count: 'exact', head: true })
       .eq('user_id', user.id).eq('type', 'purchase')
       .then(({ count }) => setHasPurchased((count ?? 0) > 0));
   }, [user?.id, onlyAfterPurchase]);
+
+  // Check messaging access (for unlock prompt after purchase)
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('credit_ledger').select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id).eq('type', 'messaging_unlock')
+      .then(({ count }) => setHasMessagingAccess((count ?? 0) > 0));
+  }, [user?.id]);
 
   // After a PayFast redirect back to the app, the URL will contain
   // ?payment=success or ?payment=cancelled. The actual credit grant
@@ -62,7 +70,15 @@ export default function CreditBalance({ showBuyButton = false, variant = 'chip',
     if (status === 'success') {
       toast.success('Payment received! Your credits will appear shortly.');
       refetch();
-      const t = setTimeout(() => refetch(), 4000); // webhook may lag slightly
+      const t = setTimeout(() => {
+        refetch();
+        // If messaging not unlocked and no messaging upsell flag (i.e. bought from CV/letters),
+        // prompt user to unlock messaging
+        const fromMessaging = sessionStorage.getItem('crosssa_messaging_upsell') === '1';
+        if (!fromMessaging && hasMessagingAccess === false) {
+          setShowUnlockPrompt(true);
+        }
+      }, 4000);
       return () => clearTimeout(t);
     } else if (status === 'cancelled') {
       toast.info('Payment cancelled — no credits were charged.');
@@ -79,6 +95,28 @@ export default function CreditBalance({ showBuyButton = false, variant = 'chip',
     window.history.replaceState({}, '', newUrl);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleMessagingUnlock = async () => {
+    if (!session?.access_token) return;
+    try {
+      const res = await fetch('/.netlify/functions/deduct-credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ type: 'messaging_unlock' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setHasMessagingAccess(true);
+        setShowUnlockPrompt(false);
+        refetch();
+        toast.success('Messaging unlocked! You can now send messages to potential transfer partners.');
+      } else {
+        toast.error(data.error || 'Not enough credits to unlock messaging.');
+      }
+    } catch {
+      toast.error('Failed to unlock messaging. Please try again.');
+    }
+  };
 
   if (onlyAfterPurchase && hasPurchased === false) return null;
 
@@ -110,6 +148,39 @@ export default function CreditBalance({ showBuyButton = false, variant = 'chip',
         )}
       </div>
       {showModal && <PurchaseModal onClose={() => { setShowModal(false); refetch(); }} />}
+      {showUnlockPrompt && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
+          onClick={e => { if (e.target === e.currentTarget) setShowUnlockPrompt(false); }}>
+          <div className="bg-background rounded-2xl w-full max-w-sm shadow-xl p-6 space-y-4">
+            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mx-auto">
+              <MessageCircle className="w-7 h-7 text-primary" />
+            </div>
+            <div className="text-center space-y-1.5">
+              <h2 className="text-lg font-bold text-foreground">Unlock Messaging?</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Your credits are in! Would you like to unlock messaging now?
+                This deducts <strong>60 credits</strong> and lets you connect with potential transfer partners.
+              </p>
+            </div>
+            <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 space-y-1">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-foreground">Messaging unlock</span>
+                <span className="font-bold text-primary">60 credits</span>
+              </div>
+              <p className="text-xs text-muted-foreground">One-time fee · Send messages to any educator</p>
+            </div>
+            <div className="space-y-2">
+              <Button onClick={handleMessagingUnlock} className="w-full rounded-xl gap-2">
+                <MessageCircle className="w-4 h-4" /> Yes, unlock messaging
+              </Button>
+              <button onClick={() => setShowUnlockPrompt(false)}
+                className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-1">
+                No thanks, I'll use credits for CVs
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -125,7 +196,7 @@ function CreditCard({ balance, loading, onBuy }: { balance: number; loading: boo
           </div>
           <div>
             <p className="text-sm font-semibold text-foreground">Your Credits</p>
-            <p className="text-xs text-muted-foreground">CV = 9 credits · Letter = 2 credits</p>
+            <p className="text-xs text-muted-foreground">CV = 9 credits · Letter = 1 credit</p>
           </div>
         </div>
         <div className="text-right">
@@ -191,18 +262,9 @@ export function LowCreditsPrompt({ onViewPackages, message }: { onViewPackages: 
 }
 
 // ── Purchase modal ────────────────────────────────────────────────────────────
-export function PurchaseModal({ onClose }: { onClose: () => void }) {
-  const { session, user } = useAuth();
+function PurchaseModal({ onClose }: { onClose: () => void }) {
+  const { session } = useAuth();
   const [purchasing, setPurchasing] = useState<PackageId | null>(null);
-  const [profileType, setProfileType] = useState<'educator' | 'general' | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    supabase.from('educators').select('profile_type').eq('user_id', user.id).maybeSingle()
-      .then(({ data }) => setProfileType((data?.profile_type as 'educator' | 'general') ?? 'educator'));
-  }, [user?.id]);
-
-  const isGeneral = profileType === 'general';
 
   const handlePurchase = async (pkg: typeof PACKAGES[number]) => {
     if (!session?.access_token) { toast.error('Please sign in first.'); return; }
@@ -245,15 +307,15 @@ export function PurchaseModal({ onClose }: { onClose: () => void }) {
     return () => { if (nav) nav.style.display = ''; };
   }, []);
 
-  return createPortal(
-    <div className="fixed inset-0 bg-black/50 z-[9999] flex items-start justify-center overflow-y-auto py-4 px-4"
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-background rounded-2xl w-full max-w-sm shadow-xl my-auto min-h-0">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
             <h2 className="font-bold text-foreground">Top Up Credits</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">{isGeneral ? 'CV = 9 credits · Cover letter = 2 credits' : 'CV = 9cr · Cover letter = 2cr · New chat = 5cr'}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">CV = 9 credits · Cover letter = 2 credits · Chat = 5 credits</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
             <X className="w-4 h-4 text-muted-foreground" />
@@ -311,24 +373,19 @@ export function PurchaseModal({ onClose }: { onClose: () => void }) {
             <p className="text-xs font-medium text-foreground mt-1 pt-1 border-t border-border">Credit costs:</p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              CV download = 9 credits · Cover letter = 2 credits
+              CV download = 9cr · Cover letter = 2cr · New chat = 5cr
             </p>
-            {!isGeneral && (
-              <>
-                <p className="text-xs text-muted-foreground flex items-start gap-1.5">
-                  <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-                  New chat = 5cr · Guide download = 3cr · ID verification = 30cr
-                </p>
-                <p className="text-xs text-muted-foreground flex items-start gap-1.5">
-                  <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-                  R99+ pack (60cr) unlocks direct messaging
-                </p>
-              </>
-            )}
+            <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+              <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
+              Guide download = 3cr · ID verification = 30cr
+            </p>
+            <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+              <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
+              R99 Pro pack unlocks messaging (60 credits reserved)
+            </p>
           </div>
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
