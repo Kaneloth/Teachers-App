@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Send, Check, CheckCheck, Copy, Trash, Trash2, Lock, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Send, Check, CheckCheck, Copy, Trash, Trash2, Lock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
@@ -67,18 +67,19 @@ export default function ChatRoom() {
   const [partner, setPartner] = useState<PartnerInfo | null>(null);
   const [sending, setSending] = useState(false);
   const [selectedMsg, setSelectedMsg] = useState<Message | null>(null);
+  const [menuOpenUp, setMenuOpenUp] = useState(false);
   const [chatBlocked, setChatBlocked] = useState(false);
   const [hasSentBefore, setHasSentBefore] = useState<boolean | null>(null);
   const [hasChatAccess, setHasChatAccess] = useState<boolean | null>(null);
   const [showChatUpsell, setShowChatUpsell] = useState(false);
 
-  // Check messaging_unlock — required to send/reply to messages
+  // Check R79+ purchase — required to send/reply to messages
   useEffect(() => {
     if (!user || isAdmin) { setHasChatAccess(true); return; }
     supabase.from('credit_ledger').select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id).eq('type', 'messaging_unlock')
+      .eq('user_id', user.id).eq('type', 'purchase').gte('amount', 60)
       .then(({ count }) => setHasChatAccess((count ?? 0) > 0));
-  }, [user?.id, isAdmin]);
+  }, [user, isAdmin]);
   const [checkingBlock, setCheckingBlock] = useState(true);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -150,10 +151,22 @@ export default function ChatRoom() {
     };
   }, []);
 
-  const startLongPress = (msg: Message) => {
+  // Measures available space below the bubble — if the context menu
+  // (~140-180px tall) wouldn't fit, flip it to open upward instead so it
+  // never gets hidden behind the input bar or bottom navigation.
+  const decideMenuDirection = (target: HTMLElement | null) => {
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    setMenuOpenUp(spaceBelow < 180);
+  };
+
+  const startLongPress = (msg: Message, e?: React.MouseEvent | React.TouchEvent) => {
     longPressTriggered.current = false;
+    const target = e?.currentTarget as HTMLElement | undefined;
     longPressRef.current = setTimeout(() => {
       longPressTriggered.current = true;
+      decideMenuDirection(target ?? null);
       setSelectedMsg(msg);
     }, 400);
   };
@@ -162,12 +175,16 @@ export default function ChatRoom() {
     if (longPressRef.current) clearTimeout(longPressRef.current);
   };
 
-  const handleBubbleClick = (msg: Message) => {
+  const handleBubbleClick = (msg: Message, e?: React.MouseEvent) => {
     if (longPressTriggered.current) {
       longPressTriggered.current = false;
       return;
     }
-    setSelectedMsg(prev => (prev?.id === msg.id ? null : msg));
+    setSelectedMsg(prev => {
+      if (prev?.id === msg.id) return null;
+      decideMenuDirection((e?.currentTarget as HTMLElement) ?? null);
+      return msg;
+    });
   };
 
   const handleCopy = (msg: Message) => {
@@ -320,7 +337,7 @@ export default function ChatRoom() {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim() || !user || !partnerId || sending) return;
-    // messaging_unlock required to send — show upsell if not purchased
+    // R79+ required to send — show upsell if not purchased
     if (hasChatAccess === false) {
       setShowChatUpsell(true);
       return;
@@ -421,9 +438,9 @@ export default function ChatRoom() {
           <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
-          <button onClick={() => navigate(`/educator/${partnerId}`)} className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0 hover:ring-2 hover:ring-primary/40 transition-all">
+          <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
             <span className="text-sm font-bold text-primary">{partnerInitials}</span>
-          </button>
+          </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm text-foreground leading-tight">{partner?.full_name || 'Educator'}</p>
             {partner?.current_province && (
@@ -448,9 +465,9 @@ export default function ChatRoom() {
         <button onClick={() => navigate(-1)} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
           <ArrowLeft className="w-5 h-5 text-foreground" />
         </button>
-        <button onClick={() => navigate(`/educator/${partnerId}`)} className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0 hover:ring-2 hover:ring-primary/40 transition-all">
+        <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
           <span className="text-sm font-bold text-primary">{partnerInitials}</span>
-        </button>
+        </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm text-foreground leading-tight">{partner?.full_name || 'Educator'}</p>
           {partner?.current_province && (
@@ -490,7 +507,7 @@ export default function ChatRoom() {
                 {isSelected && (
                   <div
                     ref={menuRef}
-                    className={`absolute z-50 top-full mt-1 ${isMe ? 'right-0' : 'left-0'} bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[180px]`}
+                    className={`absolute z-50 ${menuOpenUp ? 'bottom-full mb-1' : 'top-full mt-1'} ${isMe ? 'right-0' : 'left-0'} bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[180px]`}
                   >
                     <button
                       onClick={() => handleCopy(msg)}
@@ -519,12 +536,12 @@ export default function ChatRoom() {
                 )}
 
                 <div
-                  onMouseDown={() => startLongPress(msg)}
+                  onMouseDown={(e) => startLongPress(msg, e)}
                   onMouseUp={cancelLongPress}
                   onMouseLeave={cancelLongPress}
-                  onTouchStart={() => startLongPress(msg)}
+                  onTouchStart={(e) => startLongPress(msg, e)}
                   onTouchEnd={cancelLongPress}
-                  onClick={() => handleBubbleClick(msg)}
+                  onClick={(e) => handleBubbleClick(msg, e)}
                   className={`relative max-w-[72%] rounded-2xl px-3.5 py-2 text-sm cursor-pointer select-none transition-opacity ${
                     isMe
                       ? 'bg-primary text-white rounded-br-[4px]'
@@ -552,7 +569,7 @@ export default function ChatRoom() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Always-visible input — send button triggers upsell if messaging not unlocked */}
+      {/* Always-visible input — send button triggers R79+ upsell if not purchased */}
       <form
         onSubmit={handleSend}
         className="flex items-center gap-2 px-4 py-3 border-t border-border bg-background"
@@ -574,7 +591,7 @@ export default function ChatRoom() {
         </Button>
       </form>
 
-      {/* Messaging unlock upsell modal */}
+      {/* R79+ chat upsell modal */}
       {showChatUpsell && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
           onClick={e => { if (e.target === e.currentTarget) setShowChatUpsell(false); }}>
@@ -585,51 +602,21 @@ export default function ChatRoom() {
             <div className="text-center space-y-1.5">
               <h2 className="text-lg font-bold text-foreground">Unlock Messaging</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Purchase the <strong>Pro Credit Pack (R99)</strong> to unlock messaging.
-                This is a one-time messaging fee — the 60 credits cover your access and are not added to your balance.
+                Top up with the <strong>Pro Credit Pack (R79)</strong> to send and reply to messages.
+                60 credits gives you 12 conversations with potential transfer partners.
               </p>
             </div>
             <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 space-y-1">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold text-foreground">Pro Credit Pack</span>
-                <span className="font-bold text-primary text-lg">R99</span>
+                <span className="font-bold text-primary text-lg">R79</span>
               </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>One-time messaging unlock</span>
-                <span>No credits added to balance</span>
+                <span>60 credits · 12 conversations</span>
+                <span>R6.60/chat</span>
               </div>
             </div>
-            <Button
-              className="w-full rounded-xl gap-2"
-              onClick={async () => {
-                if (!session?.access_token) return;
-                try {
-                  sessionStorage.setItem('crosssa_messaging_upsell', '1');
-                  const res = await fetch('/.netlify/functions/payfast-initiate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-                    body: JSON.stringify({ package_id: 'pro_pack' }),
-                  });
-                  const data = await res.json();
-                  if (!res.ok) throw new Error(data.error || 'Could not start payment');
-                  const form = document.createElement('form');
-                  form.method = 'POST';
-                  form.action = data.action_url;
-                  Object.entries(data.fields as Record<string, string>).forEach(([k, v]) => {
-                    const input = document.createElement('input');
-                    input.type = 'hidden'; input.name = k; input.value = v;
-                    form.appendChild(input);
-                  });
-                  document.body.appendChild(form);
-                  form.submit();
-                } catch (e: any) {
-                  sessionStorage.removeItem('crosssa_messaging_upsell');
-                  toast.error(e.message || 'Could not start payment');
-                }
-              }}
-            >
-              Buy Pro Pack · R99
-            </Button>
+            <CreditBalance variant="full" />
             <button
               onClick={() => setShowChatUpsell(false)}
               className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-1"
