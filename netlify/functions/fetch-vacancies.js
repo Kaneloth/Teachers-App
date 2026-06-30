@@ -164,6 +164,10 @@ async function fetchAdzuna(log) {
 
   // 4 broad queries that collectively cover all major sectors.
   // Keep to 4 to stay within the Netlify function timeout even with 1.1 s gaps.
+  // NOTE: Adzuna's `what` parameter does AND matching across all words in the
+  // phrase (job must contain every word) — that's why 5-word phrases like
+  // "educator teacher school principal lecturer" previously returned 0 results.
+  // `what_or` does OR matching, which is what broad category sweeps need.
   const queries = [
     'educator teacher school principal lecturer',              // Education
     'software developer engineer IT programmer analyst',       // Technology + Engineering
@@ -179,7 +183,7 @@ async function fetchAdzuna(log) {
     const params = new URLSearchParams({
       app_id:           appId,
       app_key:          appKey,
-      what,
+      what_or:          what,   // OR matching — `what` would require ALL words to match (returns 0 results)
       results_per_page: '50',
       sort_by:          'date',
     });
