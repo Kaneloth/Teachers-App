@@ -123,11 +123,18 @@ const getPhase = (t='') => { const l=t.toLowerCase(); if(l.includes('foundation'
 const getPostLevel = (t='') => { const m=t.match(/post\s*level\s*(\d)/i)||t.match(/\bpl\s*(\d)/i); return m?m[1]:null; };
 
 /* ─── Job category detection ─────────────────────────────────────────────── */
+// Education pattern tightened — removed words that cause false positives in
+// other sectors: "school" (business school, nursing school), "academic"
+// (academic qualifications — appears in almost any professional job ad),
+// "trainer" (personal trainer, sales trainer), "professor" (rare but kept
+// only alongside lecturer context), "persal" (government payroll system,
+// triggers on Health/Admin govt jobs). Now requires more specific,
+// unambiguous education-sector terms.
 const CATEGORY_PATTERNS = [
-  ['Education',    /educat|teacher|school|principal|tutor|\bgrade\s*[r\d]|phase\b|curriculum|sace|persal|lecturer|professor|academic|trainer|learning support|head of department|\bhod\b|deputy head|classroom|teaching/i],
+  ['Education',    /\beducator\b|\bteacher\b|teaching\s+(post|position|vacancy|staff)|school\s+(principal|teacher|educator)|\btutor\b|\bgrade\s*[r\d]\b.*\b(teacher|educator|class)|phase\b.*\b(teacher|educator)|\bcurriculum\b.*\b(teacher|educator|school)|\bSACE\b|\blecturer\b|\blearning support\b|head of department.*\bschool\b|\bHOD\b.*\bschool\b|deputy head.*\bschool\b|\bclassroom\b|CAPS curriculum|matric.*pass rate|Department of (Basic |Higher )?Education/i],
   ['Technology',   /\bdeveloper\b|software|programmer|full.?stack|front.?end|back.?end|devops|cloud|cyber|network admin|systems admin|web dev|\bIT\b|information technology|\bQA\b|scrum|agile|data engineer|data scientist|machine learning|artificial intelligence|javascript|python|java\b|\.net\b|react\b|angular|node\.?js/i],
-  ['Finance',      /accountant|financial manager|auditor|bookkeeper|\btax\b|payroll|actuari|banking|investment|treasury|credit analyst|CFO|FD \b|accounts payable|accounts receivable|financial controller/i],
-  ['Healthcare',   /\bnurse\b|\bdoctor\b|medical|\bhealth\b|pharmacy|clinical|therapist|physiother|occupational ther|radiograph|dental|matron|\bward\b|hospital|\bparamedic\b|dietitian|social worker|counsell/i],
+  ['Finance',      /accountant|financial manager|auditor|bookkeeper|\btax\b|payroll|actuari|banking|investment|treasury|credit analyst|\bCFO\b|\bFD\b|accounts payable|accounts receivable|financial controller|Department of (Finance|Treasury)/i],
+  ['Healthcare',   /\bnurse\b|\bdoctor\b|medical|\bhealth\b|pharmacy|clinical|therapist|physiother|occupational ther|radiograph|dental|matron|\bward\b|hospital|\bparamedic\b|dietitian|social worker|counsell|Department of Health/i],
   ['Engineering',  /mechanical eng|electrical eng|civil eng|structural eng|industrial eng|chemical eng|process eng|instrumentation|fitter|welder|boilermaker|artisan|\btechnician\b|draughtsman|construction manager|mining eng|\bHVAC\b|project eng/i],
   ['Retail',       /retail|cashier|\bshop\b|\bstore\b|sales rep|sales consultant|merchandis|inventory control|stock control|buyer\b|procurement|fashion|clothing|apparel|pos system|point of sale/i],
   ['Admin',        /administrator|receptionist|secretary|office manager|office admin|data entry|coordinator|executive assistant|personal assistant|\bPA\b|filing clerk|switchboard|front desk/i],
