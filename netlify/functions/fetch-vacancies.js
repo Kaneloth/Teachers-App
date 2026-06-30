@@ -67,7 +67,7 @@ async function supabaseUpsert(rows) {
       'Content-Type': 'application/json',
       apikey: process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
       Authorization: `Bearer ${process.env.VITE_SUPABASE_SERVICE_ROLE_KEY}`,
-      Prefer: 'resolution=ignore-duplicates,return=minimal',
+      Prefer: 'resolution=merge-duplicates,return=minimal', // merge so category/data corrections apply to existing rows on refresh
     },
     body: JSON.stringify(rows),
   });
@@ -123,23 +123,23 @@ const getPhase = (t='') => { const l=t.toLowerCase(); if(l.includes('foundation'
 const getPostLevel = (t='') => { const m=t.match(/post\s*level\s*(\d)/i)||t.match(/\bpl\s*(\d)/i); return m?m[1]:null; };
 
 /* ─── Job category detection ─────────────────────────────────────────────── */
-// Education pattern tightened — removed words that cause false positives in
-// other sectors: "school" (business school, nursing school), "academic"
-// (academic qualifications — appears in almost any professional job ad),
-// "trainer" (personal trainer, sales trainer), "professor" (rare but kept
-// only alongside lecturer context), "persal" (government payroll system,
-// triggers on Health/Admin govt jobs). Now requires more specific,
-// unambiguous education-sector terms.
+// IMPORTANT: category patterns are checked in TITLE-FIRST priority — the job
+// TITLE is checked against every category before falling back to scanning the
+// full description. Common compliance/buzzword phrases like "health and
+// safety", "academic qualifications", "school of thought" appear in job
+// DESCRIPTIONS across every sector and previously caused false matches when
+// the whole text (title + description) was scanned with generic single-word
+// patterns. Now: specific job-title words only, no generic compliance terms.
 const CATEGORY_PATTERNS = [
   ['Education',    /\beducator\b|\bteacher\b|teaching\s+(post|position|vacancy|staff)|school\s+(principal|teacher|educator)|\btutor\b|\bgrade\s*[r\d]\b.*\b(teacher|educator|class)|phase\b.*\b(teacher|educator)|\bcurriculum\b.*\b(teacher|educator|school)|\bSACE\b|\blecturer\b|\blearning support\b|head of department.*\bschool\b|\bHOD\b.*\bschool\b|deputy head.*\bschool\b|\bclassroom\b|CAPS curriculum|matric.*pass rate|Department of (Basic |Higher )?Education/i],
-  ['Technology',   /\bdeveloper\b|software|programmer|full.?stack|front.?end|back.?end|devops|cloud|cyber|network admin|systems admin|web dev|\bIT\b|information technology|\bQA\b|scrum|agile|data engineer|data scientist|machine learning|artificial intelligence|javascript|python|java\b|\.net\b|react\b|angular|node\.?js/i],
-  ['Finance',      /accountant|financial manager|auditor|bookkeeper|\btax\b|payroll|actuari|banking|investment|treasury|credit analyst|\bCFO\b|\bFD\b|accounts payable|accounts receivable|financial controller|Department of (Finance|Treasury)/i],
-  ['Healthcare',   /\bnurse\b|\bdoctor\b|medical|\bhealth\b|pharmacy|clinical|therapist|physiother|occupational ther|radiograph|dental|matron|\bward\b|hospital|\bparamedic\b|dietitian|social worker|counsell|Department of Health/i],
-  ['Engineering',  /mechanical eng|electrical eng|civil eng|structural eng|industrial eng|chemical eng|process eng|instrumentation|fitter|welder|boilermaker|artisan|\btechnician\b|draughtsman|construction manager|mining eng|\bHVAC\b|project eng/i],
-  ['Retail',       /retail|cashier|\bshop\b|\bstore\b|sales rep|sales consultant|merchandis|inventory control|stock control|buyer\b|procurement|fashion|clothing|apparel|pos system|point of sale/i],
-  ['Admin',        /administrator|receptionist|secretary|office manager|office admin|data entry|coordinator|executive assistant|personal assistant|\bPA\b|filing clerk|switchboard|front desk/i],
-  ['Hospitality',  /hotel|restaurant|\bchef\b|catering|tourism|hospitality|kitchen manager|food and beverage|housekeeping|front office|concierge|lodge|game reserve/i],
-  ['Logistics',    /logistics|supply chain|warehouse|truck driver|transport|delivery driver|courier|distribution|dispatch|fleet|forklift|freight/i],
+  ['Technology',   /\bdeveloper\b|software|programmer|full.?stack|front.?end|back.?end|devops|cloud computing|cyber security|network admin|systems admin|web dev|\bIT\b|information technology|\bQA\b engineer|scrum master|data engineer|data scientist|machine learning|artificial intelligence|javascript|python developer|java developer|\.net\b|react developer|angular developer|node\.?js/i],
+  ['Finance',      /\baccountant\b|financial manager|\bauditor\b|bookkeeper|\btax\b (consultant|advisor|practitioner)|payroll (clerk|administrator|officer)|actuari|investment (banker|analyst|manager)|treasury (analyst|manager)|credit analyst|\bCFO\b|\bFD\b\b|accounts payable|accounts receivable|financial controller|Department of (Finance|Treasury)/i],
+  ['Healthcare',   /\bnurse\b|\bdoctor\b|medical (officer|practitioner|aid)|\bhealthcare\b|pharmacy (assistant|technician)|\bclinical\b (nurse|officer|psychologist)|\btherapist\b|physiother|occupational ther|radiograph|\bdental\b (assistant|technician|hygienist)|\bmatron\b|hospital (staff|administrator)|\bparamedic\b|dietitian|social worker|Department of Health/i],
+  ['Engineering',  /mechanical eng|electrical eng|civil eng|structural eng|industrial eng|chemical eng|process eng|instrumentation|\bfitter\b|\bwelder\b|boilermaker|\bartisan\b|\btechnician\b|draughtsman|construction manager|mining eng|\bHVAC\b|project eng/i],
+  ['Retail',       /\bretail\b (assistant|manager|associate)|\bcashier\b|shop assistant|store manager|sales rep|sales consultant|merchandis|inventory control|stock control|\bbuyer\b|procurement (officer|manager)|fashion (buyer|retail)|pos system|point of sale/i],
+  ['Admin',        /\badministrator\b|receptionist|secretary|office manager|office admin|data entry (clerk|operator)|executive assistant|personal assistant|\bPA\b to|filing clerk|switchboard operator|front desk/i],
+  ['Hospitality',  /\bhotel\b (manager|staff|receptionist)|\brestaurant\b (manager|staff)|\bchef\b|catering (manager|staff)|tourism (officer|consultant)|hospitality (manager|industry)|kitchen manager|food and beverage|housekeeping|front office|concierge|game reserve/i],
+  ['Logistics',    /\blogistics\b (manager|coordinator|officer)|supply chain (manager|analyst)|warehouse (manager|supervisor|staff)|truck driver|transport (manager|coordinator)|delivery driver|\bcourier\b|distribution (manager|centre)|dispatch (controller|clerk)|fleet (manager|controller)|forklift operator|freight (forwarder|controller)|(site manager|operations manager).*\b(truck|driver|dispatch|fleet|delivery|warehouse|logistics|scrap metal|diesel)\b/i],
 ];
 
 /**
@@ -148,9 +148,19 @@ const CATEGORY_PATTERNS = [
  * with a generic pattern (e.g. "school administrator" → Education).
  */
 function detectCategory(title = '', description = '') {
-  const text = title + ' ' + description;
+  // Pass 1: check TITLE ONLY first — the job title is far more reliable than
+  // scattered description text. A "Site Manager" title mentioning "health and
+  // safety" once in the description body should never become Healthcare.
   for (const [cat, pattern] of CATEGORY_PATTERNS) {
-    if (pattern.test(text)) return cat;
+    if (pattern.test(title)) return cat;
+  }
+  // Pass 2: title alone didn't match — try title + first 300 chars of
+  // description together. This catches ambiguous titles like "Operations
+  // Manager" that need context (e.g. "...warehouse and fleet logistics...")
+  // while still avoiding deep boilerplate text later in long postings.
+  const combined = title + ' ' + description.slice(0, 300);
+  for (const [cat, pattern] of CATEGORY_PATTERNS) {
+    if (pattern.test(combined)) return cat;
   }
   return 'Other';
 }
