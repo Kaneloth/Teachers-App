@@ -67,7 +67,7 @@ async function supabaseUpsert(rows) {
       'Content-Type': 'application/json',
       apikey: process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
       Authorization: `Bearer ${process.env.VITE_SUPABASE_SERVICE_ROLE_KEY}`,
-      Prefer: 'resolution=merge-duplicates,return=minimal', // merge so category/data corrections apply to existing rows on refresh
+      Prefer: 'resolution=ignore-duplicates,return=minimal',
     },
     body: JSON.stringify(rows),
   });
@@ -109,9 +109,25 @@ function parseDate(s) {
 
 /* ─── Province normalisation ─────────────────────────────────────────────── */
 const PROV = {
+  // Province names
   gauteng:'Gauteng','kwazulu-natal':'KwaZulu-Natal',kzn:'KwaZulu-Natal',kwazulu:'KwaZulu-Natal',
   'western cape':'Western Cape','eastern cape':'Eastern Cape',mpumalanga:'Mpumalanga',limpopo:'Limpopo',
   'north west':'North West',northwest:'North West','free state':'Free State','northern cape':'Northern Cape',
+  // Major cities → province mapping
+  johannesburg:'Gauteng',joburg:'Gauteng',jo'burg:'Gauteng',sandton:'Gauteng',soweto:'Gauteng',
+  pretoria:'Gauteng',centurion:'Gauteng',midrand:'Gauteng',randburg:'Gauteng',roodepoort:'Gauteng',
+  germiston:'Gauteng',benoni:'Gauteng',boksburg:'Gauteng',kempton:'Gauteng',alberton:'Gauteng',
+  'cape town':'Western Cape',capetown:'Western Cape','cape-town':'Western Cape',bellville:'Western Cape',
+  stellenbosch:'Western Cape',paarl:'Western Cape',george:'Western Cape',worcester:'Western Cape',
+  durban:'KwaZulu-Natal',pietermaritzburg:'KwaZulu-Natal',umhlanga:'KwaZulu-Natal',pinetown:'KwaZulu-Natal',
+  newcastle:'KwaZulu-Natal',richards:'KwaZulu-Natal',
+  polokwane:'Limpopo',tzaneen:'Limpopo',thohoyandou:'Limpopo',
+  nelspruit:'Mpumalanga',witbank:'Mpumalanga',ermelo:'Mpumalanga',
+  'east london':'Eastern Cape',portelizabeth:'Eastern Cape','port elizabeth':'Eastern Cape',
+  bhisho:'Eastern Cape',mthatha:'Eastern Cape',
+  bloemfontein:'Free State',welkom:'Free State',
+  kimberley:'Northern Cape',upington:'Northern Cape',
+  rustenburg:'North West',mahikeng:'North West',mafikeng:'North West',klerksdorp:'North West',
 };
 const normProv = (s='') => { const l=s.toLowerCase(); for(const[k,v]of Object.entries(PROV)){if(l.includes(k))return v;} return s.trim()||null; };
 
@@ -123,23 +139,16 @@ const getPhase = (t='') => { const l=t.toLowerCase(); if(l.includes('foundation'
 const getPostLevel = (t='') => { const m=t.match(/post\s*level\s*(\d)/i)||t.match(/\bpl\s*(\d)/i); return m?m[1]:null; };
 
 /* ─── Job category detection ─────────────────────────────────────────────── */
-// IMPORTANT: category patterns are checked in TITLE-FIRST priority — the job
-// TITLE is checked against every category before falling back to scanning the
-// full description. Common compliance/buzzword phrases like "health and
-// safety", "academic qualifications", "school of thought" appear in job
-// DESCRIPTIONS across every sector and previously caused false matches when
-// the whole text (title + description) was scanned with generic single-word
-// patterns. Now: specific job-title words only, no generic compliance terms.
 const CATEGORY_PATTERNS = [
-  ['Education',    /\beducator\b|\bteacher\b|teaching\s+(post|position|vacancy|staff)|school\s+(principal|teacher|educator)|\btutor\b|\bgrade\s*[r\d]\b.*\b(teacher|educator|class)|phase\b.*\b(teacher|educator)|\bcurriculum\b.*\b(teacher|educator|school)|\bSACE\b|\blecturer\b|\blearning support\b|head of department.*\bschool\b|\bHOD\b.*\bschool\b|deputy head.*\bschool\b|\bclassroom\b|CAPS curriculum|matric.*pass rate|Department of (Basic |Higher )?Education/i],
-  ['Technology',   /\bdeveloper\b|software|programmer|full.?stack|front.?end|back.?end|devops|cloud computing|cyber security|network admin|systems admin|web dev|\bIT\b|information technology|\bQA\b engineer|scrum master|data engineer|data scientist|machine learning|artificial intelligence|javascript|python developer|java developer|\.net\b|react developer|angular developer|node\.?js/i],
-  ['Finance',      /\baccountant\b|financial manager|\bauditor\b|bookkeeper|\btax\b (consultant|advisor|practitioner)|payroll (clerk|administrator|officer)|actuari|investment (banker|analyst|manager)|treasury (analyst|manager)|credit analyst|\bCFO\b|\bFD\b\b|accounts payable|accounts receivable|financial controller|Department of (Finance|Treasury)/i],
-  ['Healthcare',   /\bnurse\b|\bdoctor\b|medical (officer|practitioner|aid)|\bhealthcare\b|pharmacy (assistant|technician)|\bclinical\b (nurse|officer|psychologist)|\btherapist\b|physiother|occupational ther|radiograph|\bdental\b (assistant|technician|hygienist)|\bmatron\b|hospital (staff|administrator)|\bparamedic\b|dietitian|social worker|Department of Health/i],
-  ['Engineering',  /mechanical eng|electrical eng|civil eng|structural eng|industrial eng|chemical eng|process eng|instrumentation|\bfitter\b|\bwelder\b|boilermaker|\bartisan\b|\btechnician\b|draughtsman|construction manager|mining eng|\bHVAC\b|project eng/i],
-  ['Retail',       /\bretail\b (assistant|manager|associate)|\bcashier\b|shop assistant|store manager|sales rep|sales consultant|merchandis|inventory control|stock control|\bbuyer\b|procurement (officer|manager)|fashion (buyer|retail)|pos system|point of sale/i],
-  ['Admin',        /\badministrator\b|receptionist|secretary|office manager|office admin|data entry (clerk|operator)|executive assistant|personal assistant|\bPA\b to|filing clerk|switchboard operator|front desk/i],
-  ['Hospitality',  /\bhotel\b (manager|staff|receptionist)|\brestaurant\b (manager|staff)|\bchef\b|catering (manager|staff)|tourism (officer|consultant)|hospitality (manager|industry)|kitchen manager|food and beverage|housekeeping|front office|concierge|game reserve/i],
-  ['Logistics',    /\blogistics\b (manager|coordinator|officer)|supply chain (manager|analyst)|warehouse (manager|supervisor|staff)|truck driver|transport (manager|coordinator)|delivery driver|\bcourier\b|distribution (manager|centre)|dispatch (controller|clerk)|fleet (manager|controller)|forklift operator|freight (forwarder|controller)|(site manager|operations manager).*\b(truck|driver|dispatch|fleet|delivery|warehouse|logistics|scrap metal|diesel)\b/i],
+  ['Education',    /educat|teacher|school|principal|tutor|\bgrade\s*[r\d]|phase\b|curriculum|sace|persal|lecturer|professor|academic|trainer|learning support|head of department|\bhod\b|deputy head|classroom|teaching/i],
+  ['Technology',   /\bdeveloper\b|software|programmer|full.?stack|front.?end|back.?end|devops|cloud|cyber|network admin|systems admin|web dev|\bIT\b|information technology|\bQA\b|scrum|agile|data engineer|data scientist|machine learning|artificial intelligence|javascript|python|java\b|\.net\b|react\b|angular|node\.?js/i],
+  ['Finance',      /accountant|financial manager|auditor|bookkeeper|\btax\b|payroll|actuari|banking|investment|treasury|credit analyst|CFO|FD \b|accounts payable|accounts receivable|financial controller/i],
+  ['Healthcare',   /\bnurse\b|\bdoctor\b|medical|\bhealth\b|pharmacy|clinical|therapist|physiother|occupational ther|radiograph|dental|matron|\bward\b|hospital|\bparamedic\b|dietitian|social worker|counsell/i],
+  ['Engineering',  /mechanical eng|electrical eng|civil eng|structural eng|industrial eng|chemical eng|process eng|instrumentation|fitter|welder|boilermaker|artisan|\btechnician\b|draughtsman|construction manager|mining eng|\bHVAC\b|project eng/i],
+  ['Retail',       /retail|cashier|\bshop\b|\bstore\b|sales rep|sales consultant|merchandis|inventory control|stock control|buyer\b|procurement|fashion|clothing|apparel|pos system|point of sale/i],
+  ['Admin',        /administrator|receptionist|secretary|office manager|office admin|data entry|coordinator|executive assistant|personal assistant|\bPA\b|filing clerk|switchboard|front desk/i],
+  ['Hospitality',  /hotel|restaurant|\bchef\b|catering|tourism|hospitality|kitchen manager|food and beverage|housekeeping|front office|concierge|lodge|game reserve/i],
+  ['Logistics',    /logistics|supply chain|warehouse|truck driver|transport|delivery driver|courier|distribution|dispatch|fleet|forklift|freight/i],
 ];
 
 /**
@@ -148,19 +157,9 @@ const CATEGORY_PATTERNS = [
  * with a generic pattern (e.g. "school administrator" → Education).
  */
 function detectCategory(title = '', description = '') {
-  // Pass 1: check TITLE ONLY first — the job title is far more reliable than
-  // scattered description text. A "Site Manager" title mentioning "health and
-  // safety" once in the description body should never become Healthcare.
+  const text = title + ' ' + description;
   for (const [cat, pattern] of CATEGORY_PATTERNS) {
-    if (pattern.test(title)) return cat;
-  }
-  // Pass 2: title alone didn't match — try title + first 300 chars of
-  // description together. This catches ambiguous titles like "Operations
-  // Manager" that need context (e.g. "...warehouse and fleet logistics...")
-  // while still avoiding deep boilerplate text later in long postings.
-  const combined = title + ' ' + description.slice(0, 300);
-  for (const [cat, pattern] of CATEGORY_PATTERNS) {
-    if (pattern.test(combined)) return cat;
+    if (pattern.test(text)) return cat;
   }
   return 'Other';
 }
@@ -181,10 +180,6 @@ async function fetchAdzuna(log) {
 
   // 4 broad queries that collectively cover all major sectors.
   // Keep to 4 to stay within the Netlify function timeout even with 1.1 s gaps.
-  // NOTE: Adzuna's `what` parameter does AND matching across all words in the
-  // phrase (job must contain every word) — that's why 5-word phrases like
-  // "educator teacher school principal lecturer" previously returned 0 results.
-  // `what_or` does OR matching, which is what broad category sweeps need.
   const queries = [
     'educator teacher school principal lecturer',              // Education
     'software developer engineer IT programmer analyst',       // Technology + Engineering
@@ -200,7 +195,7 @@ async function fetchAdzuna(log) {
     const params = new URLSearchParams({
       app_id:           appId,
       app_key:          appKey,
-      what_or:          what,   // OR matching — `what` would require ALL words to match (returns 0 results)
+      what,
       results_per_page: '50',
       sort_by:          'date',
     });
@@ -241,7 +236,9 @@ async function fetchAdzuna(log) {
       const company  = strip(job.company?.display_name || '');
       if (!title) continue;
 
-      const location = [job.location?.display_name, job.location?.area?.[2]].filter(Boolean).join(', ');
+      // area[] = ['South Africa', 'Gauteng', 'Johannesburg', ...] — index 1 is province
+      const provFromArea = job.location?.area?.[1] || '';
+      const location = [provFromArea, job.location?.display_name].filter(Boolean).join(', ');
       const combined = title + ' ' + company + ' ' + strip(job.description || '');
       const cat      = detectCategory(title, strip(job.description || ''));
 
