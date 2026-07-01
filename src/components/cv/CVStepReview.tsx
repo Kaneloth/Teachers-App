@@ -329,9 +329,9 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
               </p>
             </div>
             <div className="bg-muted rounded-xl p-3 space-y-1 text-xs text-muted-foreground">
-              <p>• Single CV pack — R19 for 10 credits</p>
-              <p>• Standard pack — R49 for 30 credits</p>
-              <p>• Pro pack — R79 for 60 credits</p>
+              <p>• Starter pack — R39 for 15 credits</p>
+              <p>• Standard pack — R59 for 30 credits</p>
+              <p>• Pro pack — R99 for 60 credits</p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1 rounded-xl"
