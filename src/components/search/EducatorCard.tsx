@@ -39,20 +39,18 @@ const TOWNS_BY_DISTRICT: Record<string, string[]> = {
   'Eden and Central Karoo':['George','Mossel Bay','Knysna','Oudtshoorn','Other'],
   'Overberg':['Hermanus','Bredasdorp','Swellendam','Other'],'West Coast':['Moorreesburg','Malmesbury','Vredenburg','Other'],
 };
-
 export interface MyProfile {
   phase?: string;
+  post_level?: string;
   current_province?: string;
   preferred_provinces?: string[];
   town?: string;
   subjects?: string[];
-  preferred_provinces?: string[];
   preferred_districts?: string[];
   preferred_town_coords?: { town: string; lat: number; lng: number }[];
   town_lat?: number;
   town_lng?: number;
 }
-
 function townInPreferred(
   town: string,
   preferred: string[],
@@ -62,27 +60,22 @@ function townInPreferred(
 ): boolean {
   if (!town || !preferred.length) return false;
   const t = town.toLowerCase().trim();
-
   const townToDistrict: Record<string, string> = {};
   for (const [district, towns] of Object.entries(TOWNS_BY_DISTRICT)) {
     for (const townName of towns) {
       townToDistrict[townName.toLowerCase()] = district;
     }
   }
-
   // 1. Exact town name match
   if (preferred.some(p => p.toLowerCase().trim() === t)) return true;
-
   // 2. District lookup (preferred contains district names, check their towns)
   for (const p of preferred) {
     const districtTowns = TOWNS_BY_DISTRICT[p] || [];
     if (districtTowns.some(x => x.toLowerCase().trim() === t)) return true;
   }
-
   // 3. Reverse lookup: town belongs to a district that is in preferred
   const townDistrict = townToDistrict[t];
   if (townDistrict && preferred.some(p => p === townDistrict)) return true;
-
   // 4. Coord proximity within 50km
   if (tLat != null && tLng != null && prefCoords.length) {
     const lat1 = tLat * Math.PI / 180;
@@ -98,72 +91,62 @@ function townInPreferred(
   }
   return false;
 }
-
+/**
+ * Weighted match formula:
+ *   Phase 15% + Province 15% + Town 15% + Post Level 15% + Subjects (Jaccard) 40%
+ * Hard rule: no common subjects → always 0%.
+ */
 export function calculateMatch(me: MyProfile, them: MyProfile): number {
   const setA = new Set((me.subjects || []).map(s => s.toLowerCase().trim()));
   const setB = new Set((them.subjects || []).map(s => s.toLowerCase().trim()));
   const common = [...setA].filter(s => setB.has(s)).length;
   if (common === 0) return 0;
-
   const totalDistinct = new Set([...setA, ...setB]).size;
   const subjectScore = totalDistinct > 0 ? common / totalDistinct : 0;
-  const phaseScore = me.phase && them.phase && me.phase === them.phase ? 0.20 : 0;
-
-  // Province (20%): THEIR current is in MY preferred AND MY current is in THEIR preferred.
-  // Both directions must match — genuine mutual transfer opportunity.
+  const phaseScore = me.phase && them.phase && me.phase === them.phase ? 0.15 : 0;
+  const postLevelScore = me.post_level && them.post_level && me.post_level === them.post_level ? 0.15 : 0;
+  // Province (15%): THEIR current is in MY preferred AND MY current is in THEIR preferred.
   const myPrefProvinces   = me.preferred_provinces   || [];
   const themPrefProvinces = them.preferred_provinces || [];
   const provinceScore = (
     them.current_province && myPrefProvinces.includes(them.current_province) &&
     me.current_province   && themPrefProvinces.includes(me.current_province)
-  ) ? 0.20 : 0;
-
+  ) ? 0.15 : 0;
   const mePrefCoords = (me.preferred_town_coords || []) as { lat: number; lng: number }[];
   const themPrefCoords = (them.preferred_town_coords || []) as { lat: number; lng: number }[];
-
-  // Town (20%): THEIR current town is in MY preferred AND MY current town is in THEIR preferred.
-  // Both directions must match — genuine mutual transfer opportunity.
+  // Town (15%): THEIR current town is in MY preferred AND MY current town is in THEIR preferred.
   const townScore = (
     townInPreferred(them.town || '', me.preferred_districts   || [], mePrefCoords,   them.town_lat, them.town_lng) &&
     townInPreferred(me.town   || '', them.preferred_districts || [], themPrefCoords, me.town_lat,   me.town_lng)
-  ) ? 0.20 : 0;
-
-  return Math.round((phaseScore + provinceScore + townScore + subjectScore * 0.40) * 100);
+  ) ? 0.15 : 0;
+  return Math.round((phaseScore + postLevelScore + provinceScore + townScore + subjectScore * 0.40) * 100);
 }
-
 export const MATCH_THRESHOLD = 85;
-
 export function isTownSwapMatch(mine: MyProfile, them: MyProfile): boolean {
   const mySubjects = new Set((mine.subjects || []).map(s => s.toLowerCase().trim()));
   const theirSubjects = new Set((them.subjects || []).map(s => s.toLowerCase().trim()));
   const sharesSubject = [...mySubjects].some(s => theirSubjects.has(s));
   if (!sharesSubject) return false;
-
   const townToDistrict: Record<string, string> = {};
   for (const [district, towns] of Object.entries(TOWNS_BY_DISTRICT)) {
     for (const townName of towns) { townToDistrict[townName.toLowerCase()] = district; }
   }
-
   const myTownDistrict = mine.town ? townToDistrict[mine.town.toLowerCase()] : null;
   const theyWantMyTown = !!(mine.town && (
     (them.preferred_districts || []).includes(mine.town) ||
     (myTownDistrict && (them.preferred_districts || []).includes(myTownDistrict))
   ));
-
   const theirTownDistrict = them.town ? townToDistrict[them.town.toLowerCase()] : null;
   const iWantTheirTown = !!(them.town && (
     (mine.preferred_districts || []).includes(them.town) ||
     (theirTownDistrict && (mine.preferred_districts || []).includes(theirTownDistrict))
   ));
-
   return iWantTheirTown || theyWantMyTown;
 }
-
 export function qualifiesForMatchesPage(mine: MyProfile, them: MyProfile, score?: number): boolean {
   const s = score ?? calculateMatch(mine, them);
   return s >= MATCH_THRESHOLD || isTownSwapMatch(mine, them);
 }
-
 interface Educator {
   id: string;
   full_name: string;
@@ -173,18 +156,17 @@ interface Educator {
   current_province?: string;
   town?: string;
   preferred_provinces?: string[];
-  preferred_provinces?: string[];
   preferred_districts?: string[];
   preferred_town_coords?: { town: string; lat: number; lng: number }[];
   town_lat?: number;
   town_lng?: number;
   subjects?: string[];
   phase?: string;
+  post_level?: string;
   user_id?: string;
   profile_type?: string;
   distance_km?: number;
 }
-
 interface Props {
   educator: Educator;
   myProfile?: MyProfile;
@@ -192,24 +174,19 @@ interface Props {
   index?: number;
   distanceKm?: number;
 }
-
 export default function EducatorCard({ educator, myProfile, isPro = false, index = 0, distanceKm }: Props) {
   const match = myProfile ? calculateMatch(myProfile, educator) : 0;
   const initial = educator.full_name?.[0]?.toUpperCase() || '?';
-
   const locationParts = [educator.current_province, educator.town].filter(Boolean);
   const location = locationParts.length ? locationParts.join(' – ') : '–';
-
   const wants = educator.preferred_districts?.length
     ? educator.preferred_districts.join(', ')
     : educator.preferred_provinces?.length
     ? educator.preferred_provinces.join(', ')
     : 'Any';
-
   const subjectsStr = educator.subjects?.length
     ? `${educator.subjects.join(', ')}${educator.phase ? ` (${educator.phase})` : ''}`
     : '()';
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -226,7 +203,6 @@ export default function EducatorCard({ educator, myProfile, isPro = false, index
             : <span className="text-sm font-bold text-primary">{initial}</span>
           }
         </div>
-
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-1">
             <p className="font-semibold text-sm text-foreground truncate">{educator.full_name}</p>
@@ -259,7 +235,6 @@ export default function EducatorCard({ educator, myProfile, isPro = false, index
             </div>
           </div>
         </div>
-
         <div className="flex flex-col items-center gap-1.5 shrink-0">
           {isPro ? (
             <div className="relative w-9 h-9">

@@ -70,7 +70,7 @@ export default function Search({ embedded = false }: Props) {
     // preferred_districts is needed for the town-swap exclusion check below.
     supabase
       .from('educators')
-      .select('phase, current_province, preferred_provinces, town, subjects, preferred_districts, preferred_town_coords, town_lat, town_lng')
+      .select('phase, post_level, current_province, town, subjects, preferred_districts')
       .eq('user_id', user.id)
       .limit(1)
       .then(({ data }) => {
