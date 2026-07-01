@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Lo
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
+import { useFeatureGates } from '@/hooks/useFeatureGates';
 import CreditBalance from '@/components/credits/CreditBalance';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -65,17 +66,17 @@ function StepStepper({ steps, current, onSelect }: { steps: string[]; current: n
         return (
           <div key={label} className="flex items-center shrink-0">
             <button onClick={() => onSelect(i)} className="flex items-center gap-1.5 shrink-0">
-              <div className={w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold border-2 transition-all ${
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold border-2 transition-all ${
                 active ? 'bg-primary border-primary text-white'
                        : done  ? 'bg-primary/20 border-primary/40 text-primary'
                                : 'bg-transparent border-border text-muted-foreground'
-              }}>
+              }`}>
                 {i + 1}
               </div>
               {active && <span className="text-xs font-semibold text-primary whitespace-nowrap">{label}</span>}
             </button>
             {i < steps.length - 1 && (
-              <div className={w-6 h-px mx-1 shrink-0 ${i < current ? 'bg-primary/40' : 'bg-border'}} />
+              <div className={`w-6 h-px mx-1 shrink-0 ${i < current ? 'bg-primary/40' : 'bg-border'}`} />
             )}
           </div>
         );
@@ -111,9 +112,8 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
     const allowed = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
     if (!allowed.includes(file.type))   { toast.error('Please upload a PDF or DOCX file'); return; }
     if (file.size > 10 * 1024 * 1024)  { toast.error('File too large (max 10MB)');         return; }
-    // Deduct 1 credit before calling AI — prevents free abuse of CV import
-    const ok = await deduct('letter_usage', cv_import_${Date.now()});
-    if (!ok) return; // insufficient credits — toast already shown
+    const ok = await deduct('letter_usage', `cv_import_${Date.now()}`);
+    if (!ok) return;
     setUploading(true);
     const MAX_UPLOAD_ATTEMPTS = 3;
     for (let attempt = 0; attempt < MAX_UPLOAD_ATTEMPTS; attempt++) {
@@ -149,9 +149,8 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
   };
   const processFreeText = async () => {
     if (!freeText.trim()) { toast.error('Please type something about yourself first.'); return; }
-    // Deduct 1 credit before calling AI
-    const ok = await deduct('letter_usage', cv_freetext_${Date.now()});
-    if (!ok) return; // insufficient credits — toast already shown
+    const ok = await deduct('letter_usage', `cv_freetext_${Date.now()}`);
+    if (!ok) return;
     setUploading(true);
     const MAX_FT_ATTEMPTS = 3;
     for (let attempt = 0; attempt < MAX_FT_ATTEMPTS; attempt++) {
@@ -218,9 +217,9 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
               }}
               placeholder="Paste the job posting or description here..."
               rows={5}
-              className={w-full rounded-xl border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none ${jobDesc.length > 2800 ? 'border-amber-400' : 'border-input'}}
+              className={`w-full rounded-xl border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none ${jobDesc.length > 2800 ? 'border-amber-400' : 'border-input'}`}
             />
-            <p className={text-xs text-right mt-1 ${jobDesc.length > 2800 ? 'text-amber-500 font-medium' : 'text-muted-foreground'}}>
+            <p className={`text-xs text-right mt-1 ${jobDesc.length > 2800 ? 'text-amber-500 font-medium' : 'text-muted-foreground'}`}>
               {jobDesc.length} / 3,000 characters{jobDesc.length > 2800 ? ' — approaching limit' : ''}
             </p>
           </div>
@@ -228,17 +227,17 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
       </div>
       <div className="flex gap-1 bg-muted p-1 rounded-xl mb-3">
         <button onClick={() => setActiveTab('upload')}
-          className={flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-lg transition-all ${activeTab === 'upload' ? 'bg-card shadow text-foreground' : 'text-muted-foreground'}}>
+          className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-lg transition-all ${activeTab === 'upload' ? 'bg-card shadow text-foreground' : 'text-muted-foreground'}`}>
           <Upload className="w-3.5 h-3.5" /> Upload CV
         </button>
         <button onClick={() => setActiveTab('freetext')}
-          className={flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-lg transition-all ${activeTab === 'freetext' ? 'bg-card shadow text-foreground' : 'text-muted-foreground'}}>
+          className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-lg transition-all ${activeTab === 'freetext' ? 'bg-card shadow text-foreground' : 'text-muted-foreground'}`}>
           <Loader2 className="w-3.5 h-3.5" /> Tell AI About You
         </button>
       </div>
       {activeTab === 'upload' && (
         <div
-          className={relative border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${dragActive ? 'border-primary bg-primary/5' : 'border-border bg-card'}}
+          className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${dragActive ? 'border-primary bg-primary/5' : 'border-border bg-card'}`}
           onDragOver={e => { e.preventDefault(); setDragActive(true); }}
           onDragLeave={() => setDragActive(false)}
           onDrop={e => { e.preventDefault(); setDragActive(false); if (balance < 1) { toast.error('Not enough credits to use AI import.'); return; } const f = e.dataTransfer.files?.[0]; if (f) processFile(f); }}
@@ -293,6 +292,7 @@ export default function CVBuilderPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { balance, loading: creditsLoading, deduct } = useCredits();
+  const { gates, loading: gatesLoading } = useFeatureGates();
   const [initialState] = useState(() => {
     const lastMeta: Record<string, unknown> = (() => {
       try { return JSON.parse(localStorage.getItem(LAST_CV_KEY) ?? '{}'); } catch { return {}; }
@@ -312,22 +312,17 @@ export default function CVBuilderPage() {
   const lastCVPdfUrl              = freshMeta.last_cv_pdf_url as string | undefined;
   const lastCVGeneratedAt         = freshMeta.last_cv_generated_at as string | undefined;
   const isAdmin = !!(user?.user_metadata?.is_admin);
-  // Has this user ever bought credits (one-off pack or monthly Pro grant)?
-  // If yes → all 17 templates unlock permanently, regardless of current
-  // balance. If no → only the free Classic template is available.
   const [hasPurchased,      setHasPurchased]      = useState(false);
   const [templatesUnlocked, setTemplatesUnlocked] = useState(false);
   const [isEducator,         setIsEducator]         = useState(false);
   useEffect(() => {
     if (!user) return;
-    // Check credit purchase history
     supabase
       .from('credit_ledger')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .in('type', ['purchase', 'monthly_pro'])
       .then(({ count }) => setHasPurchased((count ?? 0) > 0));
-    // Check admin-granted template unlock
     supabase
       .from('educators')
       .select('templates_unlocked, profile_type')
@@ -338,17 +333,15 @@ export default function CVBuilderPage() {
         setIsEducator(!data || data.profile_type !== 'general');
       });
   }, [user]);
-  // isFree gates the template picker (CVStepTemplate): true = only Classic
-  // template available. Admins, users who have purchased, or users with
-  // admin-granted template access get all templates unlocked.
-  const isFree = !hasPurchased && !isAdmin && !templatesUnlocked;
+  // templates_access gate: when OFF (false), all templates are free for everyone
+  const templatesGateActive = !gatesLoading && gates.templates_access !== false;
+  const isFree = templatesGateActive && !hasPurchased && !isAdmin && !templatesUnlocked;
   const [showBuilder,      setShowBuilder]      = useState(initialState.showBuilder);
   const [step,             setStep]             = useState(initialState.draft?.step ?? 0);
   const [data,             setData]             = useState<CVData>(initialState.draft?.data ?? defaultData());
   const [draftSavedAt,     setDraftSavedAt]     = useState<string | null>(initialState.draft?.savedAt ?? null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [aiUsed,           setAiUsed]           = useState(false); // AI summary used — reduces CV download cost
-  // Auto‑save draft
+  const [aiUsed,           setAiUsed]           = useState(false);
   useEffect(() => {
     const savedAt = new Date().toISOString();
     try {
@@ -356,7 +349,6 @@ export default function CVBuilderPage() {
       setDraftSavedAt(savedAt);
     } catch {}
   }, [data, step]);
-  // Background sync from user metadata
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user: u } }) => {
       const m = (u?.user_metadata ?? {}) as Record<string, unknown>;
@@ -367,7 +359,6 @@ export default function CVBuilderPage() {
       }
     });
   }, []);
-  // Pre-fill personal info from profile on first load
   useEffect(() => {
     if (!user || initialState.draft) return;
     supabase.from('educators').select('full_name, phone, bio, town, current_province').eq('user_id', user.id).maybeSingle()
@@ -419,17 +410,7 @@ export default function CVBuilderPage() {
     setDraftSavedAt(null);
     setStep(0);
     setShowBuilder(false);
-    // Also persist to Supabase auth user_metadata — CoverLettersPage.tsx
-    // reads last_cv_data from user_metadata (not localStorage) to give the
-    // AI cover letter generator real CV context (education, experience,
-    // skills). Without this call, that data only ever lived in
-    // localStorage, so the cover letter AI never actually had access to
-    // any user's real CV data — explaining generic letters that never
-    // named a real qualification regardless of prompt wording.
     if (user) {
-      // Save both last_cv_data AND last_cv_pdf_url to user_metadata so the
-      // PDF re-download link and CV context work on any device the user signs
-      // into — not just the one they generated the CV on.
       supabase.auth.updateUser({
         data: {
           last_cv_data:          data,
@@ -449,7 +430,6 @@ export default function CVBuilderPage() {
     setDraftSavedAt(savedAt);
     try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: 'general', data: { ...newData, personal: data.personal }, step: 0, savedAt })); } catch {}
   };
-  // Last CV banner
   if (!showBuilder && lastCVData) {
     return (
       <div className="max-w-2xl mx-auto">
