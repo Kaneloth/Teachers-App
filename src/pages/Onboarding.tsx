@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/AuthContext';
 
 const PROVINCES = ['Gauteng','KwaZulu-Natal','Western Cape','Eastern Cape','Mpumalanga','Limpopo','North West','Free State','Northern Cape'];
 const PHASES = ['Foundation','Intermediate','Senior','FET'];
+const POST_LEVELS = ['PL1','PL2','PL3','PL4'];
 const SUBJECTS = [
   'Accounting','Afrikaans FAL','Afrikaans HL','Agricultural Sciences',
   'Agricultural Management Practices','Agricultural Technology','Business Studies',
@@ -122,6 +123,7 @@ export default function Onboarding() {
     district:            '',
     town:                '',
     phase:               '',
+    post_level:          '',
     subjects:            [] as string[],
     years_experience:    '',
     preferred_provinces: [] as string[],
@@ -147,7 +149,7 @@ export default function Onboarding() {
   // Grant signup credits — called once per user after role is chosen.
   // Keeping this here (not in a webhook/trigger) ensures credits are only
   // granted to users who have actually completed onboarding and chosen a role.
-  const grantSignupCredits = async (userId: string, email: string, profileType: 'educator' | 'general' = 'general') => {
+  const grantSignupCredits = async (userId: string, email: string) => {
     try {
       await fetch('/.netlify/functions/grant-signup-credits', {
         method: 'POST',
@@ -155,7 +157,6 @@ export default function Onboarding() {
         body: JSON.stringify({
           user_id: userId,
           email,
-          profile_type: profileType,
           device_fingerprint: navigator.userAgent + screen.width + screen.height,
         }),
       });
@@ -212,7 +213,7 @@ export default function Onboarding() {
     // key fields (town, subjects, etc.) are still empty, which matters for
     // search/matching.
     // Grant signup credits now that role is confirmed
-    grantSignupCredits(user.id, user.email ?? '', (user.user_metadata?.profile_type as 'educator' | 'general') ?? 'general').catch(() => {});
+    grantSignupCredits(user.id, user.email ?? '').catch(() => {});
 
     toast('Add a few details to your profile to get better matches.');
     navigate('/profile');
@@ -246,7 +247,7 @@ export default function Onboarding() {
       }
 
       // Grant signup credits now that role is confirmed
-      grantSignupCredits(user?.id ?? '', user?.email ?? '', 'general').catch(() => {});
+      grantSignupCredits(user?.id ?? '', user?.email ?? '').catch(() => {});
 
       toast.success('Profile created! Welcome to Crosssa!');
       toast('Tip: add a profile photo and bio to help others recognize you.');
@@ -281,7 +282,7 @@ export default function Onboarding() {
       }
 
       // Grant signup credits now that role is confirmed
-      grantSignupCredits(user?.id ?? '', user?.email ?? '', 'educator').catch(() => {});
+      grantSignupCredits(user?.id ?? '', user?.email ?? '').catch(() => {});
 
       toast.success('Profile created! Welcome to Crosssa!');
       toast('Add your current town to improve your search results and matches.');
@@ -439,6 +440,12 @@ export default function Onboarding() {
                 <Select value={form.phase} onValueChange={v => set('phase', v)}>
                   <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select phase" /></SelectTrigger>
                   <SelectContent>{PHASES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                </Select>
+              </Field>
+              <Field label="Post Level">
+                <Select value={form.post_level} onValueChange={v => set('post_level', v)}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select post level" /></SelectTrigger>
+                  <SelectContent>{POST_LEVELS.map(pl => <SelectItem key={pl} value={pl}>{pl}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
               <Field label="Years of Experience"><Input type="number" value={form.years_experience} onChange={e => set('years_experience', e.target.value)} placeholder="e.g. 5" className="rounded-xl" /></Field>

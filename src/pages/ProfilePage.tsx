@@ -20,13 +20,13 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
-import { useFeatureGates } from '@/hooks/useFeatureGates';
 import BlockButton from '@/components/BlockButton';
 import { isBlocked } from '@/lib/blockUtils';
 import { geocodeLocation } from '@/lib/geocode';
 
 const PROVINCES = ['Gauteng','KwaZulu-Natal','Western Cape','Eastern Cape','Mpumalanga','Limpopo','North West','Free State','Northern Cape'];
 const PHASES    = ['Foundation','Intermediate','Senior','FET'];
+const POST_LEVELS = ['PL1','PL2','PL3','PL4'];
 
 // Town list per province — used for the Current Position "Town" dropdown.
 // Source: Skootlink onboarding (SA_PROVINCE_CITIES). An "Other" option is
@@ -111,6 +111,7 @@ interface Profile {
   district: string;
   town: string;
   phase: string;
+  post_level?: string;
   subjects: string[];
   preferred_provinces: string[];
   preferred_districts: string[];
@@ -470,8 +471,6 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const isAdmin = !!(user?.user_metadata?.is_admin);
   const isOwnProfile = !routeUserId || routeUserId === user?.id || isAdmin;
-  const { gates, loading: gatesLoading } = useFeatureGates();
-  const lockActive = !gatesLoading && gates.profile_edit_lock === true && !isAdmin;
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -767,10 +766,8 @@ export default function ProfilePage() {
   const daysSinceSave = lastSaved
     ? Math.floor((Date.now() - lastSaved.getTime()) / (1000 * 60 * 60 * 24))
     : null;
-  const canSave = isAdmin || !lockActive || daysSinceSave === null || daysSinceSave >= 30;
+  const canSave = isAdmin || daysSinceSave === null || daysSinceSave >= 30;
   const daysLeft = canSave ? 0 : 30 - daysSinceSave!;
-  // Professional fields (subjects, position, preferences) are always saveable
-  const canSaveProfessional = true;
 
   const handleSave = () => {
     if (!user || !profile) return;
@@ -779,49 +776,10 @@ export default function ProfilePage() {
       return;
     }
     if (!canSave) {
-      toast.error(`Personal details can only be updated once every 30 days. ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining.`);
+      toast.error(`Profiles can only be updated once every 30 days. ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining.`);
       return;
     }
-    // Admins skip the confirmation dialog and save directly
-    if (isAdmin) { doSave(); return; }
     setShowConfirmDialog(true);
-  };
-
-  // Save only professional fields — no 30-day lock applies
-  const handleSaveProfessional = async () => {
-    if (!user || !profile) return;
-    setSaving(true);
-    try {
-      const professionalFields = {
-        user_id:              user.id,
-        current_school:       profile.current_school,
-        current_province:     profile.current_province,
-        town:                 profile.town.trim(),
-        town_lat:             profile.town_lat,
-        town_lng:             profile.town_lng,
-        phase:                profile.phase,
-        subjects:             profile.subjects,
-        years_experience:     profile.years_experience ? parseInt(profile.years_experience, 10) : null,
-        available_from:       profile.available_from || null,
-        preferred_provinces:  profile.preferred_provinces,
-        preferred_districts:  profile.preferred_districts,
-        preferred_town_coords:profile.preferred_town_coords,
-        bio:                  profile.bio,
-        looking_for_work:     profile.looking_for_work,
-      };
-      if (profile.id) {
-        const { error } = await supabase.from('educators').update(professionalFields).eq('id', profile.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('educators').insert({ ...professionalFields }).select().single();
-        if (error) throw error;
-      }
-      toast.success('Professional details updated!');
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to save');
-    } finally {
-      setSaving(false);
-    }
   };
 
   const doSave = async () => {
@@ -1163,6 +1121,12 @@ export default function ProfilePage() {
                   <SelectContent>{PHASES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
+              <Field label="Post Level">
+                <Select value={profile.post_level ?? ''} onValueChange={v => setProfileField('post_level', v)}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select post level" /></SelectTrigger>
+                  <SelectContent>{POST_LEVELS.map(pl => <SelectItem key={pl} value={pl}>{pl}</SelectItem>)}</SelectContent>
+                </Select>
+              </Field>
               <Field label="Years of Experience">
                 <Input type="number" value={profile.years_experience} onChange={e => setProfileField('years_experience', e.target.value)} placeholder="e.g. 5" className="rounded-xl" />
               </Field>
@@ -1265,27 +1229,17 @@ export default function ProfilePage() {
           )}
         </div>
 
-        <div className="px-4 pt-2 pb-6 space-y-3">
-          {/* Professional details — always saveable */}
-          <Button
-            onClick={handleSaveProfessional}
-            disabled={saving}
-            variant="outline"
-            className="w-full h-12 rounded-2xl text-base font-semibold gap-2"
-          >
-            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5" /> Save Position & Subjects</>}
-          </Button>
-          {/* Personal details — 30-day lock */}
+        <div className="px-4 pt-2 pb-6 space-y-2">
           <Button
             onClick={handleSave}
             disabled={saving || !canSave}
             className="w-full h-12 rounded-2xl text-base font-semibold gap-2"
           >
-            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5" /> Save Personal Details</>}
+            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5" /> Save Profile</>}
           </Button>
-          {!canSave && lockActive && (
+          {!canSave && (
             <p className="text-xs text-center text-muted-foreground">
-              Personal details are limited to once every 30 days.{' '}
+              Profile updates are limited to once every 30 days.{' '}
               <span className="font-medium text-foreground">{daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining.</span>
             </p>
           )}
@@ -1297,7 +1251,7 @@ export default function ProfilePage() {
               <AlertDialogTitle>Double-check your details</AlertDialogTitle>
               <AlertDialogDescription>
                 Please make sure all your information is correct before saving.
-                You will only be able to update your personal details again in 30 days. Position, subjects and preferences can still be updated anytime.
+                You will only be able to update your profile again in 30 days.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -1355,6 +1309,7 @@ export default function ProfilePage() {
 
             <SectionCard label="Teaching Details">
               <Field label="Phase"><p className="text-sm">{profile.phase || '—'}</p></Field>
+              <Field label="Post Level"><p className="text-sm">{profile.post_level || '—'}</p></Field>
               <Field label="Years of Experience"><p className="text-sm">{profile.years_experience || '—'}</p></Field>
               <Field label="Subjects">
                 <div className="flex flex-wrap gap-1.5">
