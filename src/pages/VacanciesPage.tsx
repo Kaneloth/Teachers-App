@@ -281,7 +281,7 @@ export default function VacanciesPage() {
   };
 
   const filtered = vacancies.filter(v => {
-    if (province && v.province !== province) return false;
+    if (province && v.province && v.province !== province) return false;
     if (category) {
       const vCat = v.job_category || 'Education';
       if (vCat !== category) return false;

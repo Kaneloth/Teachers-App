@@ -236,9 +236,11 @@ async function fetchAdzuna(log) {
       const company  = strip(job.company?.display_name || '');
       if (!title) continue;
 
-      // area[] = ['South Africa', 'Gauteng', 'Johannesburg', ...] — index 1 is province
-      const provFromArea = job.location?.area?.[1] || '';
-      const location = [provFromArea, job.location?.display_name].filter(Boolean).join(', ');
+      // Extract province from all available location fields — try each one
+      // area[] = ['South Africa', 'Gauteng', 'Johannesburg'] — index 1 is province
+      const areaStr = (job.location?.area || []).join(' ');
+      const displayName = job.location?.display_name || '';
+      const location = [areaStr, displayName].filter(Boolean).join(' ');
       const combined = title + ' ' + company + ' ' + strip(job.description || '');
       const cat      = detectCategory(title, strip(job.description || ''));
 
@@ -246,7 +248,7 @@ async function fetchAdzuna(log) {
         title:           title.slice(0, 200),
         institution:     company.slice(0, 200),
         school:          company.slice(0, 200),
-        province:        normProv(location),
+        province:        normProv(location) || normProv(strip(job.description || '').slice(0, 200)) || null,
         district:        null,
         phase:           cat === 'Education' ? getPhase(combined)    : null,
         post_type:       cat === 'Education' ? getPostType(title, company) : null,
@@ -322,9 +324,14 @@ async function fetchCareers24(log) {
       const refM = links[i].match(/\/adverts\/(\d+)-/);
       const ref  = `careers24-${refM ? refM[1] : Buffer.from(title).toString('base64').slice(0, 16)}`;
 
+      // Extract potential location from URL slug — last 1-3 words often contain city/town
+      // e.g. /jobs/adverts/123-mathematics-teacher-johannesburg/ → "johannesburg"
       const slugParts = links[i].replace(/\/$/, '').split('-');
-      const locSlug   = slugParts.slice(-2).join(' ');
-      const province  = normProv(locSlug);
+      // Try last word, then last 2 words — city names are usually at the end of the slug
+      const locSlug1 = slugParts.slice(-1).join(' ');
+      const locSlug2 = slugParts.slice(-2).join(' ');
+      const locSlug3 = slugParts.slice(-3).join(' ');
+      const province  = normProv(locSlug1) || normProv(locSlug2) || normProv(locSlug3) || null;
       const cat       = detectCategory(title, '');
 
       rows.push({
