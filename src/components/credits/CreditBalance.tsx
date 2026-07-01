@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Coins, X, Check, Loader2, Zap, MessageCircle } from 'lucide-react';
+import { Coins, X, Check, Loader2, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCredits } from '@/hooks/useCredits';
 import { useAuth } from '@/lib/AuthContext';
@@ -18,8 +18,8 @@ import { toast } from 'sonner';
 
 // ── Credit packages (mirror your screenshot) ────────────────────────────────
 const PACKAGES = [
-  { id: 'single',   label: 'Single CV',            price: 29,  credits: 10,  note: '1 CV + 1 letter' },
-  { id: 'standard', label: 'Standard Credit Pack', price: 49,  credits: 30,  note: '3 CVs + 3 letters' },
+  { id: 'single',   label: 'Starter Pack',          price: 39,  credits: 15,  note: '1 CV + 6 letters' },
+  { id: 'standard', label: 'Standard Credit Pack', price: 59,  credits: 30,  note: '3 CVs + 3 letters' },
   { id: 'pro_pack', label: 'Pro Credit Pack',       price: 99,  credits: 60,  note: 'Messaging unlock (credits not added to balance)', popular: true },
   { id: 'business', label: 'Business Credit Pack',  price: 199, credits: 200, note: '22 CVs + 2 letters' },
 ] as const;
@@ -35,19 +35,9 @@ interface Props {
 
 export default function CreditBalance({ showBuyButton = false, variant = 'chip', onlyAfterPurchase = false }: Props) {
   const { balance, loading, refetch } = useCredits();
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [hasPurchased, setHasPurchased] = useState<boolean | null>(null);
-  const [showUnlockPrompt, setShowUnlockPrompt] = useState(false);
-  const [hasMessagingAccess, setHasMessagingAccess] = useState<boolean | null>(null);
-
-  // Check if user has unlocked messaging
-  useEffect(() => {
-    if (!user) return;
-    supabase.from('credit_ledger').select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id).eq('type', 'messaging_unlock')
-      .then(({ count }) => setHasMessagingAccess((count ?? 0) > 0));
-  }, [user?.id]);
 
   // Hide chip until user has made a purchase (onlyAfterPurchase mode)
   useEffect(() => {
@@ -71,13 +61,7 @@ export default function CreditBalance({ showBuyButton = false, variant = 'chip',
     if (status === 'success') {
       toast.success('Payment received! Your credits will appear shortly.');
       refetch();
-      const t = setTimeout(() => {
-        refetch();
-        const fromMessaging = sessionStorage.getItem('crosssa_messaging_upsell') === '1';
-        if (!fromMessaging && hasMessagingAccess === false) {
-          setShowUnlockPrompt(true);
-        }
-      }, 4000);
+      const t = setTimeout(() => refetch(), 4000); // webhook may lag slightly
       return () => clearTimeout(t);
     } else if (status === 'cancelled') {
       toast.info('Payment cancelled — no credits were charged.');
@@ -95,28 +79,6 @@ export default function CreditBalance({ showBuyButton = false, variant = 'chip',
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleMessagingUnlock = async () => {
-    if (!session?.access_token) return;
-    try {
-      const res = await fetch('/.netlify/functions/deduct-credits', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ type: 'messaging_unlock' }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setHasMessagingAccess(true);
-        setShowUnlockPrompt(false);
-        refetch();
-        toast.success('Messaging unlocked! You can now connect with potential transfer partners.');
-      } else {
-        toast.error(data.error || 'Not enough credits to unlock messaging.');
-      }
-    } catch {
-      toast.error('Failed to unlock messaging. Please try again.');
-    }
-  };
-
   if (onlyAfterPurchase && hasPurchased === false) return null;
 
   if (variant === 'full') {
@@ -124,39 +86,6 @@ export default function CreditBalance({ showBuyButton = false, variant = 'chip',
       <>
         <CreditCard balance={balance} loading={loading} onBuy={() => setShowModal(true)} />
         {showModal && <PurchaseModal onClose={() => { setShowModal(false); refetch(); }} />}
-        {showUnlockPrompt && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
-            onClick={e => { if (e.target === e.currentTarget) setShowUnlockPrompt(false); }}>
-            <div className="bg-background rounded-2xl w-full max-w-sm shadow-xl p-6 space-y-4">
-              <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mx-auto">
-                <MessageCircle className="w-7 h-7 text-primary" />
-              </div>
-              <div className="text-center space-y-1.5">
-                <h2 className="text-lg font-bold text-foreground">Unlock Messaging?</h2>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Your credits are in! Would you like to unlock messaging so you can connect with potential transfer partners?
-                  This uses <strong>60 credits</strong> as a one-time unlock fee — these credits will be deducted from your balance.
-                </p>
-              </div>
-              <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 space-y-1">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-foreground">Messaging unlock</span>
-                  <span className="font-bold text-primary">60 credits</span>
-                </div>
-                <p className="text-xs text-muted-foreground">One-time fee · Message any educator on Crosssa</p>
-              </div>
-              <div className="space-y-2">
-                <Button onClick={handleMessagingUnlock} className="w-full rounded-xl gap-2">
-                  <MessageCircle className="w-4 h-4" /> Yes, unlock messaging
-                </Button>
-                <button onClick={() => setShowUnlockPrompt(false)}
-                  className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-1">
-                  No thanks, keep credits for CVs
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </>
     );
   }
@@ -180,39 +109,6 @@ export default function CreditBalance({ showBuyButton = false, variant = 'chip',
         )}
       </div>
       {showModal && <PurchaseModal onClose={() => { setShowModal(false); refetch(); }} />}
-      {showUnlockPrompt && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
-          onClick={e => { if (e.target === e.currentTarget) setShowUnlockPrompt(false); }}>
-          <div className="bg-background rounded-2xl w-full max-w-sm shadow-xl p-6 space-y-4">
-            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mx-auto">
-              <MessageCircle className="w-7 h-7 text-primary" />
-            </div>
-            <div className="text-center space-y-1.5">
-              <h2 className="text-lg font-bold text-foreground">Unlock Messaging?</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Your credits are in! Would you like to unlock messaging so you can connect with potential transfer partners?
-                This uses <strong>60 credits</strong> as a one-time unlock fee — these credits will be deducted from your balance.
-              </p>
-            </div>
-            <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 space-y-1">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium text-foreground">Messaging unlock</span>
-                <span className="font-bold text-primary">60 credits</span>
-              </div>
-              <p className="text-xs text-muted-foreground">One-time fee · Message any educator on Crosssa</p>
-            </div>
-            <div className="space-y-2">
-              <Button onClick={handleMessagingUnlock} className="w-full rounded-xl gap-2">
-                <MessageCircle className="w-4 h-4" /> Yes, unlock messaging
-              </Button>
-              <button onClick={() => setShowUnlockPrompt(false)}
-                className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-1">
-                No thanks, keep credits for CVs
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
@@ -413,7 +309,7 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
             </p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              R99 Pro pack includes messaging unlock (60 credits)
+              R79+ pack unlocks advanced search filters
             </p>
           </div>
         </div>
