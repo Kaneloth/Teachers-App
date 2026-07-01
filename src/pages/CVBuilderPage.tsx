@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Loader2, RotateCcw, Coins, Briefcase } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Loader2, RotateCcw, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
+import { useFeatureGates } from '@/hooks/useFeatureGates';
 import CreditBalance from '@/components/credits/CreditBalance';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -41,7 +42,6 @@ interface CVData {
   references: RefEntry[];
   custom_sections: CustomSection[];
   template: string;
-  job_description?: string;
 }
 
 function defaultData(): CVData {
@@ -57,7 +57,6 @@ function defaultData(): CVData {
     ],
     custom_sections: [],
     template: 'classic',
-    job_description: '',
   };
 }
 
@@ -91,20 +90,17 @@ function StepStepper({ steps, current, onSelect }: { steps: string[]; current: n
 }
 
 /* ── Upload / AI Zone ───────────────────────────────────────── */
-function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoading, onJobDesc }: {
+function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoading }: {
   onDataExtracted: (data: CVData) => void;
   deduct: (type: 'cv_usage' | 'letter_usage', refId?: string) => Promise<boolean>;
   onAiUsed: () => void;
   balance: number;
   creditsLoading: boolean;
-  onJobDesc?: (jd: string) => void;
 }) {
-  const [uploading,     setUploading]     = useState(false);
-  const [dragActive,    setDragActive]    = useState(false);
-  const [freeText,      setFreeText]      = useState('');
-  const [activeTab,     setActiveTab]     = useState<'upload' | 'freetext'>('upload');
-  const [jobDesc,       setJobDesc]       = useState('');
-  const [showJobDesc,   setShowJobDesc]   = useState(false);
+  const [uploading,  setUploading]  = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [freeText,   setFreeText]   = useState('');
+  const [activeTab,  setActiveTab]  = useState<'upload' | 'freetext'>('upload');
 
   const mergeAndEmit = (parsed: Partial<CVData>, base: CVData) => {
     if (parsed.education?.length)        base.education       = parsed.education;
@@ -126,37 +122,19 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
     if (!ok) return; // insufficient credits — toast already shown
 
     setUploading(true);
-    const MAX_UPLOAD_ATTEMPTS = 3;
-    for (let attempt = 0; attempt < MAX_UPLOAD_ATTEMPTS; attempt++) {
-      try {
-        if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 3000));
-        const formData = new FormData();
-        formData.append('cvFile', file);
-        formData.append('cvType', 'general');
-        if (jobDesc.trim()) formData.append('jobDescription', jobDesc.trim());
-        const res    = await fetch('/.netlify/functions/enhance-cv', { method: 'POST', body: formData });
-        const result = await res.json();
-        const isRateLimit = res.status === 429 || res.status === 503 ||
-          result.error?.toLowerCase().includes('rate') ||
-          result.error?.toLowerCase().includes('busy') ||
-          result.error?.toLowerCase().includes('limit');
-        if (isRateLimit && attempt < MAX_UPLOAD_ATTEMPTS - 1) continue;
-        if (!res.ok || !result.success) throw new Error(result.error || 'Failed to process CV');
-        mergeAndEmit(result.data, defaultData());
-        onAiUsed();
-        toast.success('CV imported! 1 credit used. Review and complete your details.');
-        setUploading(false);
-        return;
-      } catch (err: any) {
-        const isRateLimit = err?.message?.toLowerCase().includes('rate') ||
-          err?.message?.toLowerCase().includes('busy') ||
-          err?.message?.toLowerCase().includes('limit');
-        if (isRateLimit && attempt < MAX_UPLOAD_ATTEMPTS - 1) continue;
-        toast.error('AI processing failed — please try again in a moment.');
-        break;
-      }
-    }
-    setUploading(false);
+    const formData = new FormData();
+    formData.append('cvFile', file);
+    formData.append('cvType', 'general');
+    try {
+      const res    = await fetch('/.netlify/functions/enhance-cv', { method: 'POST', body: formData });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || 'Failed to process CV');
+      mergeAndEmit(result.data, defaultData());
+      onAiUsed(); // AI used — reduces CV download cost by 1
+      toast.success('CV imported! 1 credit used. Review and complete your details.');
+    } catch (err: any) {
+      toast.error(err.message || 'AI processing failed. Please try again.');
+    } finally { setUploading(false); }
   };
 
   const processFreeText = async () => {
@@ -167,37 +145,20 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
     if (!ok) return; // insufficient credits — toast already shown
 
     setUploading(true);
-    const MAX_FT_ATTEMPTS = 3;
-    for (let attempt = 0; attempt < MAX_FT_ATTEMPTS; attempt++) {
-      try {
-        if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 3000));
-        const res = await fetch('/.netlify/functions/enhance-cv', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'process_freetext', text: freeText, cvType: 'general', jobDescription: jobDesc.trim() || undefined }),
-        });
-        const result = await res.json();
-        const isRateLimit = res.status === 429 || res.status === 503 ||
-          result.error?.toLowerCase().includes('rate') ||
-          result.error?.toLowerCase().includes('busy') ||
-          result.error?.toLowerCase().includes('limit');
-        if (isRateLimit && attempt < MAX_FT_ATTEMPTS - 1) continue;
-        if (!res.ok || !result.success) throw new Error(result.error || 'AI processing failed');
-        mergeAndEmit(result.data, defaultData());
-        onAiUsed();
-        toast.success('AI has structured your info! 1 credit used. Review and complete your details.');
-        setUploading(false);
-        return;
-      } catch (err: any) {
-        const isRateLimit = err?.message?.toLowerCase().includes('rate') ||
-          err?.message?.toLowerCase().includes('busy') ||
-          err?.message?.toLowerCase().includes('limit');
-        if (isRateLimit && attempt < MAX_FT_ATTEMPTS - 1) continue;
-        toast.error('AI processing failed — please try again in a moment.');
-        break;
-      }
-    }
-    setUploading(false);
+    try {
+      const res    = await fetch('/.netlify/functions/enhance-cv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'process_freetext', text: freeText, cvType: 'general' }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || 'AI processing failed');
+      mergeAndEmit(result.data, defaultData());
+      onAiUsed(); // AI used — reduces CV download cost by 1
+      toast.success('AI has structured your info! 1 credit used. Review and complete your details.');
+    } catch (err: any) {
+      toast.error(err.message || 'AI processing failed. Please try again.');
+    } finally { setUploading(false); }
   };
 
   return (
@@ -206,42 +167,6 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
         Speed up your CV — import an existing CV or describe yourself and our AI will fill in the sections for you.{' '}
         <span className="font-medium text-primary">1 credit per AI action.</span>
       </p>
-      {/* Optional job description */}
-      <div className="mb-3">
-        <button
-          onClick={() => setShowJobDesc(v => !v)}
-          className="flex items-center gap-1.5 text-xs text-primary font-semibold hover:text-primary/80 transition-colors mb-2"
-        >
-          <Briefcase className="w-3.5 h-3.5" />
-          {showJobDesc ? 'Hide job description' : '+ Tailor CV to a job description (optional)'}
-        </button>
-        {showJobDesc && (
-          <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground">
-              Paste the job description below. AI will tailor your professional summary to match the role's keywords — without exaggerating your qualifications.
-            </p>
-            <textarea
-              value={jobDesc}
-              onChange={e => {
-                const val = e.target.value;
-                if (val.length > 3000) {
-                  toast.error('Job description is too long. Please keep it under 3,000 characters (currently ' + val.length + '). Try pasting only the key requirements section.');
-                  return;
-                }
-                setJobDesc(val);
-                onJobDesc?.(val);
-              }}
-              placeholder="Paste the job posting or description here..."
-              rows={5}
-              className={`w-full rounded-xl border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none ${jobDesc.length > 2800 ? 'border-amber-400' : 'border-input'}`}
-            />
-            <p className={`text-xs text-right mt-1 ${jobDesc.length > 2800 ? 'text-amber-500 font-medium' : 'text-muted-foreground'}`}>
-              {jobDesc.length} / 3,000 characters{jobDesc.length > 2800 ? ' — approaching limit' : ''}
-            </p>
-          </div>
-        )}
-      </div>
-
       <div className="flex gap-1 bg-muted p-1 rounded-xl mb-3">
         <button onClick={() => setActiveTab('upload')}
           className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-lg transition-all ${activeTab === 'upload' ? 'bg-card shadow text-foreground' : 'text-muted-foreground'}`}>
@@ -312,6 +237,7 @@ export default function CVBuilderPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { balance, loading: creditsLoading, deduct } = useCredits();
+  const { gates, loading: gatesLoading } = useFeatureGates();
 
   const [initialState] = useState(() => {
     const lastMeta: Record<string, unknown> = (() => {
@@ -366,7 +292,9 @@ export default function CVBuilderPage() {
   // isFree gates the template picker (CVStepTemplate): true = only Classic
   // template available. Admins, users who have purchased, or users with
   // admin-granted template access get all templates unlocked.
-  const isFree = !hasPurchased && !isAdmin && !templatesUnlocked;
+  // templates_access gate: when OFF (false), all templates are free for everyone
+  const templatesGateActive = !gatesLoading && gates.templates_access !== false;
+  const isFree = templatesGateActive && !hasPurchased && !isAdmin && !templatesUnlocked;
 
   const [showBuilder,      setShowBuilder]      = useState(initialState.showBuilder);
   const [step,             setStep]             = useState(initialState.draft?.step ?? 0);
@@ -538,7 +466,7 @@ export default function CVBuilderPage() {
         <p className="text-sm text-muted-foreground">Build a professional CV in minutes</p>
       </div>
 
-      {step === 0 && <CVUploadZone onDataExtracted={handleAIDataExtracted} deduct={deduct} onAiUsed={() => setAiUsed(true)} balance={balance} creditsLoading={creditsLoading} onJobDesc={jd => setData(d => ({ ...d, job_description: jd }))} />}
+      {step === 0 && <CVUploadZone onDataExtracted={handleAIDataExtracted} deduct={deduct} onAiUsed={() => setAiUsed(true)} balance={balance} creditsLoading={creditsLoading} />}
 
       <motion.div key="builder" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
         <div className="px-4 pb-2">
@@ -555,7 +483,7 @@ export default function CVBuilderPage() {
         <div className="px-4">
           <AnimatePresence mode="wait">
             <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
-              {step === 0 && <CVStepPersonal data={data.personal} fullCvData={data} onChange={personal => setData(d => ({ ...d, personal }))} onAiUsed={() => setAiUsed(true)} jobDescription={data.job_description} />}
+              {step === 0 && <CVStepPersonal data={data.personal} fullCvData={data} onChange={personal => setData(d => ({ ...d, personal }))} onAiUsed={() => setAiUsed(true)} />}
               {step === 1 && <CVStepEducation data={data.education} onChange={education => setData(d => ({ ...d, education }))} />}
               {step === 2 && <CVStepExperience data={data.experience} onChange={experience => setData(d => ({ ...d, experience }))} />}
               {step === 3 && <CVStepSkills data={data.skills} onChange={skills => setData(d => ({ ...d, skills }))} />}
