@@ -160,13 +160,18 @@ const CATEGORY_PATTERNS = [
  * Pass 2: title + first 300 chars of description (catches ambiguous titles).
  */
 function detectCategory(title = '', description = '') {
-  // Pass 1 — title only
+  // Pass 1 — title only (most reliable)
   for (const [cat, pattern] of CATEGORY_PATTERNS) {
     if (pattern.test(title)) return cat;
   }
-  // Pass 2 — title + description snippet
+  // Pass 2 — title + first 300 chars of description, but SKIP Education —
+  // the word "education" appears as an industry name in many non-teaching
+  // job descriptions (e.g. "we serve healthcare, retail, education sectors")
+  // and causes false positives. Education jobs almost always have clear
+  // title signals (teacher, educator, lecturer etc.) so title-only is enough.
   const combined = title + ' ' + description.slice(0, 300);
   for (const [cat, pattern] of CATEGORY_PATTERNS) {
+    if (cat === 'Education') continue;  // title-only for Education
     if (pattern.test(combined)) return cat;
   }
   return 'Other';
