@@ -190,12 +190,12 @@ async function fetchAdzuna(log) {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const settled = [];
   for (let i = 0; i < queries.length; i++) {
-    if (i > 0) await sleep(1100);
+    if (i > 0) await sleep(300);  // reduced from 1100ms — 4 queries × 1.1s was hitting timeouts
     const what = queries[i];
     const params = new URLSearchParams({
       app_id:           appId,
       app_key:          appKey,
-      what,
+      what_or:          what,  // OR matching — 'what' requires ALL words (returns 0)
       results_per_page: '50',
       sort_by:          'date',
     });
@@ -279,22 +279,13 @@ async function fetchCareers24(log) {
   const seen = new Set();
   const rows = [];
 
+  // Reduced to 5 pages (was 10) — scraping 10 pages was pushing past Netlify
+  // function timeout. These 5 cover the most job-rich categories.
   const listingUrls = [
-    // Education
     `${BASE}/jobs/c-education-training-teaching/`,
-    `${BASE}/jobs/c-education-training-teaching/?page=2`,
-    `${BASE}/jobs/s-educators-and-teachers/`,
-    // Technology
     `${BASE}/jobs/c-it-internet/`,
-    `${BASE}/jobs/c-it-internet/?page=2`,
-    // Finance
     `${BASE}/jobs/c-finance/`,
-    // Healthcare
     `${BASE}/jobs/c-medical-health-care/`,
-    // Retail + Admin
-    `${BASE}/jobs/c-retail/`,
-    `${BASE}/jobs/c-administration-office/`,
-    // General (catches everything else — sorted by date)
     `${BASE}/jobs/?sort=date`,
   ];
 
