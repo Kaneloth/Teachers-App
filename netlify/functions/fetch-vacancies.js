@@ -139,27 +139,35 @@ const getPhase = (t='') => { const l=t.toLowerCase(); if(l.includes('foundation'
 const getPostLevel = (t='') => { const m=t.match(/post\s*level\s*(\d)/i)||t.match(/\bpl\s*(\d)/i); return m?m[1]:null; };
 
 /* ─── Job category detection ─────────────────────────────────────────────── */
+// Tightened patterns — title checked first, description only as fallback.
+// Removed broad single-word triggers (health, school, academic, trainer)
+// that caused Finance/Healthcare/Logistics jobs to appear under Education.
 const CATEGORY_PATTERNS = [
-  ['Education',    /educat|teacher|school|principal|tutor|\bgrade\s*[r\d]|phase\b|curriculum|sace|persal|lecturer|professor|academic|trainer|learning support|head of department|\bhod\b|deputy head|classroom|teaching/i],
-  ['Technology',   /\bdeveloper\b|software|programmer|full.?stack|front.?end|back.?end|devops|cloud|cyber|network admin|systems admin|web dev|\bIT\b|information technology|\bQA\b|scrum|agile|data engineer|data scientist|machine learning|artificial intelligence|javascript|python|java\b|\.net\b|react\b|angular|node\.?js/i],
-  ['Finance',      /accountant|financial manager|auditor|bookkeeper|\btax\b|payroll|actuari|banking|investment|treasury|credit analyst|CFO|FD \b|accounts payable|accounts receivable|financial controller/i],
-  ['Healthcare',   /\bnurse\b|\bdoctor\b|medical|\bhealth\b|pharmacy|clinical|therapist|physiother|occupational ther|radiograph|dental|matron|\bward\b|hospital|\bparamedic\b|dietitian|social worker|counsell/i],
-  ['Engineering',  /mechanical eng|electrical eng|civil eng|structural eng|industrial eng|chemical eng|process eng|instrumentation|fitter|welder|boilermaker|artisan|\btechnician\b|draughtsman|construction manager|mining eng|\bHVAC\b|project eng/i],
-  ['Retail',       /retail|cashier|\bshop\b|\bstore\b|sales rep|sales consultant|merchandis|inventory control|stock control|buyer\b|procurement|fashion|clothing|apparel|pos system|point of sale/i],
-  ['Admin',        /administrator|receptionist|secretary|office manager|office admin|data entry|coordinator|executive assistant|personal assistant|\bPA\b|filing clerk|switchboard|front desk/i],
-  ['Hospitality',  /hotel|restaurant|\bchef\b|catering|tourism|hospitality|kitchen manager|food and beverage|housekeeping|front office|concierge|lodge|game reserve/i],
-  ['Logistics',    /logistics|supply chain|warehouse|truck driver|transport|delivery driver|courier|distribution|dispatch|fleet|forklift|freight/i],
+  ['Education',    /\beducator\b|\bteacher\b|teaching\s+(post|position|vacancy|staff)|school\s+(principal|teacher|educator)|\btutor\b|\bgrade\s*[r\d]\b|\bSACE\b|\blecturer\b|\blearning support\b|\bclassroom\b|CAPS curriculum|Department of (Basic |Higher )?Education/i],
+  ['Technology',   /\bdeveloper\b|software engineer|programmer|full.?stack|front.?end|back.?end|devops|cloud computing|cyber security|network admin|systems admin|\bIT\b|information technology|data engineer|data scientist|machine learning|artificial intelligence|javascript|python developer|java developer|\.net developer|react developer|node\.?js/i],
+  ['Finance',      /\baccountant\b|financial manager|\bauditor\b|bookkeeper|payroll (clerk|administrator|officer)|actuari|investment (analyst|manager)|treasury|credit analyst|\bCFO\b|accounts payable|accounts receivable|financial controller|Department of (Finance|Treasury)/i],
+  ['Healthcare',   /\bnurse\b|\bdoctor\b|medical (officer|practitioner|aid)|\bhealthcare\b|pharmacy (assistant|technician)|\bclinical\b (nurse|officer|psychologist)|\btherapist\b|physiother|occupational ther|radiograph|\bdental\b (assistant|technician)|\bmatron\b|hospital (staff|administrator)|\bparamedic\b|dietitian|Department of Health/i],
+  ['Engineering',  /mechanical eng|electrical eng|civil eng|structural eng|industrial eng|chemical eng|process eng|instrumentation|\bfitter\b|\bwelder\b|boilermaker|\bartisan\b|\btechnician\b|draughtsman|construction manager|mining eng|\bHVAC\b|project eng/i],
+  ['Retail',       /\bretail\b|\bcashier\b|shop assistant|store manager|sales rep|sales consultant|merchandis|inventory control|stock control|\bbuyer\b|procurement (officer|manager)|pos system|point of sale/i],
+  ['Admin',        /\badministrator\b|receptionist|secretary|office manager|office admin|data entry|executive assistant|personal assistant|filing clerk|switchboard|front desk/i],
+  ['Hospitality',  /\bhotel\b|\brestaurant\b|\bchef\b|catering|\btourism\b|\bhospitality\b|kitchen manager|food and beverage|housekeeping|concierge|lodge|game reserve/i],
+  ['Logistics',    /\blogistics\b|supply chain|\bwarehouse\b|truck driver|\btransport\b (manager|coordinator)|delivery driver|\bcourier\b|\bdistribution\b|\bdispatch\b|\bfleet\b (manager|controller)|forklift|\bfreight\b|(site manager|operations manager).*(truck|driver|dispatch|fleet|warehouse|logistics)/i],
 ];
 
 /**
  * Returns the best-matching category for a job, or 'Other' if none match.
- * Checks Education first so teaching posts always win even if they overlap
- * with a generic pattern (e.g. "school administrator" → Education).
+ * Pass 1: title only (most reliable signal).
+ * Pass 2: title + first 300 chars of description (catches ambiguous titles).
  */
 function detectCategory(title = '', description = '') {
-  const text = title + ' ' + description;
+  // Pass 1 — title only
   for (const [cat, pattern] of CATEGORY_PATTERNS) {
-    if (pattern.test(text)) return cat;
+    if (pattern.test(title)) return cat;
+  }
+  // Pass 2 — title + description snippet
+  const combined = title + ' ' + description.slice(0, 300);
+  for (const [cat, pattern] of CATEGORY_PATTERNS) {
+    if (pattern.test(combined)) return cat;
   }
   return 'Other';
 }
