@@ -18,7 +18,7 @@ interface RefEntry {
 }
 
 interface CVData {
-  personal: { full_name?: string; email?: string; phone?: string; address?: string; bio?: string; photo_url?: string; id_number?: string };
+  personal: { full_name?: string; email?: string; phone?: string; address?: string; bio?: string; photo_url?: string; id_number?: string; job_title?: string };
   education: { institution: string; qualification: string; year: string }[];
   experience: { school: string; role: string; from: string; to: string; description: string }[];
   skills: { subjects?: string[]; soft_skills?: string[]; languages?: string[] };
@@ -682,7 +682,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
             {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '3px solid rgba(255,255,255,0.4)', flexShrink: 0 }} />}
             <div>
               <div style={{ fontSize: '26px', fontWeight: '800', letterSpacing: '1px' }}>{personal.full_name || 'Your Name'}</div>
-              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)', marginTop: '4px', letterSpacing: '2px', textTransform: 'uppercase' }}>Educator</div>
+              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)', marginTop: '4px', letterSpacing: '2px', textTransform: 'uppercase' }}>{personal.job_title || validExp[0]?.role || 'Educator'}</div>
             </div>
           </div>
           <div style={{ height: '2px', background: 'rgba(255,255,255,0.3)', margin: '16px 0 12px' }} />
@@ -1497,7 +1497,7 @@ function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
           {personal.photo_url && <img src={personal.photo_url} alt="" style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', flexShrink: 0 }} />}
           <div>
             <div style={{ fontSize: '22px', fontWeight: '800', color: '#fff', fontStyle: 'italic' }}>{personal.full_name || 'Your Name'}</div>
-            <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '2px', color: 'rgba(255,255,255,0.75)', marginTop: '3px' }}>Educator</div>
+            <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '2px', color: 'rgba(255,255,255,0.75)', marginTop: '3px' }}>{personal.job_title || validExp[0]?.role || 'Educator'}</div>
           </div>
         </div>
         {/* Contact strip */}
@@ -1658,9 +1658,10 @@ function ElegantHeading({ title }: { title: string }) {
 
 function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
-  // Subtitle is drawn from the most recent role — users can type multiple
-  // roles separated by "/" (e.g. "ICT Coordinator / Educator").
-  const subtitle = validExp[0]?.role || '';
+  // Subtitle uses the user's chosen job title if set, otherwise falls back
+  // to the most recent role — users can type multiple roles separated by
+  // "/" (e.g. "ICT Coordinator / Educator").
+  const subtitle = personal.job_title || validExp[0]?.role || '';
   const contactParts = [
     personal.address,
     personal.phone,
@@ -1817,7 +1818,7 @@ function HeritageHeading({ title }: { title: string }) {
 
 function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
-  const subtitle = validExp[0]?.role || '';
+  const subtitle = personal.job_title || validExp[0]?.role || '';
   const contactParts = [
     personal.address,
     personal.email,

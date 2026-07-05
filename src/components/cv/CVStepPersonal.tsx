@@ -22,6 +22,7 @@ interface PersonalData {
   bio: string;
   photo_url?: string;
   id_number?: string;
+  job_title?: string;
 }
 
 interface Props {
@@ -198,6 +199,14 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
       <LockedField label="Full Name"     value={data.full_name} />
       <LockedField label="Email Address" value={data.email} />
       <LockedField label="Phone Number"  value={data.phone} />
+
+      {/* Current Job Title — shown as the heading subtitle on some templates */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium">Current Job Title <span className="text-muted-foreground font-normal">(optional)</span></Label>
+        <Input value={data.job_title ?? ''} onChange={e => set('job_title', e.target.value)}
+          placeholder="e.g. Mathematics Educator" className="rounded-xl" />
+        <p className="text-xs text-muted-foreground">This appears under your name on some templates. Leave blank to use your most recent role automatically.</p>
+      </div>
 
       {/* Editable location */}
       <div className="space-y-1.5">

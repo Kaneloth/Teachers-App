@@ -818,7 +818,7 @@ function drawBold(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(18);
   p.text(owner.toUpperCase(), ML, 12);
   // Job title below name
-  const jobTitle = (exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
   p.setFont(F,'normal'); p.setFontSize(9); tc(p,255,180,210);
   p.text(jobTitle, ML, 18);
   // Divider + contact
@@ -1339,7 +1339,7 @@ function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   fill(p,ar,ag,ab); p.rect(0,0,PW,28,'F');
   tc(p,255,255,255); p.setFont(F,'bolditalic'); p.setFontSize(18);
   p.text(owner, ML, 11);
-  const jobTitle = (exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
   p.setFont(F,'italic'); p.setFontSize(9); tc(p,255,180,160);
   p.text(jobTitle, ML, 18);
   hLine(p,0,22,PW,255,255,255,0.25);
@@ -1459,7 +1459,7 @@ function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   tc(p,26,46,26); p.setFont(F,'bold'); p.setFontSize(16);
   p.text(owner, ML+2, nameY);
 
-  const jobTitle = (exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
   const jobTitleY = nameY + HEADER_JOBTITLE_H;
   p.setFont(F,'normal'); p.setFontSize(9.5); tc(p,75,108,75);
   p.text(jobTitle, ML+2, jobTitleY);
@@ -1584,8 +1584,9 @@ function drawElegant(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   p.text(name, (PW-tw)/2, y);
   y += 7;
 
-  // Subtitle = most recent role (users can type "Role A / Role B")
-  const subtitle = (exp[0]?.role || '').toUpperCase();
+  // Subtitle = user's chosen job title, falling back to most recent role
+  // (users can type "Role A / Role B")
+  const subtitle = (pr.job_title || exp[0]?.role || '').toUpperCase();
   if (subtitle) {
     p.setFont('times','normal'); p.setFontSize(9); tc(p,MUTED[0],MUTED[1],MUTED[2]);
     tw = p.getTextWidth(subtitle);
@@ -1745,7 +1746,7 @@ function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
   p.text(owner, (PW-tw)/2, y);
   y += 7;
 
-  const subtitle = exp[0]?.role || '';
+  const subtitle = pr.job_title || exp[0]?.role || '';
   if (subtitle) {
     p.setFont('times','normal'); p.setFontSize(10); tc(p,MUTED[0],MUTED[1],MUTED[2]);
     tw = p.getTextWidth(subtitle);

@@ -18,7 +18,7 @@ function publicStorageUrl(bucket: string, path: string): string {
 }
 
 interface CVData {
-  personal: { full_name?: string; email?: string; photo_url?: string; phone?: string; address?: string; bio?: string };
+  personal: { full_name?: string; email?: string; photo_url?: string; phone?: string; address?: string; bio?: string; job_title?: string };
   education: { institution: string; qualification: string; year: string }[];
   experience: { school: string; role: string; from: string; to: string; description: string }[];
   skills: { subjects?: string[]; soft_skills?: string[]; languages?: string[] };
@@ -219,6 +219,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
         <div className="space-y-3">
           <SummaryCard title="Personal Details">
             <ReviewRow label="Name"    value={personal.full_name} />
+            {personal.job_title && <ReviewRow label="Job Title" value={personal.job_title} />}
             <ReviewRow label="Email"   value={personal.email} />
             <ReviewRow label="Phone"   value={personal.phone} />
             <ReviewRow label="Address" value={personal.address} />
