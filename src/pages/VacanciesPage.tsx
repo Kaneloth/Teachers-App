@@ -225,7 +225,7 @@ export default function VacanciesPage() {
       .from('vacancies')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(1000);
+      .limit(2000);
     setVacancies(data || []);
     if (data?.length) setLastUpdated(new Date(data[0].created_at));
     setLoading(false);
