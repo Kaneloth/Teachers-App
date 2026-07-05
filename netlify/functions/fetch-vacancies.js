@@ -114,7 +114,7 @@ const PROV = {
   'western cape':'Western Cape','eastern cape':'Eastern Cape',mpumalanga:'Mpumalanga',limpopo:'Limpopo',
   'north west':'North West',northwest:'North West','free state':'Free State','northern cape':'Northern Cape',
   // Major cities → province mapping
-  johannesburg:'Gauteng',joburg:'Gauteng',jo'burg:'Gauteng',sandton:'Gauteng',soweto:'Gauteng',
+  johannesburg:'Gauteng',joburg:'Gauteng',sandton:'Gauteng',soweto:'Gauteng',
   pretoria:'Gauteng',centurion:'Gauteng',midrand:'Gauteng',randburg:'Gauteng',roodepoort:'Gauteng',
   germiston:'Gauteng',benoni:'Gauteng',boksburg:'Gauteng',kempton:'Gauteng',alberton:'Gauteng',
   'cape town':'Western Cape',capetown:'Western Cape','cape-town':'Western Cape',bellville:'Western Cape',
