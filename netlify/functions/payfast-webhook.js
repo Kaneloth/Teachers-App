@@ -21,6 +21,19 @@
  * IMPORTANT: set this exact URL as your Notify URL in PayFast:
  *   https://crosssa.co.za/.netlify/functions/payfast-webhook
  * (or whatever SITE_URL is configured to)
+ *
+ * NOTE ON IP FILTERING: We deliberately do NOT whitelist PayFast's source
+ * IPs here. ITNs are relayed through Hookdeck (PayFast -> Hookdeck ->
+ * this function), so the request's source IP as seen by Netlify is
+ * Hookdeck's IP, not one of PayFast's published ranges — an IP whitelist
+ * check would reject every legitimate live ITN (this previously caused a
+ * silent 403 on every real purchase). Security is instead enforced by:
+ *   1. MD5 signature verification (step 1 below)
+ *   2. Server-to-server confirmation against PayFast's /validate endpoint
+ *      (step 2 below)
+ * which PayFast itself documents as sufficient. If you ever move off
+ * Hookdeck and receive ITNs directly from PayFast, an IP whitelist can be
+ * safely re-added at that point.
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -45,29 +58,6 @@ export const handler = async (event) => {
   for (const [k, v] of params.entries()) fields[k] = v;
 
   console.log('[payfast-webhook] ITN received:', { pf_payment_id: fields.pf_payment_id, payment_status: fields.payment_status, m_payment_id: fields.m_payment_id });
-
-  // ── 0. Validate sender IP against PayFast's known server ranges ──────────
-  // PayFast requires this as an extra layer of security beyond signature
-  // verification. Requests from unknown IPs are rejected immediately.
-  const PAYFAST_VALID_IPS = [
-    '197.97.145.144', '197.97.145.145', '197.97.145.146', '197.97.145.147',
-    '197.97.145.148', '197.97.145.149', '197.97.145.150', '197.97.145.151',
-    '197.97.145.152', '197.97.145.153', '197.97.145.154', '197.97.145.155',
-    '197.97.145.156', '197.97.145.157', '197.97.145.158', '197.97.145.159',
-  ];
-  // Netlify passes the real client IP via x-nf-client-connection-ip;
-  // fall back to x-forwarded-for (first hop) in other environments.
-  const clientIp = (
-    event.headers['x-nf-client-connection-ip'] ||
-    (event.headers['x-forwarded-for'] || '').split(',')[0]
-  ).trim();
-
-  // Allow sandbox IPs in non-live mode — sandbox uses a different IP range.
-  const isSandbox = (process.env.PAYFAST_MODE || 'sandbox').toLowerCase() !== 'live';
-  if (!isSandbox && !PAYFAST_VALID_IPS.includes(clientIp)) {
-    console.error(`[payfast-webhook] IP not in PayFast whitelist: ${clientIp}`);
-    return { statusCode: 403, body: 'Forbidden' };
-  }
 
   // ── 1. Verify signature ─────────────────────────────────────────────────────
   const receivedSig = fields.signature;
