@@ -1,5 +1,5 @@
 /**
- * admin-feature-gates.js — read and write feature gate toggles
+ * Netlify Function: admin-feature-gates — read and write feature gate toggles
  *
  * GET  /.netlify/functions/admin-feature-gates
  *      Returns { global: Gate[], perUser: Gate[] }
@@ -11,28 +11,40 @@
  * DELETE /.netlify/functions/admin-feature-gates
  *      Body: { gate_key, user_id }
  *      Removes a per-user override (falls back to global)
+ *
+ * Deploy path: netlify/functions/admin-feature-gates.js
+ * Requires:    netlify/functions/lib/requireAdmin.js
+ *
+ * SECURITY: this function previously checked user.user_metadata.is_admin
+ * directly, independently of requireAdmin.js — that field is
+ * client-writable (any signed-in user can call
+ * supabase.auth.updateUser({ data: { is_admin: true } }) on their own
+ * account), so this function was NOT actually admin-gated. It let anyone
+ * globally toggle monetization gates (cv_credits, chat_credits,
+ * id_verification, etc.) for every user on the platform. Now routed
+ * through requireAdmin.js, which checks the real educators.is_admin DB
+ * column (writable only by service-role code), matching every other
+ * admin-*.js function.
+ *
+ * NOTE: this file was previously written in CommonJS (require/exports)
+ * while requireAdmin.js and the rest of the admin-*.js functions use ESM
+ * (import/export) — converted to ESM here so the import works at all.
  */
 
-const { createClient } = require('@supabase/supabase-js');
+import { requireAdmin } from './lib/requireAdmin.js';
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
-  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
-);
-
-const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
-
-exports.handler = async (event) => {
+export const handler = async (event) => {
   const headers = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' };
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers };
 
-  // Verify admin JWT
-  const jwt = (event.headers.authorization || '').replace('Bearer ', '');
-  if (!jwt) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }), headers };
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(jwt);
-  if (authErr || !user?.user_metadata?.is_admin) {
-    return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden' }), headers };
+  const auth = await requireAdmin(event);
+  if (auth.error) {
+    // requireAdmin's error responses don't set the CORS header this
+    // function has always sent — merge it in so behavior stays identical
+    // for existing callers.
+    return { ...auth.error, headers: { ...headers, ...(auth.error.headers || {}) } };
   }
+  const { supabase, user } = auth;
 
   if (event.httpMethod === 'GET') {
     const { data, error } = await supabase
