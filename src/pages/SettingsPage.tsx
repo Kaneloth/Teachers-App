@@ -4,7 +4,7 @@ import {
   ArrowLeft, Bell, Moon, Type, Shield, FileText, Headphones,
   Lock, ChevronRight, ChevronDown, Star, Zap,
   Search, AlertTriangle, CheckCircle, UserX, Ban, X,
-  Save, Loader2, Fingerprint, Coins, Crown, Plus, Minus, History, ScrollText, ShieldCheck, Trash2, User,
+  Save, Loader2, Fingerprint, Coins, Crown, Plus, Minus, History, ScrollText, ShieldCheck, Trash2, User, LayoutDashboard,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -1779,6 +1779,7 @@ const ADMIN_SUBTABS = ['Users', 'Credits', 'Audit Log', 'Educators', 'ID Verific
 type AdminSubTab = typeof ADMIN_SUBTABS[number];
 
 function AdminTab() {
+  const navigate = useNavigate();
   const [sub, setSub] = useState<AdminSubTab>('Users');
 
   return (
@@ -1788,6 +1789,23 @@ function AdminTab() {
         <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
         <p className="text-xs text-amber-800 font-medium">Admin panel — changes here affect real user accounts.</p>
       </div>
+
+      {/* Link to the full admin dashboard (/admin) — same functionality as
+          the sub-tabs below, laid out properly instead of cramped into
+          this Settings tab. Both stay live in parallel for now. */}
+      <button
+        onClick={() => navigate('/admin')}
+        className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors"
+      >
+        <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+          <LayoutDashboard className="w-4 h-4 text-primary" />
+        </div>
+        <div className="flex-1 text-left">
+          <p className="text-sm font-semibold text-foreground">Open Admin Dashboard</p>
+          <p className="text-xs text-muted-foreground">Full dashboard view — users, credits, educators, and more</p>
+        </div>
+        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+      </button>
 
       {/* Sub-tabs — horizontal scroll instead of a grid, since a 2-row grid
           gets cramped once there are more than ~4-5 sub-tabs. */}
