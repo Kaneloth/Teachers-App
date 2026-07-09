@@ -37,8 +37,31 @@ export const handler = async (event) => {
 
   const { type, ref_id } = body;
 
-  // Admins bypass all credit gates — log for audit but don't deduct
-  if (user.user_metadata?.is_admin) {
+  // Admins bypass all credit gates — log for audit but don't deduct.
+  //
+  // SECURITY: verified against educators.is_admin (a real DB column,
+  // writable only by service-role code) — NOT user.user_metadata.is_admin.
+  // user_metadata is client-writable: any signed-in user can call
+  // supabase.auth.updateUser({ data: { is_admin: true } }) from their own
+  // browser and flip that field for their own account. Trusting it here
+  // would let any user grant themselves unlimited free CVs, letters, chats,
+  // guide downloads, and ID verifications. See requireAdmin.js for the same
+  // fix applied to the admin-*.js functions.
+  const { data: educatorRow, error: adminLookupErr } = await supabase
+    .from('educators')
+    .select('is_admin')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (adminLookupErr) {
+    console.error('[deduct-credits] admin lookup failed:', adminLookupErr);
+    // Fail closed — if we can't verify admin status, treat as a normal
+    // (non-admin) user rather than risk a false bypass.
+  }
+
+  const isAdmin = !!educatorRow?.is_admin;
+
+  if (isAdmin) {
     console.log(`[deduct-credits] Admin bypass for ${user.email} — type=${type}`);
     return { statusCode: 200, body: JSON.stringify({ success: true, deducted: 0, new_balance: 999999 }) };
   }

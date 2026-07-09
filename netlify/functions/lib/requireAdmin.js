@@ -14,6 +14,18 @@
  *
  * Place this file at: netlify/functions/lib/requireAdmin.js
  * (esbuild will bundle local relative imports automatically)
+ *
+ * SECURITY NOTE: admin status is checked against educators.is_admin (a real
+ * DB column, writable only by service-role code) — NOT user.user_metadata.
+ * user_metadata is client-writable: any signed-in user can call
+ * supabase.auth.updateUser({ data: { is_admin: true } }) from their own
+ * browser and flip that field for their own account. Trusting it here would
+ * let any user self-grant admin access to every admin-*.js function. The
+ * educators.is_admin column is safe ONLY if Row Level Security prevents
+ * users from updating their own row's is_admin column — worth confirming
+ * separately (e.g. `select relrowsecurity from pg_class where relname =
+ * 'educators';` plus checking the actual UPDATE policy), since this check
+ * moving to the DB column is necessary but not sufficient on its own.
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -43,7 +55,20 @@ export async function requireAdmin(event) {
     return { error: { statusCode: 401, body: JSON.stringify({ error: 'Invalid session' }) } };
   }
 
-  if (!user.user_metadata?.is_admin) {
+  // Verify admin status against the real DB column, not client-writable
+  // user_metadata. See security note above.
+  const { data: educatorRow, error: lookupErr } = await supabase
+    .from('educators')
+    .select('is_admin')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (lookupErr) {
+    console.error('[requireAdmin] educators lookup failed:', lookupErr);
+    return { error: { statusCode: 500, body: JSON.stringify({ error: 'Could not verify admin status' }) } };
+  }
+
+  if (!educatorRow?.is_admin) {
     return { error: { statusCode: 403, body: JSON.stringify({ error: 'Forbidden — admin access required' }) } };
   }
 
