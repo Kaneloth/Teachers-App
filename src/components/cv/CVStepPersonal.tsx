@@ -22,7 +22,6 @@ interface PersonalData {
   bio: string;
   photo_url?: string;
   id_number?: string;
-  job_title?: string;
 }
 
 interface Props {
@@ -103,7 +102,7 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
         if (!res.ok || !result.success) throw new Error(result.error || 'AI failed');
         set('bio', result.summary);
         if (onAiUsed) onAiUsed();
-        toast.success('Professional summary generated! 2 credits used.');
+        toast.success('Professional summary generated!');
         setGeneratingSummary(false);
         return;
       } catch (err: any) {
@@ -200,14 +199,6 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
       <LockedField label="Email Address" value={data.email} />
       <LockedField label="Phone Number"  value={data.phone} />
 
-      {/* Current Job Title — shown as the heading subtitle on some templates */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">Current Job Title <span className="text-muted-foreground font-normal">(optional)</span></Label>
-        <Input value={data.job_title ?? ''} onChange={e => set('job_title', e.target.value)}
-          placeholder="e.g. Mathematics Educator" className="rounded-xl" />
-        <p className="text-xs text-muted-foreground">This appears under your name on some templates. Leave blank to use your most recent role automatically.</p>
-      </div>
-
       {/* Editable location */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium">Location</Label>
@@ -228,11 +219,11 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
         <div className="flex items-center justify-between">
           <Label className="text-sm font-medium">Professional Summary</Label>
           <button type="button" onClick={generateSummary}
-            disabled={generatingSummary || (!isAdmin && !creditsLoading && balance < 2)}
+            disabled={generatingSummary || (!isAdmin && !creditsLoading && balance < 20)}
             className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50">
             {generatingSummary
               ? <><Loader2 className="w-3 h-3 animate-spin" /> Generating…</>
-              : <><Sparkles className="w-3 h-3" /> Generate with AI · 2 credits</>}
+              : <><Sparkles className="w-3 h-3" /> Generate with AI</>}
           </button>
         </div>
         <Textarea value={data.bio} onChange={e => set('bio', e.target.value)}

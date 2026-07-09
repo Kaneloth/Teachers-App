@@ -9,11 +9,17 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// NOTE: this duplicates netlify/functions/lib/packages.js. This function
+// (purchase-credits.js) isn't wired into the live purchase flow — that's
+// payfast-initiate.js + payfast-webhook.js, both of which import PACKAGES
+// from lib/packages.js as the single source of truth. Kept in sync here
+// only so this file doesn't silently drift if it's ever revived; consider
+// deleting this file or having it import from lib/packages.js instead.
 const PACKAGES = {
-  single:   { credits: 15,  price_zar: 39,  label: 'Starter Pack' },
-  standard: { credits: 30,  price_zar: 59,  label: 'Standard Credit Pack' },
-  pro_pack: { credits: 60,  price_zar: 99,  label: 'Pro Credit Pack (includes messaging unlock)' },
-  business: { credits: 200, price_zar: 199, label: 'Business Credit Pack' },
+  single:   { credits: 150,  price_zar: 39,  label: 'Starter Pack' },
+  standard: { credits: 300,  price_zar: 59,  label: 'Standard Credit Pack' },
+  pro_pack: { credits: 600,  price_zar: 99,  label: 'Pro Credit Pack (includes messaging unlock)' },
+  business: { credits: 2000, price_zar: 199, label: 'Business Credit Pack' },
 };
 
 export const handler = async (event) => {

@@ -9,12 +9,15 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// NOTE: these are x10 of the original values (cosmetic credit-system
+// overhaul — see packages.js). Real Rand prices/value are unchanged; only
+// the credit unit got bigger/more granular-looking.
 const COSTS = {
-  cv_usage:      9,   // CV generation
-  letter_usage:  2,   // Cover letter / AI action
-  chat_start:    5,   // Starting a new conversation
-  guide_download:3,   // Downloading a transfer guide
-  id_verify:     30,  // ID/passport verification
+  cv_usage:      90,   // CV generation
+  letter_usage:  20,   // Cover letter / AI action
+  chat_start:    50,   // Starting a new conversation
+  guide_download:30,   // Downloading a transfer guide
+  id_verify:     300,  // ID/passport verification
 };
 
 export const handler = async (event) => {
@@ -79,7 +82,7 @@ export const handler = async (event) => {
   }
 
   // ── Career tools cap (cv_usage, letter_usage) ─────────────────────────────
-  // Educators get 18 free career-tool credits from the signup bonus.
+  // Educators get 180 free career-tool credits from the signup bonus.
   // Once used, they must top up — UNLESS they have credits from any other
   // source (admin adjustment, monthly pro grant, etc.).
   // The cap is bypassed if:
@@ -95,19 +98,19 @@ export const handler = async (event) => {
       .not('type', 'in', '("signup_bonus","cv_usage","letter_usage","chat_start","guide_download","id_verify","messaging_unlock")');
 
     if ((toppedUpCount ?? 0) === 0) {
-      // No topped-up credits — apply the 18-credit free tier cap
+      // No topped-up credits — apply the 180-credit free tier cap
       const { data: careerUsage } = await supabase
         .from('credit_ledger').select('amount')
         .eq('user_id', user.id).in('type', CAREER_TOOL_TYPES);
 
       const totalCareerSpent = (careerUsage || []).reduce((sum, r) => sum + Math.abs(r.amount), 0);
-      if (totalCareerSpent >= 18) {
+      if (totalCareerSpent >= 180) {
         const { data: balance } = await supabase.rpc('get_credit_balance', { p_user_id: user.id });
         return {
           statusCode: 402,
           body: JSON.stringify({
             error: 'career_cap_reached',
-            message: "You've used your 18 free career tool credits. Top up to continue generating CVs and cover letters.",
+            message: "You've used your 180 free career tool credits. Top up to continue generating CVs and cover letters.",
             balance: balance ?? 0,
           }),
         };
@@ -117,11 +120,11 @@ export const handler = async (event) => {
 
   const cost = COSTS[type];
   const DESCRIPTIONS = {
-    cv_usage:       'CV generated (9 credits)',
-    letter_usage:   'Cover letter / AI action (2 credits)',
-    chat_start:     'New chat started (5 credits)',
-    guide_download: 'Transfer guide downloaded (3 credits)',
-    id_verify:      'ID verification (30 credits)',
+    cv_usage:       'CV generated (90 credits)',
+    letter_usage:   'Cover letter / AI action (20 credits)',
+    chat_start:     'New chat started (50 credits)',
+    guide_download: 'Transfer guide downloaded (30 credits)',
+    id_verify:      'ID verification (300 credits)',
   };
   const description = DESCRIPTIONS[type] || type;
 

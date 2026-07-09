@@ -94,9 +94,9 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
     if (!exportRef.current) return;
 
     // ── Credit check ─────────────────────────────────────────────────────
-    // If AI summary was used (1 credit already spent), only deduct 5 more.
-    // Otherwise deduct the full 9 credits.
-    const remainingCost = aiUsed ? 7 : 9;  // AI summary costs 2cr, so remaining = 9-2=7
+    // If AI summary was used (letter_usage, 20 credits already spent), only
+    // deduct the remaining 70. Otherwise deduct the full 90 (cv_usage).
+    const remainingCost = aiUsed ? 70 : 90;  // AI summary costs 20cr, so remaining = 90-20=70
     const ok = await deduct('cv_usage', fileName);
     if (!ok) {
       if (!isAdmin && balance < remainingCost) setShowInsufficientModal(true);
@@ -172,25 +172,17 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
           <Button variant="outline" className="rounded-xl" onClick={() => setSent(false)}>
             Make Changes
           </Button>
-          <Button className="rounded-xl gap-2" disabled={sending} onClick={handleRedownload}>
-            <RefreshCw className="w-4 h-4" />
-            {sending ? 'Downloading...' : 'Download Again (free)'}
-          </Button>
         </div>
-        <TestimonialPromptModal
-          open={showTestimonialPrompt}
-          onClose={() => setShowTestimonialPrompt(false)}
-          source="cv_download_prompt"
-          title="Got your CV! 🎉"
-          description="Mind sharing a quick review of your experience building it?"
-        />
+        {showTestimonialPrompt && (
+          <TestimonialPromptModal onClose={() => setShowTestimonialPrompt(false)} />
+        )}
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2 bg-muted p-1 rounded-xl">
+    <div className="space-y-3">
+      <div className="flex bg-muted rounded-xl p-1 gap-1">
         {(['preview', 'summary'] as const).map(v => (
           <button
             key={v}
@@ -287,14 +279,17 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
         </div>
       )}
 
-      {/* Insufficient credits warning */}
-      {!isAdmin && !creditsLoading && balance < (aiUsed ? 7 : 9) && (
+      {/* Insufficient credits warning — ambient banner, kept number-free
+          on purpose (same treatment as CoverLettersPage.tsx); the full
+          numbers appear in the dedicated modal below once the user
+          actually tries and hits the wall. */}
+      {!isAdmin && !creditsLoading && balance < (aiUsed ? 70 : 90) && (
         <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2.5">
           <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
             <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Not enough credits</p>
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-              You have {balance} credit{balance !== 1 ? 's' : ''} but need {aiUsed ? 7 : 9} to generate a CV.
+              You don't have enough credits to generate a CV yet.
             </p>
           </div>
         </div>
@@ -302,7 +297,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
 
       <Button
         onClick={pdfUrl ? handleRedownload : handleGenerate}
-        disabled={sending || (!isAdmin && !pdfUrl && !creditsLoading && balance < (aiUsed ? 7 : 9))}
+        disabled={sending || (!isAdmin && !pdfUrl && !creditsLoading && balance < (aiUsed ? 70 : 90))}
         className="w-full h-12 rounded-xl text-sm font-semibold gap-2"
       >
         <Download className="w-4 h-4 shrink-0" />
@@ -311,11 +306,12 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
             ? 'Downloading...'
             : pdfUrl
               ? 'Download CV (free — already generated)'
-              : `Download PDF · ${aiUsed ? 7 : 9} credits${shouldWatermark ? ' · watermarked' : ''}`}
+              : `Download PDF${shouldWatermark ? ' · watermarked' : ''}`}
         </span>
       </Button>
 
-      {/* Insufficient credits modal */}
+      {/* Insufficient credits modal — appears only after a failed attempt;
+          specific numbers are useful here rather than intimidating. */}
       {showInsufficientModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
           onClick={e => { if (e.target === e.currentTarget) setShowInsufficientModal(false); }}>
@@ -326,13 +322,13 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
               </div>
               <h2 className="text-lg font-bold text-foreground">Not Enough Credits</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                You need {aiUsed ? 7 : 9} credits to download a CV. You currently have {balance}.
+                You need {aiUsed ? 70 : 90} credits to download a CV. You currently have {balance}.
               </p>
             </div>
             <div className="bg-muted rounded-xl p-3 space-y-1 text-xs text-muted-foreground">
-              <p>• Starter pack — R39 for 15 credits</p>
-              <p>• Standard pack — R59 for 30 credits</p>
-              <p>• Pro pack — R99 for 60 credits</p>
+              <p>• Starter pack — R39 for 150 credits</p>
+              <p>• Standard pack — R59 for 300 credits</p>
+              <p>• Pro pack — R99 for 600 credits</p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1 rounded-xl"

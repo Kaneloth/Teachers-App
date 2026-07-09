@@ -19,10 +19,10 @@ import { toast } from 'sonner';
 
 // ── Credit packages (mirror your screenshot) ────────────────────────────────
 const PACKAGES = [
-  { id: 'single',   label: 'Starter Pack',          price: 39,  credits: 15,  note: '1 CV + 6 letters' },
-  { id: 'standard', label: 'Standard Credit Pack', price: 59,  credits: 30,  note: '3 CVs + 3 letters' },
-  { id: 'pro_pack', label: 'Pro Credit Pack',       price: 99,  credits: 60,  note: 'Messaging unlock (credits not added to balance)', popular: true },
-  { id: 'business', label: 'Business Credit Pack',  price: 199, credits: 200, note: '22 CVs + 2 letters' },
+  { id: 'single',   label: 'Starter Pack',          price: 39,  credits: 150,  note: '1 CV + 6 letters' },
+  { id: 'standard', label: 'Standard Credit Pack', price: 59,  credits: 300,  note: '3 CVs + 3 letters' },
+  { id: 'pro_pack', label: 'Pro Credit Pack',       price: 99,  credits: 600,  note: 'Messaging unlock (credits not added to balance)', popular: true },
+  { id: 'business', label: 'Business Credit Pack',  price: 199, credits: 2000, note: '22 CVs + 2 letters' },
 ] as const;
 
 type PackageId = typeof PACKAGES[number]['id'];
@@ -125,7 +125,7 @@ function CreditCard({ balance, loading, onBuy }: { balance: number; loading: boo
           </div>
           <div>
             <p className="text-sm font-semibold text-foreground">Your Credits</p>
-            <p className="text-xs text-muted-foreground">CV = 9 credits · Letter = 1 credit</p>
+            <p className="text-xs text-muted-foreground">CV = 90 credits · Letter = 10 credits</p>
           </div>
         </div>
         <div className="text-right">
@@ -135,12 +135,12 @@ function CreditCard({ balance, loading, onBuy }: { balance: number; loading: boo
           <p className="text-xs text-muted-foreground">available</p>
         </div>
       </div>
-      {balance < 9 && !loading && (
+      {balance < 90 && !loading && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2">
           <p className="text-xs text-amber-700 dark:text-amber-300">
             {balance === 0
               ? 'You have no credits. Purchase a pack to generate CVs and cover letters.'
-              : `You have ${balance} credit${balance > 1 ? 's' : ''} — enough for ${balance} cover letter${balance > 1 ? 's' : ''} but not a CV (needs 9).`}
+              : `You have ${balance} credit${balance > 1 ? 's' : ''} — enough for ${Math.floor(balance / 10)} cover letter${Math.floor(balance / 10) === 1 ? '' : 's'} but not a CV (needs 90).`}
           </p>
         </div>
       )}
@@ -252,7 +252,7 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
             <h2 className="font-bold text-foreground">Top Up Credits</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">CV = 9 credits · Cover letter = 2 credits · Chat = 5 credits</p>
+            <p className="text-xs text-muted-foreground mt-0.5">CV = 90 credits · Cover letter = 20 credits · Chat = 50 credits</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
             <X className="w-4 h-4 text-muted-foreground" />
@@ -305,16 +305,16 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
             </p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              All new users receive 18 free credits on signup
+              All new users receive 180 free credits on signup
             </p>
             <p className="text-xs font-medium text-foreground mt-1 pt-1 border-t border-border">Credit costs:</p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              CV download = 9cr · Cover letter = 2cr · New chat = 5cr
+              CV download = 90cr · Cover letter = 20cr · New chat = 50cr
             </p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              Guide download = 3cr · ID verification = 30cr
+              Guide download = 30cr · ID verification = 300cr
             </p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />

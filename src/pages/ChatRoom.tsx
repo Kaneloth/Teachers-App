@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Send, Check, CheckCheck, Copy, Trash, Trash2, Lock } from 'lucide-react';
+import { ArrowLeft, Send, Check, CheckCheck, Copy, Trash, Trash2, Lock, MessageCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
@@ -10,6 +10,7 @@ import { useFeatureGates } from '@/hooks/useFeatureGates';
 import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
 import { isBlocked, blockUser } from '@/lib/blockUtils';
+import CreditBalance from '@/components/credits/CreditBalance';
 
 interface Message {
   id: string;
@@ -60,7 +61,7 @@ export default function ChatRoom() {
   const { balance, loading: creditsLoading } = useCredits();
   const isAdmin = !!(user?.user_metadata?.is_admin);
   const { gates, loading: gatesLoading } = useFeatureGates();
-  // Gate off = chat is free for everyone (no 5-credit charge)
+  // Gate off = chat is free for everyone (no 50-credit charge)
   const chatGateActive = !gatesLoading && gates.chat_credits && !isAdmin;
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
@@ -73,11 +74,14 @@ export default function ChatRoom() {
   const [hasChatAccess, setHasChatAccess] = useState<boolean | null>(null);
   const [showChatUpsell, setShowChatUpsell] = useState(false);
 
-  // Check R79+ purchase — required to send/reply to messages
+  // Check Pro Pack (R99, 600 credits) purchase — required to send/reply to
+  // messages. Threshold must track PACKAGES.pro_pack.credits in
+  // lib/packages.js — if that changes, this needs to change with it, or
+  // a cheaper pack will incorrectly unlock messaging.
   useEffect(() => {
     if (!user || isAdmin) { setHasChatAccess(true); return; }
     supabase.from('credit_ledger').select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id).eq('type', 'purchase').gte('amount', 60)
+      .eq('user_id', user.id).eq('type', 'purchase').gte('amount', 600)
       .then(({ count }) => setHasChatAccess((count ?? 0) > 0));
   }, [user, isAdmin]);
   const [checkingBlock, setCheckingBlock] = useState(true);
@@ -337,7 +341,7 @@ export default function ChatRoom() {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim() || !user || !partnerId || sending) return;
-    // R79+ required to send — show upsell if not purchased
+    // Pro Pack purchase required to send — show upsell if not purchased
     if (hasChatAccess === false) {
       setShowChatUpsell(true);
       return;
@@ -351,12 +355,12 @@ export default function ChatRoom() {
       return;
     }
 
-    // If user hasn't sent to this partner before, deduct 5 credits
+    // If user hasn't sent to this partner before, deduct 50 credits
     // (admins bypass + gate off = free for everyone)
     if (!hasSentBefore && chatGateActive) {
       if (creditsLoading) return; // wait for balance to load
-      if (balance < 5) {
-        toast.error('You need 5 credits to start this conversation. Please top up your credits.');
+      if (balance < 50) {
+        toast.error('You need 50 credits to start this conversation. Please top up your credits.');
         return;
       }
       const deductRes = await fetch('/.netlify/functions/deduct-credits', {
@@ -366,7 +370,7 @@ export default function ChatRoom() {
       });
       const deductData = await deductRes.json();
       if (deductRes.status === 402) {
-        toast.error(`Not enough credits. You need 5 credits to reply. You have ${deductData.balance}.`);
+        toast.error(`Not enough credits. You need 50 credits to reply. You have ${deductData.balance}.`);
         return;
       }
       if (!deductRes.ok) {
@@ -569,7 +573,7 @@ export default function ChatRoom() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Always-visible input — send button triggers R79+ upsell if not purchased */}
+      {/* Always-visible input — send button triggers Pro Pack upsell if not purchased */}
       <form
         onSubmit={handleSend}
         className="flex items-center gap-2 px-4 py-3 border-t border-border bg-background"
@@ -591,7 +595,7 @@ export default function ChatRoom() {
         </Button>
       </form>
 
-      {/* R79+ chat upsell modal */}
+      {/* Pro Pack chat upsell modal */}
       {showChatUpsell && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
           onClick={e => { if (e.target === e.currentTarget) setShowChatUpsell(false); }}>
@@ -602,18 +606,18 @@ export default function ChatRoom() {
             <div className="text-center space-y-1.5">
               <h2 className="text-lg font-bold text-foreground">Unlock Messaging</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Top up with the <strong>Pro Credit Pack (R79)</strong> to send and reply to messages.
-                60 credits gives you 12 conversations with potential transfer partners.
+                Top up with the <strong>Pro Credit Pack (R99)</strong> to send and reply to messages.
+                600 credits gives you 12 conversations with potential transfer partners.
               </p>
             </div>
             <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 space-y-1">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold text-foreground">Pro Credit Pack</span>
-                <span className="font-bold text-primary text-lg">R79</span>
+                <span className="font-bold text-primary text-lg">R99</span>
               </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>60 credits · 12 conversations</span>
-                <span>R6.60/chat</span>
+                <span>600 credits · 12 conversations</span>
+                <span>R8.25/chat</span>
               </div>
             </div>
             <CreditBalance variant="full" />
