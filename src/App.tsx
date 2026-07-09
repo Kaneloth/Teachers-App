@@ -35,6 +35,11 @@ import CreditsPage from '@/pages/CreditsPage';
 // AboutPage import removed
 import NotFound from '@/pages/not-found';
 import NotificationsPage from '@/pages/NotificationsPage';
+// Admin Dashboard Imports
+import AdminRoute from '@/pages/admin/AdminRoute';
+import AdminLayout from '@/pages/admin/AdminLayout';
+import AdminDashboard from '@/pages/admin/AdminDashboard';
+import AdminUsers from '@/pages/admin/AdminUsers';
 
 const queryClient = new QueryClient();
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
