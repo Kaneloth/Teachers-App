@@ -95,6 +95,11 @@ RULES:
 
 7. For dates: use formats like "Jan 2018", "2018", "Present" — whatever is clearest.
 8. drivers_licence: array of SA licence codes like ["Code 8", "Code 10"] or [] if not mentioned.
+8b. skills.languages: array of PLAIN LANGUAGE NAME STRINGS ONLY — e.g. ["English", "isiZulu"].
+    Even if the input text describes proficiency in detail (e.g. "English: read, write, speak
+    fluently"), still output just the language name as a string. NEVER output an object like
+    {"language": "English", "read": true, "speak": true, "write": true} — proficiency detail like
+    that has no field to go in and must be dropped, keeping only the language name.
 9. If input is unstructured, be generous in interpreting intent — extract maximum useful information.
 10. The "school" field in experience entries means the EMPLOYER/ORGANISATION for non-educators (company, hospital, firm, etc.).
 
@@ -128,7 +133,7 @@ Return ONLY valid JSON matching this exact structure:
   "skills": {
     "subjects": [],
     "soft_skills": [],
-    "languages": []
+    "languages": []            // plain strings only, e.g. ["English", "isiZulu"] — never objects
   },
   "references": [
     { "name": "", "title": "", "organisation": "", "phone": "", "email": "", "relationship": "" }
@@ -410,6 +415,22 @@ function toTitleCase(str) {
   });
 }
 
+// Coerce a languages array entry into a plain string. The prompt now
+// explicitly forbids the model from outputting proficiency objects like
+// { language: 'English', read: true, speak: true, write: true } instead of
+// just "English", but this is a second line of defense in case the model
+// ignores that instruction — without it, a structured object reaching the
+// client crashes the CV Preview step (React refuses to render an object as
+// a child; see CVStepReview.tsx's matching client-side safeguard).
+function normalizeLanguageEntry(entry) {
+  if (typeof entry === 'string') return entry;
+  if (entry && typeof entry === 'object') {
+    if (typeof entry.language === 'string') return entry.language;
+    return String(Object.values(entry)[0] ?? entry);
+  }
+  return String(entry);
+}
+
 function normaliseParsed(data) {
   if (!data) return data;
   if (Array.isArray(data.education)) {
@@ -417,6 +438,9 @@ function normaliseParsed(data) {
   }
   if (Array.isArray(data.experience)) {
     data.experience = data.experience.map(e => ({ ...e, school: toTitleCase(e.school) }));
+  }
+  if (Array.isArray(data.skills?.languages)) {
+    data.skills.languages = data.skills.languages.map(normalizeLanguageEntry);
   }
   if (data.personal?.bio) {
     data.personal.bio = data.personal.bio.replace(/\b([A-Z]{4,})\b/g, (word) => {
