@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, ChevronRight, Crown, X, User, CheckCircle, UserX, Ban,
-  ShieldCheck, FileText, Coins, Save, Loader2,
+  ShieldCheck, FileText, Coins, Save, Loader2, Plus, Minus,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,7 @@ interface AdminUser {
 
 /* ── Edit user modal ─────────────────────────────────────────── */
 
-function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: () => void; onSaved: (u: AdminUser) => void }) {
+function EditUserModal({ user, onClose, onSaved, onBalanceChanged }: { user: AdminUser; onClose: () => void; onSaved: (u: AdminUser) => void; onBalanceChanged: (userId: string, newBalance: number) => void }) {
   const { session } = useAuth();
   const navigate = useNavigate();
   const [accountStatus,     setAccountStatus]     = useState(user.account_status || 'active');
@@ -44,6 +44,8 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
   const [isHidden,          setIsHidden]          = useState(!!(user.is_hidden));
   const [userGateOverrides, setUserGateOverrides] = useState<Record<string, boolean | undefined>>({});
   const [gatesLoading,      setGatesLoading]      = useState(true);
+  const [creditBalance,     setCreditBalance]     = useState(user.credit_balance);
+  const [adjustingCredits,  setAdjustingCredits]  = useState(false);
 
   // Load existing per-user gate overrides for this user via Netlify function
   useEffect(() => {
@@ -83,6 +85,31 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
       toast.error(e.message || 'Failed to verify user');
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const adjustCredits = async (sign: 1 | -1) => {
+    setAdjustingCredits(true);
+    try {
+      const res = await fetch('/.netlify/functions/admin-adjust-credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({
+          action: 'adjust',
+          target_user_id: user.id,
+          amount: 10 * sign,
+          description: 'Quick adjustment from Users panel',
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || 'Adjustment failed');
+      setCreditBalance(result.new_balance);
+      onBalanceChanged(user.id, result.new_balance);
+      toast.success(`${sign > 0 ? 'Added' : 'Removed'} 10 credits`);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to adjust credits');
+    } finally {
+      setAdjustingCredits(false);
     }
   };
 
@@ -132,6 +159,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
         is_admin:           isAdminFlag,
         templates_unlocked: templatesUnlocked,
         is_hidden:          isHidden,
+        credit_balance:     creditBalance,
       });
     } catch (e: any) {
       toast.error(e.message || 'Failed to update user');
@@ -173,9 +201,28 @@ function EditUserModal({ user, onClose, onSaved }: { user: AdminUser; onClose: (
             </div>
             <div className="bg-muted rounded-xl px-3 py-2">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Credit Balance</p>
-              <p className="text-sm font-semibold text-foreground flex items-center gap-1">
-                <Coins className="w-3.5 h-3.5 text-primary" /> {user.credit_balance}
-              </p>
+              <div className="flex items-center justify-between gap-1 mt-0.5">
+                <p className="text-sm font-semibold text-foreground flex items-center gap-1">
+                  <Coins className="w-3.5 h-3.5 text-primary" /> {creditBalance}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => adjustCredits(-1)}
+                    disabled={adjustingCredits}
+                    className="w-6 h-6 rounded-full border border-border flex items-center justify-center hover:border-destructive hover:text-destructive transition-colors disabled:opacity-50"
+                  >
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => adjustCredits(1)}
+                    disabled={adjustingCredits}
+                    className="w-6 h-6 rounded-full border border-border flex items-center justify-center hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">±10 per tap · applies immediately</p>
             </div>
           </div>
 
@@ -425,6 +472,9 @@ export default function AdminUsers() {
           onSaved={updated => {
             setUsers(list => list.map(u => u.id === updated.id ? updated : u));
             setEditing(null);
+          }}
+          onBalanceChanged={(userId, newBalance) => {
+            setUsers(list => list.map(u => u.id === userId ? { ...u, credit_balance: newBalance } : u));
           }}
         />
       )}
