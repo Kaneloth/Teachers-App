@@ -17,6 +17,26 @@ function publicStorageUrl(bucket: string, path: string): string {
   return `${base}/storage/v1/object/public/${bucket}/${path}`;
 }
 
+// Language entries are meant to be plain strings (e.g. "English"), but the
+// AI CV-import flow can produce structured proficiency objects instead —
+// { language: 'English', read: true, speak: true, write: true } — which
+// React refuses to render directly (React error #31: "Objects are not
+// valid as a React child"), blanking the whole Preview step. This
+// normalizes any entry to a safe string before it ever reaches
+// CVTemplateRenderer, so the crash can't happen regardless of what that
+// component does internally or where else a bad entry might come from.
+function normalizeLanguage(entry: unknown): string {
+  if (typeof entry === 'string') return entry;
+  if (entry && typeof entry === 'object') {
+    const obj = entry as { language?: string; read?: boolean; speak?: boolean; write?: boolean };
+    const skillsList = [obj.read && 'read', obj.speak && 'speak', obj.write && 'write']
+      .filter(Boolean)
+      .join(', ');
+    if (obj.language) return skillsList ? `${obj.language} (${skillsList})` : obj.language;
+  }
+  return String(entry);
+}
+
 interface CVData {
   personal: { full_name?: string; email?: string; photo_url?: string; phone?: string; address?: string; bio?: string; job_title?: string };
   education: { institution: string; qualification: string; year: string }[];
@@ -63,6 +83,18 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
   const existingPdfUrl = (user?.user_metadata?.last_cv_pdf_url as string | undefined) ?? null;
 
   const { personal, education, experience, skills } = data;
+
+  // Sanitized copy — see normalizeLanguage above. Used for both the visible
+  // preview and the hidden export render, so a malformed languages entry
+  // can never crash either one.
+  const safeData: CVData = {
+    ...data,
+    skills: {
+      ...skills,
+      languages: (skills.languages || []).map(normalizeLanguage),
+    },
+  };
+
   const fileName = `CV_${(personal.full_name || 'Educator').replace(/\s+/g, '_')}.pdf`;
 
   // Re-download the already-stored PDF — FREE, no credit deduction
@@ -105,7 +137,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
 
     setSending(true);
     try {
-      const pdfBlob = await exportElementAsPDF(exportRef.current, fileName, { ...data, watermark: shouldWatermark });
+      const pdfBlob = await exportElementAsPDF(exportRef.current, fileName, { ...safeData, watermark: shouldWatermark });
 
       // ── 1. Trigger immediate device download ─────────────────────────────
       const blobUrl = URL.createObjectURL(pdfBlob);
@@ -204,7 +236,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
            * the page can scroll normally to reveal references or extra pages.
            */}
           <div style={{ zoom: 0.45 }}>
-            <CVTemplateRenderer data={data} forExport />
+            <CVTemplateRenderer data={safeData} forExport />
           </div>
         </div>
       ) : (
@@ -240,7 +272,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
               ))}
             </div>
             {skills.languages?.length ? (
-              <p className="text-sm text-muted-foreground mt-1">Languages: {skills.languages.join(', ')}</p>
+              <p className="text-sm text-muted-foreground mt-1">Languages: {skills.languages.map(normalizeLanguage).join(', ')}</p>
             ) : null}
           </SummaryCard>
           {data.references?.filter(r => r.name).length ? (
@@ -261,7 +293,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
       {/* Hidden full-size render used by exportElementAsPDF — added cv-export-root class */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '794px' }}>
         <div ref={exportRef} className="cv-export-root">
-          <CVTemplateRenderer data={data} forExport />
+          <CVTemplateRenderer data={safeData} forExport />
         </div>
       </div>
 
