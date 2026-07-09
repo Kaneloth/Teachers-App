@@ -40,6 +40,12 @@ import AdminRoute from '@/pages/admin/AdminRoute';
 import AdminLayout from '@/pages/admin/AdminLayout';
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import AdminUsers from '@/pages/admin/AdminUsers';
+import AdminCredits from '@/pages/admin/AdminCredits';
+import AdminAuditLog from '@/pages/admin/AdminAuditLog';
+import AdminEducators from '@/pages/admin/AdminEducators';
+import AdminTestimonials from '@/pages/admin/AdminTestimonials';
+import AdminFeatureGates from '@/pages/admin/AdminFeatureGates';
+import AdminTools from '@/pages/admin/AdminTools';
 
 const queryClient = new QueryClient();
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -152,6 +158,24 @@ export default function App() {
                   <Route path="/credits"       element={<CreditsPage />} />
                   <Route path="/notifications"  element={<NotificationsPage />} />
                 </Route>
+                </Route>
+              </Route>
+
+              {/* Admin dashboard (requires auth + real educators.is_admin DB check —
+                  see AdminRoute.tsx. Has its own layout/shell, not AppLayout's
+                  mobile tab-bar, so it sits as its own top-level route group. */}
+              <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
+                <Route element={<AdminRoute />}>
+                  <Route element={<AdminLayout />}>
+                    <Route path="/admin"              element={<AdminDashboard />} />
+                    <Route path="/admin/users"        element={<AdminUsers />} />
+                    <Route path="/admin/credits"      element={<AdminCredits />} />
+                    <Route path="/admin/audit-log"    element={<AdminAuditLog />} />
+                    <Route path="/admin/educators"    element={<AdminEducators />} />
+                    <Route path="/admin/testimonials" element={<AdminTestimonials />} />
+                    <Route path="/admin/gates"        element={<AdminFeatureGates />} />
+                    <Route path="/admin/tools"        element={<AdminTools />} />
+                  </Route>
                 </Route>
               </Route>
 
