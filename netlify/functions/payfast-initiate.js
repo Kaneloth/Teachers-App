@@ -25,6 +25,13 @@ const MERCHANT_ID  = process.env.PAYFAST_MERCHANT_ID;
 const MERCHANT_KEY = process.env.PAYFAST_MERCHANT_KEY;
 const PASSPHRASE   = process.env.PAYFAST_PASSPHRASE || '';
 
+// The shared Hookdeck source that fans out to both Crosssa's and
+// Skootlink's webhooks (same PayFast merchant account, so PayFast's
+// account-level Notify URL — not the per-transaction notify_url field —
+// is what actually determines delivery; pointing this at the Hookdeck
+// source directly keeps this explicit instead of relying on that override).
+const PAYFAST_NOTIFY_URL = process.env.PAYFAST_NOTIFY_URL || `${SITE_URL}/.netlify/functions/payfast-webhook`;
+
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
@@ -63,7 +70,7 @@ export const handler = async (event) => {
     merchant_key:      MERCHANT_KEY,
     return_url:        `${SITE_URL}/credits?payment=success`,
     cancel_url:        `${SITE_URL}/credits?payment=cancelled`,
-    notify_url:        `${SITE_URL}/.netlify/functions/payfast-webhook`,
+    notify_url:        PAYFAST_NOTIFY_URL,
     name_first:        firstName,
     email_address:     user.email,
     m_payment_id,
@@ -72,6 +79,10 @@ export const handler = async (event) => {
     item_description:  `${pkg.credits} Crosssa credits`,
     custom_str1:       user.id,       // who to credit
     custom_str2:       body.package_id, // which package — webhook looks this up
+    // NOTE: custom_str3 is intentionally left unused here — Skootlink uses
+    // it for payment_category ('verification' vs credit purchase). Don't
+    // repurpose it on this side or a future field could collide.
+    custom_str4:       'crosssa',       // app tag — lets Hookdeck (and the webhook) route/ignore correctly since both apps share one merchant account
   };
 
   const signature = generateSignature(fields, PASSPHRASE);

@@ -5,9 +5,10 @@
  * after a payment attempt. This MUST:
  *   1. Verify the MD5 signature
  *   2. Confirm with PayFast's own "validate" endpoint (server-to-server)
- *   3. Check payment_status === 'COMPLETE'
- *   4. Check the amount matches the expected package price
- *   5. Grant credits exactly once (idempotent via pf_payment_id)
+ *   3. Ignore ITNs tagged for a different app (custom_str4) — see note below
+ *   4. Check payment_status === 'COMPLETE'
+ *   5. Check the amount matches the expected package price
+ *   6. Grant credits exactly once (idempotent via pf_payment_id)
  *
  * Always responds 200 once the ITN has been processed/acknowledged —
  * PayFast retries on non-200, which would otherwise cause duplicate
@@ -26,14 +27,22 @@
  * IPs here. ITNs are relayed through Hookdeck (PayFast -> Hookdeck ->
  * this function), so the request's source IP as seen by Netlify is
  * Hookdeck's IP, not one of PayFast's published ranges — an IP whitelist
- * check would reject every legitimate live ITN (this previously caused a
- * silent 403 on every real purchase). Security is instead enforced by:
+ * check would reject every legitimate live ITN. Security is instead
+ * enforced by:
  *   1. MD5 signature verification (step 1 below)
  *   2. Server-to-server confirmation against PayFast's /validate endpoint
  *      (step 2 below)
- * which PayFast itself documents as sufficient. If you ever move off
- * Hookdeck and receive ITNs directly from PayFast, an IP whitelist can be
- * safely re-added at that point.
+ * which PayFast itself documents as sufficient.
+ *
+ * NOTE ON custom_str4 (app tag): Crosssa and Skootlink share one PayFast
+ * merchant account, routed through one shared Hookdeck source that fans out
+ * to both apps' webhooks. Hookdeck's Filter rule on the "payfast → Crosssa"
+ * connection should already stop Skootlink's ITNs from reaching here — this
+ * check is a second, independent line of defense in case that filter is
+ * ever disabled, misconfigured, or bypassed (e.g. manual replay in
+ * Hookdeck). custom_str4 is blank on older, already-in-flight payments
+ * initiated before this tag existed, so we only reject when it's present
+ * AND set to a different app — never when it's simply missing.
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -46,6 +55,7 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || proce
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const PASSPHRASE = process.env.PAYFAST_PASSPHRASE || '';
+const APP_TAG = 'crosssa';
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -57,7 +67,7 @@ export const handler = async (event) => {
   const fields = {};
   for (const [k, v] of params.entries()) fields[k] = v;
 
-  console.log('[payfast-webhook] ITN received:', { pf_payment_id: fields.pf_payment_id, payment_status: fields.payment_status, m_payment_id: fields.m_payment_id });
+  console.log('[payfast-webhook] ITN received:', { pf_payment_id: fields.pf_payment_id, payment_status: fields.payment_status, m_payment_id: fields.m_payment_id, custom_str4: fields.custom_str4 });
 
   // ── 1. Verify signature ─────────────────────────────────────────────────────
   const receivedSig = fields.signature;
@@ -86,7 +96,14 @@ export const handler = async (event) => {
     return { statusCode: 500, body: 'Validation error' };
   }
 
-  // ── 3. Handle payment status ────────────────────────────────────────────────
+  // ── 3. Ignore ITNs tagged for a different app (belt-and-braces alongside
+  //      the Hookdeck filter — see note at top of file) ──────────────────────
+  if (fields.custom_str4 && fields.custom_str4 !== APP_TAG) {
+    console.log(`[payfast-webhook] ignoring ITN tagged for other app: custom_str4=${fields.custom_str4} pf_payment_id=${fields.pf_payment_id}`);
+    return { statusCode: 200, body: 'OK' };
+  }
+
+  // ── 4. Handle payment status ────────────────────────────────────────────────
   const status = fields.payment_status;
 
   // Subscription cancellation / payment failure — downgrade the user.
@@ -126,7 +143,7 @@ export const handler = async (event) => {
     return { statusCode: 200, body: 'OK' };
   }
 
-  // ── 4. Resolve user from custom fields, then branch: subscription vs credit pack ──
+  // ── 5. Resolve user from custom fields, then branch: subscription vs credit pack ──
   const user_id = fields.custom_str1;
   const custom2 = fields.custom_str2;
 
@@ -135,12 +152,12 @@ export const handler = async (event) => {
     return { statusCode: 200, body: 'OK' }; // ack to stop retries; needs manual review
   }
 
-  // ── 4a. Subscription payment (Pro plan — initial signup or recurring charge) ──
+  // ── 5a. Subscription payment (Pro plan — initial signup or recurring charge) ──
   if (SUB_PLANS[custom2]) {
     return await handleSubscriptionPayment(fields, user_id, custom2);
   }
 
-  // ── 4b. Credit package purchase ──────────────────────────────────────────────
+  // ── 5b. Credit package purchase ──────────────────────────────────────────────
   const package_id = custom2;
   const pkg = PACKAGES[package_id];
 
@@ -149,7 +166,7 @@ export const handler = async (event) => {
     return { statusCode: 200, body: 'OK' }; // ack to stop retries; needs manual review
   }
 
-  // ── 5. Sanity-check the amount (allow tiny rounding differences) ────────────
+  // ── 6. Sanity-check the amount (allow tiny rounding differences) ────────────
   const expectedAmount = pkg.price_zar;
   const paidAmount = parseFloat(fields.amount_gross || fields.amount || '0');
   if (Math.abs(paidAmount - expectedAmount) > 0.5) {
@@ -157,7 +174,7 @@ export const handler = async (event) => {
     return { statusCode: 200, body: 'OK' }; // ack to stop retries; needs manual review
   }
 
-  // ── 6. Idempotency — never grant the same payment twice ──────────────────────
+  // ── 7. Idempotency — never grant the same payment twice ──────────────────────
   const { data: existing, error: existingErr } = await supabase
     .from('credit_ledger')
     .select('id')
@@ -175,7 +192,7 @@ export const handler = async (event) => {
     return { statusCode: 200, body: 'OK' };
   }
 
-  // ── 7. Grant the credits ──────────────────────────────────────────────────────
+  // ── 8. Grant the credits ──────────────────────────────────────────────────────
   const { error: creditErr } = await supabase.rpc('add_credits', {
     p_user_id:     user_id,
     p_amount:      pkg.credits,
