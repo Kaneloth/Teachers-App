@@ -15,11 +15,18 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // from lib/packages.js as the single source of truth. Kept in sync here
 // only so this file doesn't silently drift if it's ever revived; consider
 // deleting this file or having it import from lib/packages.js instead.
+//
+// chat_unlock (R150 messaging unlock, added alongside lib/packages.js) is
+// included below for consistency, but this handler always grants type=
+// 'purchase' unconditionally (see the RPC call at the bottom) — if this
+// file is ever revived, it needs the same messaging_unlock branching
+// payfast-webhook.js has, or reviving it would let someone "buy" 0
+// credits tagged as a purchase instead of properly unlocking messaging.
 const PACKAGES = {
-  single:   { credits: 150,  price_zar: 39,  label: 'Starter Pack' },
-  standard: { credits: 300,  price_zar: 59,  label: 'Standard Credit Pack' },
-  pro_pack: { credits: 600,  price_zar: 99,  label: 'Pro Credit Pack (includes messaging unlock)' },
-  business: { credits: 2000, price_zar: 199, label: 'Business Credit Pack' },
+  single:      { credits: 150,  price_zar: 39,  label: 'Starter Pack' },
+  standard:    { credits: 300,  price_zar: 59,  label: 'Standard Credit Pack' },
+  business:    { credits: 2000, price_zar: 199, label: 'Business Credit Pack' },
+  chat_unlock: { credits: 0,    price_zar: 150, label: 'Messaging Unlock' },
 };
 
 export const handler = async (event) => {

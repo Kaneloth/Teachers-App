@@ -157,7 +157,7 @@ export const handler = async (event) => {
     return await handleSubscriptionPayment(fields, user_id, custom2);
   }
 
-  // ── 5b. Credit package purchase ──────────────────────────────────────────────
+  // ── 5b. Credit package purchase (or standalone messaging unlock) ────────────
   const package_id = custom2;
   const pkg = PACKAGES[package_id];
 
@@ -165,6 +165,14 @@ export const handler = async (event) => {
     console.error('[payfast-webhook] unknown custom_str2 (not a plan or package)', { user_id, custom2 });
     return { statusCode: 200, body: 'OK' }; // ack to stop retries; needs manual review
   }
+
+  // chat_unlock is a standalone R150 payment that unlocks messaging — it
+  // is NOT a credit purchase (pkg.credits is 0). It's recorded as its own
+  // ledger type ('messaging_unlock') so it doesn't get treated as top-up
+  // credits (see deduct-credits.js's career-tool-cap check) and so
+  // ChatRoom.tsx can check for it directly to grant messaging access.
+  const isMessagingUnlock = package_id === 'chat_unlock';
+  const ledgerType = isMessagingUnlock ? 'messaging_unlock' : 'purchase';
 
   // ── 6. Sanity-check the amount (allow tiny rounding differences) ────────────
   const expectedAmount = pkg.price_zar;
@@ -174,12 +182,12 @@ export const handler = async (event) => {
     return { statusCode: 200, body: 'OK' }; // ack to stop retries; needs manual review
   }
 
-  // ── 7. Idempotency — never grant the same payment twice ──────────────────────
+  // ── 7. Idempotency — never grant/record the same payment twice ──────────────
   const { data: existing, error: existingErr } = await supabase
     .from('credit_ledger')
     .select('id')
     .eq('ref_id', fields.pf_payment_id)
-    .eq('type', 'purchase')
+    .eq('type', ledgerType)
     .maybeSingle();
 
   if (existingErr) {
@@ -192,7 +200,29 @@ export const handler = async (event) => {
     return { statusCode: 200, body: 'OK' };
   }
 
-  // ── 8. Grant the credits ──────────────────────────────────────────────────────
+  // ── 8a. Messaging unlock — direct 0-amount ledger row, no balance change ────
+  // (same pattern grant-signup-credits.js uses for its zero-amount audit
+  // rows — a plain insert, not the add_credits RPC, since there's no
+  // balance to adjust here.)
+  if (isMessagingUnlock) {
+    const { error: unlockErr } = await supabase.from('credit_ledger').insert({
+      user_id,
+      amount:      0,
+      type:        'messaging_unlock',
+      description: `${pkg.label} via PayFast — R${pkg.price_zar}`,
+      ref_id:      fields.pf_payment_id,
+    });
+
+    if (unlockErr) {
+      console.error('[payfast-webhook] messaging_unlock insert failed:', unlockErr);
+      return { statusCode: 500, body: 'Error' };
+    }
+
+    console.log(`[payfast-webhook] Messaging unlocked for user=${user_id} (pf_payment_id=${fields.pf_payment_id})`);
+    return { statusCode: 200, body: 'OK' };
+  }
+
+  // ── 8b. Grant the credits ─────────────────────────────────────────────────
   const { error: creditErr } = await supabase.rpc('add_credits', {
     p_user_id:     user_id,
     p_amount:      pkg.credits,

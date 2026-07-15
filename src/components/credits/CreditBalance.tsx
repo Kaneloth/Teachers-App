@@ -18,10 +18,12 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 // ── Credit packages (mirror your screenshot) ────────────────────────────────
+// Messaging unlock is NOT a credit package — it's a standalone R150
+// PayFast payment triggered from ChatRoom.tsx's upsell modal (general
+// users never see it, since they don't use in-app chat).
 const PACKAGES = [
   { id: 'single',   label: 'Starter Pack',          price: 39,  credits: 150,  note: '1 CV + 6 letters' },
-  { id: 'standard', label: 'Standard Credit Pack', price: 59,  credits: 300,  note: '3 CVs + 3 letters' },
-  { id: 'pro_pack', label: 'Pro Credit Pack',       price: 99,  credits: 600,  note: 'Messaging unlock (credits not added to balance)', popular: true },
+  { id: 'standard', label: 'Standard Credit Pack', price: 59,  credits: 300,  note: '3 CVs + 3 letters', popular: true },
   { id: 'business', label: 'Business Credit Pack',  price: 199, credits: 2000, note: '22 CVs + 2 letters' },
 ] as const;
 
@@ -252,7 +254,7 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
             <h2 className="font-bold text-foreground">Top Up Credits</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">CV = 90 credits · Cover letter = 20 credits · Chat = 50 credits</p>
+            <p className="text-xs text-muted-foreground mt-0.5">CV = 90 credits · Cover letter = 20 credits</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
             <X className="w-4 h-4 text-muted-foreground" />
@@ -310,7 +312,7 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
             <p className="text-xs font-medium text-foreground mt-1 pt-1 border-t border-border">Credit costs:</p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              CV download = 90cr · Cover letter = 20cr · New chat = 50cr
+              CV download = 90cr · Cover letter = 20cr
             </p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />

@@ -9,7 +9,7 @@
  * Requires:    netlify/functions/lib/payfast.js
  *              netlify/functions/lib/packages.js
  *
- * POST body: { package_id: 'single' | 'standard' | 'pro_pack' | 'business' }
+ * POST body: { package_id: 'single' | 'standard' | 'business' | 'chat_unlock' }
  * Response:  { action_url, fields } — frontend builds <form> from `fields`
  */
 
@@ -76,7 +76,9 @@ export const handler = async (event) => {
     m_payment_id,
     amount:            pkg.price_zar.toFixed(2),
     item_name:         pkg.label,
-    item_description:  `${pkg.credits} Crosssa credits`,
+    item_description:  body.package_id === 'chat_unlock'
+      ? 'Unlocks in-app messaging with transfer partners'
+      : `${pkg.credits} Crosssa credits`,
     custom_str1:       user.id,       // who to credit
     custom_str2:       body.package_id, // which package — webhook looks this up
     // NOTE: custom_str3 is intentionally left unused here — Skootlink uses

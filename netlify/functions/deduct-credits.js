@@ -12,10 +12,15 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // NOTE: these are x10 of the original values (cosmetic credit-system
 // overhaul — see packages.js). Real Rand prices/value are unchanged; only
 // the credit unit got bigger/more granular-looking.
+//
+// chat_start was removed — messaging is no longer credit-metered. It's
+// unlocked by a standalone R150 PayFast payment (see payfast-initiate /
+// payfast-webhook, package_id 'chat_unlock'), which writes a
+// credit_ledger row with type='messaging_unlock' rather than deducting
+// credits here. ChatRoom.tsx checks for that row directly.
 const COSTS = {
   cv_usage:      90,   // CV generation
   letter_usage:  20,   // Cover letter / AI action
-  chat_start:    50,   // Starting a new conversation
   guide_download:30,   // Downloading a transfer guide
   id_verify:     300,  // ID/passport verification
 };
@@ -71,7 +76,6 @@ export const handler = async (event) => {
   const GATE_MAP = {
     cv_usage:       'cv_credits',
     letter_usage:   'cv_credits',
-    chat_start:     'chat_credits',
     guide_download: 'guides_access',
     id_verify:      'id_verification',
   };
@@ -115,6 +119,10 @@ export const handler = async (event) => {
   if (CAREER_TOOL_TYPES.includes(type)) {
     // Check for ANY topped-up credits — not just 'purchase' type.
     // Admin adjustments use type='admin_adjustment', pro grants use 'monthly_pro' etc.
+    // 'chat_start' is kept here for historical rows from before messaging
+    // moved to a standalone R150 unlock — it's no longer an active COSTS
+    // type, but old ledger entries with that type should still be
+    // excluded from counting as "topped up," same as messaging_unlock.
     const { count: toppedUpCount } = await supabase
       .from('credit_ledger').select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
@@ -145,7 +153,6 @@ export const handler = async (event) => {
   const DESCRIPTIONS = {
     cv_usage:       'CV generated (90 credits)',
     letter_usage:   'Cover letter / AI action (20 credits)',
-    chat_start:     'New chat started (50 credits)',
     guide_download: 'Transfer guide downloaded (30 credits)',
     id_verify:      'ID verification (300 credits)',
   };
