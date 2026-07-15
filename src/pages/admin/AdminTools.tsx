@@ -42,7 +42,8 @@ export default function AdminTools() {
           <p className="text-sm font-semibold text-foreground">Match Notification Scan</p>
           <p className="text-xs text-muted-foreground mt-0.5">
             Scans all actively-looking educators for new matches and sends notifications.
-            Only fires for pairs not previously notified.
+            Only fires for pairs not previously notified. Runs automatically every day —
+            use the button below to trigger an extra scan on demand.
           </p>
         </div>
         <button
