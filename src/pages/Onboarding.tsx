@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Loader2, ChevronRight, ChevronLeft, GraduationCap, User, X } from 'lucide-react';
+import { Loader2, ChevronRight, ChevronLeft, GraduationCap, User, X, MapPin, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { geocodeLocation } from '@/lib/geocode';
 
 const PROVINCES = ['Gauteng','KwaZulu-Natal','Western Cape','Eastern Cape','Mpumalanga','Limpopo','North West','Free State','Northern Cape'];
 const PHASES = ['Foundation','Intermediate','Senior','FET'];
@@ -128,6 +129,7 @@ export default function Onboarding() {
     years_experience:    '',
     preferred_provinces: [] as string[],
     preferred_districts: [] as string[],
+    preferred_town_coords: [] as { name: string; lat: number; lng: number }[],
     is_actively_looking: false,
   });
 
@@ -223,15 +225,75 @@ export default function Onboarding() {
   const toggleSubject  = (s: string) => set('subjects',            form.subjects.includes(s)            ? form.subjects.filter(x => x !== s)            : [...form.subjects, s]);
   const toggleProvince = (p: string) => set('preferred_provinces', form.preferred_provinces.includes(p) ? form.preferred_provinces.filter(x => x !== p) : [...form.preferred_provinces, p]);
 
-  /* Preferred town(s) — free-text, added to preferred_districts (matches ProfilePage's field name) */
-  const [prefTownInput, setPrefTownInput] = useState('');
-  const addPreferredTown = () => {
+  /* Preferred town(s) — geocoded the same way as ProfilePage, so the
+     resulting coordinates power match-scan's 50km radius matching. */
+  const [prefTownInput,        setPrefTownInput]        = useState('');
+  const [prefTownGeocoding,    setPrefTownGeocoding]    = useState(false);
+  const [prefTownCoords,       setPrefTownCoords]       = useState<{ latitude: number; longitude: number; displayName: string } | null>(null);
+  const [prefTownGeocodeTarget, setPrefTownGeocodeTarget] = useState('');
+  const lastGeocodedPrefTownRef = useRef('');
+
+  // Geocode on blur (debounced by only firing when the target actually changes)
+  useEffect(() => {
+    const target = prefTownGeocodeTarget.trim();
+    if (target === lastGeocodedPrefTownRef.current.trim()) return;
+
+    if (target.length < 3) {
+      lastGeocodedPrefTownRef.current = target;
+      setPrefTownCoords(null);
+      return;
+    }
+
+    let cancelled = false;
+    setPrefTownGeocoding(true);
+    geocodeLocation(`${target}, South Africa`).then(coords => {
+      if (cancelled) return;
+      lastGeocodedPrefTownRef.current = target;
+      setPrefTownCoords(coords ?? null);
+    }).finally(() => { if (!cancelled) setPrefTownGeocoding(false); });
+
+    return () => { cancelled = true; };
+  }, [prefTownGeocodeTarget]);
+
+  const addPreferredTown = async () => {
     const val = prefTownInput.trim();
     if (!val || form.preferred_districts.includes(val)) return;
-    set('preferred_districts', [...form.preferred_districts, val]);
+
+    // Reuse coordinates already resolved for this exact text (from the
+    // blur-triggered lookup) if we have them; otherwise resolve now so a
+    // quick Enter-press doesn't silently save a town with no coordinates.
+    let coords = (lastGeocodedPrefTownRef.current.trim() === val && prefTownCoords)
+      ? prefTownCoords
+      : null;
+
     setPrefTownInput('');
+    setPrefTownGeocodeTarget('');
+    lastGeocodedPrefTownRef.current = '';
+    setPrefTownCoords(null);
+
+    if (!coords) {
+      setPrefTownGeocoding(true);
+      coords = await geocodeLocation(`${val}, South Africa`).catch(() => null);
+      setPrefTownGeocoding(false);
+    }
+
+    setForm(p => ({
+      ...p,
+      preferred_districts: [...p.preferred_districts, val],
+      preferred_town_coords: coords
+        ? [...p.preferred_town_coords, { name: val, lat: coords.latitude, lng: coords.longitude }]
+        : p.preferred_town_coords,
+    }));
+
+    if (!coords) {
+      toast.warning("Added, but the location couldn't be pinpointed — nearby-town matching may miss this one.");
+    }
   };
-  const removePreferredTown = (d: string) => set('preferred_districts', form.preferred_districts.filter(x => x !== d));
+  const removePreferredTown = (d: string) => setForm(p => ({
+    ...p,
+    preferred_districts: p.preferred_districts.filter(x => x !== d),
+    preferred_town_coords: p.preferred_town_coords.filter(c => c.name !== d),
+  }));
 
   /* ── Required-field validation per step ───────────────────────
      Educators must complete Province, District, Town, Phase, Post
@@ -537,18 +599,36 @@ export default function Onboarding() {
                   </div>
                 )}
                 <div className="flex gap-2">
-                  <Input
-                    value={prefTownInput}
-                    onChange={e => setPrefTownInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addPreferredTown(); } }}
-                    placeholder="e.g. Polokwane"
-                    className="rounded-xl"
-                  />
-                  <Button type="button" variant="outline" onClick={addPreferredTown} disabled={!prefTownInput.trim()} className="rounded-xl shrink-0">
-                    Add
+                  <div className="relative flex-1">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      value={prefTownInput}
+                      onChange={e => setPrefTownInput(e.target.value)}
+                      onBlur={e => setPrefTownGeocodeTarget(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addPreferredTown(); } }}
+                      placeholder="e.g. Polokwane"
+                      className="rounded-xl pl-9"
+                    />
+                  </div>
+                  <Button type="button" variant="outline" onClick={addPreferredTown}
+                    disabled={!prefTownInput.trim() || prefTownGeocoding} className="rounded-xl shrink-0">
+                    {prefTownGeocoding ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add'}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1.5">Add one or more towns you'd consider transferring to.</p>
+                {prefTownGeocoding ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Looking up "{prefTownInput}"…
+                  </p>
+                ) : prefTownCoords ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
+                    <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
+                    Found: {prefTownCoords.displayName || `${prefTownCoords.latitude.toFixed(4)}°, ${prefTownCoords.longitude.toFixed(4)}°`}
+                  </p>
+                ) : prefTownInput.trim().length >= 3 ? (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">Place not found — check the spelling.</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1.5">Add one or more towns you'd consider transferring to.</p>
+                )}
               </Field>
               <div className="flex items-center justify-between bg-muted/50 rounded-xl p-4">
                 <div>

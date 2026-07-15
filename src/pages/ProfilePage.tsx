@@ -115,6 +115,7 @@ interface Profile {
   subjects: string[];
   preferred_provinces: string[];
   preferred_districts: string[];
+  preferred_town_coords: { name: string; lat: number; lng: number }[];
   available_from: string;
   is_actively_looking: boolean;
   is_sace_verified?: boolean;
@@ -538,6 +539,7 @@ export default function ProfilePage() {
         subjects: [],
         preferred_provinces: [],
         preferred_districts: [],
+        preferred_town_coords: [],
         available_from: '',
         is_actively_looking: false,
         years_experience: '',
@@ -556,6 +558,7 @@ export default function ProfilePage() {
         district: data.district ?? '',
         town: townValue,
         years_experience: String(data.years_experience ?? ''),
+        preferred_town_coords: data.preferred_town_coords ?? [],
       });
 
       if (isOwnProfile && townValue) {
@@ -749,18 +752,52 @@ export default function ProfilePage() {
     return () => { cancelled = true; };
   }, [prefTownGeocodeTarget]);
 
-  const addPreferredTown = () => {
+  // Adds the typed town to preferred_districts AND persists its resolved
+  // coordinates to preferred_town_coords, which is what powers the 50km
+  // radius matching in match-scan. Previously this only showed a "Found:"
+  // preview and discarded the coordinates instead of saving them.
+  const addPreferredTown = async () => {
     const val = prefTownInput.trim();
-    if (val && profile && !profile.preferred_districts.includes(val)) {
-      setProfileField('preferred_districts', [...profile.preferred_districts, val]);
-    }
+    if (!val || !profile || profile.preferred_districts.includes(val)) return;
+
+    // Reuse coordinates already resolved for this exact text (from the
+    // blur-triggered lookup) if we have them; otherwise resolve now so a
+    // quick Enter-press doesn't silently save a town with no coordinates.
+    let coords = (lastGeocodedPrefTownRef.current.trim() === val && prefTownCoords)
+      ? prefTownCoords
+      : null;
+
     setPrefTownInput('');
-    setPrefTownCoords(null);
     setPrefTownGeocodeTarget('');
     lastGeocodedPrefTownRef.current = '';
+    setPrefTownCoords(null);
+
+    if (!coords) {
+      setPrefTownGeocoding(true);
+      coords = await geocodeLocation(`${val}, South Africa`).catch(() => null);
+      setPrefTownGeocoding(false);
+    }
+
+    setProfile(p => p ? {
+      ...p,
+      preferred_districts: [...p.preferred_districts, val],
+      preferred_town_coords: coords
+        ? [...(p.preferred_town_coords || []), { name: val, lat: coords.latitude, lng: coords.longitude }]
+        : (p.preferred_town_coords || []),
+    } : p);
+
+    if (!coords) {
+      toast.warning('Added, but the location couldn\'t be pinpointed — nearby-town matching may miss this one.');
+    }
   };
   const removePreferredTown = (d: string) => {
-    if (profile) setProfileField('preferred_districts', profile.preferred_districts.filter(x => x !== d));
+    if (profile) {
+      setProfile({
+        ...profile,
+        preferred_districts: profile.preferred_districts.filter(x => x !== d),
+        preferred_town_coords: (profile.preferred_town_coords || []).filter(c => c.name !== d),
+      });
+    }
   };
 
   const daysSinceSave = lastSaved
@@ -1196,15 +1233,17 @@ export default function ProfilePage() {
                       onChange={e => setPrefTownInput(e.target.value)}
                       onBlur={e => setPrefTownGeocodeTarget(e.target.value)}
                       onKeyDown={e => {
-                        if (e.key === 'Enter') { e.preventDefault(); setPrefTownGeocodeTarget(e.currentTarget.value); addPreferredTown(); }
+                        if (e.key === 'Enter') { e.preventDefault(); addPreferredTown(); }
                       }}
                       placeholder="e.g. Polokwane"
                       className="rounded-xl pl-9"
                     />
                   </div>
                   <Button type="button" size="icon" variant="outline" onClick={addPreferredTown}
-                    disabled={!prefTownInput.trim()}
-                    className="rounded-xl shrink-0 h-10 w-10"><Plus className="w-4 h-4" /></Button>
+                    disabled={!prefTownInput.trim() || prefTownGeocoding}
+                    className="rounded-xl shrink-0 h-10 w-10">
+                    {prefTownGeocoding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  </Button>
                 </div>
                 {prefTownGeocoding ? (
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
