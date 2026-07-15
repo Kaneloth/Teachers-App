@@ -127,6 +127,7 @@ export default function Onboarding() {
     subjects:            [] as string[],
     years_experience:    '',
     preferred_provinces: [] as string[],
+    preferred_districts: [] as string[],
     is_actively_looking: false,
   });
 
@@ -222,6 +223,39 @@ export default function Onboarding() {
   const toggleSubject  = (s: string) => set('subjects',            form.subjects.includes(s)            ? form.subjects.filter(x => x !== s)            : [...form.subjects, s]);
   const toggleProvince = (p: string) => set('preferred_provinces', form.preferred_provinces.includes(p) ? form.preferred_provinces.filter(x => x !== p) : [...form.preferred_provinces, p]);
 
+  /* Preferred town(s) — free-text, added to preferred_districts (matches ProfilePage's field name) */
+  const [prefTownInput, setPrefTownInput] = useState('');
+  const addPreferredTown = () => {
+    const val = prefTownInput.trim();
+    if (!val || form.preferred_districts.includes(val)) return;
+    set('preferred_districts', [...form.preferred_districts, val]);
+    setPrefTownInput('');
+  };
+  const removePreferredTown = (d: string) => set('preferred_districts', form.preferred_districts.filter(x => x !== d));
+
+  /* ── Required-field validation per step ───────────────────────
+     Educators must complete Province, District, Town, Phase, Post
+     Level, Subjects, Preferred Provinces and Preferred Town — these
+     steps can no longer be skipped via "Next" or "Finish Setup".   */
+  const validateStep = (s: number): string | null => {
+    if (s === 0 && !form.sace_number.trim()) return 'SACE number is required to continue.';
+    if (s === 1) {
+      if (!form.current_province) return 'Province is required to continue.';
+      if (!form.district)         return 'District is required to continue.';
+      if (!form.town)             return 'Town is required to continue.';
+    }
+    if (s === 2) {
+      if (!form.phase)                return 'Phase is required to continue.';
+      if (!form.post_level)           return 'Post level is required to continue.';
+      if (form.subjects.length === 0) return 'Select at least one subject to continue.';
+    }
+    if (s === 3) {
+      if (form.preferred_provinces.length === 0) return 'Select at least one preferred province to continue.';
+      if (form.preferred_districts.length === 0) return 'Add at least one preferred town to continue.';
+    }
+    return null;
+  };
+
   /* ── Finish for general users ──────────────────────────────── */
   const handleFinishGeneral = async () => {
     setLoading(true);
@@ -261,6 +295,11 @@ export default function Onboarding() {
 
   /* ── Finish for educators ──────────────────────────────────── */
   const handleFinishEducator = async () => {
+    const err = validateStep(3);
+    if (err) {
+      toast.error(err);
+      return;
+    }
     setLoading(true);
     try {
       const { error } = await supabase.from('educators').insert([{
@@ -402,7 +441,7 @@ export default function Onboarding() {
           {step === 1 && (
             <>
               <Field label="Current School"><Input value={form.current_school} onChange={e => set('current_school', e.target.value)} placeholder="e.g. Pretoria High School" className="rounded-xl" /></Field>
-              <Field label="Province">
+              <Field label="Province *">
                 <SearchableSelect
                   value={form.current_province}
                   onValueChange={v => { set('current_province', v); set('district', ''); set('town', ''); }}
@@ -411,7 +450,7 @@ export default function Onboarding() {
                   searchPlaceholder="Search province…"
                 />
               </Field>
-              <Field label="District">
+              <Field label="District *">
 <SearchableSelect
                   value={form.district}
                   onValueChange={v => { set('district', v); set('town', ''); }}
@@ -421,7 +460,7 @@ export default function Onboarding() {
                   disabled={!form.current_province}
                 />
               </Field>
-              <Field label="Town / City">
+              <Field label="Town / City *">
 <SearchableSelect
                   value={form.town}
                   onValueChange={v => set('town', v)}
@@ -436,20 +475,20 @@ export default function Onboarding() {
 
           {step === 2 && (
             <>
-              <Field label="Phase">
+              <Field label="Phase *">
                 <Select value={form.phase} onValueChange={v => set('phase', v)}>
                   <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select phase" /></SelectTrigger>
                   <SelectContent>{PHASES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
-              <Field label="Post Level">
+              <Field label="Post Level *">
                 <Select value={form.post_level} onValueChange={v => set('post_level', v)}>
                   <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select post level" /></SelectTrigger>
                   <SelectContent>{POST_LEVELS.map(pl => <SelectItem key={pl} value={pl}>{pl}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
               <Field label="Years of Experience"><Input type="number" value={form.years_experience} onChange={e => set('years_experience', e.target.value)} placeholder="e.g. 5" className="rounded-xl" /></Field>
-              <Field label="Subjects (select all that apply)">
+              <Field label="Subjects (select all that apply) *">
                 {form.subjects.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {form.subjects.map(s => (
@@ -475,7 +514,7 @@ export default function Onboarding() {
 
           {step === 3 && (
             <>
-              <Field label="Preferred Transfer Provinces (select all)">
+              <Field label="Preferred Transfer Provinces *">
                 <div className="flex flex-wrap gap-2 mt-1">
                   {PROVINCES.map(p => (
                     <button key={p} onClick={() => toggleProvince(p)}
@@ -483,6 +522,33 @@ export default function Onboarding() {
                     >{p}</button>
                   ))}
                 </div>
+              </Field>
+              <Field label="Preferred Town(s) *">
+                {form.preferred_districts.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {form.preferred_districts.map(d => (
+                      <span key={d} className="flex items-center gap-1 text-xs bg-primary/10 text-primary border border-primary/20 rounded-full pl-2.5 pr-1.5 py-0.5">
+                        {d}
+                        <button type="button" onClick={() => removePreferredTown(d)} className="hover:text-destructive transition-colors">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Input
+                    value={prefTownInput}
+                    onChange={e => setPrefTownInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addPreferredTown(); } }}
+                    placeholder="e.g. Polokwane"
+                    className="rounded-xl"
+                  />
+                  <Button type="button" variant="outline" onClick={addPreferredTown} disabled={!prefTownInput.trim()} className="rounded-xl shrink-0">
+                    Add
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1.5">Add one or more towns you'd consider transferring to.</p>
               </Field>
               <div className="flex items-center justify-between bg-muted/50 rounded-xl p-4">
                 <div>
@@ -512,8 +578,9 @@ export default function Onboarding() {
           {step < EDU_STEPS.length - 1 ? (
             <Button
               onClick={() => {
-                if (step === 0 && !form.sace_number.trim()) {
-                  toast.error('SACE number is required to continue.');
+                const err = validateStep(step);
+                if (err) {
+                  toast.error(err);
                   return;
                 }
                 setStep(p => p + 1);
@@ -528,10 +595,6 @@ export default function Onboarding() {
             </Button>
           )}
         </div>
-
-        <p className="text-center text-xs text-muted-foreground mt-4">
-          <button onClick={handleSkip} className="hover:underline">Skip for now</button>
-        </p>
       </div>
     </div>
   );

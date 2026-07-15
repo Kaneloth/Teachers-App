@@ -11,9 +11,10 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// x10 of the original 18 — see packages.js / deduct-credits.js for the
-// matching x10 scale-up across the rest of the credit system.
-const FREE_CREDITS = 180;
+// Free signup bonus. NOTE: previously 180 (x10 of the original 18) — see
+// packages.js / deduct-credits.js for other places that reference credit
+// amounts; check those for consistency if they display/assume this value.
+const FREE_CREDITS = 240;
 const IP_WINDOW_DAYS = 30;
 const IP_MAX_GRANTS  = 2;
 
@@ -137,7 +138,7 @@ export const handler = async (event) => {
     p_user_id:     user_id,
     p_amount:      FREE_CREDITS,
     p_type:        'signup_bonus',
-    p_description: 'Welcome bonus — 180 free credits',
+    p_description: 'Welcome bonus — 240 free credits',
     p_ref_id:      null,
   });
 
