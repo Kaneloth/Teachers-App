@@ -389,11 +389,23 @@ export default function AdminUsers() {
   const [editing, setEditing] = useState<AdminUser | null>(null);
 
   const load = useCallback(async () => {
+    // Wait for the session to actually be populated before firing. On a
+    // fresh page load / direct navigation to /admin/users, useAuth()'s
+    // session can still be null for a moment while it hydrates from
+    // storage. Firing immediately sent `Authorization: Bearer undefined`
+    // — not an empty header, but the literal string "undefined" — which
+    // requireAdmin.js correctly rejects via supabase.auth.getUser() as an
+    // "Invalid session" 401. Leaving `loading` untouched here (it starts
+    // true) keeps the spinner showing instead of flashing an error toast;
+    // this effect re-runs automatically once `session` populates, because
+    // that changes `load`'s identity via the useCallback dependency below.
+    if (!session?.access_token) return;
+
     setLoading(true);
     try {
       const res = await fetch('/.netlify/functions/admin-list-users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ search }),
       });
       const result = await res.json();
