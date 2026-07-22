@@ -42,11 +42,14 @@ export default function AppHeader() {
   return (
     <header className="sticky top-0 z-40 bg-background border-b border-border">
       <div className="flex items-center justify-between gap-2 px-4 h-16 max-w-2xl mx-auto">
-        {/* Logo — left-aligned. Wordmark hidden on narrow screens so the
-            credit balance chip (added below) has room without crowding. */}
+        {/* Logo + wordmark — shown on all screen sizes, including mobile.
+            (Previously hidden below the `sm` breakpoint to leave room for
+            a credit balance chip that used to sit here — that chip no
+            longer exists in this header, so there's no longer a reason to
+            hide the wordmark on narrow screens.) */}
         <Link to="/home" className="flex items-center gap-2 shrink-0">
           <img src="/icons/icon-512.png" alt="Crosssa" className="w-7 h-7 rounded-lg" />
-          <span className="hidden sm:inline text-xl font-extrabold text-foreground tracking-tight">Crosssa</span>
+          <span className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">Crosssa</span>
         </Link>
 
         {/* Notification bell — educators only */}

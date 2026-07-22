@@ -33,6 +33,11 @@ export default function Home() {
   const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
   const [profileType, setProfileType] = useState<'educator' | 'general' | null>(null);
 
+  // First name for the "Welcome, {name}" greeting — same source AppHeader.tsx
+  // uses for its avatar initial/name, so it stays consistent across the app.
+  const meta = user?.user_metadata ?? {};
+  const firstName = (meta.full_name as string | undefined)?.trim().split(/\s+/)[0] || null;
+
   /* ── Subscription check + own profile + user type ────────────── */
   useEffect(() => {
     if (!user) {
@@ -107,7 +112,10 @@ export default function Home() {
 
   return (
     <div className="px-4 max-w-2xl mx-auto">
-      <p className="text-sm text-muted-foreground pt-6 pb-5">Find your exchange partner</p>
+      <h1 className="text-xl font-bold text-foreground pt-6">
+        Welcome{firstName ? `, ${firstName}` : ''}
+      </h1>
+      <p className="text-sm text-muted-foreground pb-5">Find your exchange partner</p>
 
       {/* Stats cards */}
       <div className="grid grid-cols-3 gap-3">
