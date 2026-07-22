@@ -1,22 +1,27 @@
 /**
  * match-scan-daily — automatic daily match scan.
  *
- * This is a Netlify Scheduled Function: Netlify itself invokes it on the
- * cron schedule below (no manual HTTP trigger is possible in production —
- * Netlify rejects direct calls to scheduled functions from the outside,
- * so no admin/auth check is needed here, unlike match-scan.js).
+ * This is a Netlify Scheduled Function. Unlike my first version of this
+ * file, it does NOT use the `schedule()` helper from '@netlify/functions'
+ * — that package isn't in this project's package.json, and importing it
+ * broke the build ("Could not resolve @netlify/functions").
  *
- * Docs: https://docs.netlify.com/functions/scheduled-functions/
+ * Instead, this follows the same convention this repo already uses for
+ * monthly-pro-credits.js: a plain handler, scheduled entirely via
+ * netlify.toml. Add a matching entry there:
  *
- * Schedule: "@daily" runs once every day at 00:00 UTC. Change the cron
- * expression below if you'd prefer a different time, e.g. "0 3 * * *"
- * for 03:00 UTC.
+ *   [functions."match-scan-daily"]
+ *     schedule = "0 2 * * *"   # every day at 02:00 UTC — adjust as you like
+ *     timeout  = 30
+ *
+ * Netlify enforces the schedule and rejects direct external HTTP calls to
+ * a scheduled function in production, so — same as before — no admin/auth
+ * check is needed here, unlike match-scan.js (the manually-triggered one).
  */
 
-import { schedule } from '@netlify/functions';
 import { runMatchScan } from './match-scan-core.js';
 
-const dailyScan = async () => {
+export const handler = async () => {
   try {
     const result = await runMatchScan();
     console.log('[match-scan-daily] Scan complete:', result);
@@ -28,5 +33,3 @@ const dailyScan = async () => {
   // Scheduled functions must return a 200 response.
   return { statusCode: 200 };
 };
-
-export const handler = schedule('@daily', dailyScan);
