@@ -261,10 +261,11 @@ function EditUserModal({ user, onClose, onSaved, onBalanceChanged }: { user: Adm
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Per-User Gate Overrides</p>
             <p className="text-xs text-muted-foreground">These override the global gates for this user only. Leave unset to follow global settings.</p>
             {[
-              { key: 'advanced_search', label: 'Advanced Search & Matches' },
-              { key: 'guides_access',   label: 'Guides Access (R79+ gate)' },
-              { key: 'cv_credits',      label: 'CV Credit Gate' },
-              { key: 'chat_credits',    label: 'Chat Credit Gate' },
+              { key: 'advanced_search',   label: 'Advanced Search & Matches' },
+              { key: 'guides_access',     label: 'Guides Access (R79+ gate)' },
+              { key: 'cv_credits',        label: 'CV Credit Gate' },
+              { key: 'chat_credits',      label: 'Chat Credit Gate' },
+              { key: 'profile_edit_lock', label: 'Profile Edit Lock (30 days)' },
             ].map(({ key, label }) => {
               const override = userGateOverrides[key];
               return (

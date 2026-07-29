@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { useFeatureGates } from '@/hooks/useFeatureGates';
 import BlockButton from '@/components/BlockButton';
 import { isBlocked } from '@/lib/blockUtils';
 import { geocodeLocation } from '@/lib/geocode';
@@ -472,6 +473,7 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const isAdmin = !!(user?.user_metadata?.is_admin);
   const isOwnProfile = !routeUserId || routeUserId === user?.id || isAdmin;
+  const { gates } = useFeatureGates();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -803,7 +805,11 @@ export default function ProfilePage() {
   const daysSinceSave = lastSaved
     ? Math.floor((Date.now() - lastSaved.getTime()) / (1000 * 60 * 60 * 24))
     : null;
-  const canSave = isAdmin || daysSinceSave === null || daysSinceSave >= 30;
+  // The 30-day cooldown only applies while the profile_edit_lock gate is
+  // active (enabled === true). Admins already bypass via isAdmin, and
+  // useFeatureGates also resolves every gate to false for admins, so this
+  // stays correct even if the isAdmin check above were ever removed.
+  const canSave = isAdmin || !gates.profile_edit_lock || daysSinceSave === null || daysSinceSave >= 30;
   const daysLeft = canSave ? 0 : 30 - daysSinceSave!;
 
   const handleSave = () => {
