@@ -48,14 +48,19 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
   useEffect(() => {
     if (!user) return;
     if (data.full_name && data.email) return;
-    supabase.from('educators').select('full_name, phone, bio, town, current_province')
+    // email is now selected here and preferred over the auth sign-in
+    // email below — a user's profile email can differ from the address
+    // they originally signed up/logged in with, and the CV should reflect
+    // whatever they've set on their Profile page, same as every other
+    // locked field here (full_name, phone).
+    supabase.from('educators').select('full_name, email, phone, bio, town, current_province')
       .eq('user_id', user.id).maybeSingle()
       .then(({ data: profile }) => {
         const location = [profile?.town, profile?.current_province].filter(Boolean).join(', ');
         onChange({
           ...data,
           full_name: data.full_name || profile?.full_name || user.user_metadata?.full_name || '',
-          email:     data.email     || user.email || '',
+          email:     data.email     || profile?.email      || user.email || '',
           phone:     data.phone     || profile?.phone || user.user_metadata?.phone || '',
           address:   data.address   || location || '',
           bio:       data.bio       || profile?.bio || '',
