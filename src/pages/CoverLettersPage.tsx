@@ -263,28 +263,41 @@ export default function CoverLettersPage() {
         setUserName(data?.full_name ?? (user.user_metadata?.full_name as string | undefined) ?? '');
       });
 
-    // Refresh the session before reading last_cv_data from user_metadata.
-    // user_metadata is updated server-side whenever a CV is generated
-    // (see CVBuilderPage.tsx's handleCVGenerated), but the in-memory
-    // `user` object here can be stale if it was loaded earlier in the
-    // session — e.g. the user built a CV, then navigated to Cover Letters
-    // without a full page reload in between. Without this refresh, the AI
-    // cover letter generator would silently fall back to no CV context,
-    // producing a generic letter with no visible error anywhere — exactly
-    // what happened during testing before a full logout/login fixed it.
-    // This makes that manual workaround unnecessary going forward.
-    supabase.auth.refreshSession().then(({ data: refreshed, error }) => {
+    // Re-fetch the current user before reading last_cv_data from
+    // user_metadata. user_metadata is updated server-side whenever a CV is
+    // generated (see CVBuilderPage.tsx's handleCVGenerated), but the
+    // in-memory `user` object here can be stale if it was loaded earlier in
+    // the session — e.g. the user built a CV, then navigated to Cover
+    // Letters without a full page reload in between.
+    //
+    // NOTE: this used to call supabase.auth.refreshSession() with `user`
+    // (not `user?.id`) as the effect dependency. refreshSession() performs
+    // an actual grant_type=refresh_token request, which fires a
+    // TOKEN_REFRESHED auth event — that updates AuthContext's `user` with a
+    // new object reference, which re-triggered this effect (since it
+    // depended on the whole object), which called refreshSession() again,
+    // forever. That self-sustaining loop hammered Supabase's refresh-token
+    // endpoint until it got rate-limited (429), and kept retrying/failing
+    // indefinitely after that — flooding the console and starving other
+    // requests on the page. supabase.auth.getUser() re-reads the current
+    // user from the server without forcing a token refresh, so it can't
+    // retrigger itself the same way. Depending on `user?.id` (a stable
+    // primitive, not a fresh object each render) closes the loop
+    // regardless of which auth call is used — same pattern the isEducator/
+    // hasPurchased effect above already uses.
+    supabase.auth.getUser().then(({ data: freshData, error }) => {
       if (error) {
-        console.warn('[CoverLettersPage] Session refresh failed, using existing session data:', error);
+        console.warn('[CoverLettersPage] Could not refresh user data, using existing session data:', error);
         const savedMeta = user.user_metadata?.last_cv_data as Record<string, unknown> | undefined;
         if (savedMeta) setLastCvData(savedMeta);
         return;
       }
-      const freshUser = refreshed?.user ?? user;
+      const freshUser = freshData?.user ?? user;
       const savedMeta = freshUser.user_metadata?.last_cv_data as Record<string, unknown> | undefined;
       if (savedMeta) setLastCvData(savedMeta);
     });
-  }, [user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const rebuildBody = useCallback(() => {
     const tpl = TEMPLATES[category];
@@ -300,7 +313,7 @@ export default function CoverLettersPage() {
       return;
     }
 
-    // ── Deduct credits (letter_usage — currently 20) BEFORE calling the AI ──
+    // ── Deduct 1 credit BEFORE calling the AI ────────────────────────────
     // This prevents abuse — the credit is spent on the AI call itself.
     // If AI succeeds, download is free for this letter (aiUsed = true).
     const aiRef = `ai_letter_${category}_${Date.now()}`;
@@ -343,8 +356,8 @@ export default function CoverLettersPage() {
     if (!body.trim()) { toast.error('Letter body is empty.'); return; }
 
     // ── Credit logic ──────────────────────────────────────────────────────
-    // If user already paid for AI generation (letter_usage) → download is free.
-    // If user is using a plain template → deduct letter_usage credits now.
+    // If user already paid 1 credit for AI generation → download is free.
+    // If user is using a plain template → deduct 1 credit now.
     if (!aiUsed) {
       const letterRef = `letter_${category}_${Date.now()}`;
       const ok = await deduct('letter_usage', letterRef);
@@ -488,12 +501,12 @@ export default function CoverLettersPage() {
             )}
             <button
               onClick={generateWithAI}
-              disabled={aiGenerating || !jobDesc.trim() || (!creditsLoading && balance < 20)}
+              disabled={aiGenerating || !jobDesc.trim() || (!creditsLoading && balance < 1)}
               className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl py-2.5 text-sm font-semibold transition-all disabled:opacity-50 hover:bg-primary/90"
             >
               {aiGenerating
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating tailored letter…</>
-                : <><Sparkles className="w-4 h-4" /> Generate with AI</>
+                : <><Sparkles className="w-4 h-4" /> Generate with AI · 1 credit</>
               }
             </button>
           </div>
@@ -518,11 +531,11 @@ export default function CoverLettersPage() {
           </div>
 
           {/* Low credit warning */}
-          {!creditsLoading && balance < 20 && (
+          {!creditsLoading && balance < 1 && (
             <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2.5">
               <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700 dark:text-amber-300">
-                You need more credits to download a cover letter.{' '}
+                You need 1 credit to download a cover letter.{' '}
                 <a href="/credits" className="underline font-medium">Buy credits</a>
               </p>
             </div>
@@ -530,14 +543,14 @@ export default function CoverLettersPage() {
 
           <Button
             onClick={handleDownload}
-            disabled={generating || !body.trim() || (!aiUsed && !creditsLoading && balance < 20)}
+            disabled={generating || !body.trim() || (!aiUsed && !creditsLoading && balance < 1)}
             className="w-full h-12 rounded-2xl text-base font-semibold gap-2"
           >
             {generating
               ? <><Loader2 className="w-5 h-5 animate-spin" /> Generating…</>
               : aiUsed
                 ? <><Download className="w-5 h-5" /> Download as Word (.docx) · Free</>
-                : <><Download className="w-5 h-5" /> Download as Word (.docx)</>
+                : <><Download className="w-5 h-5" /> Download as Word (.docx) · 1 credit</>
             }
           </Button>
 
