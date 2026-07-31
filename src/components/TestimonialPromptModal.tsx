@@ -1,7 +1,6 @@
 import TestimonialForm from '@/components/TestimonialForm';
 
 interface Props {
-  open: boolean;
   onClose: () => void;
   source?: 'public_form' | 'cv_download_prompt' | 'match_prompt';
   title?: string;
@@ -13,20 +12,24 @@ interface Props {
  * (e.g. right after a CV download completes — see CVStepReview.tsx). Never
  * blocks the action that triggered it; it's rendered after the fact.
  *
+ * No `open` prop on purpose — the caller controls visibility by mounting
+ * this component conditionally (`{showPrompt && <TestimonialPromptModal .../>}`)
+ * rather than mounting it always and toggling an `open` flag. An earlier
+ * version of this component required `open` too, on top of that
+ * conditional mount — since callers never actually passed it, `open` was
+ * always `undefined` (falsy), so the modal could never render at all.
+ *
  * Wraps TestimonialForm in `compact` mode (its own heading is redundant
  * with the title/description here) so the submission logic, the
  * `testimonials` table insert, and the "Thanks for sharing!" confirmation
  * state all live in one place rather than being duplicated per-prompt-site.
  */
 export default function TestimonialPromptModal({
-  open,
   onClose,
   source = 'cv_download_prompt',
   title = 'Got a moment?',
   description = "We'd love to hear about your experience.",
 }: Props) {
-  if (!open) return null;
-
   return (
     <div
       className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"

@@ -360,7 +360,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
             <div className="bg-muted rounded-xl p-3 space-y-1 text-xs text-muted-foreground">
               <p>• Starter pack — R39 for 150 credits</p>
               <p>• Standard pack — R59 for 300 credits</p>
-              <p>• Pro pack — R99 for 600 credits</p>
+              <p>• Business pack — R199 for 2,000 credits</p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1 rounded-xl"
