@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Star, Loader2, Send, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,32 @@ export default function TestimonialForm({ source = 'public_form', onSubmitted, c
   const [hoverRating, setHoverRating] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  // Prefill name + a role guess from the actual educators profile, not
+  // just auth user_metadata — mirrors the fix in CVStepPersonal.tsx/
+  // ProfilePage.tsx, where the profile is the authoritative source and
+  // metadata is only a fallback for the very first paint. Runs once
+  // (prefilledRef guards against re-firing) and both fields stay normal,
+  // editable inputs afterward — this only sets a starting point.
+  const prefilledRef = useRef(false);
+  useEffect(() => {
+    if (!user || prefilledRef.current) return;
+    supabase.from('educators').select('full_name, profile_type, subjects, current_province')
+      .eq('user_id', user.id).maybeSingle()
+      .then(({ data: profile }) => {
+        prefilledRef.current = true;
+        if (profile?.full_name) setName(profile.full_name);
+        setRoleLabel(prev => {
+          if (prev.trim()) return prev;
+          if (profile?.profile_type === 'general') return 'Job Seeker';
+          const subject = profile?.subjects?.[0];
+          return [subject ? `${subject} Educator` : 'Educator', profile?.current_province]
+            .filter(Boolean)
+            .join(' · ');
+        });
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const handleSubmit = async () => {
     if (!name.trim() || !quote.trim()) {
