@@ -3,9 +3,11 @@
  *   - match-scan.js         (POST /.netlify/functions/match-scan, admin-triggered)
  *   - match-scan-daily.js   (Netlify scheduled function, runs automatically every day)
  *
- * Match criteria (both required — no notification is sent otherwise):
+ * Match criteria (ALL required — no notification is sent otherwise):
  *   1. At least one common subject between the two educators.
- *   2. Their preferred/current towns match — either an exact name match,
+ *   2. Same post_level (PL1/PL2/PL3/PL4) — added this pass; previously
+ *      post_level wasn't even selected from the DB, let alone compared.
+ *   3. Their preferred/current towns match — either an exact name match,
  *      a district-fallback match, OR the towns are within 50km of each
  *      other (bidirectional: each must be willing to move to where the
  *      other currently is).
@@ -13,6 +15,9 @@
  *   Province preference is NOT used to gate whether a notification is
  *   sent (see calculateMatch — it still contributes to the displayed
  *   match score, but is no longer an alternate path to a notification).
+ *   Phase works the same way: scored, not gated. post_level is different
+ *   — it's gated, per an explicit request that it be enforced as a real
+ *   requirement rather than just a scoring nudge.
  *
  *   A pair is only notified once (tracked in match_notification_log).
  */
@@ -71,6 +76,20 @@ function townInPreferred(town, preferred, prefCoords, tLat, tLng) {
   // 2. Coord proximity within 50km — e.g. "prefers Pretoria" matches a
   //    potential partner currently in Midrand, since Midrand is <50km
   //    from Pretoria even though the names don't match.
+  //
+  //    NOTE: preferred_districts entries are free-text city names typed
+  //    by the user (e.g. "Polokwane", "Johannesburg"), NOT the formal
+  //    DISTRICT_TOWNS keys above (e.g. "Capricorn South", "Johannesburg
+  //    North") — those keys describe the CURRENT-position district
+  //    picklist elsewhere in the app, a different field entirely. So for
+  //    almost every real preferred-town entry, step 1 above can only
+  //    succeed on an exact string match; this coordinate check is doing
+  //    most of the actual matching work in practice. If either
+  //    preferred_town_coords or the other person's town_lat/town_lng is
+  //    missing (e.g. geocoding never ran for that profile), a real
+  //    geographic match can silently fail here with nothing to indicate
+  //    why — worth checking those columns directly if a pair you expect
+  //    to match isn't.
   if (tLat != null && tLng != null && prefCoords && prefCoords.length) {
     for (const p of prefCoords) {
       if (p.lat != null && p.lng != null) {
@@ -126,7 +145,7 @@ export async function runMatchScan() {
   // 1. Load all actively-looking educators
   const { data: educators, error } = await supabase
     .from('educators')
-    .select('id, user_id, full_name, current_province, preferred_provinces, preferred_districts, preferred_town_coords, town_lat, town_lng, phase, subjects, town, is_actively_looking, profile_type, is_hidden')
+    .select('id, user_id, full_name, current_province, preferred_provinces, preferred_districts, preferred_town_coords, town_lat, town_lng, phase, post_level, subjects, town, is_actively_looking, profile_type, is_hidden')
     .eq('is_actively_looking', true)
     .or('profile_type.eq.educator,profile_type.is.null');
 
@@ -165,11 +184,22 @@ export async function runMatchScan() {
         continue;
       }
 
-      // Requirement 2: preferred/current towns match, bidirectionally,
+      // Requirement 2: same post level. Both must have one set — an
+      // unset post_level on either side does not count as a match.
+      const postLevelMatch = !!a.post_level && !!b.post_level && a.post_level === b.post_level;
+      if (!postLevelMatch) {
+        console.log('[match-scan] Skip (post_level mismatch):', a.full_name, `(${a.post_level})`, '↔', b.full_name, `(${b.post_level})`);
+        continue;
+      }
+
+      // Requirement 3: preferred/current towns match, bidirectionally,
       // including the 50km radius fallback. Province preference alone
       // is no longer sufficient to trigger a notification.
       const townMatch = townsMatch(a, b);
-      console.log('[match-scan] Checking:', a.full_name, '↔', b.full_name, '| town match:', townMatch, '| a.pref_dist:', a.preferred_districts, '| b.town:', b.town, '| b.pref_dist:', b.preferred_districts, '| a.town:', a.town);
+      console.log('[match-scan] Checking:', a.full_name, '↔', b.full_name,
+        '| town match:', townMatch,
+        '| a.town:', a.town, '| a.town_lat/lng:', a.town_lat, a.town_lng, '| a.pref_dist:', a.preferred_districts, '| a.pref_coords:', a.preferred_town_coords,
+        '| b.town:', b.town, '| b.town_lat/lng:', b.town_lat, b.town_lng, '| b.pref_dist:', b.preferred_districts, '| b.pref_coords:', b.preferred_town_coords);
 
       if (!townMatch) continue;
 

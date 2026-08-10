@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Loader2, ChevronRight, ChevronLeft, GraduationCap, User, X, MapPin, CheckCircle2 } from 'lucide-react';
+import { Loader2, ChevronRight, ChevronLeft, GraduationCap, User, X, MapPin, CheckCircle2, Mail, Phone, Users } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { geocodeLocation } from '@/lib/geocode';
@@ -117,6 +117,9 @@ export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     full_name:           user?.user_metadata?.full_name || '',
+    email:               user?.email || '',
+    phone:               '',
+    gender:              '',
     sace_number:         '',
     bio:                 '',
     current_school:      '',
@@ -136,6 +139,9 @@ export default function Onboarding() {
   /* General single-step state */
   const [genForm, setGenForm] = useState({
     full_name: user?.user_metadata?.full_name || '',
+    email:     user?.email || '',
+    phone:     '',
+    gender:    '',
     bio:       '',
   });
 
@@ -224,6 +230,21 @@ export default function Onboarding() {
 
   const toggleSubject  = (s: string) => set('subjects',            form.subjects.includes(s)            ? form.subjects.filter(x => x !== s)            : [...form.subjects, s]);
   const toggleProvince = (p: string) => set('preferred_provinces', form.preferred_provinces.includes(p) ? form.preferred_provinces.filter(x => x !== p) : [...form.preferred_provinces, p]);
+
+  // Selecting "Other" from the subjects list used to add the literal
+  // string "Other" with no way to say what subject it actually is. Now it
+  // opens a text input instead — the typed value gets added as the real
+  // subject name, "Other" itself is never stored. Stays open after each
+  // add so multiple custom subjects can be entered in a row.
+  const [customSubjectInput,      setCustomSubjectInput]      = useState('');
+  const [showCustomSubjectInput,  setShowCustomSubjectInput]  = useState(false);
+  const addCustomSubject = () => {
+    const val = customSubjectInput.trim();
+    setCustomSubjectInput('');
+    if (!val || form.subjects.includes(val)) { setShowCustomSubjectInput(false); return; }
+    toggleSubject(val);
+    setShowCustomSubjectInput(false);
+  };
 
   /* Preferred town(s) — geocoded the same way as ProfilePage, so the
      resulting coordinates power match-scan's 50km radius matching. */
@@ -325,6 +346,9 @@ export default function Onboarding() {
       const { error } = await supabase.from('educators').insert([{
         user_id:             user?.id,
         full_name:           genForm.full_name,
+        email:               genForm.email,
+        phone:               genForm.phone,
+        gender:              genForm.gender,
         bio:                 genForm.bio,
         profile_type:        'general',
         is_actively_looking: false,
@@ -371,6 +395,36 @@ export default function Onboarding() {
         years_experience: form.years_experience ? parseInt(form.years_experience, 10) : null,
       }]);
       if (error) throw error;
+
+      // Geocode the current town immediately, at account creation — this
+      // used to only happen in ProfilePage.tsx's doSave(), meaning
+      // town_lat/town_lng stayed null for anyone who onboarded and never
+      // came back to manually re-save their profile (which, given the
+      // 30-day edit lock, could be a long time). That silently broke
+      // match-scan's 50km radius matching for one or both sides of a pair
+      // whenever the only path to a real geographic match was coordinate
+      // proximity rather than an exact town-name/district match — exactly
+      // what happened with the John Sibanda / Thabo Molele test pair.
+      // Non-fatal if it fails: exact town-name/district matching in
+      // match-scan-core.js still works without coordinates.
+      if (form.town) {
+        try {
+          const target = [form.town, form.district, form.current_province, 'South Africa']
+            .filter(Boolean)
+            .join(', ');
+          const coords = await geocodeLocation(target);
+          if (coords) {
+            const { error: geoErr } = await supabase.rpc('set_educator_geo_location', {
+              p_user_id: user?.id,
+              p_lng:     coords.longitude,
+              p_lat:     coords.latitude,
+            });
+            if (geoErr) console.error('[Onboarding] set_educator_geo_location error:', geoErr);
+          }
+        } catch (geoErr) {
+          console.error('[Onboarding] geocode error:', geoErr);
+        }
+      }
 
       const userCode  = user?.user_metadata?.user_code ?? generateUserCode();
       const isNewCode = !user?.user_metadata?.user_code;
@@ -455,6 +509,32 @@ export default function Onboarding() {
             <Field label="Full Name">
               <Input value={genForm.full_name} onChange={e => setGen('full_name', e.target.value)} placeholder="Your full name" className="rounded-xl" />
             </Field>
+            <Field label="Email Address">
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <Input type="email" value={genForm.email} onChange={e => setGen('email', e.target.value)} placeholder="you@example.com" className="rounded-xl pl-9" />
+              </div>
+            </Field>
+            <Field label="Phone Number">
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <Input type="tel" value={genForm.phone} onChange={e => setGen('phone', e.target.value)} placeholder="+27 71 000 0000" className="rounded-xl pl-9" />
+              </div>
+            </Field>
+            <Field label="Gender">
+              <div className="relative">
+                <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
+                <Select value={genForm.gender} onValueChange={v => setGen('gender', v)}>
+                  <SelectTrigger className="rounded-xl pl-9"><SelectValue placeholder="Select gender" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="Non-binary">Non-binary</SelectItem>
+                    <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </Field>
             <Field label="Bio / Short Introduction">
               <Textarea value={genForm.bio} onChange={e => setGen('bio', e.target.value)} placeholder="A few words about yourself..." rows={3} className="rounded-xl" />
             </Field>
@@ -493,6 +573,32 @@ export default function Onboarding() {
           {step === 0 && (
             <>
               <Field label="Full Name"><Input value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Thabo Pretorius" className="rounded-xl" /></Field>
+              <Field label="Email Address">
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="you@example.com" className="rounded-xl pl-9" />
+                </div>
+              </Field>
+              <Field label="Phone Number">
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+27 71 000 0000" className="rounded-xl pl-9" />
+                </div>
+              </Field>
+              <Field label="Gender">
+                <div className="relative">
+                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
+                  <Select value={form.gender} onValueChange={v => set('gender', v)}>
+                    <SelectTrigger className="rounded-xl pl-9"><SelectValue placeholder="Select gender" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                      <SelectItem value="Non-binary">Non-binary</SelectItem>
+                      <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </Field>
               <Field label="SACE Number *"><Input value={form.sace_number} onChange={e => set('sace_number', e.target.value)} placeholder="e.g. 20012345" className="rounded-xl" /></Field>
               <Field label="Bio / Professional Summary">
                 <Textarea value={form.bio} onChange={e => set('bio', e.target.value)} placeholder="Tell other educators about yourself..." rows={3} className="rounded-xl" />
@@ -565,11 +671,29 @@ export default function Onboarding() {
                 )}
                 <SearchableSelect
                   value=""
-                  onValueChange={v => { if (v) toggleSubject(v); }}
+                  onValueChange={v => {
+                    if (v === 'Other') { setShowCustomSubjectInput(true); return; }
+                    if (v) toggleSubject(v);
+                  }}
                   options={SUBJECTS.filter(s => !form.subjects.includes(s))}
                   placeholder="Add a subject…"
                   searchPlaceholder="Search subjects…"
                 />
+                {showCustomSubjectInput && (
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      value={customSubjectInput}
+                      onChange={e => setCustomSubjectInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomSubject(); } }}
+                      placeholder="Type the subject name…"
+                      className="rounded-xl"
+                      autoFocus
+                    />
+                    <Button type="button" variant="outline" onClick={addCustomSubject} disabled={!customSubjectInput.trim()} className="rounded-xl shrink-0">
+                      Add
+                    </Button>
+                  </div>
+                )}
               </Field>
             </>
           )}

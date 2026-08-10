@@ -489,6 +489,11 @@ export default function ProfilePage() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [togglingActive, setTogglingActive] = useState(false);
   const [subjectToAdd, setSubjectToAdd] = useState('');
+  // Selecting "Other" from the subjects list used to add the literal
+  // string "Other" with no way to say what subject it actually is. Now it
+  // opens a text input instead — see the Subjects Field below.
+  const [customSubjectInput,     setCustomSubjectInput]     = useState('');
+  const [showCustomSubjectInput, setShowCustomSubjectInput] = useState(false);
   const [provinceToAdd, setProvinceToAdd] = useState('');
 
   // ── Current town: dropdown (filtered by province) + "Other" free text ─────
@@ -666,6 +671,13 @@ export default function ProfilePage() {
       setProfileField('subjects', [...profile.subjects, subjectToAdd]);
       setSubjectToAdd('');
     }
+  };
+  const addCustomSubject = () => {
+    const val = customSubjectInput.trim();
+    setCustomSubjectInput('');
+    if (!val || !profile || profile.subjects.includes(val)) { setShowCustomSubjectInput(false); return; }
+    setProfileField('subjects', [...profile.subjects, val]);
+    setShowCustomSubjectInput(false);
   };
   const removeSubject = (s: string) => {
     if (profile) setProfileField('subjects', profile.subjects.filter(x => x !== s));
@@ -1187,6 +1199,7 @@ export default function ProfilePage() {
                 <SearchableSelect
                   value=""
                   onValueChange={v => {
+                    if (v === 'Other') { setShowCustomSubjectInput(true); return; }
                     if (v && !profile.subjects.includes(v))
                       setProfileField('subjects', [...profile.subjects, v]);
                   }}
@@ -1194,6 +1207,21 @@ export default function ProfilePage() {
                   placeholder="Add a subject…"
                   searchPlaceholder="Search subjects…"
                 />
+                {showCustomSubjectInput && (
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      value={customSubjectInput}
+                      onChange={e => setCustomSubjectInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomSubject(); } }}
+                      placeholder="Type the subject name…"
+                      className="rounded-xl"
+                      autoFocus
+                    />
+                    <Button type="button" variant="outline" onClick={addCustomSubject} disabled={!customSubjectInput.trim()} className="rounded-xl shrink-0">
+                      Add
+                    </Button>
+                  </div>
+                )}
               </Field>
             </SectionCard>
           )}
