@@ -44,6 +44,10 @@
 
 [functions."geocode"]
   timeout = 10
+  
+[functions."vacancies-refresh-daily"]
+     schedule = "0 3 * * *"
+     timeout  = 26
 
 # Ensure the sitemap is served correctly (before the catch-all rule)
 [[redirects]]
@@ -57,3 +61,4 @@
   from   = "/*"
   to     = "/index.html"
   status = 200
+

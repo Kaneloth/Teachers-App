@@ -58,6 +58,21 @@ const SOURCE_BADGE: Record<string, string> = {
   Indeed:    'bg-orange-50 text-orange-700 border-orange-200',
 };
 
+// Must match VACANCY_TTL_DAYS in netlify/functions/fetch-vacancies-core.js.
+// That function deletes stale rows from the database on this same
+// schedule; this is a client-side safety net for the gap between cleanup
+// runs, and for rows fetched before the backend cleanup ever ran.
+const VACANCY_TTL_DAYS = 30;
+
+function isStale(v: Vacancy): boolean {
+  if (v.closing_date) return isPast(new Date(v.closing_date));
+  // No closing_date — true for every scraped listing right now, since
+  // neither Adzuna's API nor our Careers24 listing-page scrape exposes an
+  // application deadline. Fall back to age since first seen.
+  const ageMs = Date.now() - new Date(v.created_at).getTime();
+  return ageMs > VACANCY_TTL_DAYS * 24 * 60 * 60 * 1000;
+}
+
 function DaysLeftBadge({ closing_date }: { closing_date?: string }) {
   if (!closing_date) return null;
   const date = new Date(closing_date);
@@ -226,8 +241,9 @@ export default function VacanciesPage() {
       .select('*')
       .order('created_at', { ascending: false })
       .limit(2000);
-    setVacancies(data || []);
-    if (data?.length) setLastUpdated(new Date(data[0].created_at));
+    const fresh = (data || []).filter(v => !isStale(v));
+    setVacancies(fresh);
+    if (fresh.length) setLastUpdated(new Date(fresh[0].created_at));
     setLoading(false);
   };
 
