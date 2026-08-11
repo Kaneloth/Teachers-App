@@ -1,11 +1,24 @@
 import { useState } from 'react';
-import { Zap, Loader2 } from 'lucide-react';
+import { Zap, Loader2, MapPin } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
+
+interface BackfillResult {
+  id: string;
+  full_name: string;
+  town: string;
+  status: 'geocoded' | 'skipped' | 'failed';
+  reason?: string;
+  source?: string;
+}
 
 export default function AdminTools() {
   const { session } = useAuth();
   const [scanning,    setScanning]    = useState(false);
   const [scanResult,  setScanResult]  = useState<string | null>(null);
+
+  const [backfilling,      setBackfilling]      = useState(false);
+  const [backfillSummary,  setBackfillSummary]  = useState<string | null>(null);
+  const [backfillResults,  setBackfillResults]  = useState<BackfillResult[]>([]);
 
   const runMatchScan = async () => {
     if (!session?.access_token) return;
@@ -26,6 +39,35 @@ export default function AdminTools() {
       setScanResult(`✗ ${e.message}`);
     } finally {
       setScanning(false);
+    }
+  };
+
+  const runBackfill = async () => {
+    if (!session?.access_token) return;
+    setBackfilling(true);
+    setBackfillSummary(null);
+    setBackfillResults([]);
+    try {
+      const res  = await fetch('/.netlify/functions/backfill-town-coords', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body:    JSON.stringify({ limit: 30 }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBackfillSummary(
+          `✓ Processed ${data.processed} — ${data.geocoded} geocoded, ${data.skipped} skipped, ` +
+          `${data.failed} failed. ${data.remaining} still remaining` +
+          (data.remaining > 0 ? ' — run again to continue.' : '.')
+        );
+        setBackfillResults(data.results ?? []);
+      } else {
+        setBackfillSummary(`✗ Error: ${data.error || 'Unknown error'}`);
+      }
+    } catch (e: any) {
+      setBackfillSummary(`✗ ${e.message}`);
+    } finally {
+      setBackfilling(false);
     }
   };
 
@@ -61,6 +103,55 @@ export default function AdminTools() {
             : 'bg-destructive/10 text-destructive'}`}>
             {scanResult}
           </p>
+        )}
+      </div>
+
+      {/* Backfill town coordinates */}
+      <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Backfill Town Coordinates</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            One-off maintenance: geocodes accounts created before onboarding captured
+            town coordinates automatically. Processes up to 30 at a time — safe to run
+            repeatedly until "remaining" reaches 0.
+          </p>
+        </div>
+        <button
+          onClick={runBackfill}
+          disabled={backfilling}
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
+        >
+          {backfilling
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> Backfilling…</>
+            : <><MapPin className="w-4 h-4" /> Run Backfill</>}
+        </button>
+        {backfillSummary && (
+          <p className={`text-xs rounded-xl px-3 py-2 ${backfillSummary.startsWith('✓')
+            ? 'bg-primary/10 text-primary'
+            : 'bg-destructive/10 text-destructive'}`}>
+            {backfillSummary}
+          </p>
+        )}
+        {backfillResults.length > 0 && (
+          <div className="max-h-64 overflow-y-auto rounded-xl border border-border divide-y divide-border">
+            {backfillResults.map(r => (
+              <div key={r.id} className="px-3 py-2 flex items-center justify-between gap-2 text-xs">
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground truncate">{r.full_name}</p>
+                  <p className="text-muted-foreground truncate">
+                    {r.town}{r.reason ? ` — ${r.reason}` : ''}{r.source ? ` (via ${r.source})` : ''}
+                  </p>
+                </div>
+                <span className={`shrink-0 font-semibold px-2 py-0.5 rounded-full ${
+                  r.status === 'geocoded' ? 'bg-primary/10 text-primary'
+                  : r.status === 'skipped' ? 'bg-amber-100 text-amber-700'
+                  : 'bg-destructive/10 text-destructive'
+                }`}>
+                  {r.status}
+                </span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
