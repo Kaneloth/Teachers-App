@@ -31,7 +31,10 @@ export default function AdminTools() {
       });
       const data = await res.json();
       if (res.ok) {
-        setScanResult(`✓ Scan complete — ${data.pairs ?? 0} new pairs found, ${data.notified ?? 0} notifications sent.`);
+        const deactivatedPart = data.deactivated
+          ? ` ${data.deactivated} educator(s) auto-paused (both sides unlocked messaging).`
+          : '';
+        setScanResult(`✓ Scan complete — ${data.pairs ?? 0} new pairs found, ${data.notified ?? 0} notifications sent.${deactivatedPart}`);
       } else {
         setScanResult(`✗ Error: ${data.error || 'Unknown error'}`);
       }

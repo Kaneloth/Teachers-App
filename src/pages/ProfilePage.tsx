@@ -502,8 +502,6 @@ export default function ProfilePage() {
   const [townCoords, setTownCoords] = useState<{ latitude: number; longitude: number; displayName: string } | null>(null);
   const [townGeocodeTarget, setTownGeocodeTarget] = useState('');
   const lastGeocodedTownRef = useRef('');
-  const [customTownInput,     setCustomTownInput]     = useState('');
-  const [showCustomTownInput, setShowCustomTownInput] = useState(false);
 
   // ── Preferred town input (Transfer Preferences) ────────────────────────────
   const [prefTownInput, setPrefTownInput] = useState('');
@@ -617,6 +615,15 @@ export default function ProfilePage() {
 
   // Writes is_actively_looking immediately — independent of the 30-day
   // save cooldown. This is the only field that can be changed at any time.
+  //
+  // Uses profile.user_id, NOT user.id — this page renders as the
+  // editable "own profile" view whenever isAdmin is true, regardless of
+  // whose profile is actually being viewed (see isOwnProfile above). The
+  // old code used user.id (whoever is currently logged in) here, so an
+  // admin toggling someone else's switch silently wrote to their OWN
+  // educators row instead — the UI showed success via the optimistic
+  // update, but the target's row was never touched, so it reverted the
+  // next time fresh data loaded.
   const handleToggleActive = async (value: boolean) => {
     if (!user || !profile) return;
     setTogglingActive(true);
@@ -624,7 +631,7 @@ export default function ProfilePage() {
     const { error } = await supabase
       .from('educators')
       .update({ is_actively_looking: value })
-      .eq('user_id', user.id);
+      .eq('user_id', profile.user_id);
     if (error) {
       setProfileField('is_actively_looking', !value); // revert on error
       toast.error('Failed to update status. Please try again.');
@@ -644,7 +651,7 @@ export default function ProfilePage() {
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user || (!isOwnProfile && !isAdmin)) return;
+    if (!user || !profile || (!isOwnProfile && !isAdmin)) return;
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
@@ -655,7 +662,12 @@ export default function ProfilePage() {
         'image/gif': 'gif', 'image/webp': 'webp', 'image/heic': 'heic',
       };
       const ext = mimeExt[file.type] ?? file.name.split('.').pop() ?? 'jpg';
-      const path = `${user.id}/avatar.${ext}`;
+      // profile.user_id, not user.id — same reasoning as handleToggleActive
+      // above. Without this, an admin uploading a photo on someone else's
+      // behalf would silently store it under the admin's own storage
+      // folder instead, and a later avatar upload by the admin for their
+      // own account would overwrite it.
+      const path = `${profile.user_id}/avatar.${ext}`;
       const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
       if (error) throw error;
       const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
@@ -706,8 +718,6 @@ export default function ProfilePage() {
     setTownCoords(null);
     setTownGeocodeTarget('');
     lastGeocodedTownRef.current = '';
-    setShowCustomTownInput(false);
-    setCustomTownInput('');
   };
 
   const handleDistrictSelect = (v: string) => {
@@ -716,36 +726,14 @@ export default function ProfilePage() {
     setTownCoords(null);
     setTownGeocodeTarget('');
     lastGeocodedTownRef.current = '';
-    setShowCustomTownInput(false);
-    setCustomTownInput('');
   };
 
-  // Selecting "Other" used to set profile.town to the literal string
-  // "Other" with no way to say what town it actually is — besides being a
-  // dead-end in the UI, "Other" isn't a real place name, so it can never
-  // be geocoded, permanently breaking match-scan's coordinate-based
-  // matching for that person (this is exactly what happened to several
-  // real accounts found during the geocoding backfill). Now it opens a
-  // text input instead; the typed value becomes the real town and gets
-  // geocoded immediately, same as picking from the list does.
   const handleTownSelect = (v: string) => {
-    if (v === 'Other') { setShowCustomTownInput(true); setCustomTownInput(''); return; }
     setProfileField('town', v);
-    setShowCustomTownInput(false);
-    if (v) {
+    if (v && v !== 'Other') {
       const target = `${v}, ${profile.district}, ${profile.current_province}, South Africa`;
       setTownGeocodeTarget(target);
     }
-  };
-
-  const confirmCustomTown = () => {
-    const val = customTownInput.trim();
-    if (!val || !profile) return;
-    setProfileField('town', val);
-    setCustomTownInput('');
-    setShowCustomTownInput(false);
-    const target = `${val}, ${profile.district}, ${profile.current_province}, South Africa`;
-    setTownGeocodeTarget(target);
   };
 
   // ── Current town: geocode on blur/Enter (debounced — not every keystroke) ──
@@ -871,10 +859,22 @@ export default function ProfilePage() {
       const { id: _id, is_sace_verified: _sv, ...rest } = profile;
       const yearsExp = profile.years_experience ? parseInt(profile.years_experience, 10) : null;
       const townText = rest.town.trim();
+      // user_id comes from profile.user_id (the row's real owner), not
+      // user.id (whoever is currently logged in). The old code used
+      // user.id here unconditionally — for an admin editing someone
+      // else's profile, that meant every save tried to overwrite the
+      // target row's user_id foreign key with the ADMIN's own id. On the
+      // update path (profile.id already set) this could have severed
+      // that person's account from their own educators row entirely.
+      // profile.user_id is always the correct target: it's only ever
+      // populated from an existing row's real value (loadProfile), or,
+      // for a genuinely new row, from targetId — which loadProfile only
+      // sets to a blank profile when targetId === the logged-in user's
+      // own id (i.e. never on someone else's behalf).
       const payload = {
         ...rest,
         town: townText,
-        user_id: user.id,
+        user_id: profile.user_id,
         years_experience: (yearsExp !== null && !isNaN(yearsExp)) ? yearsExp : null,
         available_from: profile.available_from || null,
       };
@@ -897,8 +897,24 @@ export default function ProfilePage() {
             ? townCoords
             : await geocodeLocation(townText);
           if (coords) {
+            // profile.user_id, not user.id — same reasoning as the fixes
+            // above. NOTE: fixing this value alone is necessary but not
+            // sufficient for an admin editing someone else's location —
+            // set_educator_geo_location's RLS check only allows
+            // p_user_id !== auth.uid() when auth.role() = 'service_role'
+            // (see the fix applied earlier in this project for the
+            // backfill-town-coords.js function). A real admin's browser
+            // session is authenticated, not service-role, so this call
+            // will still be rejected with not_authorized when an admin
+            // saves someone else's location — it just fails silently
+            // into the catch block below rather than corrupting data,
+            // which is the safe direction for this gap to fail in. If
+            // admins should be able to update others' locations directly
+            // from this page, that RLS function needs a further
+            // exception for real admin sessions (checked via
+            // educators.is_admin for auth.uid()), not just service-role.
             const { error: geoErr } = await supabase.rpc('set_educator_geo_location', {
-              p_user_id: user.id,
+              p_user_id: profile.user_id,
               p_lng:     coords.longitude,
               p_lat:     coords.latitude,
             });
@@ -1168,54 +1184,24 @@ export default function ProfilePage() {
               </Field>
               <Field label="Town / City">
                 <SearchableSelect
-                  value={(TOWNS_BY_DISTRICT[profile.district] ?? []).includes(profile.town) ? profile.town : ''}
+                  value={profile.town}
                   onValueChange={handleTownSelect}
                   options={TOWNS_BY_DISTRICT[profile.district] ?? []}
                   placeholder={profile.district ? 'Select town' : 'Select district first'}
                   searchPlaceholder="Search town…"
                   disabled={!profile.district}
                 />
-                {showCustomTownInput ? (
-                  <div className="flex gap-2 mt-2">
-                    <Input
-                      value={customTownInput}
-                      onChange={e => setCustomTownInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirmCustomTown(); } }}
-                      placeholder="Type your town/city name…"
-                      className="rounded-xl"
-                      autoFocus
-                    />
-                    <Button type="button" variant="outline" onClick={confirmCustomTown} disabled={!customTownInput.trim()} className="rounded-xl shrink-0">
-                      Use
-                    </Button>
-                  </div>
+                {townGeocoding ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Locating…
+                  </p>
+                ) : townCoords ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
+                    <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
+                    Located: {townCoords.displayName || profile.town}
+                  </p>
                 ) : (
-                  <>
-                    {profile.town && !(TOWNS_BY_DISTRICT[profile.district] ?? []).includes(profile.town) && (
-                      <div className="flex items-center justify-between bg-primary/5 border border-primary/20 rounded-xl px-3 py-2 mt-2">
-                        <span className="text-sm text-foreground">{profile.town}</span>
-                        <button
-                          type="button"
-                          onClick={() => { setShowCustomTownInput(true); setCustomTownInput(profile.town); }}
-                          className="text-xs text-primary underline"
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    )}
-                    {townGeocoding ? (
-                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
-                        <Loader2 className="w-3 h-3 animate-spin" /> Locating…
-                      </p>
-                    ) : townCoords ? (
-                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
-                        <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
-                        Located: {townCoords.displayName || profile.town}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground mt-1.5">Used for distance-based search and matching.</p>
-                    )}
-                  </>
+                  <p className="text-xs text-muted-foreground mt-1.5">Used for distance-based search and matching.</p>
                 )}
               </Field>
               <Field label="School">

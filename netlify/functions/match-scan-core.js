@@ -5,8 +5,8 @@
  *
  * Match criteria (ALL required — no notification is sent otherwise):
  *   1. At least one common subject between the two educators.
- *   2. Same post_level (PL1/PL2/PL3/PL4) — added this pass; previously
- *      post_level wasn't even selected from the DB, let alone compared.
+ *   2. Same post_level (PL1/PL2/PL3/PL4) — post_level wasn't even selected
+ *      from the DB before this, let alone compared.
  *   3. Their preferred/current towns match — either an exact name match,
  *      a district-fallback match, OR the towns are within 50km of each
  *      other (bidirectional: each must be willing to move to where the
@@ -20,6 +20,18 @@
  *   requirement rather than just a scoring nudge.
  *
  *   A pair is only notified once (tracked in match_notification_log).
+ *
+ * Auto-deactivation (added this pass): once BOTH people in a previously-
+ * notified pair have paid the R150 messaging unlock, this treats that as
+ * a strong signal they're pursuing the transfer directly and turns off
+ * "Actively Looking" for both, so they stop generating (and receiving)
+ * new match notifications for other educators while they're already in
+ * talks. This is a proxy, not proof the transfer actually happened —
+ * paying to message someone doesn't guarantee the transfer went through.
+ * The notification sent alongside the deactivation says exactly that, and
+ * tells them how to turn it back on if it falls through — matching
+ * ProfilePage.tsx's existing "Actively Looking" switch, which they can
+ * flip back on themselves at any time.
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -137,9 +149,73 @@ function pairKey(idA, idB) {
 }
 
 /**
- * Runs a full scan and returns { notified, pairs }. Throws on hard failure
- * (e.g. the initial educators query failing) so callers can decide how to
- * report/log the error.
+ * Auto-deactivation pass — runs on every scan (manual or daily), across
+ * ALL pairs ever recorded in match_notification_log, not just ones
+ * matched in this run. That's intentional: it catches pairs that were
+ * matched a while ago and have only just both paid for messaging since,
+ * not just brand-new matches.
+ */
+async function deactivateMutuallyEngagedPairs(log) {
+  const { data: pairs, error: pairsErr } = await supabase
+    .from('match_notification_log')
+    .select('user_a, user_b');
+  if (pairsErr) { log.push(`Auto-deactivate: could not load match_notification_log — ${pairsErr.message}`); return 0; }
+  if (!pairs?.length) return 0;
+
+  const { data: unlockedRows, error: unlockedErr } = await supabase
+    .from('credit_ledger')
+    .select('user_id')
+    .eq('type', 'messaging_unlock');
+  if (unlockedErr) { log.push(`Auto-deactivate: could not load messaging_unlock rows — ${unlockedErr.message}`); return 0; }
+  const unlocked = new Set((unlockedRows || []).map(r => r.user_id));
+  if (!unlocked.size) return 0;
+
+  // Pairs where BOTH sides have unlocked messaging.
+  const engagedUserIds = new Set();
+  for (const { user_a, user_b } of pairs) {
+    if (unlocked.has(user_a) && unlocked.has(user_b)) {
+      engagedUserIds.add(user_a);
+      engagedUserIds.add(user_b);
+    }
+  }
+  if (!engagedUserIds.size) return 0;
+
+  // Only touch people who are STILL marked Actively Looking — no point
+  // re-writing (or re-notifying) rows that are already off.
+  const { data: stillActive, error: activeErr } = await supabase
+    .from('educators')
+    .select('user_id')
+    .in('user_id', [...engagedUserIds])
+    .eq('is_actively_looking', true);
+  if (activeErr) { log.push(`Auto-deactivate: could not check active status — ${activeErr.message}`); return 0; }
+
+  const toDeactivate = (stillActive || []).map(r => r.user_id);
+  if (!toDeactivate.length) return 0;
+
+  const { error: updateErr } = await supabase
+    .from('educators')
+    .update({ is_actively_looking: false })
+    .in('user_id', toDeactivate);
+  if (updateErr) { log.push(`Auto-deactivate: update failed — ${updateErr.message}`); return 0; }
+
+  const notifications = toDeactivate.map(user_id => ({
+    user_id,
+    type:  'auto_deactivated',
+    title: 'Actively Looking paused',
+    body:  "You and your match have both unlocked messaging, so we've paused sending you new match notifications while you're in talks. Didn't work out? You can turn Actively Looking back on anytime from your profile.",
+    data:  {},
+  }));
+  const { error: notifyErr } = await supabase.from('notifications').insert(notifications);
+  if (notifyErr) log.push(`Auto-deactivate: notification insert failed (status still updated) — ${notifyErr.message}`);
+
+  log.push(`Auto-deactivated Actively Looking for ${toDeactivate.length} educator(s) — both sides of their match have unlocked messaging.`);
+  return toDeactivate.length;
+}
+
+/**
+ * Runs a full scan and returns { notified, pairs, deactivated }. Throws on
+ * hard failure (e.g. the initial educators query failing) so callers can
+ * decide how to report/log the error.
  */
 export async function runMatchScan() {
   // 1. Load all actively-looking educators
@@ -151,7 +227,15 @@ export async function runMatchScan() {
 
   if (error) throw new Error(error.message);
   console.log('[match-scan] Loaded', educators?.length ?? 0, 'actively-looking educators');
-  if (!educators?.length) return { notified: 0, pairs: 0, debug: 'no actively-looking educators found' };
+
+  const log = [];
+  let notified = 0;
+  let newPairsCount = 0;
+
+  if (!educators?.length) {
+    const deactivated = await deactivateMutuallyEngagedPairs(log);
+    return { notified: 0, pairs: 0, deactivated, debug: 'no actively-looking educators found', log };
+  }
 
   // 2. Load already-notified pairs to avoid duplicates
   const { data: logRows } = await supabase
@@ -231,25 +315,28 @@ export async function runMatchScan() {
     }
   }
 
-  if (!newNotifications.length) {
-    return { notified: 0, pairs: 0, message: 'No new matches found' };
+  if (newNotifications.length) {
+    // 4. Insert notifications in batches of 100
+    const BATCH = 100;
+    for (let i = 0; i < newNotifications.length; i += BATCH) {
+      const { error: insertErr } = await supabase
+        .from('notifications')
+        .insert(newNotifications.slice(i, i + BATCH));
+      if (!insertErr) notified += Math.min(BATCH, newNotifications.length - i);
+    }
+
+    // 5. Log pairs
+    if (newLogEntries.length) {
+      await supabase.from('match_notification_log').upsert(newLogEntries, { onConflict: 'user_a,user_b' });
+    }
+    newPairsCount = newLogEntries.length;
+    console.log(`[match-scan] Inserted ${notified} notifications for ${newPairsCount} new pairs`);
+  } else {
+    log.push('No new matches found');
   }
 
-  // 4. Insert notifications in batches of 100
-  const BATCH = 100;
-  let inserted = 0;
-  for (let i = 0; i < newNotifications.length; i += BATCH) {
-    const { error: insertErr } = await supabase
-      .from('notifications')
-      .insert(newNotifications.slice(i, i + BATCH));
-    if (!insertErr) inserted += Math.min(BATCH, newNotifications.length - i);
-  }
+  // 6. Auto-deactivate mutually-engaged pairs (both paid for messaging)
+  const deactivated = await deactivateMutuallyEngagedPairs(log);
 
-  // 5. Log pairs
-  if (newLogEntries.length) {
-    await supabase.from('match_notification_log').upsert(newLogEntries, { onConflict: 'user_a,user_b' });
-  }
-
-  console.log(`[match-scan] Inserted ${inserted} notifications for ${newLogEntries.length} new pairs`);
-  return { notified: inserted, pairs: newLogEntries.length };
+  return { notified, pairs: newPairsCount, deactivated, log };
 }
