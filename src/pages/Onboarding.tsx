@@ -246,6 +246,23 @@ export default function Onboarding() {
     setShowCustomSubjectInput(false);
   };
 
+  // Same problem, same fix, for the current-town field: selecting "Other"
+  // used to set form.town to the literal string "Other" with no way to
+  // say what town it actually is. Besides being a UI dead end, this is
+  // the actual reason some accounts can never be geocoded — "Other" isn't
+  // a real place name, so match-scan's coordinate matching can never work
+  // for them (this is exactly what happened to the Marcia/Ongama/Thabang
+  // accounts found during the geocoding backfill).
+  const [customTownInput,     setCustomTownInput]     = useState('');
+  const [showCustomTownInput, setShowCustomTownInput] = useState(false);
+  const confirmCustomTown = () => {
+    const val = customTownInput.trim();
+    if (!val) return;
+    set('town', val);
+    setCustomTownInput('');
+    setShowCustomTownInput(false);
+  };
+
   /* Preferred town(s) — geocoded the same way as ProfilePage, so the
      resulting coordinates power match-scan's 50km radius matching. */
   const [prefTownInput,        setPrefTownInput]        = useState('');
@@ -612,7 +629,10 @@ export default function Onboarding() {
               <Field label="Province *">
                 <SearchableSelect
                   value={form.current_province}
-                  onValueChange={v => { set('current_province', v); set('district', ''); set('town', ''); }}
+                  onValueChange={v => {
+                    set('current_province', v); set('district', ''); set('town', '');
+                    setShowCustomTownInput(false); setCustomTownInput('');
+                  }}
                   options={PROVINCES}
                   placeholder="Select province"
                   searchPlaceholder="Search province…"
@@ -621,7 +641,10 @@ export default function Onboarding() {
               <Field label="District *">
 <SearchableSelect
                   value={form.district}
-                  onValueChange={v => { set('district', v); set('town', ''); }}
+                  onValueChange={v => {
+                    set('district', v); set('town', '');
+                    setShowCustomTownInput(false); setCustomTownInput('');
+                  }}
                   options={DISTRICTS_BY_PROVINCE[form.current_province] ?? []}
                   placeholder={form.current_province ? 'Select district' : 'Select province first'}
                   searchPlaceholder="Search district…"
@@ -630,13 +653,43 @@ export default function Onboarding() {
               </Field>
               <Field label="Town / City *">
 <SearchableSelect
-                  value={form.town}
-                  onValueChange={v => set('town', v)}
+                  value={(TOWNS_BY_DISTRICT[form.district] ?? []).includes(form.town) ? form.town : ''}
+                  onValueChange={v => {
+                    if (v === 'Other') { setShowCustomTownInput(true); setCustomTownInput(''); return; }
+                    set('town', v);
+                    setShowCustomTownInput(false);
+                  }}
                   options={TOWNS_BY_DISTRICT[form.district] ?? []}
                   placeholder={form.district ? 'Select town' : 'Select district first'}
                   searchPlaceholder="Search town…"
                   disabled={!form.district}
                 />
+                {showCustomTownInput ? (
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      value={customTownInput}
+                      onChange={e => setCustomTownInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirmCustomTown(); } }}
+                      placeholder="Type your town/city name…"
+                      className="rounded-xl"
+                      autoFocus
+                    />
+                    <Button type="button" variant="outline" onClick={confirmCustomTown} disabled={!customTownInput.trim()} className="rounded-xl shrink-0">
+                      Use
+                    </Button>
+                  </div>
+                ) : form.town && !(TOWNS_BY_DISTRICT[form.district] ?? []).includes(form.town) ? (
+                  <div className="flex items-center justify-between bg-primary/5 border border-primary/20 rounded-xl px-3 py-2 mt-2">
+                    <span className="text-sm text-foreground">{form.town}</span>
+                    <button
+                      type="button"
+                      onClick={() => { setShowCustomTownInput(true); setCustomTownInput(form.town); }}
+                      className="text-xs text-primary underline"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                ) : null}
               </Field>
             </>
           )}

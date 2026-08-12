@@ -502,6 +502,8 @@ export default function ProfilePage() {
   const [townCoords, setTownCoords] = useState<{ latitude: number; longitude: number; displayName: string } | null>(null);
   const [townGeocodeTarget, setTownGeocodeTarget] = useState('');
   const lastGeocodedTownRef = useRef('');
+  const [customTownInput,     setCustomTownInput]     = useState('');
+  const [showCustomTownInput, setShowCustomTownInput] = useState(false);
 
   // ── Preferred town input (Transfer Preferences) ────────────────────────────
   const [prefTownInput, setPrefTownInput] = useState('');
@@ -704,6 +706,8 @@ export default function ProfilePage() {
     setTownCoords(null);
     setTownGeocodeTarget('');
     lastGeocodedTownRef.current = '';
+    setShowCustomTownInput(false);
+    setCustomTownInput('');
   };
 
   const handleDistrictSelect = (v: string) => {
@@ -712,14 +716,36 @@ export default function ProfilePage() {
     setTownCoords(null);
     setTownGeocodeTarget('');
     lastGeocodedTownRef.current = '';
+    setShowCustomTownInput(false);
+    setCustomTownInput('');
   };
 
+  // Selecting "Other" used to set profile.town to the literal string
+  // "Other" with no way to say what town it actually is — besides being a
+  // dead-end in the UI, "Other" isn't a real place name, so it can never
+  // be geocoded, permanently breaking match-scan's coordinate-based
+  // matching for that person (this is exactly what happened to several
+  // real accounts found during the geocoding backfill). Now it opens a
+  // text input instead; the typed value becomes the real town and gets
+  // geocoded immediately, same as picking from the list does.
   const handleTownSelect = (v: string) => {
+    if (v === 'Other') { setShowCustomTownInput(true); setCustomTownInput(''); return; }
     setProfileField('town', v);
-    if (v && v !== 'Other') {
+    setShowCustomTownInput(false);
+    if (v) {
       const target = `${v}, ${profile.district}, ${profile.current_province}, South Africa`;
       setTownGeocodeTarget(target);
     }
+  };
+
+  const confirmCustomTown = () => {
+    const val = customTownInput.trim();
+    if (!val || !profile) return;
+    setProfileField('town', val);
+    setCustomTownInput('');
+    setShowCustomTownInput(false);
+    const target = `${val}, ${profile.district}, ${profile.current_province}, South Africa`;
+    setTownGeocodeTarget(target);
   };
 
   // ── Current town: geocode on blur/Enter (debounced — not every keystroke) ──
@@ -1142,24 +1168,54 @@ export default function ProfilePage() {
               </Field>
               <Field label="Town / City">
                 <SearchableSelect
-                  value={profile.town}
+                  value={(TOWNS_BY_DISTRICT[profile.district] ?? []).includes(profile.town) ? profile.town : ''}
                   onValueChange={handleTownSelect}
                   options={TOWNS_BY_DISTRICT[profile.district] ?? []}
                   placeholder={profile.district ? 'Select town' : 'Select district first'}
                   searchPlaceholder="Search town…"
                   disabled={!profile.district}
                 />
-                {townGeocoding ? (
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Locating…
-                  </p>
-                ) : townCoords ? (
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
-                    <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
-                    Located: {townCoords.displayName || profile.town}
-                  </p>
+                {showCustomTownInput ? (
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      value={customTownInput}
+                      onChange={e => setCustomTownInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirmCustomTown(); } }}
+                      placeholder="Type your town/city name…"
+                      className="rounded-xl"
+                      autoFocus
+                    />
+                    <Button type="button" variant="outline" onClick={confirmCustomTown} disabled={!customTownInput.trim()} className="rounded-xl shrink-0">
+                      Use
+                    </Button>
+                  </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground mt-1.5">Used for distance-based search and matching.</p>
+                  <>
+                    {profile.town && !(TOWNS_BY_DISTRICT[profile.district] ?? []).includes(profile.town) && (
+                      <div className="flex items-center justify-between bg-primary/5 border border-primary/20 rounded-xl px-3 py-2 mt-2">
+                        <span className="text-sm text-foreground">{profile.town}</span>
+                        <button
+                          type="button"
+                          onClick={() => { setShowCustomTownInput(true); setCustomTownInput(profile.town); }}
+                          className="text-xs text-primary underline"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    )}
+                    {townGeocoding ? (
+                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Locating…
+                      </p>
+                    ) : townCoords ? (
+                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
+                        <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
+                        Located: {townCoords.displayName || profile.town}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground mt-1.5">Used for distance-based search and matching.</p>
+                    )}
+                  </>
                 )}
               </Field>
               <Field label="School">
