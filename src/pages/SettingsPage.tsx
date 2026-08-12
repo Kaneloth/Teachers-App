@@ -1507,9 +1507,14 @@ function EducatorsSubTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    // Null profile_type counts as educator (legacy accounts predate this
+    // column) — same convention AdminEducators.tsx / match-scan-core.js
+    // use. General users have their own tab (GeneralUsersSubTab) now
+    // instead of showing up mixed in here.
     const { data } = await supabase
       .from('educators')
       .select('id, full_name, email, phone, current_school, sace_number, bio, account_status')
+      .or('profile_type.eq.educator,profile_type.is.null')
       .order('full_name');
     setEducators((data as Educator[]) ?? []);
     setLoading(false);
@@ -1579,6 +1584,220 @@ function EducatorsSubTab() {
           onClose={() => setEditing(null)}
           onSaved={updated => {
             setEducators(list => list.map(e => e.id === updated.id ? updated : e));
+            setEditing(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── General Users sub-tab ──────────────────────────────────────
+   Separate from EducatorsSubTab above — that tab previously loaded every
+   row in the educators table regardless of profile_type, mixing general
+   users in with real educators. This tab shows only profile_type =
+   'general'. Uses the split-save pattern (direct client update for
+   profile fields, admin-update-user for account_status) that
+   AdminEducators.tsx already established — account_status is
+   deliberately not in the granted column list for `authenticated`, so a
+   direct client write to it can silently fail regardless of RLS. */
+
+interface GeneralUser {
+  id: string;
+  user_id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  bio: string;
+  account_status: string;
+}
+
+function EditGeneralUserModal({ user, onClose, onSaved }: { user: GeneralUser; onClose: () => void; onSaved: (updated: GeneralUser) => void }) {
+  const { session } = useAuth();
+  const [form, setForm] = useState({ ...user });
+  const [saving, setSaving] = useState(false);
+
+  const field = (key: keyof typeof form) => ({
+    value: form[key],
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setForm(f => ({ ...f, [key]: e.target.value })),
+  });
+
+  const setStatus = (s: string) => setForm(f => ({ ...f, account_status: s }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('educators').update({
+        full_name: form.full_name,
+        phone:     form.phone,
+        bio:       form.bio,
+      }).eq('id', user.id);
+      if (error) throw error;
+
+      if (form.account_status !== user.account_status) {
+        const res = await fetch('/.netlify/functions/admin-update-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+          body: JSON.stringify({
+            target_user_id: user.user_id,
+            account_status: form.account_status,
+          }),
+        });
+        const result = await res.json();
+        if (!res.ok || !result.success) throw new Error(result.error || 'Failed to update account status');
+      }
+
+      toast.success('Profile updated');
+      onSaved(form);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+      <div className="bg-card rounded-2xl border border-border w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border">
+          <h2 className="text-base font-bold text-foreground">Edit Profile — {user.full_name}</h2>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted transition-colors">
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Full Name</Label>
+            <Input {...field('full_name')} className="rounded-xl" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Phone</Label>
+            <Input {...field('phone')} className="rounded-xl" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Bio</Label>
+            <textarea
+              {...field('bio')}
+              rows={4}
+              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Account Status</Label>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setStatus('active')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-medium transition-all ${form.account_status === 'active' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}
+              >
+                <CheckCircle className="w-3.5 h-3.5" /> Reinstate
+              </button>
+              <button
+                onClick={() => setStatus('suspended')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-medium transition-all ${form.account_status === 'suspended' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-border text-muted-foreground'}`}
+              >
+                <UserX className="w-3.5 h-3.5" /> Suspend
+              </button>
+              <button
+                onClick={() => setStatus('banned')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-medium transition-all ${form.account_status === 'banned' ? 'border-destructive bg-destructive/10 text-destructive' : 'border-border text-muted-foreground'}`}
+              >
+                <Ban className="w-3.5 h-3.5" /> Ban
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3 px-5 pb-5 pt-2">
+          <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl">Cancel</Button>
+          <Button onClick={handleSave} disabled={saving} className="flex-1 rounded-xl gap-2">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> Save Changes</>}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GeneralUsersSubTab() {
+  const [users, setUsers] = useState<GeneralUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [editing, setEditing] = useState<GeneralUser | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('educators')
+      .select('id, user_id, full_name, email, phone, bio, account_status')
+      .eq('profile_type', 'general')
+      .order('full_name');
+    setUsers((data as GeneralUser[]) ?? []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = users.filter(u =>
+    !search ||
+    u.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+    u.email?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search by name or email..."
+          className="pl-9 rounded-2xl h-11"
+        />
+      </div>
+
+      {!loading && (
+        <p className="text-xs text-muted-foreground px-1">{filtered.length} user{filtered.length !== 1 ? 's' : ''}</p>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <p className="text-center text-sm text-muted-foreground py-10">No general users found</p>
+      ) : (
+        <div className="space-y-0 rounded-2xl border border-border overflow-hidden bg-card">
+          {filtered.map((u, i) => (
+            <div key={u.id}>
+              {i > 0 && <div className="border-t border-border mx-4" />}
+              <button
+                onClick={() => setEditing(u)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors"
+              >
+                <div className={`w-9 h-9 rounded-full ${avatarColor(u.full_name || '?')} flex items-center justify-center shrink-0`}>
+                  <span className="text-white text-xs font-bold">{initials(u.full_name || '?')}</span>
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-semibold text-foreground truncate">{u.full_name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{u.email || '—'}</p>
+                </div>
+                {statusBadge(u.account_status)}
+                <ChevronRight className="w-4 h-4 text-muted-foreground ml-1 shrink-0" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <EditGeneralUserModal
+          user={editing}
+          onClose={() => setEditing(null)}
+          onSaved={updated => {
+            setUsers(list => list.map(u => u.id === updated.id ? updated : u));
             setEditing(null);
           }}
         />
@@ -1776,7 +1995,7 @@ function ToolsSubTab() {
 }
 
 /* Admin tab wrapper */
-const ADMIN_SUBTABS = ['Users', 'Credits', 'Audit Log', 'Educators', 'ID Verification', 'Testimonials', 'Tools'] as const;
+const ADMIN_SUBTABS = ['Users', 'Credits', 'Audit Log', 'Educators', 'General Users', 'ID Verification', 'Testimonials', 'Tools'] as const;
 type AdminSubTab = typeof ADMIN_SUBTABS[number];
 
 function AdminTab() {
@@ -1822,6 +2041,7 @@ function AdminTab() {
       {sub === 'Credits'       && <CreditsSubTab />}
       {sub === 'Audit Log'     && <AuditLogSubTab />}
       {sub === 'Educators'     && <EducatorsSubTab />}
+      {sub === 'General Users' && <GeneralUsersSubTab />}
       {sub === 'ID Verification' && <IDVerificationSubTab />}
       {sub === 'Testimonials'   && <TestimonialsSubTab />}
       {sub === 'Tools'          && <ToolsSubTab />}

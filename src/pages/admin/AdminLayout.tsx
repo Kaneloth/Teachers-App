@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Coins, ScrollText, GraduationCap,
-  ShieldCheck, Star, SlidersHorizontal, Wrench, Menu, X, ArrowLeft,
+  ShieldCheck, Star, SlidersHorizontal, Wrench, Menu, X, ArrowLeft, User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +18,7 @@ const NAV_SECTIONS = [
     items: [
       { path: '/admin/users',        icon: Users,         label: 'Users' },
       { path: '/admin/educators',    icon: GraduationCap, label: 'Educators' },
+      { path: '/admin/general-users', icon: User,         label: 'General Users' },
       { path: '/admin/id-verification', icon: ShieldCheck, label: 'ID Verification' },
     ],
   },

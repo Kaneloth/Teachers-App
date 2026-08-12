@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Users, GraduationCap, Coins, Star, Loader2 } from 'lucide-react';
+import { Users, GraduationCap, Coins, Star, Loader2, User } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface Stats {
   totalUsers: number;
   educators: number;
+  generalUsers: number;
   creditPurchases: number;
   pendingTestimonials: number;
 }
@@ -40,11 +41,18 @@ export default function AdminDashboard() {
         const [
           totalUsersRes,
           educatorsRes,
+          generalUsersRes,
           creditPurchasesRes,
           pendingTestimonialsRes,
         ] = await Promise.all([
           supabase.from('educators').select('id', { count: 'exact', head: true }),
-          supabase.from('educators').select('id', { count: 'exact', head: true }).eq('profile_type', 'educator'),
+          // Null profile_type counts as educator (legacy accounts predate
+          // this column) — same convention AdminEducators.tsx and
+          // match-scan-core.js use. Previously this used a strict
+          // .eq('profile_type', 'educator'), which undercounted relative
+          // to how "educator" is actually defined everywhere else.
+          supabase.from('educators').select('id', { count: 'exact', head: true }).or('profile_type.eq.educator,profile_type.is.null'),
+          supabase.from('educators').select('id', { count: 'exact', head: true }).eq('profile_type', 'general'),
           supabase.from('credit_ledger').select('id', { count: 'exact', head: true }).eq('type', 'purchase'),
           supabase.from('testimonials').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         ]);
@@ -52,7 +60,7 @@ export default function AdminDashboard() {
         // Surface the first error encountered rather than silently showing
         // zeroes — a failed count and a genuine zero look identical otherwise.
         const firstError =
-          totalUsersRes.error || educatorsRes.error ||
+          totalUsersRes.error || educatorsRes.error || generalUsersRes.error ||
           creditPurchasesRes.error || pendingTestimonialsRes.error;
         if (firstError) throw firstError;
 
@@ -60,6 +68,7 @@ export default function AdminDashboard() {
           setStats({
             totalUsers:          totalUsersRes.count ?? 0,
             educators:           educatorsRes.count ?? 0,
+            generalUsers:        generalUsersRes.count ?? 0,
             creditPurchases:     creditPurchasesRes.count ?? 0,
             pendingTestimonials: pendingTestimonialsRes.count ?? 0,
           });
@@ -88,9 +97,10 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <StatCard icon={Users} label="Total Users" value={stats?.totalUsers ?? 0} loading={loading} />
         <StatCard icon={GraduationCap} label="Educators" value={stats?.educators ?? 0} loading={loading} />
+        <StatCard icon={User} label="General Users" value={stats?.generalUsers ?? 0} loading={loading} />
         <StatCard icon={Coins} label="Credit Purchases" value={stats?.creditPurchases ?? 0} loading={loading} />
         <StatCard icon={Star} label="Pending Testimonials" value={stats?.pendingTestimonials ?? 0} loading={loading} />
       </div>
