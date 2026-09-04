@@ -548,7 +548,7 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
         }}
       >
         <div style={{ padding: '40px 44px', lineHeight: '1.7' }}>
-          <div style={{ borderBottom: '2px solid #111827', paddingBottom: '16px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ borderBottom: '2px solid #111827', paddingBottom: '16px', marginBottom: '34px', display: 'flex', alignItems: 'center', gap: '20px' }}>
             {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '76px', height: '76px', borderRadius: '4px', objectFit: 'cover', border: '1px solid #e5e7eb', flexShrink: 0 }} />}
             <div>
               <div style={{ fontSize: '30px', fontWeight: '300', letterSpacing: '3px', textTransform: 'uppercase', color: '#111827' }}>{personal.full_name || 'Your Name'}</div>
@@ -1500,15 +1500,15 @@ function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
     <div style={{ ...wrapperStyle }}>
       <div className="cv-content-page" style={{ width: '794px', boxSizing: 'border-box', background: '#fff', position: 'relative' }}>
         {/* Red header banner */}
-        <div style={{ background: crimson, padding: '20px 32px', display: 'flex', alignItems: 'center', gap: '18px' }}>
+        <div style={{ background: crimson, padding: '20px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '10px' }}>
           {personal.photo_url && <img src={personal.photo_url} alt="" style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', flexShrink: 0 }} />}
           <div>
-            <div style={{ fontSize: '22px', fontWeight: '800', color: '#fff', fontStyle: 'italic' }}>{personal.full_name || 'Your Name'}</div>
+            <div style={{ fontSize: '22px', fontWeight: '800', color: '#fff' }}>{personal.full_name || 'Your Name'}</div>
             <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '2px', color: 'rgba(255,255,255,0.75)', marginTop: '3px' }}>{personal.job_title || validExp[0]?.role || 'Educator'}</div>
           </div>
         </div>
         {/* Contact strip */}
-        <div style={{ display: 'flex', gap: '24px', padding: '8px 32px', borderBottom: '1px solid #e5e7eb', fontSize: '10px', color: '#6b7280', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', padding: '8px 32px', borderBottom: '1px solid #e5e7eb', fontSize: '10px', color: '#6b7280', flexWrap: 'wrap' }}>
           {personal.email && <span>{ICONS.mail} {personal.email}</span>}
           {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
           {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}

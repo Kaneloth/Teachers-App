@@ -772,7 +772,7 @@ function drawMinimal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
     for(let i=0;i<items.length;i++){const [glyph,v]=items[i];cx=iconText(p,glyph,v,cx,MT+14,8,muted);
       if(i<items.length-1){p.setFont(F,'normal');p.setFontSize(8);tc(p,muted[0],muted[1],muted[2]);p.text(SEP,cx,MT+14);cx+=sepW;}}
   }
-  hLine(p,ML,MT+17,PW-ML-MR,ar,ag,ab,0.6);reset(p);let y=MT+22;
+  hLine(p,ML,MT+17,PW-ML-MR,ar,ag,ab,0.6);reset(p);let y=MT+28;
   const DX=ML;const DW=28;const CX=ML+DW+6;const CMW=PW-MR-CX;
   const np=()=>{p.addPage();reset(p);return MT;};const GXW=():[ number,number]=>[CX,CMW];
   if(pr.bio){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(8);tc(p,156,163,175);p.text('SUMMARY',DX,y);p.setFont(F,'normal');p.setFontSize(9);tc(p,75,85,99);y=wrapped(p,pr.bio,CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
@@ -1409,20 +1409,24 @@ function drawTeal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
 function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
   const accent:RGB = hex('#c0392b'); const [ar,ag,ab] = accent;
 
-  // ── Crimson bold-italic banner header ────────────────────────────────────
+  // ── Crimson banner header — centered, normal (non-italic) type ───────────
   fill(p,ar,ag,ab); p.rect(0,0,PW,28,'F');
-  tc(p,255,255,255); p.setFont(F,'bolditalic'); p.setFontSize(18);
-  p.text(owner, ML, 11);
+  tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(18);
+  { const nw=p.getTextWidth(owner); p.text(owner, (PW-nw)/2, 11); }
   const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
-  p.setFont(F,'italic'); p.setFontSize(9); tc(p,255,180,160);
-  p.text(jobTitle, ML, 18);
+  p.setFont(F,'normal'); p.setFontSize(9); tc(p,255,180,160);
+  { const jw=p.getTextWidth(jobTitle); p.text(jobTitle, (PW-jw)/2, 18); }
   hLine(p,0,22,PW,255,255,255,0.25);
   {
     const lightPink:RGB=[255,210,200];
-    let cx=ML;
-    if (pr.email) cx = iconText(p, ICON.envelope, pr.email, cx, 27, 7.5, lightPink);
-    if (pr.phone) { p.setFont(F,'normal');p.setFontSize(7.5);tc(p,lightPink[0],lightPink[1],lightPink[2]);p.text('   |   ',cx,27);cx+=p.getTextWidth('   |   '); cx = iconText(p, ICON.phone, pr.phone, cx, 27, 7.5, lightPink); }
-    if (pr.address) { p.setFont(F,'normal');p.setFontSize(7.5);tc(p,lightPink[0],lightPink[1],lightPink[2]);p.text('   |   ',cx,27);cx+=p.getTextWidth('   |   '); cx = iconText(p, ICON.mapMarker, pr.address, cx, 27, 7.5, lightPink); }
+    const items:[string|null,string][]=[[ICON.envelope,pr.email],[ICON.phone,pr.phone],[ICON.mapMarker,pr.address]].filter(([,v])=>!!v) as [string|null,string][];
+    p.setFont(F,'normal');p.setFontSize(7.5);
+    const SEP='   |   ';const sepW=p.getTextWidth(SEP);
+    let totalW=0;
+    for(let i=0;i<items.length;i++){const iconW=7.5*0.55+1.5;totalW+=iconW+p.getTextWidth(items[i][1]);if(i<items.length-1)totalW+=sepW;}
+    let cx=(PW-totalW)/2;
+    for(let i=0;i<items.length;i++){const [glyph,v]=items[i];cx=iconText(p,glyph,v,cx,27,7.5,lightPink);
+      if(i<items.length-1){p.setFont(F,'normal');p.setFontSize(7.5);tc(p,lightPink[0],lightPink[1],lightPink[2]);p.text(SEP,cx,27);cx+=sepW;}}
   }
   reset(p);
 
@@ -1679,10 +1683,25 @@ function drawElegant(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
     y += 5.5;
   }
 
-  const contact = [pr.address, pr.phone, pr.email, pr.id_number?`ID: ${pr.id_number}`:null].filter(Boolean).join('   |   ');
-  if (contact) {
-    p.setFont('times','normal'); p.setFontSize(8.5); tc(p,MUTED[0],MUTED[1],MUTED[2]);
-    y = centeredWrapped(p, contact, y, PW-ML-MR, BOTTOM, np, 5);
+  const elegantItems: [string|null,string][] = [
+    [ICON.mapMarker, pr.address], [ICON.phone, pr.phone], [ICON.envelope, pr.email],
+    pr.id_number ? [ICON.user, `ID: ${pr.id_number}`] : [null,''],
+  ].filter(([,v]) => !!v) as [string|null,string][];
+  if (elegantItems.length) {
+    p.setFont('times','normal'); p.setFontSize(8.5);
+    const SEP='   |   '; const sepW=p.getTextWidth(SEP);
+    let totalW=0;
+    for(let i=0;i<elegantItems.length;i++){const iconW=8.5*0.55+1.5;totalW+=iconW+p.getTextWidth(elegantItems[i][1]);if(i<elegantItems.length-1)totalW+=sepW;}
+    if (totalW <= PW-ML-MR) {
+      let cx=(PW-totalW)/2;
+      for(let i=0;i<elegantItems.length;i++){const [glyph,v]=elegantItems[i];cx=iconText(p,glyph,v,cx,y,8.5,MUTED);
+        if(i<elegantItems.length-1){p.setFont('times','normal');p.setFontSize(8.5);tc(p,MUTED[0],MUTED[1],MUTED[2]);p.text(SEP,cx,y);cx+=sepW;}}
+      y += 5;
+    } else {
+      const contact = elegantItems.map(([,v])=>v).join('   |   ');
+      tc(p,MUTED[0],MUTED[1],MUTED[2]);
+      y = centeredWrapped(p, contact, y, PW-ML-MR, BOTTOM, np, 5);
+    }
     y += 3;
   }
 
