@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getCosts } from './lib/pricing.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
@@ -9,21 +10,16 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// NOTE: these are x10 of the original values (cosmetic credit-system
-// overhaul — see packages.js). Real Rand prices/value are unchanged; only
-// the credit unit got bigger/more granular-looking.
+// Costs used to be a hardcoded object here (cv_usage: 90, letter_usage: 20,
+// etc.). They now live in the credit_costs table — see lib/pricing.js and
+// Admin → Money → Pricing (AdminPricing.tsx) — so admins can retune them
+// without a deploy. Fetched fresh per invocation below (const COSTS = ...).
 //
 // chat_start was removed — messaging is no longer credit-metered. It's
 // unlocked by a standalone R150 PayFast payment (see payfast-initiate /
 // payfast-webhook, package_id 'chat_unlock'), which writes a
 // credit_ledger row with type='messaging_unlock' rather than deducting
 // credits here. ChatRoom.tsx checks for that row directly.
-const COSTS = {
-  cv_usage:      90,   // CV generation
-  letter_usage:  20,   // Cover letter / AI action
-  guide_download:30,   // Downloading a transfer guide
-  id_verify:     300,  // ID/passport verification
-};
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -104,6 +100,8 @@ export const handler = async (event) => {
     }
   }
 
+  const { costs: COSTS, labels: COST_LABELS } = await getCosts(supabase);
+
   if (!COSTS[type]) {
     return { statusCode: 400, body: JSON.stringify({ error: `Unknown type "${type}"` }) };
   }
@@ -150,13 +148,7 @@ export const handler = async (event) => {
   }
 
   const cost = COSTS[type];
-  const DESCRIPTIONS = {
-    cv_usage:       'CV generated (90 credits)',
-    letter_usage:   'Cover letter / AI action (20 credits)',
-    guide_download: 'Transfer guide downloaded (30 credits)',
-    id_verify:      'ID verification (300 credits)',
-  };
-  const description = DESCRIPTIONS[type] || type;
+  const description = COST_LABELS[type] ? `${COST_LABELS[type]} (${cost} credits)` : type;
 
   const { data: newBalance, error: deductErr } = await supabase.rpc('deduct_credits', {
     p_user_id:     user.id,

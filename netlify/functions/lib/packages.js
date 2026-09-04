@@ -1,4 +1,21 @@
 /**
+ * ⚠️ DEPRECATED — no longer imported by anything as of the admin-configurable
+ * pricing changes. Safe to delete this file.
+ *
+ * Every consumer that used to import PACKAGES from here (payfast-initiate.js,
+ * payfast-webhook.js, purchase-credits.js) now reads live package data from
+ * the `credit_packages` table via lib/pricing.js's getPackage()/getPackages()
+ * instead — see migration_pricing.sql and Admin → Money → Pricing
+ * (AdminPricing.tsx). This file is kept only so nothing breaks if some other
+ * file you haven't shown me still imports it; grep your repo for
+ * "lib/packages" to confirm nothing does, then delete this file.
+ *
+ * Everything below this point is the OLD hardcoded values, left as-is for
+ * reference — they were already seeded into credit_packages by
+ * migration_pricing.sql, so this file has had no effect on the running app
+ * since that migration + the function updates were deployed.
+ */
+/**
  * packages — single source of truth for credit pack pricing
  * Place at: netlify/functions/lib/packages.js
  *

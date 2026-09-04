@@ -7,7 +7,7 @@
  *
  * Deploy path: netlify/functions/payfast-initiate.js
  * Requires:    netlify/functions/lib/payfast.js
- *              netlify/functions/lib/packages.js
+ *              netlify/functions/lib/pricing.js
  *
  * POST body: { package_id: 'single' | 'standard' | 'business' | 'chat_unlock' }
  * Response:  { action_url, fields } — frontend builds <form> from `fields`
@@ -15,7 +15,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { generateSignature, PAYFAST_PROCESS_URL, SITE_URL } from './lib/payfast.js';
-import { PACKAGES } from './lib/packages.js';
+import { getPackage } from './lib/pricing.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
@@ -52,10 +52,15 @@ export const handler = async (event) => {
   try { body = JSON.parse(event.body); }
   catch { return { statusCode: 400, body: 'Invalid JSON' }; }
 
-  const pkg = PACKAGES[body.package_id];
-  if (!pkg) {
+  const pkg = await getPackage(supabase, body.package_id);
+  if (!pkg || !pkg.active) {
     return { statusCode: 400, body: JSON.stringify({ error: `Unknown package "${body.package_id}"` }) };
   }
+
+  // credits/price_zar come back from Postgres as numeric — supabase-js
+  // returns `numeric` columns as strings (not JS numbers) to avoid float
+  // precision loss, so coerce explicitly before doing arithmetic on them.
+  const priceZar = Number(pkg.price_zar);
 
   // Unique payment ID — also useful for support lookups in the PayFast dashboard.
   const m_payment_id = `cr_${user.id.slice(0, 8)}_${Date.now()}`;
@@ -74,7 +79,7 @@ export const handler = async (event) => {
     name_first:        firstName,
     email_address:     user.email,
     m_payment_id,
-    amount:            pkg.price_zar.toFixed(2),
+    amount:            priceZar.toFixed(2),
     item_name:         pkg.label,
     item_description:  body.package_id === 'chat_unlock'
       ? 'Unlocks in-app messaging with transfer partners'

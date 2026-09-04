@@ -17,17 +17,122 @@ import { useAuth } from '@/lib/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
-// ── Credit packages (mirror your screenshot) ────────────────────────────────
-// Messaging unlock is NOT a credit package — it's a standalone R150
-// PayFast payment triggered from ChatRoom.tsx's upsell modal (general
-// users never see it, since they don't use in-app chat).
-const PACKAGES = [
-  { id: 'single',   label: 'Starter Pack',          price: 39,  credits: 150,  note: '1 CV + 6 letters' },
-  { id: 'standard', label: 'Standard Credit Pack', price: 59,  credits: 300,  note: '3 CVs + 3 letters', popular: true },
-  { id: 'business', label: 'Business Credit Pack',  price: 199, credits: 2000, note: '22 CVs + 2 letters' },
-] as const;
+// ── Live pricing (admin-controlled) ─────────────────────────────────────────
+// Every number the purchase modal shows — package credits/prices, per-action
+// credit costs, the signup bonus — used to be hardcoded here and in several
+// Netlify functions. They now live in the credit_packages / credit_costs /
+// app_settings tables (see migration_pricing.sql), editable from
+// Admin → Money → Pricing (AdminPricing.tsx). This hook is the one place
+// that reads them for the frontend; the FALLBACK_* constants below are only
+// used if that fetch fails (e.g. a transient network error), so the modal
+// still renders something reasonable rather than breaking outright.
+//
+// Messaging unlock (package id 'chat_unlock') is deliberately excluded from
+// what this hook returns as "packages" — it's not a credit package, it's a
+// standalone R150 PayFast payment triggered from ChatRoom.tsx's upsell
+// modal (general users never see it, since they don't use in-app chat).
 
-type PackageId = typeof PACKAGES[number]['id'];
+export interface CreditPackage {
+  id: string;
+  label: string;
+  credits: number;
+  price_zar: number;
+  note: string | null;
+  is_popular: boolean;
+}
+
+interface Pricing {
+  packages: CreditPackage[];
+  cvCost: number;
+  letterCost: number;
+  guideCost: number;
+  idVerifyCost: number;
+  signupBonus: number;
+  loading: boolean;
+}
+
+const FALLBACK_PACKAGES: CreditPackage[] = [
+  { id: 'single',   label: 'Starter Pack',         credits: 150,  price_zar: 39,  note: null, is_popular: false },
+  { id: 'standard', label: 'Standard Credit Pack', credits: 300,  price_zar: 59,  note: null, is_popular: true },
+  { id: 'business', label: 'Business Credit Pack', credits: 2000, price_zar: 199, note: null, is_popular: false },
+];
+const FALLBACK_CV_COST        = 90;
+const FALLBACK_LETTER_COST    = 20;
+const FALLBACK_GUIDE_COST     = 30;
+const FALLBACK_ID_VERIFY_COST = 300;
+const FALLBACK_SIGNUP_BONUS   = 240;
+
+function usePricing(): Pricing {
+  const [packages,     setPackages]     = useState<CreditPackage[]>(FALLBACK_PACKAGES);
+  const [cvCost,        setCvCost]        = useState(FALLBACK_CV_COST);
+  const [letterCost,    setLetterCost]    = useState(FALLBACK_LETTER_COST);
+  const [guideCost,     setGuideCost]     = useState(FALLBACK_GUIDE_COST);
+  const [idVerifyCost,  setIdVerifyCost]  = useState(FALLBACK_ID_VERIFY_COST);
+  const [signupBonus,   setSignupBonus]   = useState(FALLBACK_SIGNUP_BONUS);
+  const [loading,       setLoading]       = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const [pkgRes, costRes, settingRes] = await Promise.all([
+          supabase.from('credit_packages').select('*').eq('active', true).neq('id', 'chat_unlock').order('sort_order', { ascending: true }),
+          supabase.from('credit_costs').select('action_type, cost'),
+          supabase.from('app_settings').select('value').eq('key', 'signup_bonus_credits').maybeSingle(),
+        ]);
+        if (cancelled) return;
+
+        if (pkgRes.data?.length) {
+          setPackages(pkgRes.data.map((p: any) => ({
+            id:         p.id,
+            label:      p.label,
+            credits:    Number(p.credits),
+            // price_zar is a Postgres `numeric` column — supabase-js
+            // returns those as strings (not JS numbers) to avoid float
+            // precision loss, so coerce explicitly before use.
+            price_zar:  Number(p.price_zar),
+            note:       p.note ?? null,
+            is_popular: !!p.is_popular,
+          })));
+        }
+
+        const costMap: Record<string, number> = {};
+        for (const row of costRes.data || []) costMap[row.action_type] = Number(row.cost);
+        if (costMap.cv_usage       != null) setCvCost(costMap.cv_usage);
+        if (costMap.letter_usage   != null) setLetterCost(costMap.letter_usage);
+        if (costMap.guide_download != null) setGuideCost(costMap.guide_download);
+        if (costMap.id_verify      != null) setIdVerifyCost(costMap.id_verify);
+
+        const bonus = Number(settingRes.data?.value);
+        if (Number.isFinite(bonus)) setSignupBonus(bonus);
+      } catch (err) {
+        // Fall back to the hardcoded defaults above — already set as the
+        // initial state, so there's nothing more to do here.
+        console.error('[CreditBalance] Failed to load live pricing, using fallback values:', err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
+  return { packages, cvCost, letterCost, guideCost, idVerifyCost, signupBonus, loading };
+}
+
+// Package note shown under the label — uses the admin-set `note` if one was
+// typed in, otherwise auto-generates one from this package's credits and
+// the current CV/letter costs, so it never goes stale when either changes.
+function packageNote(pkg: CreditPackage, cvCost: number, letterCost: number): string {
+  if (pkg.note && pkg.note.trim()) return pkg.note.trim();
+  const cvs = cvCost > 0 ? Math.floor(pkg.credits / cvCost) : 0;
+  const letters = letterCost > 0 ? Math.floor(pkg.credits / letterCost) : 0;
+  if (!cvs && !letters) return `${pkg.credits} credits`;
+  if (!cvs) return `up to ${letters} letter${letters === 1 ? '' : 's'}`;
+  if (!letters) return `up to ${cvs} CV${cvs === 1 ? '' : 's'}`;
+  return `up to ${cvs} CV${cvs === 1 ? '' : 's'} or ${letters} letters`;
+}
 
 // ── Compact chip ─────────────────────────────────────────────────────────────
 interface Props {
@@ -39,6 +144,7 @@ interface Props {
 export default function CreditBalance({ showBuyButton = false, variant = 'chip', onlyAfterPurchase = false }: Props) {
   const { balance, loading, refetch } = useCredits();
   const { user } = useAuth();
+  const pricing = usePricing();
   const [showModal, setShowModal] = useState(false);
   const [hasPurchased, setHasPurchased] = useState<boolean | null>(null);
 
@@ -87,8 +193,8 @@ export default function CreditBalance({ showBuyButton = false, variant = 'chip',
   if (variant === 'full') {
     return (
       <>
-        <CreditCard balance={balance} loading={loading} onBuy={() => setShowModal(true)} />
-        {showModal && <PurchaseModal onClose={() => { setShowModal(false); refetch(); }} />}
+        <CreditCard balance={balance} loading={loading} onBuy={() => setShowModal(true)} pricing={pricing} />
+        {showModal && <PurchaseModal onClose={() => { setShowModal(false); refetch(); }} pricing={pricing} />}
       </>
     );
   }
@@ -111,13 +217,14 @@ export default function CreditBalance({ showBuyButton = false, variant = 'chip',
           </button>
         )}
       </div>
-      {showModal && <PurchaseModal onClose={() => { setShowModal(false); refetch(); }} />}
+      {showModal && <PurchaseModal onClose={() => { setShowModal(false); refetch(); }} pricing={pricing} />}
     </>
   );
 }
 
 // ── Full credit card (for settings / CV builder page) ────────────────────────
-function CreditCard({ balance, loading, onBuy }: { balance: number; loading: boolean; onBuy: () => void }) {
+function CreditCard({ balance, loading, onBuy, pricing }: { balance: number; loading: boolean; onBuy: () => void; pricing: Pricing }) {
+  const { cvCost, letterCost } = pricing;
   return (
     <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -127,7 +234,7 @@ function CreditCard({ balance, loading, onBuy }: { balance: number; loading: boo
           </div>
           <div>
             <p className="text-sm font-semibold text-foreground">Your Credits</p>
-            <p className="text-xs text-muted-foreground">CV = 90 credits · Letter = 10 credits</p>
+            <p className="text-xs text-muted-foreground">CV = {cvCost} credits · Letter = {letterCost} credits</p>
           </div>
         </div>
         <div className="text-right">
@@ -137,12 +244,12 @@ function CreditCard({ balance, loading, onBuy }: { balance: number; loading: boo
           <p className="text-xs text-muted-foreground">available</p>
         </div>
       </div>
-      {balance < 90 && !loading && (
+      {balance < cvCost && !loading && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2">
           <p className="text-xs text-amber-700 dark:text-amber-300">
             {balance === 0
               ? 'You have no credits. Purchase a pack to generate CVs and cover letters.'
-              : `You have ${balance} credit${balance > 1 ? 's' : ''} — enough for ${Math.floor(balance / 10)} cover letter${Math.floor(balance / 10) === 1 ? '' : 's'} but not a CV (needs 90).`}
+              : `You have ${balance} credit${balance > 1 ? 's' : ''} — enough for ${Math.floor(balance / letterCost)} cover letter${Math.floor(balance / letterCost) === 1 ? '' : 's'} but not a CV (needs ${cvCost}).`}
           </p>
         </div>
       )}
@@ -193,11 +300,12 @@ export function LowCreditsPrompt({ onViewPackages, message }: { onViewPackages: 
 }
 
 // ── Purchase modal ────────────────────────────────────────────────────────────
-function PurchaseModal({ onClose }: { onClose: () => void }) {
+function PurchaseModal({ onClose, pricing }: { onClose: () => void; pricing: Pricing }) {
   const { session } = useAuth();
-  const [purchasing, setPurchasing] = useState<PackageId | null>(null);
+  const [purchasing, setPurchasing] = useState<string | null>(null);
+  const { packages, cvCost, letterCost, guideCost, idVerifyCost, signupBonus } = pricing;
 
-  const handlePurchase = async (pkg: typeof PACKAGES[number]) => {
+  const handlePurchase = async (pkg: CreditPackage) => {
     if (!session?.access_token) { toast.error('Please sign in first.'); return; }
     setPurchasing(pkg.id);
 
@@ -254,7 +362,7 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
             <h2 className="font-bold text-foreground">Top Up Credits</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">CV = 90 credits · Cover letter = 20 credits</p>
+            <p className="text-xs text-muted-foreground mt-0.5">CV = {cvCost} credits · Cover letter = {letterCost} credits</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
             <X className="w-4 h-4 text-muted-foreground" />
@@ -266,32 +374,32 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
 
         {/* Package list */}
         <div className="p-4 space-y-3">
-          {PACKAGES.map(pkg => (
+          {packages.map(pkg => (
             <button
               key={pkg.id}
               onClick={() => handlePurchase(pkg)}
               disabled={purchasing !== null}
               className={`w-full text-left rounded-2xl border p-4 transition-all hover:border-primary hover:shadow-sm disabled:opacity-60 ${
-                pkg.popular ? 'border-primary bg-primary/5' : 'border-border bg-card'
+                pkg.is_popular ? 'border-primary bg-primary/5' : 'border-border bg-card'
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-sm text-foreground">{pkg.label}</p>
-                    {pkg.popular && (
+                    {pkg.is_popular && (
                       <span className="text-[10px] font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full">
                         POPULAR
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{pkg.credits} credits · {pkg.note}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{pkg.credits} credits · {packageNote(pkg, cvCost, letterCost)}</p>
                 </div>
                 <div className="text-right shrink-0 ml-3">
-                  <p className="font-bold text-foreground">R{pkg.price}</p>
+                  <p className="font-bold text-foreground">R{pkg.price_zar}</p>
                   {purchasing === pkg.id
                     ? <Loader2 className="w-4 h-4 animate-spin text-primary ml-auto mt-1" />
-                    : <p className="text-[10px] text-muted-foreground">R{(pkg.price / pkg.credits).toFixed(2)}/credit</p>}
+                    : <p className="text-[10px] text-muted-foreground">R{(pkg.price_zar / pkg.credits).toFixed(2)}/credit</p>}
                 </div>
               </div>
             </button>
@@ -307,16 +415,16 @@ function PurchaseModal({ onClose }: { onClose: () => void }) {
             </p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              All new users receive 180 free credits on signup
+              All new users receive {signupBonus} free credits on signup
             </p>
             <p className="text-xs font-medium text-foreground mt-1 pt-1 border-t border-border">Credit costs:</p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              CV download = 90cr · Cover letter = 20cr
+              CV download = {cvCost}cr · Cover letter = {letterCost}cr
             </p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              Guide download = 30cr · ID verification = 300cr
+              Guide download = {guideCost}cr · ID verification = {idVerifyCost}cr
             </p>
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />

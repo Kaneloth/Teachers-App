@@ -41,6 +41,7 @@ import AdminLayout from '@/pages/admin/AdminLayout';
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import AdminUsers from '@/pages/admin/AdminUsers';
 import AdminCredits from '@/pages/admin/AdminCredits';
+import AdminPricing from '@/pages/admin/AdminPricing';
 import AdminAuditLog from '@/pages/admin/AdminAuditLog';
 import AdminEducators from '@/pages/admin/AdminEducators';
 import AdminTestimonials from '@/pages/admin/AdminTestimonials';
@@ -170,6 +171,7 @@ export default function App() {
                     <Route path="/admin"              element={<AdminDashboard />} />
                     <Route path="/admin/users"        element={<AdminUsers />} />
                     <Route path="/admin/credits"      element={<AdminCredits />} />
+                    <Route path="/admin/pricing"       element={<AdminPricing />} />
                     <Route path="/admin/audit-log"    element={<AdminAuditLog />} />
                     <Route path="/admin/educators"    element={<AdminEducators />} />
                     <Route path="/admin/testimonials" element={<AdminTestimonials />} />

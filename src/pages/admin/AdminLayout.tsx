@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Coins, ScrollText, GraduationCap,
-  ShieldCheck, Star, SlidersHorizontal, Wrench, Menu, X, ArrowLeft, User,
+  ShieldCheck, Star, SlidersHorizontal, Wrench, Menu, X, ArrowLeft, User, Tag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,6 +26,7 @@ const NAV_SECTIONS = [
     label: 'Money',
     items: [
       { path: '/admin/credits',      icon: Coins,         label: 'Credits & Payments' },
+      { path: '/admin/pricing',      icon: Tag,           label: 'Pricing' },
     ],
   },
   {

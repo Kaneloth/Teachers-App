@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getSignupBonus } from './lib/pricing.js';
 
 // Fall back to VITE_-prefixed vars if the plain server-side ones
 // haven't been added to Netlify env vars yet.
@@ -11,10 +12,10 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Free signup bonus. NOTE: previously 180 (x10 of the original 18) — see
-// packages.js / deduct-credits.js for other places that reference credit
-// amounts; check those for consistency if they display/assume this value.
-const FREE_CREDITS = 240;
+// The signup bonus used to be a hardcoded constant here. It now lives in
+// app_settings (key='signup_bonus_credits') — see lib/pricing.js and
+// Admin → Money → Pricing (AdminPricing.tsx) — so admins can change it
+// without a deploy. Fetched fresh per invocation (see handler below).
 const IP_WINDOW_DAYS = 30;
 const IP_MAX_GRANTS  = 2;
 
@@ -133,12 +134,13 @@ export const handler = async (event) => {
     );
   }
 
-  // Grant free credits
+  // Grant free credits — amount is admin-controlled (app_settings.signup_bonus_credits)
+  const FREE_CREDITS = await getSignupBonus(supabase);
   const { error } = await supabase.rpc('add_credits', {
     p_user_id:     user_id,
     p_amount:      FREE_CREDITS,
     p_type:        'signup_bonus',
-    p_description: 'Welcome bonus — 240 free credits',
+    p_description: `Welcome bonus — ${FREE_CREDITS} free credits`,
     p_ref_id:      null,
   });
 

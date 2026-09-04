@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getPackage } from './lib/pricing.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
@@ -9,25 +10,15 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// NOTE: this duplicates netlify/functions/lib/packages.js. This function
-// (purchase-credits.js) isn't wired into the live purchase flow — that's
-// payfast-initiate.js + payfast-webhook.js, both of which import PACKAGES
-// from lib/packages.js as the single source of truth. Kept in sync here
-// only so this file doesn't silently drift if it's ever revived; consider
-// deleting this file or having it import from lib/packages.js instead.
-//
-// chat_unlock (R150 messaging unlock, added alongside lib/packages.js) is
-// included below for consistency, but this handler always grants type=
-// 'purchase' unconditionally (see the RPC call at the bottom) — if this
-// file is ever revived, it needs the same messaging_unlock branching
-// payfast-webhook.js has, or reviving it would let someone "buy" 0
-// credits tagged as a purchase instead of properly unlocking messaging.
-const PACKAGES = {
-  single:      { credits: 150,  price_zar: 39,  label: 'Starter Pack' },
-  standard:    { credits: 300,  price_zar: 59,  label: 'Standard Credit Pack' },
-  business:    { credits: 2000, price_zar: 199, label: 'Business Credit Pack' },
-  chat_unlock: { credits: 0,    price_zar: 150, label: 'Messaging Unlock' },
-};
+// This function isn't wired into the live purchase flow — that's
+// payfast-initiate.js + payfast-webhook.js. It previously kept its own
+// hardcoded copy of the package list, which could silently drift from the
+// real one; it now reads from the same credit_packages table via
+// lib/pricing.js, so that's no longer possible. It still always grants
+// type='purchase' unconditionally below — if this file is ever revived,
+// it needs the same messaging_unlock branching payfast-webhook.js has, or
+// reviving it would let someone "buy" a 0-credit chat_unlock package
+// tagged as a purchase instead of properly unlocking messaging.
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -45,10 +36,16 @@ export const handler = async (event) => {
   catch { return { statusCode: 400, body: 'Invalid JSON' }; }
 
   const { package_id, payment_ref } = body;
-  const pkg = PACKAGES[package_id];
+  const pkg = await getPackage(supabase, package_id);
 
   if (!pkg) return { statusCode: 400, body: JSON.stringify({ error: `Unknown package "${package_id}"` }) };
   if (!payment_ref) return { statusCode: 400, body: JSON.stringify({ error: 'payment_ref required' }) };
+
+  // credits/price_zar come back from Postgres as numeric — supabase-js
+  // returns `numeric` columns as strings (not JS numbers) to avoid float
+  // precision loss, so coerce explicitly before doing arithmetic on them.
+  const pkgCredits  = Number(pkg.credits);
+  const pkgPriceZar = Number(pkg.price_zar);
 
   // Idempotency — prevent double-crediting the same payment
   const { data: existing } = await supabase
@@ -59,7 +56,7 @@ export const handler = async (event) => {
     .maybeSingle();
 
   if (existing) {
-    return { statusCode: 200, body: JSON.stringify({ success: true, credits: pkg.credits, reason: 'already_processed' }) };
+    return { statusCode: 200, body: JSON.stringify({ success: true, credits: pkgCredits, reason: 'already_processed' }) };
   }
 
   // TODO: replace with your Paystack / Yoco / PayFast verification
@@ -72,9 +69,9 @@ export const handler = async (event) => {
 
   const { data: newBalance, error: creditErr } = await supabase.rpc('add_credits', {
     p_user_id:     user.id,
-    p_amount:      pkg.credits,
+    p_amount:      pkgCredits,
     p_type:        'purchase',
-    p_description: `${pkg.label} — R${pkg.price_zar}`,
+    p_description: `${pkg.label} — R${pkgPriceZar}`,
     p_ref_id:      payment_ref,
   });
 
@@ -85,6 +82,6 @@ export const handler = async (event) => {
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ success: true, credits: pkg.credits, new_balance: newBalance, package: pkg.label }),
+    body: JSON.stringify({ success: true, credits: pkgCredits, new_balance: newBalance, package: pkg.label }),
   };
 };

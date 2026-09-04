@@ -17,7 +17,7 @@
  *
  * Deploy path: netlify/functions/payfast-webhook.js
  * Requires:    netlify/functions/lib/payfast.js
- *              netlify/functions/lib/packages.js
+ *              netlify/functions/lib/pricing.js
  *
  * IMPORTANT: set this exact URL as your Notify URL in PayFast:
  *   https://crosssa.co.za/.netlify/functions/payfast-webhook
@@ -47,7 +47,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { generateITNSignature, PAYFAST_VALIDATE_URL } from './lib/payfast.js';
-import { PACKAGES } from './lib/packages.js';
+import { getPackage } from './lib/pricing.js';
 import { SUB_PLANS } from './lib/subscriptions.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -159,12 +159,18 @@ export const handler = async (event) => {
 
   // ── 5b. Credit package purchase (or standalone messaging unlock) ────────────
   const package_id = custom2;
-  const pkg = PACKAGES[package_id];
+  const pkg = await getPackage(supabase, package_id);
 
   if (!pkg) {
     console.error('[payfast-webhook] unknown custom_str2 (not a plan or package)', { user_id, custom2 });
     return { statusCode: 200, body: 'OK' }; // ack to stop retries; needs manual review
   }
+
+  // credits/price_zar come back from Postgres as numeric — supabase-js
+  // returns `numeric` columns as strings (not JS numbers) to avoid float
+  // precision loss, so coerce explicitly before doing arithmetic on them.
+  const pkgCredits  = Number(pkg.credits);
+  const pkgPriceZar = Number(pkg.price_zar);
 
   // chat_unlock is a standalone R150 payment that unlocks messaging — it
   // is NOT a credit purchase (pkg.credits is 0). It's recorded as its own
@@ -175,7 +181,7 @@ export const handler = async (event) => {
   const ledgerType = isMessagingUnlock ? 'messaging_unlock' : 'purchase';
 
   // ── 6. Sanity-check the amount (allow tiny rounding differences) ────────────
-  const expectedAmount = pkg.price_zar;
+  const expectedAmount = pkgPriceZar;
   const paidAmount = parseFloat(fields.amount_gross || fields.amount || '0');
   if (Math.abs(paidAmount - expectedAmount) > 0.5) {
     console.error(`[payfast-webhook] amount mismatch: expected ${expectedAmount}, got ${paidAmount}`);
@@ -209,7 +215,7 @@ export const handler = async (event) => {
       user_id,
       amount:      0,
       type:        'messaging_unlock',
-      description: `${pkg.label} via PayFast — R${pkg.price_zar}`,
+      description: `${pkg.label} via PayFast — R${pkgPriceZar}`,
       ref_id:      fields.pf_payment_id,
     });
 
@@ -225,9 +231,9 @@ export const handler = async (event) => {
   // ── 8b. Grant the credits ─────────────────────────────────────────────────
   const { error: creditErr } = await supabase.rpc('add_credits', {
     p_user_id:     user_id,
-    p_amount:      pkg.credits,
+    p_amount:      pkgCredits,
     p_type:        'purchase',
-    p_description: `${pkg.label} via PayFast — R${pkg.price_zar}`,
+    p_description: `${pkg.label} via PayFast — R${pkgPriceZar}`,
     p_ref_id:      fields.pf_payment_id,
   });
 
@@ -236,7 +242,7 @@ export const handler = async (event) => {
     return { statusCode: 500, body: 'Error' };
   }
 
-  console.log(`[payfast-webhook] Granted ${pkg.credits} credits to user=${user_id} (pf_payment_id=${fields.pf_payment_id})`);
+  console.log(`[payfast-webhook] Granted ${pkgCredits} credits to user=${user_id} (pf_payment_id=${fields.pf_payment_id})`);
   return { statusCode: 200, body: 'OK' };
 };
 
