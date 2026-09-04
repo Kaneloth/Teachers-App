@@ -426,10 +426,6 @@ function PurchaseModal({ onClose, pricing }: { onClose: () => void; pricing: Pri
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
               Guide download = {guideCost}cr · ID verification = {idVerifyCost}cr
             </p>
-            <p className="text-xs text-muted-foreground flex items-start gap-1.5">
-              <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              R79+ pack unlocks advanced search filters
-            </p>
           </div>
         </div>
       </div>
