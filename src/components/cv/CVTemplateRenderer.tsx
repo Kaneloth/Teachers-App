@@ -365,16 +365,16 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
           {validEdu.length > 0 && <Section title="Education" color="#1e2a3a" icon={ICONS.graduation}>
             {validEdu.map((e: any, i: number) => (
               <div key={i} style={{ marginBottom: '12px' }}>
-                <div style={{ fontWeight: '600', color: '#111827' }}>{e.qualification}</div>
-                <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
+                <div style={{ fontWeight: '600', color: '#111827', wordBreak: 'break-word' }}>{e.qualification}</div>
+                <div style={{ color: '#6b7280', fontSize: '12px', wordBreak: 'break-word' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
               </div>
             ))}
           </Section>}
           {validExp.length > 0 && <Section title={expLabel} color="#1e2a3a" icon={ICONS.briefcase}>
             {validExp.map((e: any, i: number) => (
               <div key={i} style={{ marginBottom: '16px', borderLeft: '3px solid #1e2a3a', paddingLeft: '12px' }}>
-                <div style={{ fontWeight: '600', color: '#111827' }}>{e.role}</div>
-                <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.school}{(e.from || e.to) ? ` · ${e.from || ''} – ${e.to || ''}` : ''}</div>
+                <div style={{ fontWeight: '600', color: '#111827', wordBreak: 'break-word' }}>{e.role}</div>
+                <div style={{ color: '#6b7280', fontSize: '12px', wordBreak: 'break-word' }}>{e.school}{(e.from || e.to) ? ` · ${e.from || ''} – ${e.to || ''}` : ''}</div>
                 {renderDescription(e.description, '#374151')}
               </div>
             ))}
@@ -564,10 +564,10 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
           {validExp.length > 0 && <MinimalSection title="Experience">
             {validExp.map((e: any, i: number) => (
               <div key={i} style={{ display: 'flex', gap: '16px', marginBottom: '14px' }}>
-                <div style={{ width: '90px', fontSize: '11px', color: '#9ca3af', paddingTop: '2px' }}>{e.from && e.to ? `${e.from} – ${e.to}` : e.from || e.to || ''}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: '600', color: '#111827', fontSize: '13px' }}>{e.role}</div>
-                  <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.school}</div>
+                <div style={{ width: '90px', flexShrink: 0, fontSize: '11px', color: '#9ca3af', paddingTop: '2px' }}>{e.from && e.to ? `${e.from} – ${e.to}` : e.from || e.to || ''}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: '600', color: '#111827', fontSize: '13px', wordBreak: 'break-word' }}>{e.role}</div>
+                  <div style={{ color: '#6b7280', fontSize: '12px', wordBreak: 'break-word' }}>{e.school}</div>
                   {renderDescription(e.description, '#4b5563')}
                 </div>
               </div>
@@ -576,10 +576,10 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
           {validEdu.length > 0 && <MinimalSection title="Education">
             {validEdu.map((e: any, i: number) => (
               <div key={i} style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
-                <div style={{ width: '90px', fontSize: '11px', color: '#9ca3af', paddingTop: '2px' }}>{e.year || ''}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: '600', color: '#111827', fontSize: '13px' }}>{e.qualification}</div>
-                  <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}</div>
+                <div style={{ width: '90px', flexShrink: 0, fontSize: '11px', color: '#9ca3af', paddingTop: '2px' }}>{e.year || ''}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: '600', color: '#111827', fontSize: '13px', wordBreak: 'break-word' }}>{e.qualification}</div>
+                  <div style={{ color: '#6b7280', fontSize: '12px', wordBreak: 'break-word' }}>{e.institution}</div>
                 </div>
               </div>
             ))}
@@ -699,8 +699,8 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
             {validExp.length > 0 && <Section title="Experience" color={accent} icon={ICONS.briefcase}>
               {validExp.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '16px' }}>
-                  <div style={{ fontWeight: '700', color: '#111827' }}>{e.role}</div>
-                  <div style={{ color: accent, fontSize: '12px', fontWeight: '600' }}>{e.school}</div>
+                  <div style={{ fontWeight: '700', color: '#111827', wordBreak: 'break-word' }}>{e.role}</div>
+                  <div style={{ color: accent, fontSize: '12px', fontWeight: '600', wordBreak: 'break-word' }}>{e.school}</div>
                   {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
                   {renderDescription(e.description, '#374151')}
                 </div>
@@ -708,12 +708,12 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
             </Section>}
             {renderCustomSections(data.custom_sections, accent)}
           </div>
-          <div style={{ width: '180px', flexShrink: 0 }}>
+          <div style={{ width: '180px', flexShrink: 0, minWidth: 0 }}>
             {validEdu.length > 0 && <Section title="Education" color={accent} icon={ICONS.graduation}>
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '12px' }}>
-                  <div style={{ fontWeight: '600', color: '#111827', fontSize: '12px' }}>{e.qualification}</div>
-                  <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
+                  <div style={{ fontWeight: '600', color: '#111827', fontSize: '12px', wordBreak: 'break-word' }}>{e.qualification}</div>
+                  <div style={{ color: '#6b7280', fontSize: '11px', wordBreak: 'break-word' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
                 </div>
               ))}
             </Section>}
@@ -1055,9 +1055,13 @@ function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark
     <div style={{ ...wrapperStyle }}>
       <div className="cv-content-page" style={{ width: '794px', boxSizing: 'border-box', background: '#fff', position: 'relative', padding: '36px 44px' }}>
         {/* Header */}
-        <div style={{ textAlign: 'center', borderBottom: '1px solid #d1d5db', paddingBottom: '16px', marginBottom: '24px' }}>
+        <div style={{ textAlign: 'center', borderBottom: '1px solid #d1d5db', paddingBottom: '16px', marginBottom: '28px' }}>
           <div style={{ fontSize: '20px', fontWeight: '700', color: '#111827', letterSpacing: '1px', fontFamily: "Georgia, 'Times New Roman', serif" }}>{personal.full_name || 'Your Name'}</div>
-          <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '6px' }}>{[personal.address, personal.phone, personal.email].filter(Boolean).join('   ·   ')}</div>
+          <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '6px', display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
+            {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
+            {personal.email && <span>{ICONS.mail} {personal.email}</span>}
+          </div>
         </div>
         {/* Sections with left-date layout */}
         {personal.bio && (
@@ -1077,9 +1081,9 @@ function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark
             {validExp.map((e: any, i: number) => (
               <div key={i} style={{ display: 'flex', gap: '20px', marginBottom: '18px' }}>
                 <div style={{ width: '110px', flexShrink: 0, fontSize: '10px', color: '#6b7280', lineHeight: '1.5' }}>{[e.from, e.to].filter(Boolean).join(' — ')}</div>
-                <div style={{ flex: 1, borderLeft: '1px solid #e5e7eb', paddingLeft: '16px' }}>
-                  <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827' }}>{e.role}{e.school ? `, ${e.school}` : ''}</div>
-                  {e.school && <div style={{ fontSize: '11px', color: '#6b7280' }}>{e.school}</div>}
+                <div style={{ flex: 1, minWidth: 0, borderLeft: '1px solid #e5e7eb', paddingLeft: '16px' }}>
+                  <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', wordBreak: 'break-word' }}>{e.role}{e.school ? `, ${e.school}` : ''}</div>
+                  {e.school && <div style={{ fontSize: '11px', color: '#6b7280', wordBreak: 'break-word' }}>{e.school}</div>}
                   {renderDescription(e.description, '#374151')}
                 </div>
               </div>
@@ -1088,16 +1092,16 @@ function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark
         )}
         {validEdu.length > 0 && (
           <div style={{ marginBottom: '20px' }}>
-            <div style={{ display: 'flex', gap: '20px', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', gap: '20px', marginBottom: '12px' }}>
               <div style={{ width: '110px', flexShrink: 0, fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#374151', fontFamily: "Georgia, 'Times New Roman', serif" }}>EDUCATION</div>
               <div style={{ flex: 1, borderLeft: '1px solid #e5e7eb', paddingLeft: '16px', borderBottom: '1px solid #e5e7eb', paddingBottom: '2px' }} />
             </div>
             {validEdu.map((e: any, i: number) => (
               <div key={i} style={{ display: 'flex', gap: '20px', marginBottom: '14px' }}>
                 <div style={{ width: '110px', flexShrink: 0, fontSize: '10px', color: '#6b7280' }}>{e.year}</div>
-                <div style={{ flex: 1, borderLeft: '1px solid #e5e7eb', paddingLeft: '16px' }}>
-                  <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{e.qualification}</div>
-                  <div style={{ fontSize: '11px', color: '#6b7280' }}>{e.institution}</div>
+                <div style={{ flex: 1, minWidth: 0, borderLeft: '1px solid #e5e7eb', paddingLeft: '16px' }}>
+                  <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827', wordBreak: 'break-word' }}>{e.qualification}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280', wordBreak: 'break-word' }}>{e.institution}</div>
                 </div>
               </div>
             ))}
@@ -1311,22 +1315,25 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
         {/* Header */}
         <div style={{ textAlign: 'center', padding: '28px 44px 16px' }}>
           <div style={{ fontSize: '22px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '3px', color: '#111827' }}>{personal.full_name || 'YOUR NAME'}</div>
-          {personal.address && <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>{personal.address}</div>}
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#4b5563', marginTop: '6px', paddingTop: '8px', borderTop: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb', paddingBottom: '8px' }}>
-            {personal.phone && <span>{personal.phone}</span>}
-            {personal.email && <span>{personal.email}</span>}
+          {(personal.job_title || validExp[0]?.role) && (
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>{personal.job_title || validExp[0]?.role}</div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '18px', fontSize: '11px', color: '#4b5563', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb', paddingBottom: '8px', flexWrap: 'wrap' }}>
+            {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
+            {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
+            {personal.email && <span>{ICONS.mail} {personal.email}</span>}
           </div>
         </div>
-        <div style={{ padding: '8px 44px 28px' }}>
+        <div style={{ padding: '10px 44px 28px' }}>
           {personal.bio && (
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ background: '#f3f4f6', padding: '6px 10px', marginBottom: '10px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>PROFILE</div>
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ background: '#f3f4f6', padding: '6px 10px', marginBottom: '18px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>PROFILE</div>
               <p style={{ fontSize: '12px', color: '#374151', lineHeight: '1.7', margin: 0, textAlign: 'center' }}>{personal.bio}</p>
             </div>
           )}
           {validExp.length > 0 && (
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ background: '#f3f4f6', padding: '6px 10px', marginBottom: '12px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>EMPLOYMENT HISTORY</div>
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ background: '#f3f4f6', padding: '6px 10px', marginBottom: '18px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>EMPLOYMENT HISTORY</div>
               {validExp.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
@@ -1336,10 +1343,10 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       marginTop: '1px',
                     }}>{i + 1}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{e.role}{e.school ? `, ${e.school}` : ''}</span>
-                        <span style={{ fontSize: '10px', color: '#9ca3af' }}>{[e.from, e.to].filter(Boolean).join(' — ')}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', columnGap: '10px' }}>
+                        <span style={{ fontWeight: '700', fontSize: '13px', color: '#111827', wordBreak: 'break-word' }}>{e.role}{e.school ? `, ${e.school}` : ''}</span>
+                        <span style={{ fontSize: '10px', color: '#9ca3af', whiteSpace: 'nowrap' }}>{[e.from, e.to].filter(Boolean).join(' — ')}</span>
                       </div>
                       {renderDescription(e.description, '#374151')}
                     </div>
@@ -1349,8 +1356,8 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
             </div>
           )}
           {validEdu.length > 0 && (
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ background: '#f3f4f6', padding: '6px 10px', marginBottom: '12px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>EDUCATION</div>
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ background: '#f3f4f6', padding: '6px 10px', marginBottom: '18px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>EDUCATION</div>
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '12px' }}>
                   <span style={{
@@ -1359,12 +1366,12 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     marginTop: '1px',
                   }}>{i + 1}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{e.qualification}</div>
-                      <div style={{ fontSize: '10px', color: '#9ca3af' }}>{e.year}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', columnGap: '10px' }}>
+                      <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827', wordBreak: 'break-word' }}>{e.qualification}</div>
+                      <div style={{ fontSize: '10px', color: '#9ca3af', whiteSpace: 'nowrap' }}>{e.year}</div>
                     </div>
-                    <div style={{ fontSize: '11px', color: '#6b7280', fontStyle: 'italic' }}>{e.institution}</div>
+                    <div style={{ fontSize: '11px', color: '#6b7280', fontStyle: 'italic', wordBreak: 'break-word' }}>{e.institution}</div>
                   </div>
                 </div>
               ))}
@@ -1378,8 +1385,8 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
             ].filter(g => g.items.length > 0);
             if (!shadedSkillGroups.length) return null;
             return (
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ background: '#f3f4f6', padding: '6px 10px', marginBottom: '12px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>SKILLS</div>
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ background: '#f3f4f6', padding: '6px 10px', marginBottom: '18px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151' }}>SKILLS</div>
                 {shadedSkillGroups.map((group, gi) => (
                   <div key={group.label} style={{ marginBottom: gi < shadedSkillGroups.length - 1 ? '8px' : 0 }}>
                     <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#374151', marginBottom: '3px' }}>
@@ -1501,10 +1508,10 @@ function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
           </div>
         </div>
         {/* Contact strip */}
-        <div style={{ display: 'flex', gap: '24px', padding: '8px 32px', borderBottom: '1px solid #e5e7eb', fontSize: '10px', color: '#6b7280' }}>
-          {personal.email && <span>✉ {personal.email}</span>}
-          {personal.address && <span>📍 {personal.address}</span>}
-          {personal.phone && <span>📞 {personal.phone}</span>}
+        <div style={{ display: 'flex', gap: '24px', padding: '8px 32px', borderBottom: '1px solid #e5e7eb', fontSize: '10px', color: '#6b7280', flexWrap: 'wrap' }}>
+          {personal.email && <span>{ICONS.mail} {personal.email}</span>}
+          {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
+          {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
         </div>
         {/* Two-col body */}
         <div style={{ display: 'flex', padding: '20px 32px', gap: '28px' }}>
@@ -1516,7 +1523,7 @@ function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
                 <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', borderBottom: `2px solid ${crimson}`, paddingBottom: '4px', marginBottom: '12px', fontStyle: 'italic' }}>Employment History</div>
                 {validExp.map((e: any, i: number) => (
                   <div key={i} style={{ marginBottom: '16px' }}>
-                    <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{e.role}{e.school ? `, ${e.school}` : ''}</div>
+                    <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827', wordBreak: 'break-word' }}>{e.role}{e.school ? `, ${e.school}` : ''}</div>
                     <div style={{ fontSize: '10px', color: '#9ca3af', margin: '2px 0 4px', fontStyle: 'italic' }}>{[e.from, e.to].filter(Boolean).join(' — ')}</div>
                     {renderDescription(e.description, crimson)}
                   </div>
@@ -1528,8 +1535,8 @@ function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
                 <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', borderBottom: `2px solid ${crimson}`, paddingBottom: '4px', marginBottom: '12px', fontStyle: 'italic' }}>Education</div>
                 {validEdu.map((e: any, i: number) => (
                   <div key={i} style={{ marginBottom: '12px' }}>
-                    <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{e.qualification}</div>
-                    <div style={{ fontSize: '11px', color: '#6b7280' }}>{[e.institution, e.year].filter(Boolean).join(' · ')}</div>
+                    <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827', wordBreak: 'break-word' }}>{e.qualification}</div>
+                    <div style={{ fontSize: '11px', color: '#6b7280', wordBreak: 'break-word' }}>{[e.institution, e.year].filter(Boolean).join(' · ')}</div>
                   </div>
                 ))}
               </div>
@@ -1576,10 +1583,10 @@ function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
         <div style={{ background: sageBg, padding: '24px 36px', borderRadius: '8px', margin: '20px 20px 0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ fontSize: '24px', fontWeight: '700', color: '#1a2e1a' }}>{personal.full_name || 'Your Name'}</div>
-            <div style={{ textAlign: 'right', fontSize: '11px', color: '#374151' }}>
-              {personal.email && <div>{personal.email}</div>}
-              {personal.phone && <div>{personal.phone}</div>}
-              {personal.address && <div>{personal.address}</div>}
+            <div style={{ textAlign: 'right', fontSize: '11px', color: '#374151', maxWidth: '260px' }}>
+              {personal.email && <div style={{ wordBreak: 'break-word' }}>{ICONS.mail} {personal.email}</div>}
+              {personal.phone && <div>{ICONS.phone} {personal.phone}</div>}
+              {personal.address && <div style={{ wordBreak: 'break-word' }}>{ICONS.mapPin} {personal.address}</div>}
             </div>
           </div>
         </div>
@@ -1595,9 +1602,9 @@ function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
               <div style={{ fontSize: '18px', fontWeight: '700', color: sage, marginBottom: '12px' }}>Career Experience</div>
               {validExp.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <div style={{ fontSize: '13px', color: sage }}>{e.role}{e.school ? `, ${e.school}` : ''}</div>
-                    <div style={{ fontSize: '11px', color: '#9ca3af' }}>{[e.from, e.to].filter(Boolean).join(' — ')}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', columnGap: '10px' }}>
+                    <div style={{ fontSize: '13px', color: sage, wordBreak: 'break-word' }}>{e.role}{e.school ? `, ${e.school}` : ''}</div>
+                    <div style={{ fontSize: '11px', color: '#9ca3af', whiteSpace: 'nowrap' }}>{[e.from, e.to].filter(Boolean).join(' — ')}</div>
                   </div>
                   {renderDescription(e.description, sage)}
                 </div>
@@ -1609,8 +1616,8 @@ function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
               <div style={{ fontSize: '18px', fontWeight: '700', color: sage, marginBottom: '12px' }}>Education</div>
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '12px' }}>
-                  <div style={{ fontSize: '13px', color: sage }}>{e.qualification}</div>
-                  <div style={{ fontSize: '11px', color: '#6b7280' }}>{[e.institution, e.year].filter(Boolean).join(' · ')}</div>
+                  <div style={{ fontSize: '13px', color: sage, wordBreak: 'break-word' }}>{e.qualification}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280', wordBreak: 'break-word' }}>{[e.institution, e.year].filter(Boolean).join(' · ')}</div>
                 </div>
               ))}
             </div>
@@ -1646,7 +1653,7 @@ const ELEGANT_LINE   = '#cbd5e1';   // slate-300 — divider lines
 
 function ElegantHeading({ title }: { title: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: '22px 0 14px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: '22px 0 20px' }}>
       <div style={{ flex: 1, height: '1px', background: ELEGANT_LINE }} />
       <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: '14px', fontWeight: 700, color: ELEGANT_INK, whiteSpace: 'nowrap' }}>
         {title}
@@ -1704,8 +1711,11 @@ function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ex
             </div>
           )}
           {contactParts.length > 0 && (
-            <div style={{ marginTop: '10px', fontSize: '11px', color: ELEGANT_MUTED }}>
-              {contactParts.join('   |   ')}
+            <div style={{ marginTop: '10px', fontSize: '11px', color: ELEGANT_MUTED, display: 'flex', justifyContent: 'center', flexWrap: 'wrap', columnGap: '10px', rowGap: '4px' }}>
+              {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
+              {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
+              {personal.email && <span>{ICONS.mail} {personal.email}</span>}
+              {personal.id_number && <span>{ICONS.user} ID: {personal.id_number}</span>}
             </div>
           )}
         </div>
@@ -1724,15 +1734,15 @@ function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ex
             <ElegantHeading title={expLabel} />
             {validExp.map((e: any, i: number) => (
               <div key={i} style={{ marginBottom: '14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px' }}>
-                  <span style={{ fontWeight: 700, fontSize: '13px', color: ELEGANT_INK }}>{e.role}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 700, fontSize: '13px', color: ELEGANT_INK, wordBreak: 'break-word' }}>{e.role}</span>
                   {(e.from || e.to) && (
                     <span style={{ fontSize: '11px', color: ELEGANT_MUTED, whiteSpace: 'nowrap' }}>
                       {[e.from, e.to].filter(Boolean).join(' – ')}
                     </span>
                   )}
                 </div>
-                {e.school && <div style={{ fontSize: '12px', color: ELEGANT_MUTED, marginTop: '2px' }}>{e.school}</div>}
+                {e.school && <div style={{ fontSize: '12px', color: ELEGANT_MUTED, marginTop: '2px', wordBreak: 'break-word' }}>{e.school}</div>}
                 {renderDescription(e.description, ELEGANT_INK)}
               </div>
             ))}
@@ -1744,10 +1754,10 @@ function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ex
           <>
             <ElegantHeading title="Education" />
             {validEdu.map((e: any, i: number) => (
-              <div key={i} style={{ textAlign: 'center', fontSize: '12px', marginBottom: '8px' }}>
-                <span style={{ fontWeight: 700, color: ELEGANT_INK }}>{e.qualification}</span>
-                {e.institution && <><span style={{ color: ELEGANT_LINE }}> {' | '} </span><span style={{ color: ELEGANT_MUTED }}>{e.institution}</span></>}
-                {e.year && <><span style={{ color: ELEGANT_LINE }}> {' | '} </span><span style={{ color: ELEGANT_MUTED }}>{e.year}</span></>}
+              <div key={i} style={{ textAlign: 'center', fontSize: '12px', marginBottom: '8px', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', columnGap: '6px', rowGap: '2px' }}>
+                <span style={{ fontWeight: 700, color: ELEGANT_INK, wordBreak: 'break-word' }}>{e.qualification}</span>
+                {e.institution && <><span style={{ color: ELEGANT_LINE }}>|</span><span style={{ color: ELEGANT_MUTED, wordBreak: 'break-word' }}>{e.institution}</span></>}
+                {e.year && <><span style={{ color: ELEGANT_LINE }}>|</span><span style={{ color: ELEGANT_MUTED }}>{e.year}</span></>}
               </div>
             ))}
           </>
@@ -1807,7 +1817,7 @@ const HERITAGE_RULE  = '#334155';   // slate-700 — double rules
 
 function HeritageHeading({ title }: { title: string }) {
   return (
-    <div style={{ textAlign: 'center', margin: '26px 0 16px' }}>
+    <div style={{ textAlign: 'center', margin: '26px 0 22px' }}>
       <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: '14px', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: HERITAGE_INK }}>
         {title}
       </span>
@@ -1825,6 +1835,10 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
     personal.phone,
     personal.id_number ? `ID: ${personal.id_number}` : null,
   ].filter(Boolean);
+  const heritageIcons: [string, string][] = [
+    [ICONS.mapPin, personal.address], [ICONS.mail, personal.email], [ICONS.phone, personal.phone],
+    ...(personal.id_number ? [[ICONS.user, `ID: ${personal.id_number}`] as [string,string]] : []),
+  ].filter(([,v]) => !!v) as [string,string][];
 
   const heritageSkillGroups = [
     { label: 'Key Skills',          items: skills?.subjects    || [] },
@@ -1850,8 +1864,8 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
         {/* Top double rule + centered contact */}
         <div style={{ height: '2px', borderTop: `1px solid ${HERITAGE_RULE}`, borderBottom: `1px solid ${HERITAGE_RULE}` }} />
         {contactParts.length > 0 && (
-          <div style={{ marginTop: '8px', textAlign: 'center', fontSize: '10px', letterSpacing: '0.5px', textTransform: 'uppercase', color: HERITAGE_MUTED }}>
-            {contactParts.join('   •   ')}
+          <div style={{ marginTop: '8px', textAlign: 'center', fontSize: '10px', letterSpacing: '0.5px', textTransform: 'uppercase', color: HERITAGE_MUTED, display: 'flex', justifyContent: 'center', flexWrap: 'wrap', columnGap: '14px', rowGap: '4px' }}>
+            {heritageIcons.map(([icon, text], i) => <span key={i}>{icon} {text}</span>)}
           </div>
         )}
 
@@ -1884,15 +1898,15 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
             <HeritageHeading title={expLabel} />
             {validExp.map((e: any, i: number) => (
               <div key={i} style={{ marginBottom: '14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px' }}>
-                  <span style={{ fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', color: HERITAGE_INK }}>{e.role}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', color: HERITAGE_INK, wordBreak: 'break-word' }}>{e.role}</span>
                   {(e.from || e.to) && (
                     <span style={{ fontWeight: 700, fontSize: '11px', color: HERITAGE_INK, whiteSpace: 'nowrap' }}>
                       {[e.from, e.to].filter(Boolean).join(' — ')}
                     </span>
                   )}
                 </div>
-                {e.school && <div style={{ fontSize: '11px', color: HERITAGE_MUTED, marginTop: '2px' }}>{e.school}</div>}
+                {e.school && <div style={{ fontSize: '11px', color: HERITAGE_MUTED, marginTop: '2px', wordBreak: 'break-word' }}>{e.school}</div>}
                 {renderDescription(e.description, HERITAGE_INK)}
               </div>
             ))}
@@ -1905,11 +1919,11 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
             <HeritageHeading title="Education" />
             {validEdu.map((e: any, i: number) => (
               <div key={i} style={{ marginBottom: '10px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px' }}>
-                  <span style={{ fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', color: HERITAGE_INK }}>{e.qualification}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', color: HERITAGE_INK, wordBreak: 'break-word' }}>{e.qualification}</span>
                   {e.year && <span style={{ fontWeight: 700, fontSize: '11px', color: HERITAGE_INK, whiteSpace: 'nowrap' }}>{e.year}</span>}
                 </div>
-                {e.institution && <div style={{ fontSize: '11px', color: HERITAGE_MUTED, marginTop: '2px' }}>{e.institution}</div>}
+                {e.institution && <div style={{ fontSize: '11px', color: HERITAGE_MUTED, marginTop: '2px', wordBreak: 'break-word' }}>{e.institution}</div>}
               </div>
             ))}
           </>
@@ -1967,7 +1981,7 @@ const PL_TEAL     = '#4ab8b8';   // teal circles
 
 function PlayfulHeading({ title, icon }: { title: string; icon?: string }) {
   return (
-    <div style={{ marginBottom: '12px', marginTop: '16px' }}>
+    <div style={{ marginBottom: '18px', marginTop: '16px' }}>
       {/* Title row: icon + text */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
         {icon && <span style={{ fontSize: '13px', lineHeight: 1 }}>{icon}</span>}
@@ -2239,10 +2253,10 @@ function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
             })()}
           </div>
           <div style={{ textAlign: 'right', fontSize: '10.5px', color: PL_MUTED, lineHeight: '1.8', marginTop: '6px', minWidth: '180px' }}>
-            {personal.address   && <div>{personal.address}</div>}
-            {personal.phone     && <div>{personal.phone}</div>}
-            {personal.email     && <div>{personal.email}</div>}
-            {personal.id_number && <div>ID: {personal.id_number}</div>}
+            {personal.address   && <div>{ICONS.mapPin} {personal.address}</div>}
+            {personal.phone     && <div>{ICONS.phone} {personal.phone}</div>}
+            {personal.email     && <div>{ICONS.mail} {personal.email}</div>}
+            {personal.id_number && <div>{ICONS.user} ID: {personal.id_number}</div>}
           </div>
         </div>
 
@@ -2263,7 +2277,7 @@ function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
               <PlayfulHeading title={expLabel} icon="💼" />
               {validExp.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '16px' }}>
-                  <div style={{ fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px', color: PL_INK }}>
+                  <div style={{ fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px', color: PL_INK, wordBreak: 'break-word' }}>
                     {e.role}{e.school ? ` / ${e.school}` : ''}
                   </div>
                   {(e.from || e.to) && (
@@ -2283,7 +2297,7 @@ function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
               <PlayfulHeading title="Education" icon="🎓" />
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '16px' }}>
-                  <div style={{ fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px', color: PL_INK }}>
+                  <div style={{ fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px', color: PL_INK, wordBreak: 'break-word' }}>
                     {e.qualification}
                   </div>
                   {(e.institution || e.year) && (
