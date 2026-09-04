@@ -148,6 +148,19 @@ export default function Onboarding() {
   const set    = (field: string, value: unknown) => setForm(p => ({ ...p, [field]: value }));
   const setGen = (field: string, value: string)  => setGenForm(p => ({ ...p, [field]: value }));
 
+  // Confirm-phone is deliberately kept OUT of `form` so it can never
+  // accidentally get spread into the `educators` insert payload
+  // (handleFinishEducator does `...form`). Same purpose as a
+  // password-confirmation field: catch typos before they're saved, since
+  // a wrong number here silently means that educator never receives a
+  // match SMS and no one — including us — would know why.
+  //
+  // Only the educator flow gets this treatment: general users don't
+  // participate in matching, so the stated reason for requiring/
+  // double-checking a phone number doesn't apply to them — their phone
+  // field stays optional, single-entry, unchanged.
+  const [phoneConfirm, setPhoneConfirm] = useState('');
+
   /* ── Skip for now ─────────────────────────────────────────────
      Even when skipping, every new user gets a user code and welcome
      email so they are properly registered in the system.          */
@@ -338,7 +351,13 @@ export default function Onboarding() {
      Level, Subjects, Preferred Provinces and Preferred Town — these
      steps can no longer be skipped via "Next" or "Finish Setup".   */
   const validateStep = (s: number): string | null => {
-    if (s === 0 && !form.sace_number.trim()) return 'SACE number is required to continue.';
+    if (s === 0) {
+      const digits = form.phone.replace(/\D/g, '');
+      if (!digits) return 'Phone number is required — we use it to text you the moment a match is found.';
+      if (digits.length < 9) return 'Please enter a valid phone number.';
+      if (form.phone.trim() !== phoneConfirm.trim()) return 'Phone numbers do not match — please re-enter to confirm.';
+      if (!form.sace_number.trim()) return 'SACE number is required to continue.';
+    }
     if (s === 1) {
       if (!form.current_province) return 'Province is required to continue.';
       if (!form.district)         return 'District is required to continue.';
@@ -596,11 +615,21 @@ export default function Onboarding() {
                   <Input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="you@example.com" className="rounded-xl pl-9" />
                 </div>
               </Field>
-              <Field label="Phone Number">
+              <Field label="Phone Number *">
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                   <Input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+27 71 000 0000" className="rounded-xl pl-9" />
                 </div>
+              </Field>
+              <Field label="Confirm Phone Number *">
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input type="tel" value={phoneConfirm} onChange={e => setPhoneConfirm(e.target.value)} placeholder="Re-enter your phone number" className="rounded-xl pl-9" />
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+                  We text you the moment a transfer match is found, since in-app notifications alone are easy to miss.
+                  Please enter it twice to make sure it's correct — an incorrect number means we won't be able to reach you.
+                </p>
               </Field>
               <Field label="Gender">
                 <div className="relative">

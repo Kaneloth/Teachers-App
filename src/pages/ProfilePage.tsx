@@ -486,6 +486,15 @@ export default function ProfilePage() {
   const [avatarSheet, setAvatarSheet] = useState(false);
   const [userCode, setUserCode] = useState<string>('');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  // Confirm-phone mirrors Onboarding.tsx's double-entry field, and is kept
+  // out of `profile` state so it can never leak into the educators
+  // update/insert payload (doSave spreads `...rest` from `profile`
+  // directly). savedPhoneRef is the phone value as loaded from the DB —
+  // confirmation is only required when the phone field is actually being
+  // set or changed, not on every unrelated save, same as you wouldn't
+  // re-type an unchanged password to save other account settings.
+  const [phoneConfirm, setPhoneConfirm] = useState('');
+  const savedPhoneRef = useRef('');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [togglingActive, setTogglingActive] = useState(false);
   const [subjectToAdd, setSubjectToAdd] = useState('');
@@ -530,6 +539,7 @@ export default function ProfilePage() {
     }
 
     if (!data && targetId === user.id) {
+      savedPhoneRef.current = '';
       setProfile({
         user_id: user.id,
         full_name: '',
@@ -559,6 +569,7 @@ export default function ProfilePage() {
 
     if (data) {
       const townValue = data.town ?? '';
+      savedPhoneRef.current = data.phone ?? '';
 
       setProfile({
         ...data,
@@ -626,6 +637,14 @@ export default function ProfilePage() {
   // next time fresh data loaded.
   const handleToggleActive = async (value: boolean) => {
     if (!user || !profile) return;
+    // A phone number is how match-scan reaches an educator when in-app
+    // notifications get missed — turning Actively Looking on without one
+    // would silently put them back into circulation for matches they
+    // might never hear about. Turning OFF is always allowed regardless.
+    if (value && !profile.phone?.trim()) {
+      toast.error('Add a phone number below and save your profile before turning Actively Looking on — we use it to text you when a match is found.');
+      return;
+    }
     setTogglingActive(true);
     setProfileField('is_actively_looking', value); // optimistic UI update
     const { error } = await supabase
@@ -844,6 +863,22 @@ export default function ProfilePage() {
       toast.error('SACE number is required for educator profiles.');
       return;
     }
+    if (profile.profile_type !== 'general') {
+      const digits = profile.phone?.replace(/\D/g, '') ?? '';
+      if (!digits) {
+        toast.error('Phone number is required — we use it to text you when a match is found.');
+        return;
+      }
+      if (digits.length < 9) {
+        toast.error('Please enter a valid phone number.');
+        return;
+      }
+      const phoneChanged = profile.phone.trim() !== savedPhoneRef.current.trim();
+      if (phoneChanged && profile.phone.trim() !== phoneConfirm.trim()) {
+        toast.error('Phone numbers do not match — please re-enter to confirm.');
+        return;
+      }
+    }
     if (!canSave) {
       toast.error(`Profiles can only be updated once every 30 days. ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining.`);
       return;
@@ -928,6 +963,8 @@ export default function ProfilePage() {
       const now = new Date();
       await supabase.auth.updateUser({ data: { profile_last_saved: now.toISOString() } });
       setLastSaved(now);
+      savedPhoneRef.current = profile.phone ?? '';
+      setPhoneConfirm('');
       toast.success('Profile saved!');
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to save profile');
@@ -967,6 +1004,10 @@ export default function ProfilePage() {
 
   const initial = profile.full_name?.[0]?.toUpperCase() || profile.email?.[0]?.toUpperCase() || 'U';
   const isEducator = profile.profile_type !== 'general';
+  // Confirmation is only required while the phone is actually being set
+  // or changed — an unchanged, already-confirmed number doesn't need
+  // re-typing every time some other field is edited.
+  const phoneChanged = (profile.phone ?? '').trim() !== savedPhoneRef.current.trim();
 
   // ID verification is restricted to Pro educators only.
   // - General users never need it (no educator-specific features)
@@ -1129,12 +1170,24 @@ export default function ProfilePage() {
                 <Input type="email" value={profile.email} onChange={e => setProfileField('email', e.target.value)} placeholder="you@example.com" className="rounded-xl pl-9" />
               </div>
             </Field>
-            <Field label="Phone Number">
+            <Field label={isEducator ? 'Phone Number *' : 'Phone Number'}>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 <Input type="tel" value={profile.phone} onChange={e => setProfileField('phone', e.target.value)} placeholder="+27 71 000 0000" className="rounded-xl pl-9" />
               </div>
             </Field>
+            {isEducator && phoneChanged && (
+              <Field label="Confirm Phone Number *">
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input type="tel" value={phoneConfirm} onChange={e => setPhoneConfirm(e.target.value)} placeholder="Re-enter your phone number" className="rounded-xl pl-9" />
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+                  We text you the moment a transfer match is found, since in-app notifications alone are easy to miss.
+                  Please enter it twice to make sure it's correct — an incorrect number means we won't be able to reach you.
+                </p>
+              </Field>
+            )}
             <Field label="Gender">
               <div className="relative">
                 <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />

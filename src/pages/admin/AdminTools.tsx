@@ -34,7 +34,10 @@ export default function AdminTools() {
         const deactivatedPart = data.deactivated
           ? ` ${data.deactivated} educator(s) auto-paused (both sides unlocked messaging).`
           : '';
-        setScanResult(`✓ Scan complete — ${data.pairs ?? 0} new pairs found, ${data.notified ?? 0} notifications sent.${deactivatedPart}`);
+        const textedPart = data.pairs
+          ? ` ${data.texted ?? 0} SMS backup notification(s) sent.`
+          : '';
+        setScanResult(`✓ Scan complete — ${data.pairs ?? 0} new pairs found, ${data.notified ?? 0} notifications sent.${textedPart}${deactivatedPart}`);
       } else {
         setScanResult(`✗ Error: ${data.error || 'Unknown error'}`);
       }

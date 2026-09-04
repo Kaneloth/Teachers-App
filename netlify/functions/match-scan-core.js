@@ -35,6 +35,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { sendSmsBatch } from './sms.js';
 
 const SUPABASE_URL              = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
@@ -213,15 +214,17 @@ async function deactivateMutuallyEngagedPairs(log) {
 }
 
 /**
- * Runs a full scan and returns { notified, pairs, deactivated }. Throws on
- * hard failure (e.g. the initial educators query failing) so callers can
- * decide how to report/log the error.
+ * Runs a full scan and returns { notified, pairs, texted, deactivated }.
+ * `texted` is the number of SMS backup notifications successfully sent
+ * via BulkSMS (best-effort — see sms.js). Throws on hard failure (e.g.
+ * the initial educators query failing) so callers can decide how to
+ * report/log the error.
  */
 export async function runMatchScan() {
   // 1. Load all actively-looking educators
   const { data: educators, error } = await supabase
     .from('educators')
-    .select('id, user_id, full_name, current_province, preferred_provinces, preferred_districts, preferred_town_coords, town_lat, town_lng, phase, post_level, subjects, town, is_actively_looking, profile_type, is_hidden')
+    .select('id, user_id, full_name, current_province, preferred_provinces, preferred_districts, preferred_town_coords, town_lat, town_lng, phase, post_level, subjects, town, is_actively_looking, profile_type, is_hidden, phone')
     .eq('is_actively_looking', true)
     .or('profile_type.eq.educator,profile_type.is.null');
 
@@ -231,10 +234,11 @@ export async function runMatchScan() {
   const log = [];
   let notified = 0;
   let newPairsCount = 0;
+  let texted = 0;
 
   if (!educators?.length) {
     const deactivated = await deactivateMutuallyEngagedPairs(log);
-    return { notified: 0, pairs: 0, deactivated, debug: 'no actively-looking educators found', log };
+    return { notified: 0, pairs: 0, texted: 0, deactivated, debug: 'no actively-looking educators found', log };
   }
 
   // 2. Load already-notified pairs to avoid duplicates
@@ -247,6 +251,11 @@ export async function runMatchScan() {
   // 3. Find new matching pairs
   const newNotifications = [];
   const newLogEntries    = [];
+  // SMS is a backup channel for the SAME match_found event above — sent
+  // alongside, never instead of, the in-app notification. Educators who
+  // stay offline for long stretches were missing matches entirely because
+  // the in-app notification was the only channel; this closes that gap.
+  const newSmsJobs = [];
 
   for (let i = 0; i < educators.length; i++) {
     for (let j = i + 1; j < educators.length; j++) {
@@ -298,6 +307,12 @@ export async function runMatchScan() {
         body:    `${b.full_name || 'An educator'} could be a great transfer partner — ${matchLabel}.`,
         data:    { matched_educator_id: b.id, matched_user_id: b.user_id, score, is_town_swap: false },
       });
+      if (a.phone) {
+        newSmsJobs.push({
+          phone:   a.phone,
+          message: `Crosssa: New transfer match found! ${b.full_name || 'An educator'} could be a great transfer partner (${matchLabel}). Open the app to view & message them.`,
+        });
+      }
 
       // Notification for B about A
       newNotifications.push({
@@ -307,6 +322,12 @@ export async function runMatchScan() {
         body:    `${a.full_name || 'An educator'} could be a great transfer partner — ${matchLabel}.`,
         data:    { matched_educator_id: a.id, matched_user_id: a.user_id, score, is_town_swap: false },
       });
+      if (b.phone) {
+        newSmsJobs.push({
+          phone:   b.phone,
+          message: `Crosssa: New transfer match found! ${a.full_name || 'An educator'} could be a great transfer partner (${matchLabel}). Open the app to view & message them.`,
+        });
+      }
 
       // Record pair so we don't notify again
       const [ua, ub] = [a.user_id, b.user_id].sort();
@@ -331,6 +352,18 @@ export async function runMatchScan() {
     }
     newPairsCount = newLogEntries.length;
     console.log(`[match-scan] Inserted ${notified} notifications for ${newPairsCount} new pairs`);
+
+    // 6. SMS — best-effort backup channel for the same match_found event.
+    // Never blocks or fails the scan: sendSmsBatch swallows individual
+    // send failures (bad number, BulkSMS outage, missing env vars) and
+    // just reports how many actually went out.
+    if (newSmsJobs.length) {
+      texted = await sendSmsBatch(newSmsJobs);
+      console.log(`[match-scan] Sent ${texted}/${newSmsJobs.length} match SMS notifications`);
+      if (texted < newSmsJobs.length) {
+        log.push(`SMS: sent ${texted} of ${newSmsJobs.length} — see function logs for individual failures (bad number, BulkSMS error, etc).`);
+      }
+    }
   } else {
     log.push('No new matches found');
   }
@@ -338,5 +371,5 @@ export async function runMatchScan() {
   // 6. Auto-deactivate mutually-engaged pairs (both paid for messaging)
   const deactivated = await deactivateMutuallyEngagedPairs(log);
 
-  return { notified, pairs: newPairsCount, deactivated, log };
+  return { notified, pairs: newPairsCount, texted, deactivated, log };
 }
