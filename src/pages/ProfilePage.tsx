@@ -740,8 +740,14 @@ export default function ProfilePage() {
   };
 
   const handleDistrictSelect = (v: string) => {
-    setProfileField('district', v);
-    setProfileField('town', ''); // reset town when district changes
+    if (!profile) return;
+    // Same stale-closure pitfall as handleProvinceChange above: two
+    // sequential setProfileField calls here each spread the OLD `profile`
+    // closure, so the second call (resetting town) was silently
+    // overwriting the district update from the first — the dropdown would
+    // close (the click registered fine) but the district never actually
+    // stuck. Merging into one setProfile call fixes it the same way.
+    setProfile({ ...profile, district: v, town: '' });
     setTownCoords(null);
     setTownGeocodeTarget('');
     lastGeocodedTownRef.current = '';
