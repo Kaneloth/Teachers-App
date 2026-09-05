@@ -265,6 +265,28 @@ function WatermarkBar() {
 }
 
 /* ── Shared UI components ───────────────────────────────────────────────── */
+// Matches cvExport.ts's sectionHeading(...,'tag-underline',...) exactly:
+// icon + title sit on one row, then a full-width divider line renders on
+// its OWN row directly below — as opposed to the shared Section component
+// above, which matches the 'bar' heading style cvExport.ts uses for
+// Classic/Modern/etc (line filling the remaining space BESIDE the title,
+// same row). Bold and Crimson's real PDF output uses 'tag-underline', so
+// they use this component instead of Section — using Section for them
+// was the bug: the preview showed the divider beside the title when the
+// actual download always puts it below.
+function TagUnderlineSection({ title, color, icon, children }: { title: string; color: string; icon?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+        {icon && <span style={{ fontSize: '12px', lineHeight: 1 }}>{icon}</span>}
+        <span style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color }}>{title}</span>
+      </div>
+      <div style={{ height: '1px', background: color, marginBottom: '10px' }} />
+      {children}
+    </div>
+  );
+}
+
 function Section({ title, color, borderColor, icon, children, titleStyle }: { title: string; color?: string; borderColor?: string; icon?: string; children: React.ReactNode; titleStyle?: React.CSSProperties }) {
   return (
     <div style={{ marginBottom: '32px', overflow: 'visible' }}>
@@ -714,7 +736,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
           </div>
         </div>
         <div style={{ background: accent, padding: '0 32px 16px' }}>
-          <div style={{ height: '1px', background: 'rgba(255,255,255,0.4)', margin: '12px 0 10px' }} />
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.4)', margin: '12px 0 10px' }} />
           <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap', fontSize: '10.5px', color: 'rgba(255,255,255,0.9)' }}>
             {personal.email && <span>{ICONS.mail} {personal.email}</span>}
             {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
@@ -725,9 +747,9 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
         {/* Single-column body — matches drawBold's section order exactly:
             Summary → Experience → Education → Skills (2-col bullet grid). */}
         <div style={{ padding: '20px 32px', lineHeight: '1.6' }}>
-          {personal.bio && <Section title="Professional Summary" color={accent} icon="📄"><p style={{ color: '#374151', margin: 0, fontSize: '12px' }}>{personal.bio}</p></Section>}
+          {personal.bio && <TagUnderlineSection title="Professional Summary" color={accent} icon="📄"><p style={{ color: '#374151', margin: 0, fontSize: '12px' }}>{personal.bio}</p></TagUnderlineSection>}
 
-          {validExp.length > 0 && <Section title={expLabel} color={accent} icon={ICONS.briefcase}>
+          {validExp.length > 0 && <TagUnderlineSection title={expLabel} color={accent} icon={ICONS.briefcase}>
             {validExp.map((e: any, i: number) => (
               <div key={i} style={{ marginBottom: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' }}>
@@ -738,20 +760,20 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
                 {renderDescription(e.description, '#374151')}
               </div>
             ))}
-          </Section>}
+          </TagUnderlineSection>}
 
-          {validEdu.length > 0 && <Section title="Education" color={accent} icon={ICONS.graduation}>
+          {validEdu.length > 0 && <TagUnderlineSection title="Education" color={accent} icon={ICONS.graduation}>
             {validEdu.map((e: any, i: number) => (
               <div key={i} style={{ marginBottom: '10px' }}>
                 <div style={{ fontWeight: '600', color: '#111827', fontSize: '12.5px', wordBreak: 'break-word' }}>{e.qualification}</div>
                 <div style={{ color: '#6b7280', fontSize: '11px', wordBreak: 'break-word' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
               </div>
             ))}
-          </Section>}
+          </TagUnderlineSection>}
 
-          {boldSkillGroups.length > 0 && <Section title="Skills" color={accent} icon={ICONS.award}>
+          {boldSkillGroups.length > 0 && <TagUnderlineSection title="Skills" color={accent} icon={ICONS.award}>
             <SkillGroupsTwoCol groups={boldSkillGroups} accent={accent} />
-          </Section>}
+          </TagUnderlineSection>}
 
           {renderCustomSections(data.custom_sections, accent)}
         </div>
@@ -1541,7 +1563,7 @@ function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
           <div style={{ fontSize: '20px', fontWeight: '800', color: '#fff' }}>{personal.full_name || 'Your Name'}</div>
           <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.8)', marginTop: '3px' }}>{personal.job_title || validExp[0]?.role || 'Educator'}</div>
         </div>
-        <div style={{ height: '1px', background: 'rgba(255,255,255,0.4)' }} />
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.4)' }} />
         {/* Contact strip — centered, icon-based, matches drawCrimson */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: '18px', padding: '8px 32px', borderBottom: '1px solid #e5e7eb', fontSize: '10.5px', color: '#6b7280', flexWrap: 'wrap' }}>
           {personal.email && <span>{ICONS.mail} {personal.email}</span>}
@@ -1553,9 +1575,9 @@ function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
             Summary → Experience → Education → Skills (2-col bullet grid,
             not the progress-bar sidebar this used to show). */}
         <div style={{ padding: '20px 32px', lineHeight: '1.6' }}>
-          {personal.bio && <Section title="Professional Summary" color={crimson} icon="📄"><p style={{ color: '#374151', margin: 0, fontSize: '12px' }}>{personal.bio}</p></Section>}
+          {personal.bio && <TagUnderlineSection title="Professional Summary" color={crimson} icon="📄"><p style={{ color: '#374151', margin: 0, fontSize: '12px' }}>{personal.bio}</p></TagUnderlineSection>}
 
-          {validExp.length > 0 && <Section title={expLabel} color={crimson} icon={ICONS.briefcase}>
+          {validExp.length > 0 && <TagUnderlineSection title={expLabel} color={crimson} icon={ICONS.briefcase}>
             {validExp.map((e: any, i: number) => (
               <div key={i} style={{ marginBottom: '14px' }}>
                 <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827', wordBreak: 'break-word' }}>{e.role}{e.school ? `, ${e.school}` : ''}</div>
@@ -1563,20 +1585,20 @@ function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
                 {renderDescription(e.description, crimson)}
               </div>
             ))}
-          </Section>}
+          </TagUnderlineSection>}
 
-          {validEdu.length > 0 && <Section title="Education" color={crimson} icon={ICONS.graduation}>
+          {validEdu.length > 0 && <TagUnderlineSection title="Education" color={crimson} icon={ICONS.graduation}>
             {validEdu.map((e: any, i: number) => (
               <div key={i} style={{ marginBottom: '10px' }}>
                 <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#111827', wordBreak: 'break-word' }}>{e.qualification}</div>
                 <div style={{ fontSize: '11px', color: '#6b7280', wordBreak: 'break-word' }}>{[e.institution, e.year].filter(Boolean).join(' · ')}</div>
               </div>
             ))}
-          </Section>}
+          </TagUnderlineSection>}
 
-          {crimSkillGroups.length > 0 && <Section title="Skills" color={crimson} icon={ICONS.award}>
+          {crimSkillGroups.length > 0 && <TagUnderlineSection title="Skills" color={crimson} icon={ICONS.award}>
             <SkillGroupsTwoCol groups={crimSkillGroups} accent={crimson} />
-          </Section>}
+          </TagUnderlineSection>}
 
           {renderCustomSections(data.custom_sections, crimson)}
         </div>
