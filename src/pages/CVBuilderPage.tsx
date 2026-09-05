@@ -20,6 +20,7 @@ import type { CustomSection } from '@/components/cv/CVStepExtras';
 import CVStepTemplate from '@/components/cv/CVStepTemplate';
 import CVStepReview from '@/components/cv/CVStepReview';
 import LastCVBanner from '@/components/cv/LastCVBanner';
+import TestimonialPromptModal from '@/components/TestimonialPromptModal';
 // Kept for backward compatibility with saved drafts / last CV data
 export type CVType = 'educator' | 'general';
 const STEPS = ['Personal', 'Education', 'Experience', 'Skills', 'Extras', 'References', 'Template', 'Review'];
@@ -338,6 +339,14 @@ export default function CVBuilderPage() {
   const isFree = templatesGateActive && !hasPurchased && !isAdmin && !templatesUnlocked;
   const [showBuilder,      setShowBuilder]      = useState(initialState.showBuilder);
   const [step,             setStep]             = useState(initialState.draft?.step ?? 0);
+  // Lives here (not in CVStepReview.tsx) because handleCVGenerated below
+  // immediately calls setShowBuilder(false), unmounting CVStepReview in
+  // the same commit — a testimonial prompt scheduled inside that
+  // component would be scheduled on a component that's already gone by
+  // the time its delay elapses, so it would never actually appear. This
+  // component is what's still on screen right after generation (it
+  // switches to the LastCVBanner view below), so the prompt belongs here.
+  const [showTestimonialPrompt, setShowTestimonialPrompt] = useState(false);
   const [data,             setData]             = useState<CVData>(initialState.draft?.data ?? defaultData());
   const [draftSavedAt,     setDraftSavedAt]     = useState<string | null>(initialState.draft?.savedAt ?? null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -421,6 +430,18 @@ export default function CVBuilderPage() {
         console.error('[CVBuilderPage] Failed to save CV metadata to user_metadata:', err);
       });
     }
+
+    // Prompt for a testimonial a moment after the download completes — a
+    // natural high-satisfaction point. Once per browser session so it's
+    // not naggy on repeat "Download Again" clicks. This fires from here
+    // rather than CVStepReview.tsx specifically because setShowBuilder(false)
+    // just above swaps this page over to the LastCVBanner view, so this
+    // component (not CVStepReview) is what's actually still mounted when
+    // the delay below elapses.
+    if (!sessionStorage.getItem('crosssa_testimonial_prompted')) {
+      sessionStorage.setItem('crosssa_testimonial_prompted', 'true');
+      setTimeout(() => setShowTestimonialPrompt(true), 1500);
+    }
   };
   const handleAIDataExtracted = (newData: CVData) => {
     setData(prev => ({ ...newData, personal: prev.personal }));
@@ -455,6 +476,9 @@ export default function CVBuilderPage() {
             onEdit={handleEdit}
           />
         </div>
+        {showTestimonialPrompt && (
+          <TestimonialPromptModal source="cv_download_prompt" onClose={() => setShowTestimonialPrompt(false)} />
+        )}
       </div>
     );
   }
@@ -539,6 +563,9 @@ export default function CVBuilderPage() {
           )}
         </div>
       </motion.div>
+      {showTestimonialPrompt && (
+        <TestimonialPromptModal source="cv_download_prompt" onClose={() => setShowTestimonialPrompt(false)} />
+      )}
     </div>
   );
 }

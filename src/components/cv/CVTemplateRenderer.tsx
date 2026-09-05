@@ -548,16 +548,13 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
         }}
       >
         <div style={{ padding: '40px 44px', lineHeight: '1.7' }}>
-          <div style={{ borderBottom: '2px solid #111827', paddingBottom: '16px', marginBottom: '34px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-            {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '76px', height: '76px', borderRadius: '4px', objectFit: 'cover', border: '1px solid #e5e7eb', flexShrink: 0 }} />}
-            <div>
-              <div style={{ fontSize: '30px', fontWeight: '300', letterSpacing: '3px', textTransform: 'uppercase', color: '#111827' }}>{personal.full_name || 'Your Name'}</div>
-              <div style={{ marginTop: '8px', fontSize: '11px', color: '#6b7280', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                {personal.email && <span>{ICONS.mail} {personal.email}</span>}
-                {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
-                {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
-                {personal.id_number && <span>{ICONS.user} ID: {personal.id_number}</span>}
-              </div>
+          <div style={{ borderBottom: '2px solid #111827', paddingBottom: '16px', marginBottom: '34px', textAlign: 'center' }}>
+            {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '68px', height: '68px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #e5e7eb', margin: '0 auto 12px', display: 'block' }} />}
+            <div style={{ fontSize: '30px', fontWeight: '300', letterSpacing: '3px', textTransform: 'uppercase', color: '#111827' }}>{personal.full_name || 'Your Name'}</div>
+            <div style={{ marginTop: '8px', fontSize: '11px', color: '#6b7280', display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
+              {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
+              {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
+              {personal.email && <span>{ICONS.mail} {personal.email}</span>}
             </div>
           </div>
           {personal.bio && <MinimalSection title="Summary"><p style={{ color: '#4b5563', margin: 0, fontSize: '12px' }}>{personal.bio}</p></MinimalSection>}
@@ -662,71 +659,101 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
 }
 
 /* ── Bold Template ───────────────────────────────────────────────────────── */
+// Matches the "Key Skills / Professional Skills / Languages" 2-column
+// bullet grid cvExport.ts's drawBold/drawCrimson actually render — a CSS
+// grid with 2 columns naturally interleaves items the same way that PDF
+// code's manual col1/col2 splitting does (item 0→col1 row0, item 1→col2
+// row0, item 2→col1 row1, ...), so no manual splitting is needed here.
+function SkillGroupsTwoCol({ groups, accent }: { groups: [string, string[]][]; accent: string }) {
+  return (
+    <>
+      {groups.map(([label, items], gi) => (
+        <div key={label} style={{ marginBottom: gi < groups.length - 1 ? '14px' : 0 }}>
+          <div style={{ fontWeight: 700, fontSize: '12px', color: accent, marginBottom: '6px' }}>{label}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: '16px', rowGap: '5px' }}>
+            {items.map((item, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#374151' }}>
+                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: accent, flexShrink: 0 }} />
+                <span style={{ wordBreak: 'break-word' }}>{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
 function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   const accent = '#c2185b';
+  const boldSkillGroups: [string, string[]][] = [
+    [subjectsLabel, skills?.subjects || []],
+    ['Professional Skills', skills?.soft_skills || []],
+    ['Languages', skills?.languages || []],
+  ].filter(([, items]) => items.length > 0) as [string, string[]][];
   return (
     <div style={{ ...wrapperStyle }}>
       <div
         className="cv-content-page"
         style={{
           width: '794px',
-          
           boxSizing: 'border-box',
           position: 'relative',
           background: '#fff',
         }}
       >
-        <div style={{ background: accent, color: '#fff', padding: '28px 32px 22px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-            {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '3px solid rgba(255,255,255,0.4)', flexShrink: 0 }} />}
-            <div>
-              <div style={{ fontSize: '26px', fontWeight: '800', letterSpacing: '1px' }}>{personal.full_name || 'Your Name'}</div>
-              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)', marginTop: '4px', letterSpacing: '2px', textTransform: 'uppercase' }}>{personal.job_title || validExp[0]?.role || 'Educator'}</div>
-            </div>
+        {/* Header — matches drawBold: full-width banner, photo circle +
+            name/title left-aligned (uppercase name), divider, single-line
+            icon contact row. */}
+        <div style={{ background: accent, color: '#fff', padding: '20px 32px 16px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', flexShrink: 0 }} />}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '20px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase' }}>{personal.full_name || 'Your Name'}</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.75)', marginTop: '4px' }}>{personal.job_title || validExp[0]?.role || 'Educator'}</div>
           </div>
-          <div style={{ height: '2px', background: 'rgba(255,255,255,0.3)', margin: '16px 0 12px' }} />
-          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', fontSize: '11px', color: 'rgba(255,255,255,0.85)' }}>
+        </div>
+        <div style={{ background: accent, padding: '0 32px 16px' }}>
+          <div style={{ height: '1px', background: 'rgba(255,255,255,0.4)', margin: '12px 0 10px' }} />
+          <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap', fontSize: '10.5px', color: 'rgba(255,255,255,0.9)' }}>
             {personal.email && <span>{ICONS.mail} {personal.email}</span>}
             {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
             {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
-            {personal.id_number && <span>{ICONS.user} ID: {personal.id_number}</span>}
           </div>
         </div>
-        <div style={{ display: 'flex', padding: '24px 32px', gap: '28px', lineHeight: '1.6' }}>
-          <div style={{ flex: 1 }}>
-            {personal.bio && <Section title="Summary" color={accent}><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
-            {validExp.length > 0 && <Section title="Experience" color={accent} icon={ICONS.briefcase}>
-              {validExp.map((e: any, i: number) => (
-                <div key={i} style={{ marginBottom: '16px' }}>
-                  <div style={{ fontWeight: '700', color: '#111827', wordBreak: 'break-word' }}>{e.role}</div>
-                  <div style={{ color: accent, fontSize: '12px', fontWeight: '600', wordBreak: 'break-word' }}>{e.school}</div>
-                  {(e.from || e.to) && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.from || ''} – {e.to || ''}</div>}
-                  {renderDescription(e.description, '#374151')}
+
+        {/* Single-column body — matches drawBold's section order exactly:
+            Summary → Experience → Education → Skills (2-col bullet grid). */}
+        <div style={{ padding: '20px 32px', lineHeight: '1.6' }}>
+          {personal.bio && <Section title="Professional Summary" color={accent} icon="📄"><p style={{ color: '#374151', margin: 0, fontSize: '12px' }}>{personal.bio}</p></Section>}
+
+          {validExp.length > 0 && <Section title={expLabel} color={accent} icon={ICONS.briefcase}>
+            {validExp.map((e: any, i: number) => (
+              <div key={i} style={{ marginBottom: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: '700', color: '#111827', fontSize: '13px', wordBreak: 'break-word' }}>{e.role}</span>
+                  {(e.from || e.to) && <span style={{ color: '#9ca3af', fontSize: '10px', whiteSpace: 'nowrap' }}>{e.from || ''} – {e.to || ''}</span>}
                 </div>
-              ))}
-            </Section>}
-            {renderCustomSections(data.custom_sections, accent)}
-          </div>
-          <div style={{ width: '180px', flexShrink: 0, minWidth: 0 }}>
-            {validEdu.length > 0 && <Section title="Education" color={accent} icon={ICONS.graduation}>
-              {validEdu.map((e: any, i: number) => (
-                <div key={i} style={{ marginBottom: '12px' }}>
-                  <div style={{ fontWeight: '600', color: '#111827', fontSize: '12px', wordBreak: 'break-word' }}>{e.qualification}</div>
-                  <div style={{ color: '#6b7280', fontSize: '11px', wordBreak: 'break-word' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
-                </div>
-              ))}
-            </Section>}
-            {skills?.subjects?.length && <Section title={subjectsLabel} color={accent} icon={ICONS.bookOpen}>
-              <BulletList items={skills.subjects} />
-            </Section>}
-            {skills?.soft_skills?.length && <Section title="Skills" color={accent} icon={ICONS.award}>
-              <BulletList items={skills.soft_skills} />
-            </Section>}
-            {skills?.languages?.length && <Section title="Languages" color={accent} icon={ICONS.languages}>
-              <BulletList items={skills.languages} />
-            </Section>}
-          </div>
+                {e.school && <div style={{ color: accent, fontSize: '11.5px', fontWeight: '600', wordBreak: 'break-word' }}>{e.school}</div>}
+                {renderDescription(e.description, '#374151')}
+              </div>
+            ))}
+          </Section>}
+
+          {validEdu.length > 0 && <Section title="Education" color={accent} icon={ICONS.graduation}>
+            {validEdu.map((e: any, i: number) => (
+              <div key={i} style={{ marginBottom: '10px' }}>
+                <div style={{ fontWeight: '600', color: '#111827', fontSize: '12.5px', wordBreak: 'break-word' }}>{e.qualification}</div>
+                <div style={{ color: '#6b7280', fontSize: '11px', wordBreak: 'break-word' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
+              </div>
+            ))}
+          </Section>}
+
+          {boldSkillGroups.length > 0 && <Section title="Skills" color={accent} icon={ICONS.award}>
+            <SkillGroupsTwoCol groups={boldSkillGroups} accent={accent} />
+          </Section>}
+
+          {renderCustomSections(data.custom_sections, accent)}
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
@@ -1111,12 +1138,15 @@ function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark
           <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
             <div style={{ width: '110px', flexShrink: 0, fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#374151', fontFamily: "Georgia, 'Times New Roman', serif" }}>SKILLS</div>
             <div style={{ flex: 1, borderLeft: '1px solid #e5e7eb', paddingLeft: '16px' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
-                {[...(skills.subjects || []), ...(skills.soft_skills || [])].map((s: string, i: number) => (
-                  <div key={i} style={{ fontSize: '12px', color: '#374151' }}>{s}</div>
-                ))}
-              </div>
-              {skills?.languages?.length && <div style={{ marginTop: '8px', fontSize: '12px', color: '#374151' }}><strong>Languages: </strong>{skills.languages.join(' · ')}</div>}
+              {([
+                ['Key Skills', skills?.subjects || []],
+                ['Professional Skills', skills?.soft_skills || []],
+                ['Languages', skills?.languages || []],
+              ] as [string, string[]][]).filter(([, items]) => items.length > 0).map(([label, items], i) => (
+                <div key={label} style={{ fontSize: '12px', color: '#374151', marginTop: i > 0 ? '6px' : 0 }}>
+                  <strong>{label}: </strong>{items.join(' · ')}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -1496,74 +1526,60 @@ function TealTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
 function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
   const { personal, skills } = data;
   const crimson = '#c0392b';
+  const crimSkillGroups: [string, string[]][] = [
+    [subjectsLabel, skills?.subjects || []],
+    ['Professional Skills', skills?.soft_skills || []],
+    ['Languages', skills?.languages || []],
+  ].filter(([, items]) => items.length > 0) as [string, string[]][];
   return (
     <div style={{ ...wrapperStyle }}>
       <div className="cv-content-page" style={{ width: '794px', boxSizing: 'border-box', background: '#fff', position: 'relative' }}>
-        {/* Red header banner */}
-        <div style={{ background: crimson, padding: '20px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '10px' }}>
-          {personal.photo_url && <img src={personal.photo_url} alt="" style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', flexShrink: 0 }} />}
-          <div>
-            <div style={{ fontSize: '22px', fontWeight: '800', color: '#fff' }}>{personal.full_name || 'Your Name'}</div>
-            <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '2px', color: 'rgba(255,255,255,0.75)', marginTop: '3px' }}>{personal.job_title || validExp[0]?.role || 'Educator'}</div>
-          </div>
+        {/* Header — matches drawCrimson: centered, photo circle (if any)
+            above the name. */}
+        <div style={{ background: crimson, padding: '18px 32px 14px', textAlign: 'center' }}>
+          {personal.photo_url && <img src={personal.photo_url} alt="" style={{ width: '52px', height: '52px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', margin: '0 auto 10px', display: 'block' }} />}
+          <div style={{ fontSize: '20px', fontWeight: '800', color: '#fff' }}>{personal.full_name || 'Your Name'}</div>
+          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.8)', marginTop: '3px' }}>{personal.job_title || validExp[0]?.role || 'Educator'}</div>
         </div>
-        {/* Contact strip */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', padding: '8px 32px', borderBottom: '1px solid #e5e7eb', fontSize: '10px', color: '#6b7280', flexWrap: 'wrap' }}>
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.4)' }} />
+        {/* Contact strip — centered, icon-based, matches drawCrimson */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '18px', padding: '8px 32px', borderBottom: '1px solid #e5e7eb', fontSize: '10.5px', color: '#6b7280', flexWrap: 'wrap' }}>
           {personal.email && <span>{ICONS.mail} {personal.email}</span>}
-          {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
           {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
+          {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
         </div>
-        {/* Two-col body */}
-        <div style={{ display: 'flex', padding: '20px 32px', gap: '28px' }}>
-          {/* Left content */}
-          <div style={{ flex: 1 }}>
-            {personal.bio && <div style={{ marginBottom: '20px' }}><div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', borderBottom: `2px solid ${crimson}`, paddingBottom: '4px', marginBottom: '8px', fontStyle: 'italic' }}>Profile</div><p style={{ fontSize: '12px', color: '#374151', lineHeight: '1.7', margin: 0 }}>{personal.bio}</p></div>}
-            {validExp.length > 0 && (
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', borderBottom: `2px solid ${crimson}`, paddingBottom: '4px', marginBottom: '12px', fontStyle: 'italic' }}>Employment History</div>
-                {validExp.map((e: any, i: number) => (
-                  <div key={i} style={{ marginBottom: '16px' }}>
-                    <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827', wordBreak: 'break-word' }}>{e.role}{e.school ? `, ${e.school}` : ''}</div>
-                    <div style={{ fontSize: '10px', color: '#9ca3af', margin: '2px 0 4px', fontStyle: 'italic' }}>{[e.from, e.to].filter(Boolean).join(' — ')}</div>
-                    {renderDescription(e.description, crimson)}
-                  </div>
-                ))}
+
+        {/* Single-column body — matches drawCrimson's section order:
+            Summary → Experience → Education → Skills (2-col bullet grid,
+            not the progress-bar sidebar this used to show). */}
+        <div style={{ padding: '20px 32px', lineHeight: '1.6' }}>
+          {personal.bio && <Section title="Professional Summary" color={crimson} icon="📄"><p style={{ color: '#374151', margin: 0, fontSize: '12px' }}>{personal.bio}</p></Section>}
+
+          {validExp.length > 0 && <Section title={expLabel} color={crimson} icon={ICONS.briefcase}>
+            {validExp.map((e: any, i: number) => (
+              <div key={i} style={{ marginBottom: '14px' }}>
+                <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827', wordBreak: 'break-word' }}>{e.role}{e.school ? `, ${e.school}` : ''}</div>
+                {(e.from || e.to) && <div style={{ fontSize: '10.5px', color: '#9ca3af', fontStyle: 'italic', margin: '2px 0 4px' }}>{[e.from, e.to].filter(Boolean).join(' — ')}</div>}
+                {renderDescription(e.description, crimson)}
               </div>
-            )}
-            {validEdu.length > 0 && (
-              <div>
-                <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', borderBottom: `2px solid ${crimson}`, paddingBottom: '4px', marginBottom: '12px', fontStyle: 'italic' }}>Education</div>
-                {validEdu.map((e: any, i: number) => (
-                  <div key={i} style={{ marginBottom: '12px' }}>
-                    <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827', wordBreak: 'break-word' }}>{e.qualification}</div>
-                    <div style={{ fontSize: '11px', color: '#6b7280', wordBreak: 'break-word' }}>{[e.institution, e.year].filter(Boolean).join(' · ')}</div>
-                  </div>
-                ))}
+            ))}
+          </Section>}
+
+          {validEdu.length > 0 && <Section title="Education" color={crimson} icon={ICONS.graduation}>
+            {validEdu.map((e: any, i: number) => (
+              <div key={i} style={{ marginBottom: '10px' }}>
+                <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#111827', wordBreak: 'break-word' }}>{e.qualification}</div>
+                <div style={{ fontSize: '11px', color: '#6b7280', wordBreak: 'break-word' }}>{[e.institution, e.year].filter(Boolean).join(' · ')}</div>
               </div>
-            )}
-          </div>
-          {/* Right skills col */}
-          <div style={{ width: '170px', flexShrink: 0 }}>
-            {(skills?.soft_skills?.length || skills?.subjects?.length) && (
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', borderBottom: `2px solid ${crimson}`, paddingBottom: '4px', marginBottom: '10px', fontStyle: 'italic' }}>Skills</div>
-                {[...(skills.subjects || []), ...(skills.soft_skills || [])].map((s: string, i: number) => (
-                  <div key={i} style={{ marginBottom: '8px' }}>
-                    <div style={{ fontSize: '11px', color: '#374151', marginBottom: '3px' }}>{s}</div>
-                    <div style={{ height: '3px', background: '#fee2e2' }}><div style={{ width: '75%', height: '100%', background: crimson }} /></div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {skills?.languages?.length && (
-              <div>
-                <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', borderBottom: `2px solid ${crimson}`, paddingBottom: '4px', marginBottom: '10px', fontStyle: 'italic' }}>Languages</div>
-                {skills.languages.map((l: string, i: number) => <div key={i} style={{ fontSize: '11px', color: '#374151', marginBottom: '4px' }}>{l}</div>)}
-              </div>
-            )}
-          </div>
+            ))}
+          </Section>}
+
+          {crimSkillGroups.length > 0 && <Section title="Skills" color={crimson} icon={ICONS.award}>
+            <SkillGroupsTwoCol groups={crimSkillGroups} accent={crimson} />
+          </Section>}
+
+          {renderCustomSections(data.custom_sections, crimson)}
         </div>
-        {renderCustomSections(data.custom_sections, crimson)}
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
       {renderReferencesPage(data.references, crimson, watermark)}
@@ -1582,7 +1598,10 @@ function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
         {/* Green header */}
         <div style={{ background: sageBg, padding: '24px 36px', borderRadius: '8px', margin: '20px 20px 0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: '24px', fontWeight: '700', color: '#1a2e1a' }}>{personal.full_name || 'Your Name'}</div>
+            <div>
+              <div style={{ fontSize: '24px', fontWeight: '700', color: '#1a2e1a' }}>{personal.full_name || 'Your Name'}</div>
+              <div style={{ fontSize: '13px', color: '#4b6c4b', marginTop: '2px' }}>{personal.job_title || validExp[0]?.role || 'Educator'}</div>
+            </div>
             <div style={{ textAlign: 'right', fontSize: '11px', color: '#374151', maxWidth: '260px' }}>
               {personal.email && <div style={{ wordBreak: 'break-word' }}>{ICONS.mail} {personal.email}</div>}
               {personal.phone && <div>{ICONS.phone} {personal.phone}</div>}
@@ -1593,7 +1612,7 @@ function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
         <div style={{ padding: '16px 36px 28px' }}>
           {personal.bio && (
             <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: '14px', color: '#4a6c4a', marginBottom: '4px' }}>Educator</div>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: sage, marginBottom: '8px' }}>Professional Summary</div>
               <p style={{ fontSize: '12px', color: '#374151', lineHeight: '1.7', margin: 0 }}>{personal.bio}</p>
             </div>
           )}
@@ -1622,16 +1641,29 @@ function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
               ))}
             </div>
           )}
-          {(skills?.soft_skills?.length || skills?.subjects?.length || skills?.languages?.length) && (
-            <div>
-              <div style={{ fontSize: '18px', fontWeight: '700', color: sage, marginBottom: '10px' }}>Skills & Languages</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {[...(skills.subjects || []), ...(skills.soft_skills || []), ...(skills.languages || [])].map((s: string, i: number) => (
-                  <span key={i} style={{ background: sageBg, color: '#374151', padding: '4px 12px', borderRadius: '20px', fontSize: '11px' }}>{s}</span>
+          {(() => {
+            const sageSkillGroups = [
+              { label: subjectsLabel,          items: skills?.subjects    || [] },
+              { label: 'Professional Skills',  items: skills?.soft_skills || [] },
+              { label: 'Languages',            items: skills?.languages   || [] },
+            ].filter(g => g.items.length > 0);
+            if (!sageSkillGroups.length) return null;
+            return (
+              <div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: sage, marginBottom: '10px' }}>Skills & Languages</div>
+                {sageSkillGroups.map((group, gi) => (
+                  <div key={group.label} style={{ marginBottom: gi < sageSkillGroups.length - 1 ? '12px' : 0 }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: sage, marginBottom: '6px' }}>{group.label}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {group.items.map((s: string, i: number) => (
+                        <span key={i} style={{ background: sageBg, color: '#374151', padding: '4px 12px', borderRadius: '20px', fontSize: '11px' }}>{s}</span>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
-          )}
+            );
+          })()}
           {renderCustomSections(data.custom_sections, sage)}
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}

@@ -6,8 +6,8 @@ import CVTemplateRenderer from './CVTemplateRenderer';
 // Enough content to show the header, one experience entry, education, and skills
 const SAMPLE_DATA = {
   personal: {
-    full_name:  'Kanelo Thelejane',
-    email:      'kanelo@example.com',
+    full_name:  'Name Surname',
+    email:      'name.surname@example.com',
     phone:      '081 352 9905',
     address:    'Johannesburg, Gauteng',
     bio:        'Dedicated educator with 10 years of experience teaching Mathematics and Computer Applications Technology. Passionate about integrating technology into the classroom.',
@@ -51,9 +51,9 @@ const TEMPLATES = [
   { id: 'bold',         name: 'Bold',         description: 'Striking pink/magenta header. Eye-catching design.',                 category: 'Colourful' },
   { id: 'traditional',  name: 'Traditional',  description: 'Left date column, horizontal rules. Classic formal look.',           category: 'Corporate' },
   { id: 'shaded',       name: 'Shaded',       description: 'Grey shaded section headers. Formal and easy to scan.',              category: 'Corporate' },
-  { id: 'crimson',      name: 'Crimson',      description: 'Bold red banner with italic headings. Right skills column.',         category: 'Colourful' },
+  { id: 'crimson',      name: 'Crimson',      description: 'Bold centered red banner. Clean single-column layout, easy to scan.', category: 'Colourful' },
   { id: 'sage',         name: 'Sage',         description: 'Soft green header card. Chip-style skill badges. Fresh feel.',       category: 'Colourful' },
-  { id: 'elegant',      name: 'Elegant',      description: 'Centered serif layout on a soft lavender background. Formal and refined.', category: 'Corporate' },
+  { id: 'elegant',      name: 'Elegant',      description: 'Centered serif layout on a soft blue background. Formal and refined.', category: 'Corporate' },
   { id: 'heritage',     name: 'Heritage',     description: 'Formal centered layout with double-rule headings and a top contact bar.', category: 'Corporate' },
   { id: 'casual',       name: 'Casual',       description: 'Same cream & circles design as Playful but single-column. Great for longer CVs.', category: 'Colourful' },
 ];

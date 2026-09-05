@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
 import { isBlocked, blockUser } from '@/lib/blockUtils';
+import TestimonialPromptModal from '@/components/TestimonialPromptModal';
 
 interface Message {
   id: string;
@@ -66,6 +67,7 @@ export default function ChatRoom() {
   const [hasChatAccess, setHasChatAccess] = useState<boolean | null>(null);
   const [showChatUpsell, setShowChatUpsell] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [showTestimonialPrompt, setShowTestimonialPrompt] = useState(false);
 
   // Messaging is unlocked ONLY by a standalone R150 PayFast payment —
   // not by credit balance, not by any credit-pack purchase threshold.
@@ -346,6 +348,26 @@ export default function ChatRoom() {
       return;
     }
 
+    // Check once whether this is the very first message this user has
+    // EVER sent (to anyone) — used below to trigger a one-time testimonial
+    // prompt at a natural high-satisfaction moment: their first outreach
+    // to a potential transfer match. Checked BEFORE inserting the current
+    // message, so a count of 0 means "this send will be their first."
+    // Self-limiting by design — every message after this one will see a
+    // count >= 1, so this can only ever fire once per user, no separate
+    // "already prompted" flag needed.
+    let isFirstMessageEver = false;
+    try {
+      const { count: priorSentCount } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('sender_id', user.id);
+      isFirstMessageEver = (priorSentCount ?? 0) === 0;
+    } catch {
+      // Non-critical — if this check fails, just skip the prompt this
+      // time rather than blocking the actual message send.
+    }
+
     setSending(true);
     const tempId = `temp-${Date.now()}`;
     const optimisticMessage: Message = {
@@ -379,6 +401,9 @@ export default function ChatRoom() {
           event: 'thread_changed',
           payload: { newMessageId: data.id },
         });
+        if (isFirstMessageEver) {
+          setTimeout(() => setShowTestimonialPrompt(true), 1200);
+        }
       }
     } catch (err) {
       console.error('Unexpected send error:', err);
@@ -629,6 +654,15 @@ export default function ChatRoom() {
             </button>
           </div>
         </div>
+      )}
+
+      {showTestimonialPrompt && (
+        <TestimonialPromptModal
+          source="match_prompt"
+          title="Found a match?"
+          description="Tell other educators what it's like using Crosssa to find a transfer partner."
+          onClose={() => setShowTestimonialPrompt(false)}
+        />
       )}
     </div>
   );

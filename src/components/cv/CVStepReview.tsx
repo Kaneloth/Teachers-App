@@ -9,7 +9,6 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
 import { useFeatureGates } from '@/hooks/useFeatureGates';
-import TestimonialPromptModal from '@/components/TestimonialPromptModal';
 
 // Builds correct public storage URL — getPublicUrl() sometimes omits /public/
 function publicStorageUrl(bucket: string, path: string): string {
@@ -55,7 +54,6 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
   const [showInsufficientModal, setShowInsufficientModal] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [view, setView] = useState<'preview' | 'summary'>('preview');
-  const [showTestimonialPrompt, setShowTestimonialPrompt] = useState(false);
 
   // Check if the user has ever bought credits (purchase entry in ledger).
   // If yes → no watermark. If only signup_bonus credits → watermark applies.
@@ -78,6 +76,11 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
   const [sent, setSent] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
+  // A4 at 794px wide (96dpi, same width the real export renders at) is
+  // ~1123px tall (297mm). Used below to slice the preview into visually
+  // distinct pages instead of one continuous scrolling blob.
+  const PAGE_HEIGHT = 1123;
+  const [pageCount, setPageCount] = useState(1);
 
   // Existing stored PDF — re-download this for free without generating a new one
   const existingPdfUrl = (user?.user_metadata?.last_cv_pdf_url as string | undefined) ?? null;
@@ -94,6 +97,29 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
       languages: (skills.languages || []).map(normalizeLanguage),
     },
   };
+
+  // Watches the hidden full-size export render (same node the real PDF
+  // export captures) so the visible preview below can show the same
+  // number of pages, with breaks in roughly the same places, as the
+  // actual download — rather than one endless scrolling blob with no
+  // indication of where page 1 ends and page 2 begins.
+  //
+  // This is a close approximation, not pixel-perfect: cvExport.ts computes
+  // its own page breaks from jsPDF's point-based text measurement, which
+  // doesn't exactly match the browser's CSS layout of the same content.
+  // For genuinely identical break points, the export's line-wrapping math
+  // would need to be replicated here — this gets the page COUNT and
+  // roughly where each page ends right, which is what actually matters
+  // for "does my CV run to 2 pages or 3."
+  useEffect(() => {
+    const el = exportRef.current;
+    if (!el) return;
+    const measure = () => setPageCount(Math.max(1, Math.ceil(el.scrollHeight / PAGE_HEIGHT)));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [safeData]);
 
   const fileName = `CV_${(personal.full_name || 'Educator').replace(/\s+/g, '_')}.pdf`;
 
@@ -170,14 +196,6 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
 
       setSent(true);
       toast.success('CV downloaded to your device!');
-
-      // Prompt for a testimonial a moment after the download completes —
-      // a natural high-satisfaction point. Once per browser session so
-      // it's not naggy on repeat "Download Again" clicks.
-      if (!sessionStorage.getItem('crosssa_testimonial_prompted')) {
-        sessionStorage.setItem('crosssa_testimonial_prompted', 'true');
-        setTimeout(() => setShowTestimonialPrompt(true), 1500);
-      }
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Failed to generate CV');
     } finally {
@@ -205,9 +223,6 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
             Make Changes
           </Button>
         </div>
-        {showTestimonialPrompt && (
-          <TestimonialPromptModal onClose={() => setShowTestimonialPrompt(false)} />
-        )}
       </div>
     );
   }
@@ -227,17 +242,35 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
       </div>
 
       {view === 'preview' ? (
-        <div className="rounded-xl overflow-hidden border border-border bg-white shadow-sm">
+        <div className="space-y-3">
           {/*
-           * Render the CV at its true A4 width (794 px) then zoom the whole
-           * thing down to ~45% so it fits a phone screen without any clipping.
-           * `zoom` (unlike transform:scale) collapses layout space, so the
-           * container height adjusts to the scaled content automatically and
-           * the page can scroll normally to reveal references or extra pages.
+           * Each "page" below is a 794×1123px window (A4 at the same 96dpi
+           * scale the real export renders at) showing one vertical slice of
+           * the SAME continuously-flowing CV content — the classic
+           * print-preview trick: render the full content once per page,
+           * absolutely positioned and shifted up by that page's height, so
+           * only the relevant slice is visible through the clipped window.
+           * The whole stack is zoomed down together so it fits a phone
+           * screen, same as before.
            */}
-          <div style={{ zoom: 0.45 }}>
-            <CVTemplateRenderer data={safeData} forExport />
+          <div style={{ zoom: 0.45 }} className="space-y-4">
+            {Array.from({ length: pageCount }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-xl overflow-hidden border border-border bg-white shadow-sm"
+                style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
+              >
+                <div style={{ position: 'absolute', top: `${-i * PAGE_HEIGHT}px`, left: 0 }}>
+                  <CVTemplateRenderer data={safeData} forExport />
+                </div>
+              </div>
+            ))}
           </div>
+          {pageCount > 1 && (
+            <p className="text-xs text-muted-foreground text-center">
+              This CV will print as {pageCount} pages
+            </p>
+          )}
         </div>
       ) : (
         <div className="space-y-3">

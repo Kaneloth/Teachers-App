@@ -550,6 +550,56 @@ async function resolveCustomSectionIcons(sections: any[]): Promise<Map<string, s
   return result;
 }
 
+/**
+ * Loads a profile photo URL and returns it as a circular-cropped PNG data
+ * URL ready for jsPDF's addImage(). jsPDF has no circular-clipping API
+ * that's reliable across versions, so the crop happens once here via an
+ * offscreen <canvas> instead — draw the source image "cover"-fit (same
+ * effect as the React preview's `object-fit: cover` circular avatars),
+ * clipped to a circle, then export as PNG.
+ *
+ * Never throws — a missing, broken, slow, or CORS-blocked photo URL just
+ * resolves to null, so a bad photo can never fail or hang the whole CV
+ * export. `crossOrigin = 'anonymous'` is required to read pixels back off
+ * the canvas at all, since the photo is hosted on Supabase storage (a
+ * different origin than the app) — without it, toDataURL() throws a
+ * "tainted canvas" security error.
+ */
+async function loadCircularPhotoDataUrl(url: string, sizePx = 240): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      let settled = false;
+      const done = (fn: () => void) => { if (!settled) { settled = true; fn(); } };
+      el.crossOrigin = 'anonymous';
+      el.onload  = () => done(() => resolve(el));
+      el.onerror = () => done(() => reject(new Error('photo failed to load')));
+      el.src = url;
+      setTimeout(() => done(() => reject(new Error('photo load timed out'))), 5000);
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = sizePx; canvas.height = sizePx;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.beginPath();
+    ctx.arc(sizePx / 2, sizePx / 2, sizePx / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+
+    const scale = Math.max(sizePx / img.width, sizePx / img.height);
+    const w = img.width * scale, h = img.height * scale;
+    ctx.drawImage(img, (sizePx - w) / 2, (sizePx - h) / 2, w, h);
+
+    return canvas.toDataURL('image/png');
+  } catch (err) {
+    console.warn('[cvExport] Could not load profile photo, continuing without it:', err);
+    return null;
+  }
+}
+
 export async function exportElementAsPDF(
   _container: HTMLElement,
   filename: string,
@@ -563,7 +613,10 @@ export async function exportElementAsPDF(
   const sk      = data.skills        || {};
   const refs    = (data.references   || []).filter((r:any)=>r.name);
   const customs = (data.custom_sections||[]).filter((s:any)=>s.title);
-  const customIcons = await resolveCustomSectionIcons(customs);
+  const [customIcons, photoDataUrl] = await Promise.all([
+    resolveCustomSectionIcons(customs),
+    loadCircularPhotoDataUrl(pr.photo_url),
+  ]);
   // Attach the resolved icon directly onto each section object (rather
   // than threading a new parameter through all 18 template-drawing
   // functions' signatures) — drawCustom reads sec.__resolvedIcon.
@@ -594,16 +647,16 @@ export async function exportElementAsPDF(
   ensureIconFont(pdf);
 
   const dispatch: Record<string, ()=>void> = {
-    classic:      ()=>drawClassic(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    minimal:      ()=>drawMinimal(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    bold:         ()=>drawBold(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    traditional:  ()=>drawTraditional(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    shaded:       ()=>drawShaded(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    crimson:      ()=>drawCrimson(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    sage:         ()=>drawSage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    elegant:      ()=>drawElegant(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    heritage:     ()=>drawHeritage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
-    casual:       ()=>drawCasual(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu),
+    classic:      ()=>drawClassic(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    minimal:      ()=>drawMinimal(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    bold:         ()=>drawBold(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    traditional:  ()=>drawTraditional(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    shaded:       ()=>drawShaded(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    crimson:      ()=>drawCrimson(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    sage:         ()=>drawSage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    elegant:      ()=>drawElegant(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    heritage:     ()=>drawHeritage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    casual:       ()=>drawCasual(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -626,10 +679,12 @@ export async function exportElementAsPDF(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // ── 1. CLASSIC — Dark full-width banner, single column, left accent bars ───────
-function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
+function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
   const accent=hex('#1e2a3a'); const [ar,ag,ab]=accent;
   fill(p,ar,ag,ab); p.rect(0,0,PW,30,'F');
-  tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(18); p.text(owner.toUpperCase(),ML,13);
+  const PHOTO=18; const textX = photoUrl ? ML+PHOTO+6 : ML;
+  if (photoUrl) p.addImage(photoUrl,'PNG',ML,6,PHOTO,PHOTO);
+  tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(18); p.text(owner.toUpperCase(),textX,13);
   hLine(p,ML,16,PW-ML-MR,255,255,255,0.25);
   p.setFont(F, 'normal'); p.setFontSize(7.5); tc(p,160,174,192);
   {
@@ -638,7 +693,7 @@ function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
     // for this contact line (it sits on the dark navy banner, so a dark
     // icon color like `accent` would be invisible here).
     const lightGray: RGB = [160,174,192];
-    let cx = ML;
+    let cx = textX;
     if (pr.email) cx = iconText(p, ICON.envelope, pr.email, cx, 23, 7.5, lightGray);
     const rest = [pr.phone, pr.address, pr.id_number?`ID: ${pr.id_number}`:null].filter(Boolean).join('   ·   ');
     if (rest) { p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,lightGray[0],lightGray[1],lightGray[2]); p.text((pr.email?'   ·   ':'')+rest, cx, 23); }
@@ -758,9 +813,11 @@ function drawProfessional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],cus
 }
 
 // ── 4. MINIMAL — Centred header, left-date column layout ─────────────────────
-function drawMinimal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
+function drawMinimal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
   const accent=hex('#111827'); const [ar,ag,ab]=accent;
-  tc(p,ar,ag,ab);p.setFont(F,'bold');p.setFontSize(18);const nw=p.getTextWidth(owner.toUpperCase());p.text(owner.toUpperCase(),(PW-nw)/2,MT+8);
+  let headerY = MT+8;
+  if (photoUrl) { const PHOTO=16; p.addImage(photoUrl,'PNG',(PW-PHOTO)/2,MT-6,PHOTO,PHOTO); headerY += PHOTO-2; }
+  tc(p,ar,ag,ab);p.setFont(F,'bold');p.setFontSize(18);const nw=p.getTextWidth(owner.toUpperCase());p.text(owner.toUpperCase(),(PW-nw)/2,headerY);
   {
     const muted:RGB=[107,114,128];
     const items:[string|null,string][]=[[ICON.mapMarker,pr.address],[ICON.phone,pr.phone],[ICON.envelope,pr.email]].filter(([,v])=>!!v) as [string|null,string][];
@@ -769,10 +826,10 @@ function drawMinimal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
     let totalW=0;
     for(let i=0;i<items.length;i++){const iconW=8*0.55+1.5;totalW+=iconW+p.getTextWidth(items[i][1]);if(i<items.length-1)totalW+=sepW;}
     let cx=(PW-totalW)/2;
-    for(let i=0;i<items.length;i++){const [glyph,v]=items[i];cx=iconText(p,glyph,v,cx,MT+14,8,muted);
-      if(i<items.length-1){p.setFont(F,'normal');p.setFontSize(8);tc(p,muted[0],muted[1],muted[2]);p.text(SEP,cx,MT+14);cx+=sepW;}}
+    for(let i=0;i<items.length;i++){const [glyph,v]=items[i];cx=iconText(p,glyph,v,cx,headerY+6,8,muted);
+      if(i<items.length-1){p.setFont(F,'normal');p.setFontSize(8);tc(p,muted[0],muted[1],muted[2]);p.text(SEP,cx,headerY+6);cx+=sepW;}}
   }
-  hLine(p,ML,MT+17,PW-ML-MR,ar,ag,ab,0.6);reset(p);let y=MT+28;
+  hLine(p,ML,headerY+9,PW-ML-MR,ar,ag,ab,0.6);reset(p);let y=headerY+20;
   const DX=ML;const DW=28;const CX=ML+DW+6;const CMW=PW-MR-CX;
   const np=()=>{p.addPage();reset(p);return MT;};const GXW=():[ number,number]=>[CX,CMW];
   if(pr.bio){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(8);tc(p,156,163,175);p.text('SUMMARY',DX,y);p.setFont(F,'normal');p.setFontSize(9);tc(p,75,85,99);y=wrapped(p,pr.bio,CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
@@ -867,23 +924,25 @@ function drawSidebar(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   refsPage(p,refs,BLUE,'bar',np,BOTTOM,owner,wm);
 }
 
-// ── 6. BOLD — Pink banner, main left column + narrow right skill panel ─────────
-function drawBold(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
+// ── 6. BOLD — Pink banner, single-column body ────────────────────────────────
+function drawBold(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
   const accent:RGB = hex('#c2185b'); const [ar,ag,ab] = accent;
 
   // ── Bold magenta full-width banner header ─────────────────────────────────
   fill(p,ar,ag,ab); p.rect(0,0,PW,32,'F');
+  const PHOTO=20; const textX = photoUrl ? ML+PHOTO+6 : ML;
+  if (photoUrl) p.addImage(photoUrl,'PNG',ML,6,PHOTO,PHOTO);
   tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(18);
-  p.text(owner.toUpperCase(), ML, 12);
+  p.text(owner.toUpperCase(), textX, 12);
   // Job title below name
   const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
   p.setFont(F,'normal'); p.setFontSize(9); tc(p,255,180,210);
-  p.text(jobTitle, ML, 18);
+  p.text(jobTitle, textX, 18);
   // Divider + contact
   fill(p,255,255,255); p.rect(ML,21,PW-ML-MR,0.4,'F');
   {
     const lightPink:RGB=[255,210,230];
-    let cx=ML;
+    let cx=textX;
     if (pr.email) cx = iconText(p, ICON.envelope, pr.email, cx, 27, 7.5, lightPink);
     if (pr.phone) { p.setFont(F,'normal');p.setFontSize(7.5);tc(p,lightPink[0],lightPink[1],lightPink[2]);p.text('   |   ',cx,27);cx+=p.getTextWidth('   |   '); cx = iconText(p, ICON.phone, pr.phone, cx, 27, 7.5, lightPink); }
     if (pr.address) { p.setFont(F,'normal');p.setFontSize(7.5);tc(p,lightPink[0],lightPink[1],lightPink[2]);p.text('   |   ',cx,27);cx+=p.getTextWidth('   |   '); cx = iconText(p, ICON.mapMarker, pr.address, cx, 27, 7.5, lightPink); }
@@ -1088,7 +1147,7 @@ function drawBoxed(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
 }
 
 // ── 11. TRADITIONAL — Centred name, left-date + vertical rule ─────────────────
-function drawTraditional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
+function drawTraditional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
   const accent=hex('#374151');const [ar,ag,ab]=accent;
 
   // ── Centred name header ──────────────────────────────────────────────────
@@ -1299,7 +1358,7 @@ function drawTimeline(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
 }
 
 // ── 14. SHADED — Centred header, shaded section bars, • entry markers ─────────
-function drawShaded(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
+function drawShaded(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
   const accent=hex('#374151');const [ar,ag,ab]=accent;
   fill(p,243,244,246);p.rect(0,0,PW,28,'F');
   tc(p,17,24,39);p.setFont(F,'bold');p.setFontSize(16);const nw=p.getTextWidth(owner.toUpperCase());p.text(owner.toUpperCase(),(PW-nw)/2,MT+8);
@@ -1405,18 +1464,20 @@ function drawTeal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm);
 }
 
-// ── 16. CRIMSON — Red banner, italic section headings, right skill bars ────────
-function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
+// ── 16. CRIMSON — Red banner, centered header, single-column body ──────────────
+function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
   const accent:RGB = hex('#c0392b'); const [ar,ag,ab] = accent;
 
   // ── Crimson banner header — centered, normal (non-italic) type ───────────
-  fill(p,ar,ag,ab); p.rect(0,0,PW,28,'F');
+  const offset = photoUrl ? 12 : 0; // extra banner height + downward shift for everything below the photo
+  fill(p,ar,ag,ab); p.rect(0,0,PW,28+offset,'F');
+  if (photoUrl) { const PHOTO=14; p.addImage(photoUrl,'PNG',(PW-PHOTO)/2,4,PHOTO,PHOTO); }
   tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(18);
-  { const nw=p.getTextWidth(owner); p.text(owner, (PW-nw)/2, 11); }
+  { const nw=p.getTextWidth(owner); p.text(owner, (PW-nw)/2, 11+offset); }
   const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
   p.setFont(F,'normal'); p.setFontSize(9); tc(p,255,180,160);
-  { const jw=p.getTextWidth(jobTitle); p.text(jobTitle, (PW-jw)/2, 18); }
-  hLine(p,0,22,PW,255,255,255,0.25);
+  { const jw=p.getTextWidth(jobTitle); p.text(jobTitle, (PW-jw)/2, 18+offset); }
+  hLine(p,0,22+offset,PW,255,255,255,0.25);
   {
     const lightPink:RGB=[255,210,200];
     const items:[string|null,string][]=[[ICON.envelope,pr.email],[ICON.phone,pr.phone],[ICON.mapMarker,pr.address]].filter(([,v])=>!!v) as [string|null,string][];
@@ -1425,13 +1486,13 @@ function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
     let totalW=0;
     for(let i=0;i<items.length;i++){const iconW=7.5*0.55+1.5;totalW+=iconW+p.getTextWidth(items[i][1]);if(i<items.length-1)totalW+=sepW;}
     let cx=(PW-totalW)/2;
-    for(let i=0;i<items.length;i++){const [glyph,v]=items[i];cx=iconText(p,glyph,v,cx,27,7.5,lightPink);
-      if(i<items.length-1){p.setFont(F,'normal');p.setFontSize(7.5);tc(p,lightPink[0],lightPink[1],lightPink[2]);p.text(SEP,cx,27);cx+=sepW;}}
+    for(let i=0;i<items.length;i++){const [glyph,v]=items[i];cx=iconText(p,glyph,v,cx,27+offset,7.5,lightPink);
+      if(i<items.length-1){p.setFont(F,'normal');p.setFontSize(7.5);tc(p,lightPink[0],lightPink[1],lightPink[2]);p.text(SEP,cx,27+offset);cx+=sepW;}}
   }
   reset(p);
 
   const W = PW-ML-MR;
-  let y = MT + 22;
+  let y = MT + 22 + offset;
   const paintStrip = () => { fill(p,ar,ag,ab); p.rect(0,0,PW,5,'F'); reset(p); };
   const np  = () => { p.addPage(); reset(p); paintStrip(); return MT+7; };
   const GXW = ():[number,number] => [ML, W];
@@ -1509,7 +1570,7 @@ function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 
 
 // ── 17. SAGE — Soft green card header, bulleted skills list ───────────────────
-function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
+function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
   const accent=hex('#7fa37f');const SAGE_BG:RGB=[232,240,232];const [ar,ag,ab]=accent;
   const STRIP_H = 8; // height of the sage-green top strip on page 2+
 
@@ -1651,7 +1712,7 @@ function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
 // Mirrors ElegantTemplate in CVTemplateRenderer.tsx: full-page light-blue
 // background, centered header (name / role / contact), and section headings
 // flanked by horizontal divider lines extending to the page margins.
-function drawElegant(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
+function drawElegant(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
   const accent = hex('#475569');           // slate-600 — footer line, bullets
   const BG     = hex('#EAF0FB');           // page background
   const INK    = hex('#1e293b');           // slate-800 — name, headings
@@ -1666,7 +1727,8 @@ function drawElegant(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   const np = () => { p.addPage(); paintBg(); return MT + 6; };
   const GXW = ():[number,number] => [ML, PW-ML-MR];
 
-  // ── Header: centered name / subtitle / contact ────────────────────────────
+  // ── Header: centered photo / name / subtitle / contact ────────────────────
+  if (photoUrl) { const PHOTO=16; p.addImage(photoUrl,'PNG',(PW-PHOTO)/2,y,PHOTO,PHOTO); y += PHOTO + 4; }
   p.setFont('times','bold'); p.setFontSize(20); tc(p,INK[0],INK[1],INK[2]);
   const name = owner.toUpperCase();
   let tw = p.getTextWidth(name);
@@ -1830,7 +1892,7 @@ function drawElegant(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 // top, title-case name, italic role subtitle, and section headings in
 // uppercase with a double rule beneath. Skills render as an inline
 // "Name (description)" list with italicised descriptions.
-function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
+function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
   const accent = hex('#334155');           // slate-700 — rules, footer
   const BG     = hex('#EAF0FB');           // page background
   const INK    = hex('#1e293b');           // slate-800 — name, headings
@@ -1872,7 +1934,8 @@ function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
     y += 3;
   }
 
-  // ── Name (title case) + subtitle (most recent role, italic) ──────────────
+  // ── Photo (if any) + Name (title case) + subtitle (most recent role, italic) ─
+  if (photoUrl) { const PHOTO=16; p.addImage(photoUrl,'PNG',(PW-PHOTO)/2,y,PHOTO,PHOTO); y += PHOTO + 4; }
   p.setFont('times','bold'); p.setFontSize(22); tc(p,INK[0],INK[1],INK[2]);
   let tw = p.getTextWidth(owner);
   p.text(owner, (PW-tw)/2, y);
@@ -2223,7 +2286,7 @@ function drawPlayful(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 
 // ── 21. CASUAL — Identical to Playful but fully single-column.
 // About Me → Experience → Education → Skills → Custom → References.
-function drawCasual(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true) {
+function drawCasual(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
   const accent:RGB  = [17,17,17];
   const PL_BG:RGB   = [245,240,232];
   const PL_MUT:RGB  = [85,85,85];
