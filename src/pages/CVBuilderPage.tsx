@@ -20,6 +20,7 @@ import type { CustomSection } from '@/components/cv/CVStepExtras';
 import CVStepTemplate from '@/components/cv/CVStepTemplate';
 import CVStepReview from '@/components/cv/CVStepReview';
 import LastCVBanner from '@/components/cv/LastCVBanner';
+import CVPreviewDrawer from '@/components/cv/CVPreviewDrawer';
 import TestimonialPromptModal from '@/components/TestimonialPromptModal';
 // Kept for backward compatibility with saved drafts / last CV data
 export type CVType = 'educator' | 'general';
@@ -565,6 +566,9 @@ export default function CVBuilderPage() {
       </motion.div>
       {showTestimonialPrompt && (
         <TestimonialPromptModal source="cv_download_prompt" onClose={() => setShowTestimonialPrompt(false)} />
+      )}
+      {step < STEPS.length - 1 && (
+        <CVPreviewDrawer data={data} ownerName={data.personal.full_name} />
       )}
     </div>
   );
