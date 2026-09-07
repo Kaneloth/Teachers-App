@@ -1,0 +1,45 @@
+# ============================================================================
+# MAINTENANCE MODE — now controlled dynamically, not by editing this file
+# ============================================================================
+# Superseded by netlify/edge-functions/maintenance-gate.ts, which checks the
+# admin-toggleable `maintenance_mode` flag in the app_settings table on every
+# request. Toggle it from Admin → Tools (AdminTools.tsx) — takes effect
+# site-wide within ~15 seconds, no redeploy needed.
+#
+# The static on/off rules that used to live here (requiring a file edit +
+# redeploy every time) have been removed for that reason. Everything below
+# is still required, permanent infrastructure — keep it regardless of
+# whether maintenance mode is currently on or off.
+#
+# Netlify processes edge functions BEFORE _redirects on every request, so
+# maintenance-gate.ts already runs first and decides whether to rewrite to
+# /maintenance.html — these rules just make sure a few specific paths are
+# never caught by that decision, and are pure passthroughs (no maintenance
+# logic lives here anymore).
+# ============================================================================
+
+# ── 1. Never redirect Netlify Functions ─────────────────────────────────────
+# Webhooks — most importantly payfast-webhook.js — must keep working even
+# while the site is in maintenance mode. If a PayFast payment confirmation
+# got redirected to the maintenance page instead of reaching the function,
+# a customer could be charged without their credits ever being granted.
+# Scheduled functions (match-scan-daily, monthly-pro-credits,
+# vacancies-refresh-daily) aren't affected by _redirects either way — they
+# run on Netlify's internal scheduler, not via a matched HTTP path — but
+# this rule is still required for anything triggered by an external call
+# (webhooks) or the app's own fetch() calls (deduct-credits, grant-signup-
+# credits, admin-*, etc.), all of which DO go through this file.
+# (maintenance-gate.ts also exempts this path itself, independently —
+# this rule is a second layer of the same protection.)
+/.netlify/functions/*   /.netlify/functions/:splat   200
+
+# ── 2. Always allow the hidden bypass page to load ──────────────────────────
+# This is what sets the bypass cookie maintenance-gate.ts checks for.
+# See maintenance-access.html for the secret key check.
+/maintenance-access.html   /maintenance-access.html   200
+
+# ── 3. Always allow the maintenance page's own request to pass through ─────
+# (Not strictly required — a self-referential redirect isn't a loop — but
+# explicit here so it's obvious this path is intentionally exempt too.)
+/maintenance.html   /maintenance.html   200
+

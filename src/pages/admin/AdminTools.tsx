@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { Zap, Loader2, MapPin } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Zap, Loader2, MapPin, ShieldAlert } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { toast } from 'sonner';
 import { useAuth } from '@/lib/AuthContext';
 
 interface BackfillResult {
@@ -19,6 +21,57 @@ export default function AdminTools() {
   const [backfilling,      setBackfilling]      = useState(false);
   const [backfillSummary,  setBackfillSummary]  = useState<string | null>(null);
   const [backfillResults,  setBackfillResults]  = useState<BackfillResult[]>([]);
+
+  const [maintenanceOn,      setMaintenanceOn]      = useState(false);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(true);
+  const [maintenanceUpdatedAt, setMaintenanceUpdatedAt] = useState<string | null>(null);
+  const [togglingMaintenance, setTogglingMaintenance] = useState(false);
+
+  const callMaintenance = async (body: Record<string, unknown>) => {
+    const res = await fetch('/.netlify/functions/admin-maintenance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Request failed');
+    return data;
+  };
+
+  useEffect(() => {
+    if (!session?.access_token) return;
+    callMaintenance({ action: 'get' })
+      .then(data => {
+        setMaintenanceOn(!!data.enabled);
+        setMaintenanceUpdatedAt(data.updated_at ?? null);
+      })
+      .catch((e: any) => toast.error(e.message || 'Failed to load maintenance mode status'))
+      .finally(() => setMaintenanceLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.access_token]);
+
+  const toggleMaintenance = async (next: boolean) => {
+    // Turning maintenance mode ON takes the live site down for every
+    // visitor except whoever holds the bypass cookie — worth a confirm.
+    // Turning it back OFF is never destructive, so no confirm needed there.
+    if (next && !window.confirm(
+      'Turn maintenance mode ON? This immediately shows the maintenance page to every visitor site-wide (except anyone with the bypass cookie set via maintenance-access.html). Payment webhooks keep working regardless.'
+    )) return;
+
+    setTogglingMaintenance(true);
+    try {
+      const data = await callMaintenance({ action: 'set', enabled: next });
+      setMaintenanceOn(!!data.enabled);
+      setMaintenanceUpdatedAt(new Date().toISOString());
+      toast.success(next ? 'Maintenance mode is now ON — site-wide, within ~15 seconds.' : 'Maintenance mode is now OFF — site back to normal within ~15 seconds.');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to update maintenance mode');
+    } finally {
+      setTogglingMaintenance(false);
+    }
+  };
+
+  const fmtDate = (d: string) => new Date(d).toLocaleString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   const runMatchScan = async () => {
     if (!session?.access_token) return;
@@ -82,6 +135,43 @@ export default function AdminTools() {
       <div>
         <h1 className="text-xl font-bold text-foreground">Tools</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Admin utilities</p>
+      </div>
+
+      {/* Maintenance mode — highest-impact toggle on this page, so it goes first */}
+      <div className={`rounded-2xl border p-4 space-y-3 ${maintenanceOn ? 'bg-destructive/5 border-destructive/30' : 'bg-card border-border'}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${maintenanceOn ? 'bg-destructive/10' : 'bg-primary/10'}`}>
+              <ShieldAlert className={`w-4.5 h-4.5 ${maintenanceOn ? 'text-destructive' : 'text-primary'}`} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Maintenance Mode</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {maintenanceOn
+                  ? 'Site-wide — every visitor sees the maintenance page right now, except anyone with the bypass cookie.'
+                  : 'Site is live and accessible to everyone as normal.'}
+              </p>
+              {maintenanceUpdatedAt && (
+                <p className="text-[11px] text-muted-foreground mt-1">Last changed {fmtDate(maintenanceUpdatedAt)}</p>
+              )}
+            </div>
+          </div>
+          {maintenanceLoading
+            ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground shrink-0 mt-1" />
+            : (
+              <Switch
+                checked={maintenanceOn}
+                disabled={togglingMaintenance}
+                onCheckedChange={toggleMaintenance}
+                className="shrink-0"
+              />
+            )}
+        </div>
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          Takes effect site-wide within ~15 seconds — no redeploy needed. Payment webhooks (PayFast) and scheduled
+          jobs keep running regardless of this setting. To view the real site while maintenance mode is on, visit{' '}
+          <code className="bg-muted px-1 py-0.5 rounded">/maintenance-access.html?key=...</code> with your secret key.
+        </p>
       </div>
 
       {/* Match scan */}
