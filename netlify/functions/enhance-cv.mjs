@@ -246,6 +246,42 @@ Return ONLY the summary paragraph. No labels, no JSON, no preamble. Just the sum
 }
 
 
+// ── Mode 5: Improve the wording of experience bullet points ────────────────
+// Same anti-hallucination DNA as buildSummaryPrompt above: this is a
+// wording/clarity pass, never a content-invention pass. The model is
+// explicitly told it may return a bullet UNCHANGED if it's already good —
+// improving 3 out of 5 bullets and leaving 2 alone is a correct result,
+// not a partial failure, so there's no pressure to manufacture a "better"
+// version of something that doesn't need one.
+function buildBulletImprovementPrompt(bullets, role, school, isEducator) {
+  const context = role || school
+    ? ` for their role as ${role || 'this position'}${school ? ` at ${school}` : ''}`
+    : '';
+  const professionHint = isEducator
+    ? 'This is for a South African educator\'s CV — teaching/classroom context is appropriate where genuinely relevant.'
+    : 'This is for a South African professional\'s CV in a non-education field — do not add teaching/classroom framing unless the bullet itself already mentions it.';
+
+  return `You are an expert CV writer improving bullet points on a South African CV/resume${context}.
+
+TASK: Rewrite EACH bullet point below to be more impactful and professional — stronger action verbs, clearer structure, more concise — WITHOUT changing what actually happened or adding any fact, number, or outcome that isn't already stated in that bullet.
+
+ABSOLUTE RULES — DO NOT VIOLATE:
+1. NEVER invent numbers, percentages, team sizes, budgets, timeframes, or outcomes that aren't already in the original bullet. If the original doesn't mention a number, the rewrite must not mention one either.
+2. NEVER change WHAT the person did — only HOW it's worded. "Assisted customers with enquiries" must never become something like "Led a team of 10 to increase customer satisfaction by 30%" — that invents facts, not just better wording.
+3. Use a stronger action verb ONLY where it's a more accurate word for what's already described (e.g. "helped organise" → "coordinated" is fine if that's genuinely what happened; inventing a grander verb for a smaller task is not).
+4. Keep each rewritten bullet roughly the same length and scope as the original — don't pad a short, simple bullet into a long embellished one, and don't strip real detail out of a longer one.
+5. If a bullet is already clear and well-written, return it completely UNCHANGED rather than making a cosmetic change for its own sake.
+6. When in doubt between a bigger rewrite and a smaller, safer edit, always choose the smaller one — a modest improvement that stays 100% true to the original beats an impressive-sounding one that drifts from it.
+
+${professionHint}
+
+ORIGINAL BULLETS (rewrite each one, in the same order — there are exactly ${bullets.length}):
+${bullets.map((b, i) => `${i + 1}. ${b}`).join('\n')}
+
+Return ONLY valid JSON in this exact format, with EXACTLY ${bullets.length} items, in the same order as above, one string per original bullet:
+{"suggestions": ${JSON.stringify(bullets.map(() => 'rewritten version of this bullet'))}}`;
+}
+
 function buildCoverLetterPrompt(jobDescription, cvData, meta) {
   const name       = cvData?.personal?.full_name || meta?.name || '[Applicant Name]';
   const position   = meta?.position || '[Position]';
@@ -486,6 +522,47 @@ export const handler = async (event) => {
         return {
           statusCode: 200,
           body: JSON.stringify({ success: true, data: normaliseParsed(safeParseJson(content)) }),
+        };
+      }
+
+      // ── Mode 5: Improve the wording of experience bullet points ─────────
+      // Called with: { action: 'improve_experience_bullets', bullets: string[],
+      //                role?, school?, cvType? }
+      if (body.action === 'improve_experience_bullets') {
+        const bullets = Array.isArray(body.bullets)
+          ? body.bullets.filter(b => typeof b === 'string' && b.trim())
+          : [];
+        if (!bullets.length) {
+          return { statusCode: 400, body: JSON.stringify({ error: 'No bullets provided' }) };
+        }
+
+        const isEducator = body.cvType !== 'general';
+        const prompt = buildBulletImprovementPrompt(bullets, body.role || '', body.school || '', isEducator);
+        const raw = await callGroq(prompt, true);
+
+        let suggestions;
+        try {
+          const parsed = safeParseJson(raw);
+          suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
+        } catch (err) {
+          console.error('[enhance-cv] improve_experience_bullets: failed to parse suggestions', err);
+          suggestions = [];
+        }
+
+        // Defensive: never let a malformed/short/mistyped model response
+        // mismatch bullet i's suggestion to a different bullet, or crash
+        // the caller. Any slot that isn't a real, non-empty string falls
+        // back to the ORIGINAL bullet unchanged — same principle as the
+        // prompt itself: an unchanged bullet is always a safe, correct
+        // result, never a failure.
+        const safeSuggestions = bullets.map((original, i) => {
+          const s = suggestions[i];
+          return (typeof s === 'string' && s.trim()) ? s.trim() : original;
+        });
+
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ success: true, suggestions: safeSuggestions }),
         };
       }
 
