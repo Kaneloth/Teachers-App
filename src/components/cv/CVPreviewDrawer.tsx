@@ -145,8 +145,16 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Pro
 
   return (
     <>
-      {/* ── Collapsed handle — always visible while this step is mounted ── */}
-      {!open && (
+      {/* ── Collapsed handle — portaled to <body> for the same reason as the
+             expanded panel below: CVBuilderPage renders inside AppLayout's
+             swipeable tab strip for general users, which applies a CSS
+             transform for the swipe animation. A transformed ancestor
+             becomes the containing block for any `position: fixed`
+             descendant, so without this portal the handle was being
+             positioned relative to that shifted, horizontally-translated
+             strip container instead of the real viewport — not just a
+             wrong pixel value, but the wrong coordinate system entirely. ── */}
+      {!open && createPortal(
         <button
           ref={handleRef}
           onClick={() => setOpen(true)}
@@ -162,10 +170,11 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Pro
             <p className="text-xs font-semibold text-foreground flex items-center gap-1">
               <Eye className="w-3 h-3" /> Live Preview
             </p>
-            <p className="text-[11px] text-muted-foreground truncate">{ownerName || 'See your CV update as you type'}</p>
+            <p className="text-[11px] text-primary font-medium truncate">Tap to view full CV</p>
           </div>
           <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
-        </button>
+        </button>,
+        document.body
       )}
 
       {/* ── Expanded panel — portaled to <body> to escape the framer-motion
