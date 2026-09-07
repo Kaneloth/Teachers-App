@@ -43,6 +43,7 @@ interface CVData {
   skills: { subjects?: string[]; soft_skills?: string[]; languages?: string[] };
   references?: { name: string; title: string; organisation: string; phone: string; email: string; relationship: string }[];
   template: string;
+  cvType?: 'educator' | 'general';
 }
 
 interface Props { data: CVData; onGenerated?: (url: string) => void; isFree?: boolean; aiUsed?: boolean }
@@ -261,7 +262,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
                 style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
               >
                 <div style={{ position: 'absolute', top: `${-i * PAGE_HEIGHT}px`, left: 0 }}>
-                  <CVTemplateRenderer data={safeData} forExport />
+                  <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
                 </div>
               </div>
             ))}
@@ -326,7 +327,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
       {/* Hidden full-size render used by exportElementAsPDF — added cv-export-root class */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '794px' }}>
         <div ref={exportRef} className="cv-export-root">
-          <CVTemplateRenderer data={safeData} forExport />
+          <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
         </div>
       </div>
 

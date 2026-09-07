@@ -60,9 +60,9 @@ const TEMPLATES = [
 
 const FREE_TEMPLATE = 'classic';
 
-interface Props { selected: string; onChange: (id: string) => void; isFree?: boolean }
+interface Props { selected: string; onChange: (id: string) => void; isFree?: boolean; isEducator?: boolean }
 
-export default function CVStepTemplate({ selected, onChange, isFree = false }: Props) {
+export default function CVStepTemplate({ selected, onChange, isFree = false, isEducator = true }: Props) {
   const handleSelect = (id: string) => {
     if (isFree && id !== FREE_TEMPLATE) {
       toast.info('Buy any credit pack to unlock all 10 templates.', { duration: 3000 });
@@ -104,7 +104,7 @@ export default function CVStepTemplate({ selected, onChange, isFree = false }: P
               {/* zoom (unlike transform:scale) collapses layout height automatically */}
               <div className="h-36 overflow-hidden bg-white relative">
                 <div style={{ zoom: 0.205, pointerEvents: 'none' }}>
-                  <CVTemplateRenderer data={previewData as any} forExport={false} watermark={false} />
+                  <CVTemplateRenderer data={previewData as any} forExport={false} watermark={false} cvType={isEducator ? 'educator' : 'general'} />
                 </div>
 
                 {/* Category badge */}

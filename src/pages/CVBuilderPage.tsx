@@ -21,6 +21,7 @@ import CVStepTemplate from '@/components/cv/CVStepTemplate';
 import CVStepReview from '@/components/cv/CVStepReview';
 import LastCVBanner from '@/components/cv/LastCVBanner';
 import CVPreviewDrawer from '@/components/cv/CVPreviewDrawer';
+import CVStaticPreviewPanel from '@/components/cv/CVStaticPreviewPanel';
 import TestimonialPromptModal from '@/components/TestimonialPromptModal';
 // Kept for backward compatibility with saved drafts / last CV data
 export type CVType = 'educator' | 'general';
@@ -58,6 +59,26 @@ function defaultData(): CVData {
     job_description: '',
   };
 }
+// Matches Tailwind's `lg:` breakpoint (1024px) — kept as a plain JS
+// media-query check (not just a CSS class) because CVPreviewDrawer should
+// not be MOUNTED at all on wide screens, not merely hidden. It runs its
+// own effects (measuring the bottom nav, ResizeObservers) that serve no
+// purpose once the desktop split-screen panel is showing the same preview
+// permanently — CSS `hidden lg:block` would still leave all of that
+// running in the background for nothing.
+function useIsDesktop(breakpointPx = 1024): boolean {
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth >= breakpointPx
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${breakpointPx}px)`);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    setIsDesktop(mq.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [breakpointPx]);
+  return isDesktop;
+}
 /* ── Numbered stepper ───────────────────────────────────────── */
 function StepStepper({ steps, current, onSelect }: { steps: string[]; current: number; onSelect: (i: number) => void }) {
   return (
@@ -87,13 +108,14 @@ function StepStepper({ steps, current, onSelect }: { steps: string[]; current: n
   );
 }
 /* ── Upload / AI Zone ───────────────────────────────────────── */
-function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoading, onJobDesc }: {
+function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoading, onJobDesc, isEducator }: {
   onDataExtracted: (data: CVData) => void;
   deduct: (type: 'cv_usage' | 'letter_usage', refId?: string) => Promise<boolean>;
   onAiUsed: () => void;
   balance: number;
   creditsLoading: boolean;
   onJobDesc?: (jd: string) => void;
+  isEducator: boolean;
 }) {
   const [uploading,     setUploading]     = useState(false);
   const [dragActive,    setDragActive]    = useState(false);
@@ -123,7 +145,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
         if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 3000));
         const formData = new FormData();
         formData.append('cvFile', file);
-        formData.append('cvType', 'general');
+        formData.append('cvType', isEducator ? 'educator' : 'general');
         if (jobDesc.trim()) formData.append('jobDescription', jobDesc.trim());
         const res    = await fetch('/.netlify/functions/enhance-cv', { method: 'POST', body: formData });
         const result = await res.json();
@@ -161,7 +183,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
         const res = await fetch('/.netlify/functions/enhance-cv', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'process_freetext', text: freeText, cvType: 'general', jobDescription: jobDesc.trim() || undefined }),
+          body: JSON.stringify({ action: 'process_freetext', text: freeText, cvType: isEducator ? 'educator' : 'general', jobDescription: jobDesc.trim() || undefined }),
         });
         const result = await res.json();
         const isRateLimit = res.status === 429 || res.status === 503 ||
@@ -295,6 +317,7 @@ export default function CVBuilderPage() {
   const navigate = useNavigate();
   const { balance, loading: creditsLoading, deduct } = useCredits();
   const { gates, loading: gatesLoading } = useFeatureGates();
+  const isDesktop = useIsDesktop();
   const [initialState] = useState(() => {
     const lastMeta: Record<string, unknown> = (() => {
       try { return JSON.parse(localStorage.getItem(LAST_CV_KEY) ?? '{}'); } catch { return {}; }
@@ -332,7 +355,17 @@ export default function CVBuilderPage() {
       .maybeSingle()
       .then(({ data }) => {
         setTemplatesUnlocked(!!(data?.templates_unlocked));
-        setIsEducator(!data || data.profile_type !== 'general');
+        const educator = !data || data.profile_type !== 'general';
+        setIsEducator(educator);
+        // This is the one place cvType should ever be set from — it's a
+        // property of the user's account, not something that should vary
+        // per-CV or get hardcoded. Previously every write of cvType in
+        // this file was a literal 'general' string regardless of the
+        // user's real type, which meant CVTemplateRenderer.tsx and
+        // cvExport.ts (which each read cvType differently and defaulted
+        // differently when it disagreed with reality) silently showed
+        // wrong section labels and job-title fallbacks for real educators.
+        setData(prev => (prev.cvType === (educator ? 'educator' : 'general') ? prev : { ...prev, cvType: educator ? 'educator' : 'general' }));
       });
   }, [user]);
   // templates_access gate: when OFF (false), all templates are free for everyone
@@ -348,6 +381,7 @@ export default function CVBuilderPage() {
   // component is what's still on screen right after generation (it
   // switches to the LastCVBanner view below), so the prompt belongs here.
   const [showTestimonialPrompt, setShowTestimonialPrompt] = useState(false);
+  const [drawerHandleHeight, setDrawerHandleHeight] = useState(0);
   const [data,             setData]             = useState<CVData>(initialState.draft?.data ?? defaultData());
   const [draftSavedAt,     setDraftSavedAt]     = useState<string | null>(initialState.draft?.savedAt ?? null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -355,7 +389,7 @@ export default function CVBuilderPage() {
   useEffect(() => {
     const savedAt = new Date().toISOString();
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: 'general', data, step, savedAt }));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: data.cvType, data, step, savedAt }));
       setDraftSavedAt(savedAt);
     } catch {}
   }, [data, step]);
@@ -409,7 +443,7 @@ export default function CVBuilderPage() {
     setShowBuilder(true);
     const savedAt = new Date().toISOString();
     setDraftSavedAt(savedAt);
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: 'general', data: saved, step: 0, savedAt })); } catch {}
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: saved.cvType, data: saved, step: 0, savedAt })); } catch {}
   };
   const handleCVGenerated = (pdfUrl: string) => {
     const now = new Date().toISOString();
@@ -445,12 +479,12 @@ export default function CVBuilderPage() {
     }
   };
   const handleAIDataExtracted = (newData: CVData) => {
-    setData(prev => ({ ...newData, personal: prev.personal }));
+    setData(prev => ({ ...newData, personal: prev.personal, cvType: prev.cvType }));
     setStep(0);
     setShowBuilder(true);
     const savedAt = new Date().toISOString();
     setDraftSavedAt(savedAt);
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: 'general', data: { ...newData, personal: data.personal }, step: 0, savedAt })); } catch {}
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: data.cvType, data: { ...newData, personal: data.personal, cvType: data.cvType }, step: 0, savedAt })); } catch {}
   };
   if (!showBuilder && lastCVData) {
     return (
@@ -484,7 +518,9 @@ export default function CVBuilderPage() {
     );
   }
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto lg:max-w-5xl">
+      <div className="lg:flex lg:gap-6 lg:items-start">
+        <div className="lg:flex-1 lg:min-w-0">
       <div className="flex items-center gap-2 px-4 pt-4 pb-1">
         <button onClick={handleBack} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
           <ArrowLeft className="w-5 h-5 text-foreground" />
@@ -503,7 +539,7 @@ export default function CVBuilderPage() {
       <div className="px-4 pb-4 pt-1">
         <p className="text-sm text-muted-foreground">Build a professional CV in minutes</p>
       </div>
-      {step === 0 && <CVUploadZone onDataExtracted={handleAIDataExtracted} deduct={deduct} onAiUsed={() => setAiUsed(true)} balance={balance} creditsLoading={creditsLoading} onJobDesc={jd => setData(d => ({ ...d, job_description: jd }))} />}
+      {step === 0 && <CVUploadZone onDataExtracted={handleAIDataExtracted} deduct={deduct} onAiUsed={() => setAiUsed(true)} balance={balance} creditsLoading={creditsLoading} onJobDesc={jd => setData(d => ({ ...d, job_description: jd }))} isEducator={isEducator} />}
       <motion.div key="builder" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
         <div className="px-4 pb-2">
           <StepStepper steps={STEPS} current={step} onSelect={setStep} />
@@ -523,7 +559,7 @@ export default function CVBuilderPage() {
               {step === 3 && <CVStepSkills data={data.skills} onChange={skills => setData(d => ({ ...d, skills }))} />}
               {step === 4 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} />}
               {step === 5 && <CVStepReferences data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
-              {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} isFree={isFree} />}
+              {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} isFree={isFree} isEducator={isEducator} />}
               {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} isFree={isFree} aiUsed={aiUsed} />}
             </motion.div>
           </AnimatePresence>
@@ -545,7 +581,7 @@ export default function CVBuilderPage() {
             <Save className="w-4 h-4" /> Save &amp; Exit — continue later
           </Button>
         </div>
-        <div className="px-4 pb-6">
+        <div className="px-4" style={{ paddingBottom: `${(!isDesktop && step < STEPS.length - 1 ? drawerHandleHeight : 0) + 24}px` }}>
           {!showResetConfirm ? (
             <button onClick={() => setShowResetConfirm(true)}
               className="w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors py-1">
@@ -564,11 +600,23 @@ export default function CVBuilderPage() {
           )}
         </div>
       </motion.div>
+      {!isDesktop && step < STEPS.length - 1 && (
+        <CVPreviewDrawer data={data} ownerName={data.personal.full_name} onHandleHeight={setDrawerHandleHeight} />
+      )}
+        </div>
+        {/* Desktop split-screen: static, always-visible preview — replaces
+            the mobile drawer entirely at the lg: breakpoint (≥1024px).
+            Hidden on Review (step 7) same as the drawer, since that step
+            already shows its own full-size preview as the main content —
+            a second one alongside it would just be visual clutter. */}
+        {isDesktop && step < STEPS.length - 1 && (
+          <div className="hidden lg:block lg:w-[380px] lg:shrink-0 lg:sticky lg:top-4">
+            <CVStaticPreviewPanel data={data} width={380} />
+          </div>
+        )}
+      </div>
       {showTestimonialPrompt && (
         <TestimonialPromptModal source="cv_download_prompt" onClose={() => setShowTestimonialPrompt(false)} />
-      )}
-      {step < STEPS.length - 1 && (
-        <CVPreviewDrawer data={data} ownerName={data.personal.full_name} />
       )}
     </div>
   );

@@ -35,12 +35,49 @@ interface Props {
    *  would otherwise make `position: fixed` anchor to the wrong box —
    *  same issue the purchase modal already had to solve this way). */
   ownerName?: string;
+  /** Called with the collapsed handle's real rendered height (including
+   *  when it's 0, once unmounted) so the parent page can reserve exactly
+   *  that much extra bottom padding — otherwise content sitting at the
+   *  very bottom of a step (Save & Exit, Reset CV) scrolls up underneath
+   *  this fixed-position handle and gets visually covered by it. */
+  onHandleHeight?: (px: number) => void;
 }
 
-export default function CVPreviewDrawer({ data, ownerName }: Props) {
+export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Props) {
   const [open, setOpen] = useState(false);
   const [pageCount, setPageCount] = useState(1);
   const measureRef = useRef<HTMLDivElement>(null);
+  const handleRef = useRef<HTMLButtonElement>(null);
+
+  // Report the handle's real height to the parent whenever it changes
+  // (font/zoom differences, or the handle unmounting on step 7 → 0).
+  useEffect(() => {
+    if (!onHandleHeight) return;
+    if (open || !handleRef.current) { onHandleHeight(0); return; }
+    const el = handleRef.current;
+    const report = () => onHandleHeight(el.getBoundingClientRect().height);
+    report();
+    const ro = new ResizeObserver(report);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open, onHandleHeight]);
+
+  // Measure the REAL bottom nav height instead of guessing at it — an
+  // earlier hardcoded 80px estimate was wrong (too tall on some screens,
+  // leaving a visible gap; too short on others, letting the nav's higher
+  // z-index render over part of the handle and hide it). Same selector
+  // CreditBalance.tsx already uses elsewhere to find this exact element
+  // (AppLayout.tsx's <nav className="fixed bottom-0 ...">).
+  const [navHeight, setNavHeight] = useState(64); // reasonable fallback until measured
+  useEffect(() => {
+    const nav = document.querySelector('nav.fixed.bottom-0') as HTMLElement | null;
+    if (!nav) return;
+    const measure = () => setNavHeight(nav.getBoundingClientRect().height);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(nav);
+    return () => ro.disconnect();
+  }, []);
 
   const safeData = {
     ...data,
@@ -102,7 +139,7 @@ export default function CVPreviewDrawer({ data, ownerName }: Props) {
 
   const previewNode = (
     <div ref={measureRef} style={{ width: '794px' }}>
-      <CVTemplateRenderer data={safeData} forExport />
+      <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
     </div>
   );
 
@@ -111,13 +148,14 @@ export default function CVPreviewDrawer({ data, ownerName }: Props) {
       {/* ── Collapsed handle — always visible while this step is mounted ── */}
       {!open && (
         <button
+          ref={handleRef}
           onClick={() => setOpen(true)}
-          className="fixed left-0 right-0 z-[45] bg-card border-t border-border shadow-[0_-2px_12px_rgba(0,0,0,0.06)] flex items-center gap-3 px-4 py-2.5"
-          style={{ bottom: '80px' }} // matches AppLayout's own pb-20 convention for clearing the bottom nav
+          className="fixed left-0 right-0 z-[55] bg-card border-t border-border shadow-[0_-2px_12px_rgba(0,0,0,0.06)] flex items-center gap-3 px-4 py-2.5"
+          style={{ bottom: `${navHeight}px` }}
         >
           <div className="w-9 h-11 rounded-md overflow-hidden border border-border bg-white shrink-0 relative">
             <div style={{ zoom: 36 / 794, pointerEvents: 'none' }}>
-              <CVTemplateRenderer data={safeData} />
+              <CVTemplateRenderer data={safeData} cvType={safeData.cvType} />
             </div>
           </div>
           <div className="flex-1 min-w-0 text-left">
@@ -175,7 +213,7 @@ export default function CVPreviewDrawer({ data, ownerName }: Props) {
                     style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
                   >
                     <div style={{ position: 'absolute', top: `${-i * PAGE_HEIGHT}px`, left: 0 }}>
-                      <CVTemplateRenderer data={safeData} forExport />
+                      <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
                     </div>
                   </div>
                 ))}
