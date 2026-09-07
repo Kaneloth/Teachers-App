@@ -685,7 +685,7 @@ function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   const PHOTO=18; const textX = photoUrl ? ML+PHOTO+6 : ML;
   if (photoUrl) p.addImage(photoUrl,'PNG',ML,6,PHOTO,PHOTO);
   tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(18); p.text(owner.toUpperCase(),textX,13);
-  hLine(p,ML,16,PW-ML-MR,255,255,255,0.25);
+  hLine(p,textX,16,PW-MR-textX,255,255,255,0.25);
   p.setFont(F, 'normal'); p.setFontSize(7.5); tc(p,160,174,192);
   {
     // Icon before EVERY contact item (email, phone, address, ID) — matches
@@ -951,7 +951,7 @@ function drawBold(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   p.setFont(F,'normal'); p.setFontSize(9); tc(p,255,180,210);
   p.text(jobTitle, textX, 18);
   // Divider + contact
-  fill(p,255,255,255); p.rect(ML,21,PW-ML-MR,0.4,'F');
+  fill(p,255,255,255); p.rect(textX,21,PW-MR-textX,0.4,'F');
   {
     const lightPink:RGB=[255,210,230];
     let cx=textX;
