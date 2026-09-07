@@ -688,15 +688,27 @@ function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   hLine(p,ML,16,PW-ML-MR,255,255,255,0.25);
   p.setFont(F, 'normal'); p.setFontSize(7.5); tc(p,160,174,192);
   {
-    // Envelope icon before the email specifically; phone/address/ID
-    // follow as plain text. Icon color matches the light gray-blue used
-    // for this contact line (it sits on the dark navy banner, so a dark
-    // icon color like `accent` would be invisible here).
+    // Icon before EVERY contact item (email, phone, address, ID) — matches
+    // drawTraditional's pattern. Previously only email got an icon here;
+    // phone/address were plain text with no icon, which was a bug, not a
+    // deliberate design choice despite what the old comment here claimed.
     const lightGray: RGB = [160,174,192];
+    const items: [string|null, string][] = [
+      [ICON.envelope,  pr.email],
+      [ICON.phone,     pr.phone],
+      [ICON.mapMarker, pr.address],
+      pr.id_number ? [ICON.user, `ID: ${pr.id_number}`] : [null, ''],
+    ].filter(([, v]) => !!v) as [string|null, string][];
+    const SEP = '   ·   ';
     let cx = textX;
-    if (pr.email) cx = iconText(p, ICON.envelope, pr.email, cx, 23, 7.5, lightGray);
-    const rest = [pr.phone, pr.address, pr.id_number?`ID: ${pr.id_number}`:null].filter(Boolean).join('   ·   ');
-    if (rest) { p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,lightGray[0],lightGray[1],lightGray[2]); p.text((pr.email?'   ·   ':'')+rest, cx, 23); }
+    for (let i = 0; i < items.length; i++) {
+      const [glyph, v] = items[i];
+      cx = iconText(p, glyph, v, cx, 23, 7.5, lightGray);
+      if (i < items.length - 1) {
+        p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,lightGray[0],lightGray[1],lightGray[2]);
+        p.text(SEP, cx, 23); cx += p.getTextWidth(SEP);
+      }
+    }
   }
   reset(p); let y=MT+20;
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,PW,5,'F');reset(p);return MT+7;};
