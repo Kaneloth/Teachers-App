@@ -706,7 +706,7 @@ function SkillGroupsTwoCol({ groups, accent }: { groups: [string, string[]][]; a
   );
 }
 
-function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', isEducatorCV = true, thumbnail = false }: any) {
+function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', isEducatorCV = true }: any) {
   const { personal, skills } = data;
   const accent = '#c2185b';
   const boldSkillGroups: [string, string[]][] = [
@@ -736,10 +736,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
           </div>
         </div>
         <div style={{ background: accent, padding: '0 32px 16px' }}>
-          {thumbnail
-            ? <div style={{ height: '22px' }} />
-            : <div style={{ borderTop: '1px solid rgb(218,116,157)', margin: '12px 0 10px' }} />
-          }
+          <div style={{ height: '22px' }} />
           <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap', fontSize: '10.5px', color: 'rgba(255,255,255,0.9)' }}>
             {personal.email && <span>{ICONS.mail} {personal.email}</span>}
             {personal.phone && <span>{ICONS.phone} {personal.phone}</span>}
