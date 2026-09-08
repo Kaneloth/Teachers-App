@@ -1754,7 +1754,9 @@ function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ex
         {/* Header */}
         <div style={{ textAlign: 'center' }}>
           {personal.photo_url && (
-            <img src={personal.photo_url} alt="Profile" style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${ELEGANT_LINE}`, marginBottom: '10px' }} />
+            <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+              <img src={personal.photo_url} alt="Profile" style={{ display: 'block', margin: '0 auto', width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${ELEGANT_LINE}` }} />
+            </div>
           )}
           <div style={{ fontSize: '26px', fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: ELEGANT_INK }}>
             {personal.full_name || 'Your Name'}
