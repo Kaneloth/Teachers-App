@@ -83,10 +83,10 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
   const validExp = (data.experience || []).filter(e => e.school);
   // For general users, 'subjects' holds Key Skills — don't label them as educator subjects
   const isEducatorCV = cvType === 'educator' || cvType === undefined;
-  const skillsLabel  = isEducatorCV ? 'Subjects Taught' : 'Key Skills';
-  const subjectsLabel = isEducatorCV ? 'Subjects' : 'Key Skills';
+  const skillsLabel  = 'Key Skills';
+  const subjectsLabel = 'Key Skills';
 
-  const expLabel = isEducatorCV ? 'Teaching Experience' : 'Work Experience';
+  const expLabel = 'Work Experience';
   const T = { data, wrapperStyle, validEdu, validExp, watermark, skillsLabel, subjectsLabel, expLabel, isEducatorCV };
   const tmpl =
     template === 'minimal'      ? <MinimalTemplate      {...T} /> :
@@ -732,7 +732,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
           {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', flexShrink: 0 }} />}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: '20px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase' }}>{personal.full_name || 'Your Name'}</div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.75)', marginTop: '4px' }}>{personal.job_title || validExp[0]?.role || (isEducatorCV ? 'Educator' : 'Professional')}</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.75)', marginTop: '4px' }}>{personal.job_title || validExp[0]?.role || 'Professional'}</div>
           </div>
         </div>
         <div style={{ background: accent, padding: '0 32px 16px' }}>
@@ -1561,7 +1561,7 @@ function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
         <div style={{ background: crimson, padding: '18px 32px 14px', textAlign: 'center' }}>
           {personal.photo_url && <img src={personal.photo_url} alt="" style={{ width: '52px', height: '52px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', margin: '0 auto 10px', display: 'block' }} />}
           <div style={{ fontSize: '20px', fontWeight: '800', color: '#fff' }}>{personal.full_name || 'Your Name'}</div>
-          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.8)', marginTop: '3px' }}>{personal.job_title || validExp[0]?.role || (isEducatorCV ? 'Educator' : 'Professional')}</div>
+          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.8)', marginTop: '3px' }}>{personal.job_title || validExp[0]?.role || 'Professional'}</div>
         </div>
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.4)' }} />
         {/* Contact strip — centered, icon-based, matches drawCrimson */}
@@ -1622,7 +1622,7 @@ function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '24px', fontWeight: '700', color: '#1a2e1a' }}>{personal.full_name || 'Your Name'}</div>
-              <div style={{ fontSize: '13px', color: '#4b6c4b', marginTop: '2px' }}>{personal.job_title || validExp[0]?.role || (isEducatorCV ? 'Educator' : 'Professional')}</div>
+              <div style={{ fontSize: '13px', color: '#4b6c4b', marginTop: '2px' }}>{personal.job_title || validExp[0]?.role || 'Professional'}</div>
             </div>
             <div style={{ textAlign: 'right', fontSize: '11px', color: '#374151', maxWidth: '260px' }}>
               {personal.email && <div style={{ wordBreak: 'break-word' }}>{ICONS.mail} {personal.email}</div>}

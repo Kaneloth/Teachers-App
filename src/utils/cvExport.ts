@@ -716,7 +716,7 @@ function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   if(pr.bio){y=sectionHeading(p,isEdu?'Professional Summary':'Professional Summary',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW,ICON.fileText);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
   if(edu.length){y=sectionHeading(p,'Education',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW,ICON.graduationCap);
     for(const e of edu){if(y+12>BOTTOM)y=np();y=eduLines(p,e,ML,y,PW-ML-MR,BOTTOM,np,GXW);}}
-  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW,ICON.briefcase);
+  if(exp.length){y=sectionHeading(p,'Work Experience',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW,ICON.briefcase);
     for(const e of exp){if(y+14>BOTTOM)y=np();
       p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);
       y=wrapped(p,e.role||'',ML,y,PW-ML-MR,BOTTOM,np,GXW);
@@ -774,7 +774,7 @@ function drawModern(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   let onFirstPage = true;
   const GXW=():[number,number]=>{ onFirstPage=false; return [mainCX,mainCMW]; };
   if(pr.bio){y=sectionHeading(p,isEdu?'About Me':'About Me',cx,y,cmw,accent,'bar',BOTTOM,np,GXW,ICON.fileText);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,cx,y,cmw,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
-  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',cx,y,cmw,accent,'bar',BOTTOM,np,GXW,ICON.briefcase);
+  if(exp.length){y=sectionHeading(p,'Work Experience',cx,y,cmw,accent,'bar',BOTTOM,np,GXW,ICON.briefcase);
     for(const e of exp){if(y+14>BOTTOM){y=np();onFirstPage=false;}
       const [ex,ew]=onFirstPage?[cx,cmw]:[mainCX,mainCMW];
       p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',ex,y);y+=LINE_H;
@@ -809,7 +809,7 @@ function drawProfessional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],cus
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,PW,5,'F');reset(p);return MT+7;};
   if(pr.bio){y=sectionHeading(p,isEdu?'Professional Profile':'Professional Profile',ML,y,PW-ML-MR,accent,'underline',BOTTOM,np);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np);y+=ITEM_GAP+2;}
   const c1=ML;const c2=ML+(PW-ML-MR)/2+4;const cw=(PW-ML-MR)/2-4;let y1=y;let y2=y;
-  if(exp.length){y1=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',c1,y1,cw,accent,'underline',BOTTOM,np);
+  if(exp.length){y1=sectionHeading(p,'Work Experience',c1,y1,cw,accent,'underline',BOTTOM,np);
     for(const e of exp){if(y1+14>BOTTOM)y1=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',c1,y1);y1+=LINE_H;
       p.setFont(F,'bold');p.setFontSize(8.5);tc(p,...LIGHT);p.text(e.school||'',c1,y1);const ds=[e.from,e.to].filter(Boolean).join(' – ');if(ds){tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,c1+cw-p.getTextWidth(ds),y1);}y1+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y1=bulletLine(p,l,c1,y1,cw,accent,BOTTOM,np);
@@ -845,7 +845,7 @@ function drawMinimal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   const DX=ML;const DW=28;const CX=ML+DW+6;const CMW=PW-MR-CX;
   const np=()=>{p.addPage();reset(p);return MT;};const GXW=():[ number,number]=>[CX,CMW];
   if(pr.bio){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(8);tc(p,156,163,175);p.text('SUMMARY',DX,y);p.setFont(F,'normal');p.setFontSize(9);tc(p,75,85,99);y=wrapped(p,pr.bio,CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
-  if(exp.length){hLine(p,ML,y,PW-ML-MR,ar,ag,ab,0.4);y+=6;p.setFont(F,'bold');p.setFontSize(8);tc(p,156,163,175);p.text(isEdu?'EXPERIENCE':'EXPERIENCE',DX,y);y+=LINE_H;
+  if(exp.length){hLine(p,ML,y,PW-ML-MR,ar,ag,ab,0.4);y+=6;p.setFont(F,'bold');p.setFontSize(8);tc(p,156,163,175);p.text('EXPERIENCE',DX,y);y+=LINE_H;
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'normal');p.setFontSize(8);tc(p,156,163,175);
       const dRange=[e.from,e.to].filter(Boolean).join('–');
       const dl=p.splitTextToSize(dRange,DW) as string[];dl.forEach((l:string,i:number)=>p.text(l,DX,y+i*3.6));
@@ -914,7 +914,7 @@ function drawSidebar(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   let onFirstPage = true;
   const GXW=():[number,number]=>{ onFirstPage=false; return [mainCX,mainCMW]; };
   if(pr.bio){y=sectionHeading(p,isEdu?'About Me':'About Me',cx,y,cmw,BLUE,'bar',BOTTOM,np,GXW,ICON.fileText);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,cx,y,cmw,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
-  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work History',cx,y,cmw,BLUE,'bar',BOTTOM,np,GXW,ICON.briefcase);
+  if(exp.length){y=sectionHeading(p,'Work History',cx,y,cmw,BLUE,'bar',BOTTOM,np,GXW,ICON.briefcase);
     for(const e of exp){if(y+14>BOTTOM){y=np();onFirstPage=false;}
       const [ex,ew]=onFirstPage?[cx,cmw]:[mainCX,mainCMW];
       p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',ex,y);y+=LINE_H;
@@ -947,7 +947,7 @@ function drawBold(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(18);
   p.text(owner.toUpperCase(), textX, 12);
   // Job title below name
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  const jobTitle = (pr.job_title || exp[0]?.role || 'Professional').trim();
   p.setFont(F,'normal'); p.setFontSize(9); tc(p,255,180,210);
   p.text(jobTitle, textX, 18);
   // Divider + contact
@@ -978,7 +978,7 @@ function drawBold(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
 
   // ── Experience ────────────────────────────────────────────────────────────
   if (exp.length) {
-    y = sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.briefcase);
+    y = sectionHeading(p,'Work Experience',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.briefcase);
     y += 3;
     for (const e of exp) {
       if (y+14>BOTTOM) y=np();
@@ -1049,7 +1049,7 @@ function drawExecutive(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custom
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,PW,5,'F');reset(p);return MT+7;};
   if(pr.bio){y=sectionHeading(p,'Executive Profile',ML,y,PW-ML-MR,accent,'underline',BOTTOM,np);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np);y+=ITEM_GAP+2;}
   const c1=ML;const c2=ML+(PW-ML-MR)/2+4;const cw=(PW-ML-MR)/2-4;let y1=y;let y2=y;
-  if(exp.length){y1=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',c1,y1,cw,accent,'underline',BOTTOM,np);
+  if(exp.length){y1=sectionHeading(p,'Work Experience',c1,y1,cw,accent,'underline',BOTTOM,np);
     for(const e of exp){if(y1+14>BOTTOM)y1=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',c1,y1);y1+=LINE_H;
       p.setFont(F,'bold');p.setFontSize(8.5);tc(p,...LIGHT);p.text(e.school||'',c1,y1);const ds=[e.from,e.to].filter(Boolean).join(' – ');if(ds){tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,c1+cw-p.getTextWidth(ds),y1);}y1+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y1=bulletLine(p,l,c1,y1,cw,accent,BOTTOM,np);
@@ -1084,7 +1084,7 @@ function drawCorporate(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custom
   hLine(p,cx,y,cmw,ar,ag,ab,1.2);y+=4;p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);p.text(isEdu?'EDUCATOR':'PROFESSIONAL',cx,y);y+=5;
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,6,PH,'F');reset(p);return MT+4;};const GXW=():[ number,number]=>[cx,cmw];
   if(pr.bio){y=sectionHeading(p,'Professional Summary',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,cx,y,cmw,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
-  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);
+  if(exp.length){y=sectionHeading(p,'Work Experience',cx,y,cmw,accent,'bar',BOTTOM,np,GXW);
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',cx,y);y+=LINE_H;
       p.setFont(F,'bold');p.setFontSize(8.5);tc(p,ar,ag,ab);p.text(e.school||'',cx,y);const ds=[e.from,e.to].filter(Boolean).join(' – ');if(ds){tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,cx+cmw-p.getTextWidth(ds),y);}y+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,cx,y,cmw,accent,BOTTOM,np,GXW);
@@ -1105,7 +1105,7 @@ function drawStylish(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   const DX=ML;const DW=28;const CX=ML+DW+6;const RCX=PW-MR-50;const MCW=RCX-CX-6;let y=MT+22;
   const np=()=>{p.addPage();reset(p);return MT;};const GXW=():[ number,number]=>[CX,MCW];
   if(pr.bio){p.setFont(F,'bold');p.setFontSize(8);tc(p,ar,ag,ab);p.text('PROFILE',DX,y);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,CX,y,MCW,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
-  if(exp.length){hLine(p,ML,y,PW-ML-MR,ar,ag,ab,0.6);y+=4;p.setFont(F,'bold');p.setFontSize(8);tc(p,ar,ag,ab);p.text(isEdu?'EMPLOYMENT HISTORY':'WORK HISTORY',DX,y);y+=LINE_H+1;
+  if(exp.length){hLine(p,ML,y,PW-ML-MR,ar,ag,ab,0.6);y+=4;p.setFont(F,'bold');p.setFontSize(8);tc(p,ar,ag,ab);p.text('WORK HISTORY',DX,y);y+=LINE_H+1;
     for(const e of exp){if(y+14>BOTTOM)y=np();
       p.setFont(F,'normal');p.setFontSize(8);tc(p,ar,ag,ab);const dStr=[e.from,e.to].filter(Boolean).join('–');
       const dl=p.splitTextToSize(dStr,DW) as string[];dl.forEach((l:string,i:number)=>p.text(l,DX,y+i*LINE_H));
@@ -1147,7 +1147,7 @@ function drawBoxed(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
   const np=()=>{p.addPage();reset(p);fill(p,248,248,248);p.rect(0,0,ML+SBW+2,PH,'F');dc(p,229,231,235);p.setLineWidth(0.3);p.line(ML+SBW+2,0,ML+SBW+2,PH);reset(p);return MT;};const GXW=():[ number,number]=>[CX,CMW];
   const bH=(t:string)=>{p.setFont(F,'bold');p.setFontSize(8.5);tc(p,ar,ag,ab);p.text(t,CX,y);hLine(p,CX,y+1.5,CMW,ar,ag,ab,0.5);y+=6;};
   if(pr.bio){bH('PROFILE');p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
-  if(exp.length){bH(isEdu?'EMPLOYMENT HISTORY':'WORK HISTORY');
+  if(exp.length){bH('WORK HISTORY');
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);const ds=[e.from,e.to].filter(Boolean).join(' — ');
       p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,CX,y);if(ds){tc(p,107,114,128);p.setFont(F,'normal');p.setFontSize(8);p.text(ds,CX+CMW-p.getTextWidth(ds),y);}y+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,CX,y,CMW,accent,BOTTOM,np,GXW);
@@ -1217,7 +1217,7 @@ function drawTraditional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],cust
   }
 
   if(exp.length){
-    tHead(isEdu?'EMPLOYMENT\nHISTORY':'WORK\nHISTORY');
+    tHead('WORK\nHISTORY');
     for(const e of exp){
       if(y+14>BOTTOM)y=np();
       p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);
@@ -1325,7 +1325,7 @@ function drawNavy(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   hLine(p,ML,y,CMW,ar,ag,ab,1.5);hLine(p,ML,y+3,CMW,ar,ag,ab,0.3);y+=7;
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(RSBX-2,0,RSBW+2,PH,'F');reset(p);return MT+4;};const GXW=():[ number,number]=>[ML,CMW];
   if(pr.bio){y=sectionHeading(p,'Profile',ML,y,CMW,accent,'bar',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
-  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Employment History',ML,y,CMW,accent,'bar',BOTTOM,np,GXW);
+  if(exp.length){y=sectionHeading(p,'Employment History',ML,y,CMW,accent,'bar',BOTTOM,np,GXW);
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,ML,y);y+=LINE_H;
       p.setFont(F,'normal');p.setFontSize(8);tc(p,156,163,175);p.text([e.from,e.to].filter(Boolean).join(' — '),ML,y);y+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML,y,CMW,accent,BOTTOM,np,GXW);
@@ -1355,7 +1355,7 @@ function drawTimeline(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
   hLine(p,CX,y,CMW,ar,ag,ab,1.5);hLine(p,CX,y+3,CMW,ar,ag,ab,0.3);y+=8;
   const np=()=>{p.addPage();reset(p);dc(p,229,231,235);p.setLineWidth(0.4);p.line(ML+SBW+4,MT,ML+SBW+4,BOTTOM);reset(p);return MT+4;};const GXW=():[ number,number]=>[CX,CMW];
   if(pr.bio){p.setFont(F,'bold');p.setFontSize(9);tc(p,ar,ag,ab);p.text('◆ PROFILE',CX,y);y+=HEADING_GAP;p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
-  if(exp.length){p.setFont(F,'bold');p.setFontSize(9);tc(p,ar,ag,ab);p.text('◆ '+(isEdu?'EMPLOYMENT HISTORY':'WORK HISTORY'),CX,y);y+=HEADING_GAP;
+  if(exp.length){p.setFont(F,'bold');p.setFontSize(9);tc(p,ar,ag,ab);p.text('◆ '+('WORK HISTORY'),CX,y);y+=HEADING_GAP;
     for(const e of exp){if(y+14>BOTTOM)y=np();
       fill(p,ar,ag,ab);p.circle(CX+3,y-1,2.5,'F');dc(p,229,231,235);p.setLineWidth(0.5);p.line(CX+3,y+2,CX+3,y+14);
       p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.role||'',CX+9,y);y+=LINE_H;
@@ -1412,7 +1412,7 @@ function drawShaded(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
     p.text(s, cx-tw/2, cy+1.1);
   };
   if(pr.bio){shdH('PROFILE');p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);y+=ITEM_GAP+2;}
-  if(exp.length){shdH(isEdu?'EMPLOYMENT HISTORY':'WORK HISTORY');
+  if(exp.length){shdH('WORK HISTORY');
     let expIdx=0;
     const TEXT_W=PW-MR-TEXT_X;
     for(const e of exp){if(y+14>BOTTOM)y=np();expIdx++;numberBadge(expIdx,y);
@@ -1465,7 +1465,7 @@ function drawTeal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   reset(p);let y=30;
   const np=()=>{p.addPage();reset(p);fill(p,ar,ag,ab);p.rect(0,0,PW,5,'F');dc(p,241,245,249);p.setLineWidth(0.3);p.line(ML+LSBW+4,5,ML+LSBW+4,PH);reset(p);return MT+7;};const GXW=():[ number,number]=>[RCX,RCMW];
   if(pr.bio){y=sectionHeading(p,'Profile',RCX,y,RCMW,accent,'tag-underline',BOTTOM,np,GXW);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);y=wrapped(p,pr.bio,RCX,y,RCMW,BOTTOM,np,GXW);y+=ITEM_GAP+1;}
-  if(exp.length){y=sectionHeading(p,isEdu?'Teaching Experience':'Employment History',RCX,y,RCMW,accent,'tag-underline',BOTTOM,np,GXW);
+  if(exp.length){y=sectionHeading(p,'Employment History',RCX,y,RCMW,accent,'tag-underline',BOTTOM,np,GXW);
     for(const e of exp){if(y+14>BOTTOM)y=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(`${e.role||''}${e.school?`, ${e.school}`:''}`,RCX,y);y+=LINE_H;
       p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);p.text([e.from,e.to].filter(Boolean).join(' — '),RCX,y);y+=LINE_H;
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,RCX,y,RCMW,accent,BOTTOM,np,GXW);
@@ -1486,7 +1486,7 @@ function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   if (photoUrl) { const PHOTO=14; p.addImage(photoUrl,'PNG',(PW-PHOTO)/2,4,PHOTO,PHOTO); }
   tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(18);
   { const nw=p.getTextWidth(owner); p.text(owner, (PW-nw)/2, 11+offset); }
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  const jobTitle = (pr.job_title || exp[0]?.role || 'Professional').trim();
   p.setFont(F,'normal'); p.setFontSize(9); tc(p,255,180,160);
   { const jw=p.getTextWidth(jobTitle); p.text(jobTitle, (PW-jw)/2, 18+offset); }
   hLine(p,0,22+offset,PW,255,255,255,0.25);
@@ -1520,7 +1520,7 @@ function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 
   // ── Experience ────────────────────────────────────────────────────────────
   if (exp.length) {
-    y = sectionHeading(p,isEdu?'Teaching Experience':'Employment History',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.briefcase);
+    y = sectionHeading(p,'Employment History',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.briefcase);
     y += 3;
     for (const e of exp) {
       if (y+14>BOTTOM) y=np();
@@ -1610,7 +1610,7 @@ function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   tc(p,26,46,26); p.setFont(F,'bold'); p.setFontSize(16);
   p.text(owner, ML+2, nameY);
 
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  const jobTitle = (pr.job_title || exp[0]?.role || 'Professional').trim();
   const jobTitleY = nameY + HEADER_JOBTITLE_H;
   p.setFont(F,'normal'); p.setFontSize(9.5); tc(p,75,108,75);
   p.text(jobTitle, ML+2, jobTitleY);
@@ -1645,7 +1645,7 @@ function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   }
 
   if(exp.length){
-    y=sectionHeading(p,isEdu?'Teaching Experience':'Career Experience',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW,ICON.briefcase);
+    y=sectionHeading(p,'Career Experience',ML,y,PW-ML-MR,accent,'tag-underline',BOTTOM,np,GXW,ICON.briefcase);
     y+=3;
     for(const e of exp){if(y+14>BOTTOM)y=np();
       const ds=[e.from,e.to].filter(Boolean).join(' — ');
@@ -1789,7 +1789,7 @@ function drawElegant(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 
   // ── Work experience ───────────────────────────────────────────────────────
   if (exp.length) {
-    y = sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',ML,y,PW-ML-MR,accent,'center-lines',BOTTOM,np,GXW);
+    y = sectionHeading(p,'Work Experience',ML,y,PW-ML-MR,accent,'center-lines',BOTTOM,np,GXW);
     for (const e of exp) {
       if (y+14>BOTTOM) y = np();
       const ds=[e.from,e.to].filter(Boolean).join(' – ');
@@ -1971,7 +1971,7 @@ function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
 
   // ── Work experience ───────────────────────────────────────────────────────
   if (exp.length) {
-    y = sectionHeading(p,isEdu?'Teaching Experience':'Work Experience',ML,y,PW-ML-MR,accent,'double-line',BOTTOM,np,GXW);
+    y = sectionHeading(p,'Work Experience',ML,y,PW-ML-MR,accent,'double-line',BOTTOM,np,GXW);
     for (const e of exp) {
       if (y+14>BOTTOM) y = np();
       const ds=[e.from,e.to].filter(Boolean).join(' — ');
@@ -2194,7 +2194,7 @@ function drawPlayful(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 
   if (exp.length || edu.length) {
     // ── Draw section headings at the same Y ──────────────────────────────
-    if (exp.length) { leftY  = sectionHeading(p,isEdu?'Teaching Experience':'Experience',ML,leftY,colW,accent,'tag-underline',BOTTOM,np,undefined,ICON.briefcase); leftY  += 2; }
+    if (exp.length) { leftY  = sectionHeading(p,'Experience',ML,leftY,colW,accent,'tag-underline',BOTTOM,np,undefined,ICON.briefcase); leftY  += 2; }
     if (edu.length) { rightY = sectionHeading(p,'Education',col2x,rightY,colW,accent,'tag-underline',BOTTOM,np,undefined,ICON.graduationCap); rightY += 2; }
     // Sync both columns to the lower of the two headings so content starts
     // at the same baseline regardless of which heading is taller.
@@ -2359,7 +2359,7 @@ function drawCasual(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
 
   // ── Experience — full width ───────────────────────────────────────────────
   if (exp.length) {
-    y = sectionHeading(p,isEdu?'Teaching Experience':'Experience',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.briefcase);
+    y = sectionHeading(p,'Experience',ML,y,W,accent,'tag-underline',BOTTOM,np,GXW,ICON.briefcase);
     y += 2;
     for (const e of exp) {
       if (y+14>BOTTOM) y=np();
