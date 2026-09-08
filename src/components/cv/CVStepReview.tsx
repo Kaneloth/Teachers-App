@@ -83,6 +83,24 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
   const PAGE_HEIGHT = 1123;
   const [pageCount, setPageCount] = useState(1);
 
+  // Measures the actual available width for the preview and computes the
+  // zoom level from that, instead of a fixed 0.45 — otherwise, widening the
+  // page around this component (e.g. the desktop split-screen work) does
+  // nothing, since a hardcoded zoom never grows to use the extra space it
+  // was just given. Capped at 1 so the CV never renders LARGER than true
+  // print size just because a very wide screen happens to have the room.
+  const previewAreaRef = useRef<HTMLDivElement>(null);
+  const [previewZoom, setPreviewZoom] = useState(0.45);
+  useEffect(() => {
+    const el = previewAreaRef.current;
+    if (!el) return;
+    const measure = () => setPreviewZoom(Math.min(1, Math.max(0.3, el.clientWidth / 794)));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // Existing stored PDF — re-download this for free without generating a new one
   const existingPdfUrl = (user?.user_metadata?.last_cv_pdf_url as string | undefined) ?? null;
 
@@ -243,7 +261,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
       </div>
 
       {view === 'preview' ? (
-        <div className="space-y-3">
+        <div className="space-y-3" ref={previewAreaRef}>
           {/*
            * Each "page" below is a 794×1123px window (A4 at the same 96dpi
            * scale the real export renders at) showing one vertical slice of
@@ -251,38 +269,52 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
            * print-preview trick: render the full content once per page,
            * absolutely positioned and shifted up by that page's height, so
            * only the relevant slice is visible through the clipped window.
-           * The whole stack is zoomed down together so it fits a phone
-           * screen, same as before.
+           * The zoom level is measured from this wrapper's own available
+           * width rather than a fixed fraction, so it correctly grows to
+           * fill whatever space this step actually has — otherwise, on a
+           * wide desktop layout, the CV stays pinned at mobile-thumbnail
+           * size no matter how much room is sitting empty next to it.
+           * Capped at 1 (true print size) so it never renders LARGER than
+           * an actual printed page just because a very wide screen has
+           * room to spare.
            */}
-          <div style={{ zoom: 0.45 }} className="space-y-4">
+          <div style={{ zoom: previewZoom }} className="space-y-3">
             {Array.from({ length: pageCount }).map((_, i) => (
-              <div
-                key={i}
-                className="rounded-xl overflow-hidden border border-border bg-white shadow-sm"
-                style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
-              >
-                <div style={{ position: 'absolute', top: `${-i * PAGE_HEIGHT}px`, left: 0 }}>
-                  <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
-                </div>
-                {/*
-                 * This slicing technique doesn't know where a real page
-                 * break should fall — unlike cvExport.ts, which checks
-                 * each line/bullet against the remaining space before
-                 * drawing it, this just crops at a fixed pixel height, so
-                 * a line of text can end up cut cleanly in half right at
-                 * the page boundary. That's a genuine approximation limit
-                 * (getting this pixel-perfect would mean re-implementing
-                 * cvExport.ts's own line-wrapping math in the browser),
-                 * not a bug we can fully fix here — this fade at least
-                 * signals "keep reading below" instead of looking broken.
-                 */}
-                {i < pageCount - 1 && (
-                  <div style={{
-                    position: 'absolute', bottom: 0, left: 0, right: 0, height: '60px',
-                    background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))',
-                    pointerEvents: 'none',
-                  }} />
+              <div key={i}>
+                {pageCount > 1 && (
+                  <p style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280', textAlign: 'center', margin: '0 0 6px' }}>
+                    Page {i + 1} of {pageCount}
+                  </p>
                 )}
+                <div
+                  className="rounded-xl overflow-hidden border border-border bg-white shadow-sm"
+                  style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
+                >
+                  <div style={{ position: 'absolute', top: `${-i * PAGE_HEIGHT}px`, left: 0 }}>
+                    <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
+                  </div>
+                  {/*
+                   * This slicing technique doesn't know where a real page
+                   * break should fall — unlike cvExport.ts, which checks
+                   * each line/bullet against the remaining space before
+                   * drawing it, this just crops at a fixed pixel height, so
+                   * a line of text can end up cut cleanly in half right at
+                   * the page boundary. That's a genuine approximation limit
+                   * (getting this pixel-perfect would mean re-implementing
+                   * cvExport.ts's own line-wrapping math in the browser),
+                   * not a bug we can fully fix here. The fade plus the
+                   * "Page N of Total" label above at least make it read as
+                   * "continues on the next page" rather than "content is
+                   * missing or the app is broken."
+                   */}
+                  {i < pageCount - 1 && (
+                    <div style={{
+                      position: 'absolute', bottom: 0, left: 0, right: 0, height: '60px',
+                      background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))',
+                      pointerEvents: 'none',
+                    }} />
+                  )}
+                </div>
               </div>
             ))}
           </div>
