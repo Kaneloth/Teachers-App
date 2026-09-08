@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Coins, ScrollText, GraduationCap,
-  ShieldCheck, Star, SlidersHorizontal, Wrench, Menu, X, ArrowLeft, User, Tag,
+  ShieldCheck, Star, SlidersHorizontal, Wrench, Menu, X, ArrowLeft, User, Tag, Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
