@@ -160,8 +160,6 @@ export default function App() {
                   <Route path="/support"       element={<SupportPage />} />
                   <Route path="/credits"       element={<CreditsPage />} />
                   <Route path="/notifications"  element={<NotificationsPage />} />
-				  <Route path="/admin/transactions" element={<AdminTransactions />} />
-				  <Route path="/admin/credits-movement" element={<AdminCreditsMovement />} />
                 </Route>
                 </Route>
               </Route>
@@ -181,6 +179,8 @@ export default function App() {
                     <Route path="/admin/testimonials" element={<AdminTestimonials />} />
                     <Route path="/admin/gates"        element={<AdminFeatureGates />} />
                     <Route path="/admin/tools"        element={<AdminTools />} />
+                    <Route path="/admin/transactions" element={<AdminTransactions />} />
+                    <Route path="/admin/credits-movement" element={<AdminCreditsMovement />} />
                   </Route>
                 </Route>
               </Route>
