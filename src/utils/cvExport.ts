@@ -1919,6 +1919,9 @@ function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
   const np = () => { p.addPage(); paintBg(); return MT + 4; };
   const GXW = ():[number,number] => [ML, PW-ML-MR];
 
+  // ── Photo (if any) — sits above everything else, including the top rule ──
+  if (photoUrl) { const PHOTO=16; p.addImage(photoUrl,'PNG',(PW-PHOTO)/2,y,PHOTO,PHOTO); y += PHOTO + 5; }
+
   // ── Top double rule + centered contact info ───────────────────────────────
   hLine(p, ML, y,     PW-ML-MR, acR,acG,acB, 0.35);
   hLine(p, ML, y+0.8, PW-ML-MR, acR,acG,acB, 0.35);
@@ -1946,8 +1949,7 @@ function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
     y += 3;
   }
 
-  // ── Photo (if any) + Name (title case) + subtitle (most recent role, italic) ─
-  if (photoUrl) { const PHOTO=16; p.addImage(photoUrl,'PNG',(PW-PHOTO)/2,y,PHOTO,PHOTO); y += PHOTO + 4; }
+  // ── Name (title case) + subtitle (most recent role, italic) ──────────────
   p.setFont('times','bold'); p.setFontSize(22); tc(p,INK[0],INK[1],INK[2]);
   let tw = p.getTextWidth(owner);
   p.text(owner, (PW-tw)/2, y);

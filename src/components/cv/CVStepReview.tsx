@@ -264,12 +264,31 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
                 <div style={{ position: 'absolute', top: `${-i * PAGE_HEIGHT}px`, left: 0 }}>
                   <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
                 </div>
+                {/*
+                 * This slicing technique doesn't know where a real page
+                 * break should fall — unlike cvExport.ts, which checks
+                 * each line/bullet against the remaining space before
+                 * drawing it, this just crops at a fixed pixel height, so
+                 * a line of text can end up cut cleanly in half right at
+                 * the page boundary. That's a genuine approximation limit
+                 * (getting this pixel-perfect would mean re-implementing
+                 * cvExport.ts's own line-wrapping math in the browser),
+                 * not a bug we can fully fix here — this fade at least
+                 * signals "keep reading below" instead of looking broken.
+                 */}
+                {i < pageCount - 1 && (
+                  <div style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0, height: '60px',
+                    background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))',
+                    pointerEvents: 'none',
+                  }} />
+                )}
               </div>
             ))}
           </div>
           {pageCount > 1 && (
             <p className="text-xs text-muted-foreground text-center">
-              This CV will print as {pageCount} pages
+              This CV will print as {pageCount} pages — page breaks shown here are approximate; the actual download paginates more precisely
             </p>
           )}
         </div>

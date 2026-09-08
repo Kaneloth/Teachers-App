@@ -1915,6 +1915,13 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
           color: HERITAGE_BODY,
         }}
       >
+        {/* Photo (if any) — sits above everything else, including the top rule */}
+        {personal.photo_url && (
+          <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+            <img src={personal.photo_url} alt="Profile" style={{ display: 'block', margin: '0 auto', width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${HERITAGE_RULE}` }} />
+          </div>
+        )}
+
         {/* Top double rule + centered contact */}
         <div style={{ height: '2px', borderTop: `1px solid ${HERITAGE_RULE}`, borderBottom: `1px solid ${HERITAGE_RULE}` }} />
         {contactParts.length > 0 && (
@@ -1925,9 +1932,6 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
 
         {/* Name + subtitle */}
         <div style={{ textAlign: 'center', marginTop: '14px' }}>
-          {personal.photo_url && (
-            <img src={personal.photo_url} alt="Profile" style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${HERITAGE_RULE}`, marginBottom: '8px' }} />
-          )}
           <div style={{ fontSize: '28px', fontWeight: 700, color: HERITAGE_INK }}>
             {personal.full_name || 'Your Name'}
           </div>

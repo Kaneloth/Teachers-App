@@ -224,11 +224,23 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Pro
                     <div style={{ position: 'absolute', top: `${-i * PAGE_HEIGHT}px`, left: 0 }}>
                       <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
                     </div>
+                    {/* See CVStepReview.tsx for why this fade exists — this
+                        pixel-height slicing can cut a line of text right at
+                        the page boundary, unlike cvExport.ts's real
+                        line-aware pagination. This softens the cut visually
+                        rather than fully solving it. */}
+                    {i < pageCount - 1 && (
+                      <div style={{
+                        position: 'absolute', bottom: 0, left: 0, right: 0, height: '60px',
+                        background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))',
+                        pointerEvents: 'none',
+                      }} />
+                    )}
                   </div>
                 ))}
               </div>
               {pageCount > 1 && (
-                <p className="text-xs text-muted-foreground text-center mt-3">This CV will print as {pageCount} pages</p>
+                <p className="text-xs text-muted-foreground text-center mt-3">This CV will print as {pageCount} pages — page breaks shown here are approximate</p>
               )}
             </div>
 
