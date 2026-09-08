@@ -41,7 +41,7 @@ export default function AppHeader() {
 
   return (
     <header className="sticky top-0 z-40 bg-background border-b border-border">
-      <div className="flex items-center justify-between gap-2 px-4 h-16 max-w-2xl mx-auto">
+      <div className="flex items-center justify-between gap-2 px-4 h-16 max-w-2xl mx-auto lg:max-w-none lg:px-6 xl:px-10">
         {/* Logo + wordmark — shown on all screen sizes, including mobile.
             (Previously hidden below the `sm` breakpoint to leave room for
             a credit balance chip that used to sit here — that chip no
@@ -52,46 +52,53 @@ export default function AppHeader() {
           <span className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">Crosssa</span>
         </Link>
 
-        {/* Notification bell — educators only */}
-        {isEducator && <NotificationBell />}
+        {/* Bell + avatar grouped together so they stay as one cluster on the
+            right, rather than each being an independent flex child that
+            justify-between would space out with equal gaps — on a wide
+            header that would strand the bell awkwardly in the dead center,
+            disconnected from both the logo and the avatar. */}
+        <div className="flex items-center gap-3">
+          {/* Notification bell — educators only */}
+          {isEducator && <NotificationBell />}
 
-        {/* Avatar + dropdown */}
-        <div className="relative" ref={ref}>
-          <button
-            onClick={() => setOpen(o => !o)}
-            className="w-9 h-9 rounded-full overflow-hidden border border-border flex items-center justify-center bg-primary/10 hover:ring-2 hover:ring-primary/30 transition-all"
-          >
-            {meta.avatar_url
-              ? <img src={meta.avatar_url as string} alt="avatar" className="w-full h-full object-cover" />
-              : <span className="text-xs font-bold text-primary">{initial}</span>
-            }
-          </button>
+          {/* Avatar + dropdown */}
+          <div className="relative" ref={ref}>
+            <button
+              onClick={() => setOpen(o => !o)}
+              className="w-9 h-9 rounded-full overflow-hidden border border-border flex items-center justify-center bg-primary/10 hover:ring-2 hover:ring-primary/30 transition-all"
+            >
+              {meta.avatar_url
+                ? <img src={meta.avatar_url as string} alt="avatar" className="w-full h-full object-cover" />
+                : <span className="text-xs font-bold text-primary">{initial}</span>
+              }
+            </button>
 
-          {open && (
-            <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-2xl shadow-lg py-1 z-50">
-              <div className="px-3 py-2 border-b border-border">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-xs font-semibold text-foreground truncate">
-                    {(meta.full_name as string | undefined) || user?.email || 'Educator'}
-                  </p>
-                  {meta.doc_verified && (
-                    <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" title="Verified" />
-                  )}
+            {open && (
+              <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-2xl shadow-lg py-1 z-50">
+                <div className="px-3 py-2 border-b border-border">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-semibold text-foreground truncate">
+                      {(meta.full_name as string | undefined) || user?.email || 'Educator'}
+                    </p>
+                    {meta.doc_verified && (
+                      <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" title="Verified" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground truncate">{user?.email}</p>
                 </div>
-                <p className="text-[11px] text-muted-foreground truncate">{user?.email}</p>
-              </div>
-              <MenuItem icon={User} label="Profile" to="/profile" onClick={() => setOpen(false)} />
-              <MenuItem icon={Settings} label="Settings" to="/settings" onClick={() => setOpen(false)} />
-              <div className="border-t border-border mt-1 pt-1">
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-destructive hover:bg-destructive/5 transition-colors"
-                >
-                  <LogOut className="w-4 h-4" /> Logout
-                </button>
-              </div>
+                <MenuItem icon={User} label="Profile" to="/profile" onClick={() => setOpen(false)} />
+                <MenuItem icon={Settings} label="Settings" to="/settings" onClick={() => setOpen(false)} />
+                <div className="border-t border-border mt-1 pt-1">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-destructive hover:bg-destructive/5 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" /> Logout
+                  </button>
+                </div>
             </div>
           )}
+        </div>
         </div>
       </div>
     </header>
