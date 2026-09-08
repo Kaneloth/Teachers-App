@@ -518,9 +518,9 @@ export default function CVBuilderPage() {
     );
   }
   return (
-    <div className="max-w-2xl mx-auto lg:max-w-5xl">
-      <div className="lg:flex lg:gap-6 lg:items-start">
-        <div className="lg:flex-1 lg:min-w-0">
+    <div className="max-w-2xl mx-auto lg:max-w-none lg:px-6 xl:px-10">
+      <div className="lg:flex lg:gap-8 lg:items-start">
+        <div className={step < STEPS.length - 1 ? "lg:w-[42rem] lg:shrink-0 lg:min-w-0" : "lg:w-full"}>
       <div className="flex items-center gap-2 px-4 pt-4 pb-1">
         <button onClick={handleBack} className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors">
           <ArrowLeft className="w-5 h-5 text-foreground" />
@@ -610,8 +610,8 @@ export default function CVBuilderPage() {
             already shows its own full-size preview as the main content —
             a second one alongside it would just be visual clutter. */}
         {isDesktop && step < STEPS.length - 1 && (
-          <div className="hidden lg:block lg:w-[380px] lg:shrink-0 lg:sticky lg:top-4">
-            <CVStaticPreviewPanel data={data} width={380} />
+          <div className="hidden lg:block lg:flex-1 lg:min-w-0 lg:sticky lg:top-4">
+            <CVStaticPreviewPanel data={data} />
           </div>
         )}
       </div>

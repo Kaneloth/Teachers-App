@@ -26,16 +26,36 @@ function normalizeLanguage(entry: unknown): string {
 
 interface Props {
   data: any;
-  /** Width of the panel in px — the internal zoom level is computed from
-   *  this so the 794px-native CV always fills it exactly, rather than a
-   *  hardcoded zoom fraction that would look wrong if the panel's own
-   *  width (set by the parent's Tailwind classes) ever changes. */
-  width?: number;
+  /** Optional fallback width in px, used only for the very first render
+   *  before the container's real width has been measured (avoids a flash
+   *  of near-zero-zoom content). Once mounted, the panel measures its own
+   *  actual rendered width via ResizeObserver and computes zoom from that
+   *  — so it correctly fills however much space its parent gives it,
+   *  including a flexible/growing container, rather than being capped at
+   *  a guessed pixel value that looks cramped on a wide screen. */
+  fallbackWidth?: number;
 }
 
-export default function CVStaticPreviewPanel({ data, width = 380 }: Props) {
+export default function CVStaticPreviewPanel({ data, fallbackWidth = 420 }: Props) {
   const [pageCount, setPageCount] = useState(1);
   const measureRef = useRef<HTMLDivElement>(null);
+
+  // Measures the CONTENT area of the scrollable wrapper below (the div
+  // with the p-4 padding) — clientWidth includes padding on a
+  // border-box element, so that's subtracted off to get the actual space
+  // available for the zoomed CV itself.
+  const contentAreaRef = useRef<HTMLDivElement>(null);
+  const [contentWidth, setContentWidth] = useState(fallbackWidth);
+  useEffect(() => {
+    const el = contentAreaRef.current;
+    if (!el) return;
+    const PADDING = 32; // p-4 = 16px each side
+    const measure = () => setContentWidth(Math.max(200, el.clientWidth - PADDING));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const safeData = {
     ...data,
@@ -55,30 +75,30 @@ export default function CVStaticPreviewPanel({ data, width = 380 }: Props) {
     return () => ro.disconnect();
   }, [data]);
 
-  const zoom = width / 794;
+  const zoom = contentWidth / 794;
 
   return (
-    <div className="bg-card rounded-2xl border border-border overflow-hidden">
-      <div className="px-4 py-3 border-b border-border">
-        <p className="text-sm font-semibold text-foreground">Live Preview</p>
-        <p className="text-xs text-muted-foreground mt-0.5">Updates as you type</p>
+    <div className="bg-card rounded-2xl border border-border overflow-hidden flex flex-col max-h-[calc(100vh-32px)]">
+      <div className="px-5 py-4 border-b border-border shrink-0">
+        <p className="text-base font-semibold text-foreground">Live Preview</p>
+        <p className="text-sm text-muted-foreground mt-0.5">Updates as you type</p>
       </div>
-      <div className="p-3 max-h-[calc(100vh-180px)] overflow-y-auto">
-        <div style={{ zoom }} className="space-y-3">
+      <div ref={contentAreaRef} className="p-4 flex-1 overflow-y-auto min-h-0">
+        <div style={{ zoom }} className="space-y-4">
           {Array.from({ length: pageCount }).map((_, i) => (
             <div
               key={i}
-              className="rounded-lg overflow-hidden border border-border bg-white shadow-sm"
+              className="rounded-lg overflow-hidden border border-border bg-white shadow-md mx-auto"
               style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
             >
               <div style={{ position: 'absolute', top: `${-i * PAGE_HEIGHT}px`, left: 0 }}>
-                <CVTemplateRenderer data={safeData} forExport />
+                <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
               </div>
             </div>
           ))}
         </div>
         {pageCount > 1 && (
-          <p className="text-xs text-muted-foreground text-center mt-2">This CV will print as {pageCount} pages</p>
+          <p className="text-xs text-muted-foreground text-center mt-3">This CV will print as {pageCount} pages</p>
         )}
       </div>
 
@@ -87,7 +107,7 @@ export default function CVStaticPreviewPanel({ data, width = 380 }: Props) {
           scrollHeight if measured directly. */}
       <div style={{ position: 'absolute', top: 0, left: '-9999px', visibility: 'hidden' }}>
         <div ref={measureRef} style={{ width: '794px' }}>
-          <CVTemplateRenderer data={safeData} forExport />
+          <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
         </div>
       </div>
     </div>
