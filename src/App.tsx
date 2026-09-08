@@ -47,6 +47,8 @@ import AdminEducators from '@/pages/admin/AdminEducators';
 import AdminTestimonials from '@/pages/admin/AdminTestimonials';
 import AdminFeatureGates from '@/pages/admin/AdminFeatureGates';
 import AdminTools from '@/pages/admin/AdminTools';
+import AdminTransactions from '@/pages/admin/AdminTransactions';
+import AdminCreditsMovement from '@/pages/admin/AdminCreditsMovement';
 
 const queryClient = new QueryClient();
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -158,6 +160,8 @@ export default function App() {
                   <Route path="/support"       element={<SupportPage />} />
                   <Route path="/credits"       element={<CreditsPage />} />
                   <Route path="/notifications"  element={<NotificationsPage />} />
+				  <Route path="/admin/transactions" element={<AdminTransactions />} />
+				  <Route path="/admin/credits-movement" element={<AdminCreditsMovement />} />
                 </Route>
                 </Route>
               </Route>

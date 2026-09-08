@@ -27,6 +27,8 @@ const NAV_SECTIONS = [
     items: [
       { path: '/admin/credits',      icon: Coins,         label: 'Credits & Payments' },
       { path: '/admin/pricing',      icon: Tag,           label: 'Pricing' },
+	  { path: '/admin/transactions', icon: Wallet, label: 'Transactions' },
+	  { path: '/admin/credits-movement', icon: Coins, label: 'Credits Movement' },
     ],
   },
   {
