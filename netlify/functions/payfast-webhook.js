@@ -224,12 +224,32 @@ export const handler = async (event) => {
       return { statusCode: 500, body: 'Error' };
     }
 
+    // Record the real Rand transaction for the admin Transactions table.
+    // Best-effort: the unlock itself already succeeded above and is the
+    // source of truth — a failure recording it for reporting purposes
+    // should never turn into a 500 that makes PayFast retry an ITN whose
+    // actual effect (unlocking messaging) has already happened.
+    try {
+      const { data: balance } = await supabase.rpc('get_credit_balance', { p_user_id: user_id });
+      const { error: txErr } = await supabase.from('transactions').insert({
+        user_id,
+        amount:        pkgPriceZar,
+        reason:        pkg.label,
+        package_id:    package_id,
+        balance_after: balance ?? 0,
+        payment_ref:   fields.pf_payment_id,
+      });
+      if (txErr) console.error('[payfast-webhook] transactions insert failed (messaging unlock):', txErr);
+    } catch (err) {
+      console.error('[payfast-webhook] transactions insert threw (messaging unlock):', err);
+    }
+
     console.log(`[payfast-webhook] Messaging unlocked for user=${user_id} (pf_payment_id=${fields.pf_payment_id})`);
     return { statusCode: 200, body: 'OK' };
   }
 
   // ── 8b. Grant the credits ─────────────────────────────────────────────────
-  const { error: creditErr } = await supabase.rpc('add_credits', {
+  const { data: newBalance, error: creditErr } = await supabase.rpc('add_credits', {
     p_user_id:     user_id,
     p_amount:      pkgCredits,
     p_type:        'purchase',
@@ -240,6 +260,24 @@ export const handler = async (event) => {
   if (creditErr) {
     console.error('[payfast-webhook] add_credits failed:', creditErr);
     return { statusCode: 500, body: 'Error' };
+  }
+
+  // Record the real Rand transaction for the admin Transactions table.
+  // Best-effort — see the messaging-unlock branch above for why a failure
+  // here doesn't turn into a 500: the credits have already been correctly
+  // granted and that's the source of truth, this is just reporting.
+  try {
+    const { error: txErr } = await supabase.from('transactions').insert({
+      user_id,
+      amount:        pkgPriceZar,
+      reason:        pkg.label,
+      package_id:    package_id,
+      balance_after: newBalance ?? 0,
+      payment_ref:   fields.pf_payment_id,
+    });
+    if (txErr) console.error('[payfast-webhook] transactions insert failed (purchase):', txErr);
+  } catch (err) {
+    console.error('[payfast-webhook] transactions insert threw (purchase):', err);
   }
 
   console.log(`[payfast-webhook] Granted ${pkgCredits} credits to user=${user_id} (pf_payment_id=${fields.pf_payment_id})`);
