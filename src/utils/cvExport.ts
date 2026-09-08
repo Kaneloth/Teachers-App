@@ -1481,7 +1481,7 @@ function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   const accent:RGB = hex('#c0392b'); const [ar,ag,ab] = accent;
 
   // ── Crimson banner header — centered, normal (non-italic) type ───────────
-  const offset = photoUrl ? 12 : 0; // extra banner height + downward shift for everything below the photo
+  const offset = photoUrl ? 15 : 0; // extra banner height + downward shift for everything below the photo
   fill(p,ar,ag,ab); p.rect(0,0,PW,28+offset,'F');
   if (photoUrl) { const PHOTO=14; p.addImage(photoUrl,'PNG',(PW-PHOTO)/2,4,PHOTO,PHOTO); }
   tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(18);
@@ -1740,7 +1740,7 @@ function drawElegant(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   const GXW = ():[number,number] => [ML, PW-ML-MR];
 
   // ── Header: centered photo / name / subtitle / contact ────────────────────
-  if (photoUrl) { const PHOTO=16; p.addImage(photoUrl,'PNG',(PW-PHOTO)/2,y,PHOTO,PHOTO); y += PHOTO + 4; }
+  if (photoUrl) { const PHOTO=16; p.addImage(photoUrl,'PNG',(PW-PHOTO)/2,y,PHOTO,PHOTO); y += PHOTO + 8; }
   p.setFont('times','bold'); p.setFontSize(20); tc(p,INK[0],INK[1],INK[2]);
   const name = owner.toUpperCase();
   let tw = p.getTextWidth(name);

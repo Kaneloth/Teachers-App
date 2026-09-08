@@ -101,9 +101,18 @@ export default function CVStepTemplate({ selected, onChange, isFree = false, isE
               }`}
             >
               {/* ── Live preview thumbnail ── */}
-              {/* zoom (unlike transform:scale) collapses layout height automatically */}
+              {/* transform:scale (not zoom) — zoom was rounding this
+                  template's hairline dividers up to a full, disproportionately
+                  thick pixel at this extreme 0.205 scale-down, even after
+                  switching those dividers to border-based hairlines.
+                  transform:scale renders via GPU sub-pixel anti-aliasing
+                  instead, which handles thin lines more faithfully. Safe to
+                  use here since the outer h-36 overflow-hidden box clips
+                  regardless of the transformed element's own layout size —
+                  we don't need zoom's "auto-collapses height" behavior in
+                  this fixed-size, already-clipped thumbnail. */}
               <div className="h-36 overflow-hidden bg-white relative">
-                <div style={{ zoom: 0.205, pointerEvents: 'none' }}>
+                <div style={{ transform: 'scale(0.205)', transformOrigin: 'top left', width: '794px', pointerEvents: 'none' }}>
                   <CVTemplateRenderer data={previewData as any} forExport={false} watermark={false} cvType={isEducator ? 'educator' : 'general'} />
                 </div>
 
