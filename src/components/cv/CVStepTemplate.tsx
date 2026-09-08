@@ -113,7 +113,7 @@ export default function CVStepTemplate({ selected, onChange, isFree = false, isE
                   this fixed-size, already-clipped thumbnail. */}
               <div className="h-36 overflow-hidden bg-white relative">
                 <div style={{ transform: 'scale(0.205)', transformOrigin: 'top left', width: '794px', pointerEvents: 'none' }}>
-                  <CVTemplateRenderer data={previewData as any} forExport={false} watermark={false} cvType={isEducator ? 'educator' : 'general'} />
+                  <CVTemplateRenderer data={previewData as any} forExport={false} watermark={false} cvType={isEducator ? 'educator' : 'general'} thumbnail />
                 </div>
 
                 {/* Category badge */}
