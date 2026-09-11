@@ -1,7 +1,11 @@
+import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, X, Table2, List, AlignLeft } from 'lucide-react';
+import { Plus, Trash2, X, Table2, List, AlignLeft, Sparkles, Loader2, Check, HelpCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuth } from '@/lib/AuthContext';
+import { useCredits } from '@/hooks/useCredits';
 
 export interface CustomSection {
   title: string;
@@ -11,12 +15,36 @@ export interface CustomSection {
   rows?: string[][];
 }
 
+interface SectionSuggestion {
+  title: string;
+  kind: 'extracted' | 'idea';
+  type: 'bullets' | 'text';
+  rationale: string;
+  content: string;
+}
+
 interface Props {
   data: CustomSection[];
   onChange: (d: CustomSection[]) => void;
+  fullCvData?: {
+    personal?: { bio?: string };
+    education?: { institution: string; qualification: string; year: string }[];
+    experience?: { school: string; role: string; from: string; to: string; description: string }[];
+    skills?: { subjects: string[]; soft_skills: string[]; languages: string[] };
+  };
+  onAiUsed?: () => void;
+  isEducator?: boolean;
 }
 
-export default function CVStepExtras({ data, onChange }: Props) {
+export default function CVStepExtras({ data, onChange, fullCvData, onAiUsed, isEducator = true }: Props) {
+  const { user } = useAuth();
+  const isAdmin = !!(user?.user_metadata?.is_admin);
+  const { balance, loading: creditsLoading, deduct } = useCredits();
+
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestions, setSuggestions] = useState<SectionSuggestion[] | null>(null);
+  const [dismissedIdx, setDismissedIdx] = useState<Set<number>>(new Set());
+
   const addSection = () => onChange([...data, { title: '', type: 'bullets', content: '' }]);
   const removeSection = (i: number) => onChange(data.filter((_, idx) => idx !== i));
   const updateSection = (i: number, patch: Partial<CustomSection>) => {
@@ -24,6 +52,55 @@ export default function CVStepExtras({ data, onChange }: Props) {
     updated[i] = { ...updated[i], ...patch };
     onChange(updated);
   };
+
+  // ── AI: suggest additional sections ─────────────────────────────────────
+  const aiDisabled = suggesting || (!isAdmin && !creditsLoading && balance < 20);
+
+  const fetchSuggestions = async () => {
+    if (!isAdmin) {
+      const ok = await deduct('letter_usage', `ai_suggest_sections_${Date.now()}`);
+      if (!ok) return;
+    }
+    setSuggesting(true);
+    setDismissedIdx(new Set());
+    try {
+      const res = await fetch('/.netlify/functions/enhance-cv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'suggest_sections',
+          cvData: {
+            personal:   { bio: fullCvData?.personal?.bio || '' },
+            education:  fullCvData?.education  ?? [],
+            experience: fullCvData?.experience ?? [],
+            skills:     fullCvData?.skills      ?? { subjects: [], soft_skills: [], languages: [] },
+            custom_sections: data,
+          },
+          cvType: isEducator ? 'educator' : 'general',
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || 'AI failed');
+
+      if (!result.suggestions?.length) {
+        toast.success("Your CV already covers the sections most relevant to you — nothing more to suggest right now.");
+        setSuggestions(null);
+      } else {
+        setSuggestions(result.suggestions);
+      }
+      onAiUsed?.();
+    } catch (err: any) {
+      toast.error(err?.message?.includes('credit') ? err.message : 'Could not generate suggestions — please try again.');
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  const acceptSuggestion = (s: SectionSuggestion, idx: number) => {
+    onChange([...data, { title: s.title, type: s.type, content: s.content || '' }]);
+    setDismissedIdx(prev => new Set(prev).add(idx));
+  };
+  const dismissSuggestion = (idx: number) => setDismissedIdx(prev => new Set(prev).add(idx));
 
   const changeType = (i: number, type: CustomSection['type']) => {
     const base: CustomSection = { ...data[i], type };
@@ -86,6 +163,58 @@ export default function CVStepExtras({ data, onChange }: Props) {
         Add any section not covered above — e.g. Training Workshops, Awards, Publications, or Certifications.
         Each section can be plain text, a bullet list, or a table.
       </p>
+
+      {/* AI: suggest additional sections */}
+      <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Not sure what else to add?</p>
+            <p className="text-xs text-muted-foreground mt-0.5">AI can suggest sections based on what you've already told us</p>
+          </div>
+          <button type="button" onClick={fetchSuggestions} disabled={aiDisabled}
+            className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50 shrink-0">
+            {suggesting
+              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Thinking…</>
+              : <><Sparkles className="w-3.5 h-3.5" /> Suggest Sections</>}
+          </button>
+        </div>
+
+        {suggestions && suggestions.filter((_, i) => !dismissedIdx.has(i)).length > 0 && (
+          <div className="space-y-2 pt-1">
+            {suggestions.map((s, i) => {
+              if (dismissedIdx.has(i)) return null;
+              return (
+                <div key={i} className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    {s.kind === 'extracted'
+                      ? <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                      : <HelpCircle className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />}
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">{s.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{s.rationale}</p>
+                      {s.kind === 'extracted' && s.content && (
+                        <p className="text-xs text-foreground bg-card rounded-lg border border-border p-2 mt-1.5 italic">
+                          "{s.content.length > 140 ? s.content.slice(0, 140) + '…' : s.content}"
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => acceptSuggestion(s, i)}
+                      className="flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors">
+                      <Check className="w-3 h-3" /> {s.kind === 'extracted' ? 'Add this section' : 'Add empty section'}
+                    </button>
+                    <button onClick={() => dismissSuggestion(i)}
+                      className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-destructive transition-colors">
+                      <X className="w-3 h-3" /> Not relevant
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {data.map((section, si) => {
         const bullets = getBullets(section.content);

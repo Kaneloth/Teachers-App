@@ -282,6 +282,53 @@ Return ONLY valid JSON in this exact format, with EXACTLY ${bullets.length} item
 {"suggestions": ${JSON.stringify(bullets.map(() => 'rewritten version of this bullet'))}}`;
 }
 
+// ── Mode 6: Suggest additional CV sections ──────────────────────────────────
+// Same anti-hallucination DNA as buildSummaryPrompt/buildBulletImprovementPrompt
+// above: this NEVER invents a certification, award, or experience the person
+// hasn't mentioned. Every suggestion is one of exactly two kinds:
+//   1. "Extracted" — something already stated somewhere in their bio/
+//      experience/skills that deserves its own dedicated section (e.g. a
+//      bio that mentions coaching a sports team, buried in a paragraph,
+//      could become its own "Positions of Responsibility" section). The
+//      content for these MUST be a close paraphrase of what was actually
+//      said — extracted_content is populated only in this case.
+//   2. "Generic idea" — a section type that's commonly valuable for CVs
+//      like theirs, but framed as an open QUESTION ("Do you have any
+//      certifications relevant to X?"), never asserted as something they
+//      already have. extracted_content is null for these — the person
+//      fills in real content themselves if the idea is relevant.
+function buildSectionSuggestionPrompt(cvData, isEducator) {
+  const { personal = {}, education = [], experience = [], skills = {} } = cvData || {};
+  const existingTitles = (cvData?.custom_sections || []).map(s => s.title).filter(Boolean);
+
+  const fieldHint = isEducator
+    ? 'This person is a South African educator.'
+    : 'This person is a South African professional (not specifically in education) — do not suggest teaching-specific sections unless their own bio/experience already mentions teaching.';
+
+  return `You are helping suggest ADDITIONAL sections for a South African CV/resume, based ONLY on what this person has already told us below.
+
+ABSOLUTE RULES — DO NOT VIOLATE:
+1. NEVER invent a certification, award, qualification, or experience this person hasn't mentioned. If you're not sure they have something, don't claim they do.
+2. Every suggestion must be ONE of exactly two kinds:
+   a) "extracted" — something already stated somewhere below (in their summary, a job description, etc.) that deserves its own dedicated section instead of being buried in a paragraph. The content you provide for these must be a close, faithful paraphrase of what they actually said — do not add detail they didn't provide.
+   b) "idea" — a section type that's commonly useful for someone like this, framed as a QUESTION to the person ("Do you have any certifications in X?"), never asserted as a fact about them. Leave content blank for these.
+3. Do not suggest a section whose title is basically the same as one they already have: ${existingTitles.length ? existingTitles.join(', ') : '(none yet)'}.
+4. Suggest at most 4 sections total. If you genuinely can't find anything worth suggesting, return fewer — an empty or short list is a correct result, not a failure.
+5. ${fieldHint}
+
+WHAT THEY'VE TOLD US SO FAR:
+Professional Summary: ${personal.bio || '(not provided)'}
+Education: ${education.map(e => `${e.qualification || ''} — ${e.institution || ''} (${e.year || ''})`).join(' | ') || '(none)'}
+Experience: ${experience.map(e => `${e.role || ''} at ${e.school || ''}: ${e.description || ''}`).join(' | ') || '(none)'}
+Skills: ${[...(skills.subjects || []), ...(skills.soft_skills || [])].join(', ') || '(none)'}
+Languages: ${(skills.languages || []).join(', ') || '(none)'}
+
+Return ONLY valid JSON in this exact format:
+{"suggestions": [
+  {"title": "Section title", "kind": "extracted" or "idea", "type": "bullets" or "text", "rationale": "one short sentence explaining why", "content": "faithful paraphrase if kind=extracted, otherwise empty string"}
+]}`;
+}
+
 function buildCoverLetterPrompt(jobDescription, cvData, meta) {
   const name       = cvData?.personal?.full_name || meta?.name || '[Applicant Name]';
   const position   = meta?.position || '[Position]';
@@ -559,6 +606,51 @@ export const handler = async (event) => {
           const s = suggestions[i];
           return (typeof s === 'string' && s.trim()) ? s.trim() : original;
         });
+
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ success: true, suggestions: safeSuggestions }),
+        };
+      }
+
+      // ── Mode 6: Suggest additional CV sections ──────────────────────────
+      // Called with: { action: 'suggest_sections', cvData: {...}, cvType? }
+      if (body.action === 'suggest_sections') {
+        const cvData = body.cvData || {};
+        const isEducator = body.cvType !== 'general';
+
+        const prompt = buildSectionSuggestionPrompt(cvData, isEducator);
+        const raw = await callGroq(prompt, true);
+
+        let suggestions;
+        try {
+          const parsed = safeParseJson(raw);
+          suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
+        } catch (err) {
+          console.error('[enhance-cv] suggest_sections: failed to parse suggestions', err);
+          suggestions = [];
+        }
+
+        // Defensive validation — every field is checked and defaulted
+        // rather than trusted, so a malformed model response can never
+        // produce a broken section or an "extracted" claim with no real
+        // content behind it (which would defeat the whole anti-hallucination
+        // point of this feature).
+        const safeSuggestions = suggestions
+          .filter(s => s && typeof s.title === 'string' && s.title.trim())
+          .slice(0, 4)
+          .map(s => {
+            const kind = s.kind === 'extracted' ? 'extracted' : 'idea';
+            const type = s.type === 'text' ? 'text' : 'bullets';
+            const content = (kind === 'extracted' && typeof s.content === 'string') ? s.content.trim() : '';
+            return {
+              title: s.title.trim().slice(0, 60),
+              kind: content ? kind : 'idea', // an "extracted" suggestion with no actual content is really just an idea
+              type,
+              rationale: typeof s.rationale === 'string' ? s.rationale.trim().slice(0, 200) : '',
+              content,
+            };
+          });
 
         return {
           statusCode: 200,
