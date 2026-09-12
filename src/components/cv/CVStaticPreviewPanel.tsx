@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import CVTemplateRenderer from './CVTemplateRenderer';
+import ATSScoreBadge from './ATSScoreBadge';
 
 // Same A4-at-96dpi convention CVStepReview.tsx / CVPreviewDrawer.tsx use —
 // 794px wide, ~1123px tall per page. Duplicated here rather than shared,
@@ -79,33 +80,43 @@ export default function CVStaticPreviewPanel({ data, fallbackWidth = 420 }: Prop
 
   return (
     <div className="bg-card rounded-2xl border border-border overflow-hidden flex flex-col max-h-[calc(100vh-32px)]">
-      <div className="px-5 py-4 border-b border-border shrink-0">
-        <p className="text-base font-semibold text-foreground">Live Preview</p>
-        <p className="text-sm text-muted-foreground mt-0.5">Updates as you type</p>
+      <div className="px-5 py-4 border-b border-border shrink-0 space-y-3">
+        <div>
+          <p className="text-base font-semibold text-foreground">Live Preview</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Updates as you type</p>
+        </div>
+        <ATSScoreBadge data={safeData} />
       </div>
       <div ref={contentAreaRef} className="p-4 flex-1 overflow-y-auto min-h-0">
-        <div style={{ zoom }} className="space-y-4">
+        <div style={{ zoom }} className="space-y-3">
           {Array.from({ length: pageCount }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-lg overflow-hidden border border-border bg-white shadow-md mx-auto"
-              style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
-            >
-              <div style={{ position: 'absolute', top: `${-i * PAGE_HEIGHT}px`, left: 0 }}>
-                <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
-              </div>
-              {/* See CVStepReview.tsx for why this fade exists — this
-                  pixel-height slicing can cut a line of text right at the
-                  page boundary, unlike cvExport.ts's real line-aware
-                  pagination. This softens the cut visually rather than
-                  fully solving it. */}
-              {i < pageCount - 1 && (
-                <div style={{
-                  position: 'absolute', bottom: 0, left: 0, right: 0, height: '60px',
-                  background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))',
-                  pointerEvents: 'none',
-                }} />
+            <div key={i}>
+              {pageCount > 1 && (
+                <p style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280', textAlign: 'center', margin: '0 0 6px' }}>
+                  Page {i + 1} of {pageCount}
+                </p>
               )}
+              <div
+                className="rounded-lg overflow-hidden border border-border bg-white shadow-md mx-auto"
+                style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
+              >
+                <div style={{ position: 'absolute', top: `${-i * PAGE_HEIGHT}px`, left: 0 }}>
+                  <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
+                </div>
+                {/* See CVStepReview.tsx for why this fade + label exist —
+                    this pixel-height slicing can cut a line of text right at
+                    the page boundary, unlike cvExport.ts's real line-aware
+                    pagination. This softens the cut visually and the label
+                    makes clear these are sequential pages, not separate/
+                    broken content. */}
+                {i < pageCount - 1 && (
+                  <div style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0, height: '60px',
+                    background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))',
+                    pointerEvents: 'none',
+                  }} />
+                )}
+              </div>
             </div>
           ))}
         </div>

@@ -610,9 +610,21 @@ export async function exportElementAsPDF(
   const pr      = data.personal      || {};
   const edu     = (data.education    || []).filter((e:any)=>e.institution);
   const exp     = (data.experience   || []).filter((e:any)=>e.school);
-  const sk      = data.skills        || {};
-  const refs    = (data.references   || []).filter((r:any)=>r.name);
-  const customs = (data.custom_sections||[]).filter((s:any)=>s.title);
+  const hiddenSections = new Set<string>(data.hidden_sections || []);
+  // sk and refs are each a single shared variable passed to EVERY draw
+  // function below — confirmed (via grep across this whole file) that sk
+  // is used exclusively for skills content and refs only via
+  // length/map/filter, nothing else. That means hiding a section here,
+  // once, correctly suppresses it in whichever of the 10 templates draws
+  // next — no need to touch each draw function individually the way the
+  // React preview (CVTemplateRenderer.tsx) had to, since that file calls
+  // separate per-template JSX for skills rather than passing one shared
+  // object through.
+  const sk      = hiddenSections.has('skills') ? {} : (data.skills || {});
+  const refs    = hiddenSections.has('references') ? [] : (data.references || []).filter((r:any)=>r.name);
+  const customs = (data.custom_sections||[])
+    .filter((s:any)=>s.title)
+    .filter((s:any)=>!hiddenSections.has(`custom:${s.title}`));
   const [customIcons, photoDataUrl] = await Promise.all([
     resolveCustomSectionIcons(customs),
     loadCircularPhotoDataUrl(pr.photo_url),

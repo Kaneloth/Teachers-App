@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { Download, FileText, CheckCircle2, RefreshCw, Eye, List, Coins, AlertCircle } from 'lucide-react';
 import CVTemplateRenderer from './CVTemplateRenderer';
+import ATSScoreBadge from './ATSScoreBadge';
 import { exportElementAsPDF } from '@/utils/cvExport';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -42,13 +44,15 @@ interface CVData {
   experience: { school: string; role: string; from: string; to: string; description: string }[];
   skills: { subjects?: string[]; soft_skills?: string[]; languages?: string[] };
   references?: { name: string; title: string; organisation: string; phone: string; email: string; relationship: string }[];
+  custom_sections?: { title: string; type: 'text' | 'bullets' | 'table'; content?: string; columns?: string[]; rows?: string[][] }[];
   template: string;
   cvType?: 'educator' | 'general';
+  hidden_sections?: string[];
 }
 
-interface Props { data: CVData; onGenerated?: (url: string) => void; isFree?: boolean; aiUsed?: boolean }
+interface Props { data: CVData; onChange?: (d: CVData) => void; onGenerated?: (url: string) => void; isFree?: boolean; aiUsed?: boolean }
 
-export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed = false }: Props) {
+export default function CVStepReview({ data, onChange, onGenerated, isFree = false, aiUsed = false }: Props) {
   const { user } = useAuth();
   const { balance, loading: creditsLoading, deduct } = useCredits();
   const { gates, loading: gatesLoading } = useFeatureGates();
@@ -105,6 +109,21 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
   const existingPdfUrl = (user?.user_metadata?.last_cv_pdf_url as string | undefined) ?? null;
 
   const { personal, education, experience, skills } = data;
+
+  // ── Hide/show sections — Personal, Education, and Experience are always
+  // shown (they're not toggleable at all, by design); Skills, References,
+  // and each Custom Section can be individually hidden. This never deletes
+  // the underlying data — hidden_sections is purely a display filter that
+  // both CVTemplateRenderer.tsx and cvExport.ts already respect, so toggling
+  // something back on later restores it exactly as it was.
+  const hiddenSet = new Set(data.hidden_sections || []);
+  const isVisible = (key: string) => !hiddenSet.has(key);
+  const toggleSection = (key: string, visible: boolean) => {
+    if (!onChange) return;
+    const next = new Set(hiddenSet);
+    if (visible) next.delete(key); else next.add(key);
+    onChange({ ...data, hidden_sections: Array.from(next) });
+  };
 
   // Sanitized copy — see normalizeLanguage above. Used for both the visible
   // preview and the hidden export render, so a malformed languages entry
@@ -262,6 +281,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
 
       {view === 'preview' ? (
         <div className="space-y-3" ref={previewAreaRef}>
+          <ATSScoreBadge data={safeData} />
           {/*
            * Each "page" below is a 794×1123px window (A4 at the same 96dpi
            * scale the real export renders at) showing one vertical slice of
@@ -350,7 +370,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
               </div>
             ))}
           </SummaryCard>
-          <SummaryCard title="Skills & Languages">
+          <SummaryCard title="Skills & Languages" toggle={{ visible: isVisible('skills'), onChange: v => toggleSection('skills', v) }}>
             <div className="flex flex-wrap gap-1">
               {[...(skills.subjects || []), ...(skills.soft_skills || [])].map(s => (
                 <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
@@ -361,7 +381,7 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
             ) : null}
           </SummaryCard>
           {data.references?.filter(r => r.name).length ? (
-            <SummaryCard title="References">
+            <SummaryCard title="References" toggle={{ visible: isVisible('references'), onChange: v => toggleSection('references', v) }}>
               {data.references.filter(r => r.name).map((r, i) => (
                 <div key={i} className="text-sm">
                   <p className="font-medium text-foreground">{r.name}</p>
@@ -372,6 +392,13 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
               ))}
             </SummaryCard>
           ) : null}
+          {(data.custom_sections || []).filter(s => s.title).map((s, i) => (
+            <SummaryCard key={i} title={s.title} toggle={{ visible: isVisible(`custom:${s.title}`), onChange: v => toggleSection(`custom:${s.title}`, v) }}>
+              <p className="text-xs text-muted-foreground">
+                {s.type === 'table' ? `${(s.rows || []).length} row(s)` : (s.content || '').split('\n').filter(Boolean).length + ' line(s)'}
+              </p>
+            </SummaryCard>
+          ))}
         </div>
       )}
 
@@ -462,10 +489,18 @@ export default function CVStepReview({ data, onGenerated, isFree = false, aiUsed
   );
 }
 
-function SummaryCard({ title, children }: { title: string; children: React.ReactNode }) {
+function SummaryCard({ title, children, toggle }: { title: string; children: React.ReactNode; toggle?: { visible: boolean; onChange: (v: boolean) => void } }) {
   return (
-    <div className="bg-card rounded-2xl border border-border p-4 space-y-2">
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</p>
+    <div className={`bg-card rounded-2xl border p-4 space-y-2 transition-opacity ${toggle && !toggle.visible ? 'border-border opacity-60' : 'border-border'}`}>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</p>
+        {toggle && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground">{toggle.visible ? 'On CV' : 'Hidden'}</span>
+            <Switch checked={toggle.visible} onCheckedChange={toggle.onChange} className="scale-75" />
+          </div>
+        )}
+      </div>
       {children}
     </div>
   );

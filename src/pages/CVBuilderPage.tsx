@@ -560,7 +560,7 @@ export default function CVBuilderPage() {
               {step === 4 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} fullCvData={{ personal: { bio: data.personal.bio }, education: data.education, experience: data.experience, skills: data.skills }} onAiUsed={() => setAiUsed(true)} isEducator={isEducator} />}
               {step === 5 && <CVStepReferences data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
               {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} isFree={isFree} isEducator={isEducator} />}
-              {step === 7 && <CVStepReview data={data} onGenerated={handleCVGenerated} isFree={isFree} aiUsed={aiUsed} />}
+              {step === 7 && <CVStepReview data={data} onChange={setData} onGenerated={handleCVGenerated} isFree={isFree} aiUsed={aiUsed} />}
             </motion.div>
           </AnimatePresence>
         </div>

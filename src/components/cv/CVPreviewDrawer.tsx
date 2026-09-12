@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronUp, ChevronDown, Eye } from 'lucide-react';
 import CVTemplateRenderer from './CVTemplateRenderer';
+import ATSScoreBadge from './ATSScoreBadge';
 
 // Same A4-at-96dpi convention CVStepReview.tsx's pagination uses — 794px
 // wide, ~1123px tall per page. Kept in sync manually since these two
@@ -172,6 +173,7 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Pro
             </p>
             <p className="text-[11px] text-primary font-medium truncate">Tap to view full CV</p>
           </div>
+          <ATSScoreBadge data={safeData} compact />
           <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
         </button>,
         document.body
@@ -209,33 +211,43 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Pro
                 </button>
               </div>
             </div>
+            <div className="shrink-0 bg-card px-4 pb-3">
+              <ATSScoreBadge data={safeData} />
+            </div>
 
             {/* Paginated preview — same slicing technique as CVStepReview.tsx:
                 render the full content once per page, each clipped to a
                 1123px window and shifted up to reveal that page's slice. */}
             <div className="flex-1 overflow-y-auto px-4 py-4">
-              <div style={{ zoom: 0.4 }} className="space-y-4 mx-auto" >
+              <div style={{ zoom: 0.4 }} className="space-y-3 mx-auto" >
                 {Array.from({ length: pageCount }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="rounded-xl overflow-hidden border border-border bg-white shadow-sm mx-auto"
-                    style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
-                  >
-                    <div style={{ position: 'absolute', top: `${-i * PAGE_HEIGHT}px`, left: 0 }}>
-                      <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
-                    </div>
-                    {/* See CVStepReview.tsx for why this fade exists — this
-                        pixel-height slicing can cut a line of text right at
-                        the page boundary, unlike cvExport.ts's real
-                        line-aware pagination. This softens the cut visually
-                        rather than fully solving it. */}
-                    {i < pageCount - 1 && (
-                      <div style={{
-                        position: 'absolute', bottom: 0, left: 0, right: 0, height: '60px',
-                        background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))',
-                        pointerEvents: 'none',
-                      }} />
+                  <div key={i}>
+                    {pageCount > 1 && (
+                      <p style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280', textAlign: 'center', margin: '0 0 6px' }}>
+                        Page {i + 1} of {pageCount}
+                      </p>
                     )}
+                    <div
+                      className="rounded-xl overflow-hidden border border-border bg-white shadow-sm mx-auto"
+                      style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
+                    >
+                      <div style={{ position: 'absolute', top: `${-i * PAGE_HEIGHT}px`, left: 0 }}>
+                        <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
+                      </div>
+                      {/* See CVStepReview.tsx for why this fade + label exist —
+                          this pixel-height slicing can cut a line of text
+                          right at the page boundary, unlike cvExport.ts's
+                          real line-aware pagination. This softens the cut
+                          visually and the label makes clear these are
+                          sequential pages, not separate/broken content. */}
+                      {i < pageCount - 1 && (
+                        <div style={{
+                          position: 'absolute', bottom: 0, left: 0, right: 0, height: '60px',
+                          background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))',
+                          pointerEvents: 'none',
+                        }} />
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

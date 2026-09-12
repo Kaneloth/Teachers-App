@@ -25,6 +25,10 @@ interface CVData {
   references?: RefEntry[];
   custom_sections?: CustomSection[];
   template: string;
+  // Section titles hidden from the rendered CV — data stays intact
+  // elsewhere (e.g. data.skills), this just controls what actually draws.
+  // Keys: 'skills' | 'references' | 'custom:<title>'.
+  hidden_sections?: string[];
 }
 
 interface Props { data: CVData; forExport?: boolean; watermark?: boolean; cvType?: 'educator' | 'general'; thumbnail?: boolean }
@@ -87,7 +91,8 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
   const subjectsLabel = 'Key Skills';
 
   const expLabel = 'Work Experience';
-  const T = { data, wrapperStyle, validEdu, validExp, watermark, skillsLabel, subjectsLabel, expLabel, isEducatorCV, thumbnail };
+  const hidden = new Set(data.hidden_sections || []);
+  const T = { data, wrapperStyle, validEdu, validExp, watermark, skillsLabel, subjectsLabel, expLabel, isEducatorCV, thumbnail, hidden };
   const tmpl =
     template === 'minimal'      ? <MinimalTemplate      {...T} /> :
     template === 'bold'         ? <BoldTemplate         {...T} /> :
@@ -122,11 +127,11 @@ function renderDescription(desc: string | undefined, color: string, fontSize = '
   );
 }
 
-function renderCustomSections(sections: CustomSection[] | undefined, color: string, borderColor?: string): React.ReactNode {
+function renderCustomSections(sections: CustomSection[] | undefined, color: string, borderColor?: string, hidden?: Set<string>): React.ReactNode {
   if (!sections?.length) return null;
   return (
     <>
-      {sections.filter(s => s.title).map((s, idx) => {
+      {sections.filter(s => s.title && !hidden?.has(`custom:${s.title}`)).map((s, idx) => {
         let content: React.ReactNode = null;
         if (s.type === 'text') {
           content = (s.content && s.content.trim())
@@ -184,7 +189,9 @@ function renderReferencesPage(
   watermark: boolean,
   borderColor?: string,
   padding = '28px 36px',
+  hidden?: Set<string>,
 ): React.ReactNode {
+  if (hidden?.has('references')) return null;
   const validRefs = (refs || []).filter(r => r.name);
   if (!validRefs.length) return null;
   return (
@@ -355,7 +362,7 @@ function BulletList({ items }: { items: string[] }) {
 }
 
 /* ── Classic Template ────────────────────────────────────────────────────── */
-function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
+function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', hidden }: any) {
   const { personal, skills } = data;
   return (
     <div style={{ ...wrapperStyle }}>
@@ -401,18 +408,18 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
               </div>
             ))}
           </Section>}
-          {(skills?.subjects?.length || skills?.soft_skills?.length) && <Section title="Skills & Subjects" color="#1e2a3a" icon={ICONS.award}>
+          {!hidden?.has('skills') && (skills?.subjects?.length || skills?.soft_skills?.length) && <Section title="Skills & Subjects" color="#1e2a3a" icon={ICONS.award}>
             {skills.subjects?.length && <div><div style={{ fontWeight: '700', fontSize: '12px', color: '#374151', marginBottom: '4px' }}>Subjects</div><BulletList items={skills.subjects} /></div>}
             {skills.soft_skills?.length && <div style={{ marginTop: '12px' }}><div style={{ fontWeight: '700', fontSize: '12px', color: '#374151', marginBottom: '4px' }}>Skills</div><BulletList items={skills.soft_skills} /></div>}
           </Section>}
-          {skills?.languages?.length && <Section title="Languages" color="#1e2a3a" icon={ICONS.languages}>
+          {!hidden?.has('skills') && skills?.languages?.length && <Section title="Languages" color="#1e2a3a" icon={ICONS.languages}>
             <BulletList items={skills.languages} />
           </Section>}
-          {renderCustomSections(data.custom_sections, '#1e2a3a')}
+          {renderCustomSections(data.custom_sections, '#1e2a3a', undefined, hidden)}
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, '#1e2a3a', watermark, undefined, '28px 36px')}
+      {renderReferencesPage(data.references, '#1e2a3a', watermark, undefined, '28px 36px', hidden)}
     </div>
   );
 }
@@ -555,7 +562,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp, watermar
 }
 
 /* ── Minimal Template ────────────────────────────────────────────────────── */
-function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
+function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', hidden }: any) {
   const { personal, skills } = data;
   return (
     <div style={{ ...wrapperStyle }}>
@@ -603,16 +610,16 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
               </div>
             ))}
           </MinimalSection>}
-          {(skills?.subjects?.length || skills?.soft_skills?.length || skills?.languages?.length) && <MinimalSection title="Skills & Languages">
+          {!hidden?.has('skills') && (skills?.subjects?.length || skills?.soft_skills?.length || skills?.languages?.length) && <MinimalSection title="Skills & Languages">
             {skills.subjects?.length && <div><strong>{subjectsLabel}: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.subjects.join(' · ')}</span></div>}
             {skills.soft_skills?.length && <div><strong>Skills: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.soft_skills.join(' · ')}</span></div>}
             {skills.languages?.length && <div><strong>Languages: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.languages.join(' · ')}</span></div>}
           </MinimalSection>}
-          {renderCustomSections(data.custom_sections, '#111827')}
+          {renderCustomSections(data.custom_sections, '#111827', undefined, hidden)}
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, '#111827', watermark, undefined, '40px 44px')}
+      {renderReferencesPage(data.references, '#111827', watermark, undefined, '40px 44px', hidden)}
     </div>
   );
 }
@@ -706,7 +713,7 @@ function SkillGroupsTwoCol({ groups, accent }: { groups: [string, string[]][]; a
   );
 }
 
-function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', isEducatorCV = true }: any) {
+function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', isEducatorCV = true, hidden }: any) {
   const { personal, skills } = data;
   const accent = '#c2185b';
   const boldSkillGroups: [string, string[]][] = [
@@ -771,15 +778,15 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
             ))}
           </TagUnderlineSection>}
 
-          {boldSkillGroups.length > 0 && <TagUnderlineSection title="Skills" color={accent} icon={ICONS.award}>
+          {!hidden?.has('skills') && boldSkillGroups.length > 0 && <TagUnderlineSection title="Skills" color={accent} icon={ICONS.award}>
             <SkillGroupsTwoCol groups={boldSkillGroups} accent={accent} />
           </TagUnderlineSection>}
 
-          {renderCustomSections(data.custom_sections, accent)}
+          {renderCustomSections(data.custom_sections, accent, undefined, hidden)}
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, accent, watermark, undefined, '24px 32px')}
+      {renderReferencesPage(data.references, accent, watermark, undefined, '24px 32px', hidden)}
     </div>
   );
 }
@@ -1098,7 +1105,7 @@ function BoxedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
 }
 
 /* ── Traditional Template (Image 5 — classical, left date col, serif feel) ── */
-function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
+function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', hidden }: any) {
   const { personal, skills } = data;
   return (
     <div style={{ ...wrapperStyle }}>
@@ -1156,7 +1163,7 @@ function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark
             ))}
           </div>
         )}
-        {(skills?.soft_skills?.length || skills?.subjects?.length || skills?.languages?.length) && (
+        {!hidden?.has('skills') && (skills?.soft_skills?.length || skills?.subjects?.length || skills?.languages?.length) && (
           <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
             <div style={{ width: '110px', flexShrink: 0, fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#374151', fontFamily: "Georgia, 'Times New Roman', serif" }}>SKILLS</div>
             <div style={{ flex: 1, borderLeft: '1px solid #e5e7eb', paddingLeft: '16px' }}>
@@ -1172,10 +1179,10 @@ function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark
             </div>
           </div>
         )}
-        {renderCustomSections(data.custom_sections, '#374151')}
+        {renderCustomSections(data.custom_sections, '#374151', undefined, hidden)}
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, '#374151', watermark)}
+      {renderReferencesPage(data.references, '#374151', watermark, undefined, undefined, hidden)}
     </div>
   );
 }
@@ -1359,7 +1366,7 @@ function TimelineTemplate({ data, wrapperStyle, validEdu, validExp, watermark, s
 }
 
 /* ── Shaded Template (Image 9 — shaded section headers, dot leader lines) ─── */
-function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
+function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', hidden }: any) {
   const { personal, skills } = data;
   return (
     <div style={{ ...wrapperStyle }}>
@@ -1429,7 +1436,7 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
               ))}
             </div>
           )}
-          {(() => {
+          {!hidden?.has('skills') && (() => {
             const shadedSkillGroups = [
               { label: 'Key Skills',          items: skills?.subjects    || [] },
               { label: 'Professional Skills', items: skills?.soft_skills || [] },
@@ -1452,11 +1459,11 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
               </div>
             );
           })()}
-          {renderCustomSections(data.custom_sections, '#374151')}
+          {renderCustomSections(data.custom_sections, '#374151', undefined, hidden)}
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, '#374151', watermark)}
+      {renderReferencesPage(data.references, '#374151', watermark, undefined, undefined, hidden)}
     </div>
   );
 }
@@ -1545,7 +1552,7 @@ function TealTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
 }
 
 /* ── Crimson Template (Image 13 — bold red banner header) ────────────────── */
-function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', isEducatorCV = true }: any) {
+function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', isEducatorCV = true, hidden }: any) {
   const { personal, skills } = data;
   const crimson = '#c0392b';
   const crimSkillGroups: [string, string[]][] = [
@@ -1596,21 +1603,21 @@ function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
             ))}
           </TagUnderlineSection>}
 
-          {crimSkillGroups.length > 0 && <TagUnderlineSection title="Skills" color={crimson} icon={ICONS.award}>
+          {!hidden?.has('skills') && crimSkillGroups.length > 0 && <TagUnderlineSection title="Skills" color={crimson} icon={ICONS.award}>
             <SkillGroupsTwoCol groups={crimSkillGroups} accent={crimson} />
           </TagUnderlineSection>}
 
-          {renderCustomSections(data.custom_sections, crimson)}
+          {renderCustomSections(data.custom_sections, crimson, undefined, hidden)}
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, crimson, watermark)}
+      {renderReferencesPage(data.references, crimson, watermark, undefined, undefined, hidden)}
     </div>
   );
 }
 
 /* ── Sage Template (Image 16 — green header, clean minimal) ──────────────── */
-function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', isEducatorCV = true }: any) {
+function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', isEducatorCV = true, hidden }: any) {
   const { personal, skills } = data;
   const sage = '#7fa37f';
   const sageBg = '#e8f0e8';
@@ -1663,7 +1670,7 @@ function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
               ))}
             </div>
           )}
-          {(() => {
+          {!hidden?.has('skills') && (() => {
             const sageSkillGroups = [
               { label: subjectsLabel,          items: skills?.subjects    || [] },
               { label: 'Professional Skills',  items: skills?.soft_skills || [] },
@@ -1686,11 +1693,11 @@ function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
               </div>
             );
           })()}
-          {renderCustomSections(data.custom_sections, sage)}
+          {renderCustomSections(data.custom_sections, sage, undefined, hidden)}
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, sage, watermark)}
+      {renderReferencesPage(data.references, sage, watermark, undefined, undefined, hidden)}
     </div>
   );
 }
@@ -1717,7 +1724,7 @@ function ElegantHeading({ title }: { title: string }) {
   );
 }
 
-function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, expLabel = 'Work Experience' }: any) {
+function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, expLabel = 'Work Experience', hidden }: any) {
   const { personal, skills } = data;
   // Subtitle uses the user's chosen job title if set, otherwise falls back
   // to the most recent role — users can type multiple roles separated by
@@ -1820,7 +1827,7 @@ function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ex
         )}
 
         {/* Skills and Attributes — grouped by category */}
-        {elegantSkillGroups.length > 0 && (
+        {!hidden?.has('skills') && elegantSkillGroups.length > 0 && (
           <>
             <ElegantHeading title="Skills and Attributes" />
             {elegantSkillGroups.map((group, gi) => (
@@ -1844,11 +1851,11 @@ function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ex
           </>
         )}
 
-        {renderCustomSections(data.custom_sections, ELEGANT_INK, ELEGANT_LINE)}
+        {renderCustomSections(data.custom_sections, ELEGANT_INK, ELEGANT_LINE, hidden)}
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, ELEGANT_INK, watermark, ELEGANT_LINE)}
+      {renderReferencesPage(data.references, ELEGANT_INK, watermark, ELEGANT_LINE, undefined, hidden)}
     </div>
   );
 }
@@ -1882,7 +1889,7 @@ function HeritageHeading({ title }: { title: string }) {
   );
 }
 
-function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, expLabel = 'Work Experience' }: any) {
+function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, expLabel = 'Work Experience', hidden }: any) {
   const { personal, skills } = data;
   const subtitle = personal.job_title || validExp[0]?.role || '';
   const contactParts = [
@@ -1990,7 +1997,7 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
         )}
 
         {/* Skills and Attributes — grouped, inline "Name (description)" */}
-        {heritageSkillGroups.length > 0 && (
+        {!hidden?.has('skills') && heritageSkillGroups.length > 0 && (
           <>
             <HeritageHeading title="Skills and Attributes" />
             {heritageSkillGroups.map((group, gi) => (
@@ -2018,11 +2025,11 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
           </>
         )}
 
-        {renderCustomSections(data.custom_sections, HERITAGE_INK, HERITAGE_RULE)}
+        {renderCustomSections(data.custom_sections, HERITAGE_INK, HERITAGE_RULE, hidden)}
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, HERITAGE_INK, watermark, HERITAGE_RULE)}
+      {renderReferencesPage(data.references, HERITAGE_INK, watermark, HERITAGE_RULE, undefined, hidden)}
     </div>
   );
 }
@@ -2261,7 +2268,7 @@ function PlayfulTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
  * Experience/Education grid. Sections flow top-to-bottom:
  * About Me → Experience → Education → Skills → Custom → References.
  */
-function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience' }: any) {
+function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', hidden }: any) {
   const { personal, skills } = data;
 
   const allSkills = [
@@ -2374,7 +2381,7 @@ function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
           )}
 
           {/* Skills — categorised, 2-column bullet layout per category */}
-          {allSkills.length > 0 && (
+          {!hidden?.has('skills') && allSkills.length > 0 && (
             <div style={{ marginBottom: '28px' }}>
               <PlayfulHeading title="Skills" icon="⚙️" />
               {skillGroups.map((group, gi) => (
@@ -2402,12 +2409,12 @@ function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
             </div>
           )}
 
-          {renderCustomSections(data.custom_sections, PL_INK)}
+          {renderCustomSections(data.custom_sections, PL_INK, undefined, hidden)}
         </div>
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      <div style={{ background: PL_BG }}>{renderReferencesPage(data.references, PL_INK, watermark)}</div>
+      <div style={{ background: PL_BG }}>{renderReferencesPage(data.references, PL_INK, watermark, undefined, undefined, hidden)}</div>
     </div>
   );
 }
