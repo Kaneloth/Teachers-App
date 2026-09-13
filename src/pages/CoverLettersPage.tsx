@@ -510,7 +510,7 @@ export default function CoverLettersPage() {
             >
               {aiGenerating
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating tailored letter…</>
-                : <><Sparkles className="w-4 h-4" /> Generate with AI · {letterCost} credit{letterCost === 1 ? '' : 's'}</>
+                : <><Sparkles className="w-4 h-4" /> Generate with AI </>
               }
             </button>
           </div>
