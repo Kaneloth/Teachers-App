@@ -6,6 +6,8 @@ import { Plus, Trash2, X, Table2, List, AlignLeft, Sparkles, Loader2, Check, Hel
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
+import { usePricing, PurchaseModal } from '@/components/credits/CreditBalance';
+import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
 
 export interface CustomSection {
   title: string;
@@ -39,7 +41,9 @@ interface Props {
 export default function CVStepExtras({ data, onChange, fullCvData, onAiUsed, isEducator = true }: Props) {
   const { user } = useAuth();
   const isAdmin = !!(user?.user_metadata?.is_admin);
-  const { balance, loading: creditsLoading, deduct } = useCredits();
+  const { balance, loading: creditsLoading, deduct, insufficientCredits, dismissInsufficientCredits } = useCredits();
+  const pricing = usePricing();
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
   const [suggesting, setSuggesting] = useState(false);
   const [suggestions, setSuggestions] = useState<SectionSuggestion[] | null>(null);
@@ -430,6 +434,18 @@ export default function CVStepExtras({ data, onChange, fullCvData, onAiUsed, isE
       <Button variant="outline" onClick={addSection} className="w-full rounded-xl gap-2">
         <Plus className="w-4 h-4" /> Add Custom Section
       </Button>
+      {insufficientCredits && (
+        <InsufficientCreditsModal
+          needed={insufficientCredits.needed}
+          have={insufficientCredits.have}
+          message={insufficientCredits.message}
+          onDismiss={dismissInsufficientCredits}
+          onTopUp={() => { dismissInsufficientCredits(); setShowPurchaseModal(true); }}
+        />
+      )}
+      {showPurchaseModal && (
+        <PurchaseModal onClose={() => setShowPurchaseModal(false)} pricing={pricing} />
+      )}
     </div>
   );
 }

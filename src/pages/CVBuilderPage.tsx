@@ -21,6 +21,8 @@ import CVStepTemplate from '@/components/cv/CVStepTemplate';
 import CVStepReview from '@/components/cv/CVStepReview';
 import LastCVBanner from '@/components/cv/LastCVBanner';
 import CVPreviewDrawer from '@/components/cv/CVPreviewDrawer';
+import { usePricing, PurchaseModal } from '@/components/credits/CreditBalance';
+import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
 import CVStaticPreviewPanel from '@/components/cv/CVStaticPreviewPanel';
 import TestimonialPromptModal from '@/components/TestimonialPromptModal';
 // Kept for backward compatibility with saved drafts / last CV data
@@ -123,6 +125,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
   const [activeTab,     setActiveTab]     = useState<'upload' | 'freetext'>('upload');
   const [jobDesc,       setJobDesc]       = useState('');
   const [showJobDesc,   setShowJobDesc]   = useState(false);
+  const { letterCost } = usePricing();
   const mergeAndEmit = (parsed: Partial<CVData>, base: CVData) => {
     if (parsed.education?.length)        base.education       = parsed.education;
     if (parsed.experience?.length)       base.experience      = parsed.experience;
@@ -157,7 +160,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
         if (!res.ok || !result.success) throw new Error(result.error || 'Failed to process CV');
         mergeAndEmit(result.data, defaultData());
         onAiUsed();
-        toast.success('CV imported! 1 credit used. Review and complete your details.');
+        toast.success('CV imported! Review and complete your details.');
         setUploading(false);
         return;
       } catch (err: any) {
@@ -194,7 +197,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
         if (!res.ok || !result.success) throw new Error(result.error || 'AI processing failed');
         mergeAndEmit(result.data, defaultData());
         onAiUsed();
-        toast.success('AI has structured your info! 1 credit used. Review and complete your details.');
+        toast.success('AI has structured your info! Review and complete your details.');
         setUploading(false);
         return;
       } catch (err: any) {
@@ -212,7 +215,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
     <div className="px-4 pb-4">
       <p className="text-xs text-muted-foreground mb-3">
         Speed up your CV — import an existing CV or describe yourself and our AI will fill in the sections for you.{' '}
-        <span className="font-medium text-primary">1 credit per AI action.</span>
+        <span className="font-medium text-primary">{letterCost} credit{letterCost === 1 ? '' : 's'} per AI action.</span>
       </p>
       {/* Optional job description */}
       <div className="mb-3">
@@ -304,7 +307,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
             className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl py-3 text-sm font-semibold transition-all disabled:opacity-50 hover:bg-primary/90">
             {uploading
               ? <><Loader2 className="w-4 h-4 animate-spin" /> AI is structuring your info…</>
-              : <><Loader2 className="w-4 h-4" /> Structure with AI · 1 credit</>}
+              : <><Loader2 className="w-4 h-4" /> Structure with AI · {letterCost} credit{letterCost === 1 ? '' : 's'}</>}
           </button>
         </div>
       )}
@@ -315,7 +318,9 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
 export default function CVBuilderPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { balance, loading: creditsLoading, deduct } = useCredits();
+  const { balance, loading: creditsLoading, deduct, insufficientCredits, dismissInsufficientCredits } = useCredits();
+  const pricing = usePricing();
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const { gates, loading: gatesLoading } = useFeatureGates();
   const isDesktop = useIsDesktop();
   const [initialState] = useState(() => {
@@ -617,6 +622,18 @@ export default function CVBuilderPage() {
       </div>
       {showTestimonialPrompt && (
         <TestimonialPromptModal source="cv_download_prompt" onClose={() => setShowTestimonialPrompt(false)} />
+      )}
+      {insufficientCredits && (
+        <InsufficientCreditsModal
+          needed={insufficientCredits.needed}
+          have={insufficientCredits.have}
+          message={insufficientCredits.message}
+          onDismiss={dismissInsufficientCredits}
+          onTopUp={() => { dismissInsufficientCredits(); setShowPurchaseModal(true); }}
+        />
+      )}
+      {showPurchaseModal && (
+        <PurchaseModal onClose={() => setShowPurchaseModal(false)} pricing={pricing} />
       )}
     </div>
   );

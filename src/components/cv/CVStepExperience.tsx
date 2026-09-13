@@ -7,6 +7,8 @@ import { Plus, Trash2, X, Sparkles, Loader2, Check, RotateCcw } from 'lucide-rea
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
+import { usePricing, PurchaseModal } from '@/components/credits/CreditBalance';
+import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
 
 interface ExpEntry { school: string; role: string; from: string; to: string; description: string }
 interface Props {
@@ -21,7 +23,9 @@ interface Suggestion { bulletIndex: number; original: string; suggested: string 
 export default function CVStepExperience({ data, onChange, onAiUsed, isEducator = true }: Props) {
   const { user } = useAuth();
   const isAdmin = !!(user?.user_metadata?.is_admin);
-  const { balance, loading: creditsLoading, deduct } = useCredits();
+  const { balance, loading: creditsLoading, deduct, insufficientCredits, dismissInsufficientCredits } = useCredits();
+  const pricing = usePricing();
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
   const [improving,   setImproving]   = useState<Record<number, boolean>>({});
   const [suggestions, setSuggestions] = useState<Record<number, Suggestion[] | undefined>>({});
@@ -223,6 +227,18 @@ export default function CVStepExperience({ data, onChange, onAiUsed, isEducator 
       <Button variant="outline" onClick={add} className="w-full rounded-xl gap-2">
         <Plus className="w-4 h-4" /> Add Work Experience
       </Button>
+      {insufficientCredits && (
+        <InsufficientCreditsModal
+          needed={insufficientCredits.needed}
+          have={insufficientCredits.have}
+          message={insufficientCredits.message}
+          onDismiss={dismissInsufficientCredits}
+          onTopUp={() => { dismissInsufficientCredits(); setShowPurchaseModal(true); }}
+        />
+      )}
+      {showPurchaseModal && (
+        <PurchaseModal onClose={() => setShowPurchaseModal(false)} pricing={pricing} />
+      )}
     </div>
   );
 }

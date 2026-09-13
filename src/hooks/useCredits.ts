@@ -2,29 +2,58 @@
  * useCredits — React hook for the credit system
  *
  * Usage:
- *   const { balance, loading, deduct, refetch } = useCredits();
+ *   const { balance, loading, deduct, refetch, insufficientCredits, dismissInsufficientCredits } = useCredits();
  *
  *   // Before generating a CV:
  *   const ok = await deduct('cv_usage', cvId);
- *   if (!ok) return; // modal shown automatically
+ *   if (!ok) return; // insufficientCredits is now set — render
+ *                     // <InsufficientCreditsModal> based on it, see that
+ *                     // component's usage docs
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { toast } from 'sonner';
+import { usePricing } from './usePricing';
+
+export interface InsufficientCreditsInfo {
+  needed: number;
+  have: number;
+  // Set when deduct-credits.js returns a specific explanation — e.g. the
+  // free career-tool cap ("You've used your 180 free credits...") is a
+  // genuinely different situation from plain insufficient balance, and
+  // showing the generic "you need X, have Y" framing for it would be
+  // misleading (the user might have credits left, just not usable for
+  // this action). Falls back to the generic framing when absent.
+  message?: string;
+}
 
 export interface CreditState {
   balance:  number;
   loading:  boolean;
   deduct:   (type: 'cv_usage' | 'letter_usage', refId?: string) => Promise<boolean>;
   refetch:  () => Promise<void>;
+  // Set instead of firing a toast whenever deduct() fails due to
+  // insufficient balance — render <InsufficientCreditsModal> based on
+  // this rather than a toast (see that component for the exact pattern).
+  insufficientCredits: InsufficientCreditsInfo | null;
+  dismissInsufficientCredits: () => void;
 }
 
 export function useCredits(): CreditState {
   const { user, session } = useAuth();
   const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
+  const [insufficientCredits, setInsufficientCredits] = useState<InsufficientCreditsInfo | null>(null);
+
+  // Real, admin-controlled costs — previously this hook hardcoded
+  // `type === 'cv_usage' ? 9 : 2`, completely disconnected from the
+  // credit_costs table every other part of the app reads from. That
+  // hardcoded 9 is where the "Each CV build costs 9 credits" text on the
+  // general-user home page actually came from — not a display bug, a bug
+  // in this hook's own logic.
+  const { cvCost, letterCost } = usePricing();
 
   const isAdmin = !!(user?.user_metadata?.is_admin);
 
@@ -42,10 +71,13 @@ export function useCredits(): CreditState {
 
   useEffect(() => { fetchBalance(); }, [fetchBalance]);
 
+  const dismissInsufficientCredits = useCallback(() => setInsufficientCredits(null), []);
+
   /**
    * Deduct credits for a CV or cover letter generation.
    * Returns true if the deduction succeeded (generation can proceed).
-   * Returns false if insufficient credits (purchase modal should be shown).
+   * Returns false if insufficient credits — insufficientCredits is set
+   * instead of a toast; render <InsufficientCreditsModal> based on it.
    */
   const deduct = useCallback(async (
     type: 'cv_usage' | 'letter_usage',
@@ -72,7 +104,7 @@ export function useCredits(): CreditState {
       return false;
     }
 
-    const cost = type === 'cv_usage' ? 9 : 2;  // CV = 9cr, letter/AI = 2cr
+    const cost = type === 'cv_usage' ? cvCost : letterCost;
 
     // Optimistic UI — immediately decrement so the button feels instant
     setBalance(prev => prev - cost);
@@ -92,10 +124,21 @@ export function useCredits(): CreditState {
       if (res.status === 402) {
         // Reverse the optimistic update
         setBalance(prev => prev + cost);
-        toast.error(
-          `Not enough credits. You need ${cost} credit${cost > 1 ? 's' : ''} but have ${data.balance}.`,
-          { duration: 5000 }
-        );
+        // deduct-credits.js has two different 402 scenarios with different
+        // response shapes: plain insufficient_credits includes `required`
+        // (the server's own authoritative cost — preferred over the
+        // client's cost when present, in case client/server pricing
+        // briefly disagree right after an admin changes a price), while
+        // career_cap_reached includes a specific `message` instead and no
+        // `required` field at all. Was a toast — now sets state instead,
+        // so the calling component can show InsufficientCreditsModal with
+        // a direct path to topping up, rather than a toast that just
+        // disappears with no next step.
+        setInsufficientCredits({
+          needed: data.required ?? cost,
+          have: data.balance ?? 0,
+          message: data.message,
+        });
         return false;
       }
 
@@ -115,9 +158,9 @@ export function useCredits(): CreditState {
       toast.error('Network error. Please check your connection and try again.');
       return false;
     }
-  }, [session, isAdmin]);
+  }, [session, isAdmin, cvCost, letterCost]);
 
-  return { balance, loading, deduct, refetch: fetchBalance };
+  return { balance, loading, deduct, refetch: fetchBalance, insufficientCredits, dismissInsufficientCredits };
 }
 
 /**

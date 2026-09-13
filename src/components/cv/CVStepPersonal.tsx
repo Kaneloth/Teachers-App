@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
+import { usePricing, PurchaseModal } from '@/components/credits/CreditBalance';
+import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
 
 function publicStorageUrl(bucket: string, path: string): string {
   const base = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, '');
@@ -39,7 +41,9 @@ interface Props {
 export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, jobDescription }: Props) {
   const { user } = useAuth();
   const isAdmin = !!(user?.user_metadata?.is_admin);
-  const { balance, loading: creditsLoading, deduct } = useCredits();
+  const { balance, loading: creditsLoading, deduct, insufficientCredits, dismissInsufficientCredits } = useCredits();
+  const pricing = usePricing();
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [uploading,         setUploading]         = useState(false);
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const fileRef   = useRef<HTMLInputElement>(null);
@@ -160,6 +164,7 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
   };
 
   return (
+    <>
     <div className="bg-card rounded-2xl border border-border p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold text-foreground">Personal Information</h2>
@@ -241,6 +246,19 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
         To update your name, email or phone, go to your <strong>Profile page</strong>.
       </p>
     </div>
+    {insufficientCredits && (
+      <InsufficientCreditsModal
+        needed={insufficientCredits.needed}
+        have={insufficientCredits.have}
+        message={insufficientCredits.message}
+        onDismiss={dismissInsufficientCredits}
+        onTopUp={() => { dismissInsufficientCredits(); setShowPurchaseModal(true); }}
+      />
+    )}
+    {showPurchaseModal && (
+      <PurchaseModal onClose={() => setShowPurchaseModal(false)} pricing={pricing} />
+    )}
+    </>
   );
 }
 

@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
-import CreditBalance from '@/components/credits/CreditBalance';
+import CreditBalance, { usePricing, PurchaseModal } from '@/components/credits/CreditBalance';
+import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
 import { supabase } from '@/lib/supabase';
 
 /* ── Template definitions ────────────────────────────────────── */
@@ -224,7 +225,10 @@ export default function CoverLettersPage() {
   const { user } = useAuth();
 
   /* ── Credits ───────────────────────────────────────────────── */
-  const { balance, loading: creditsLoading, deduct } = useCredits();
+  const { balance, loading: creditsLoading, deduct, insufficientCredits, dismissInsufficientCredits } = useCredits();
+  const pricing = usePricing();
+  const { letterCost } = pricing;
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [isEducator,   setIsEducator]   = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
 
@@ -313,12 +317,12 @@ export default function CoverLettersPage() {
       return;
     }
 
-    // ── Deduct 1 credit BEFORE calling the AI ────────────────────────────
+    // ── Deduct letterCost credits BEFORE calling the AI ──────────────────
     // This prevents abuse — the credit is spent on the AI call itself.
     // If AI succeeds, download is free for this letter (aiUsed = true).
     const aiRef = `ai_letter_${category}_${Date.now()}`;
     const ok = await deduct('letter_usage', aiRef);
-    if (!ok) return; // insufficient credits — toast already shown
+    if (!ok) return; // insufficientCredits is now set automatically by the hook
 
     setAiGenerating(true);
     try {
@@ -356,12 +360,12 @@ export default function CoverLettersPage() {
     if (!body.trim()) { toast.error('Letter body is empty.'); return; }
 
     // ── Credit logic ──────────────────────────────────────────────────────
-    // If user already paid 1 credit for AI generation → download is free.
-    // If user is using a plain template → deduct 1 credit now.
+    // If user already paid letterCost credits for AI generation → download is free.
+    // If user is using a plain template → deduct letterCost credits now.
     if (!aiUsed) {
       const letterRef = `letter_${category}_${Date.now()}`;
       const ok = await deduct('letter_usage', letterRef);
-      if (!ok) return; // insufficient credits — toast already shown
+      if (!ok) return; // insufficientCredits is now set automatically by the hook
     }
 
     setGenerating(true);
@@ -501,12 +505,12 @@ export default function CoverLettersPage() {
             )}
             <button
               onClick={generateWithAI}
-              disabled={aiGenerating || !jobDesc.trim() || (!creditsLoading && balance < 1)}
+              disabled={aiGenerating || !jobDesc.trim() || (!creditsLoading && balance < letterCost)}
               className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl py-2.5 text-sm font-semibold transition-all disabled:opacity-50 hover:bg-primary/90"
             >
               {aiGenerating
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating tailored letter…</>
-                : <><Sparkles className="w-4 h-4" /> Generate with AI · 1 credit</>
+                : <><Sparkles className="w-4 h-4" /> Generate with AI · {letterCost} credit{letterCost === 1 ? '' : 's'}</>
               }
             </button>
           </div>
@@ -531,26 +535,26 @@ export default function CoverLettersPage() {
           </div>
 
           {/* Low credit warning */}
-          {!creditsLoading && balance < 1 && (
+          {!creditsLoading && balance < letterCost && (
             <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2.5">
               <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700 dark:text-amber-300">
-                You need 1 credit to download a cover letter.{' '}
-                <a href="/credits" className="underline font-medium">Buy credits</a>
+                You need {letterCost} credit{letterCost === 1 ? '' : 's'} to download a cover letter.{' '}
+                <button type="button" onClick={() => setShowPurchaseModal(true)} className="underline font-medium">Top up</button>
               </p>
             </div>
           )}
 
           <Button
             onClick={handleDownload}
-            disabled={generating || !body.trim() || (!aiUsed && !creditsLoading && balance < 1)}
+            disabled={generating || !body.trim() || (!aiUsed && !creditsLoading && balance < letterCost)}
             className="w-full h-12 rounded-2xl text-base font-semibold gap-2"
           >
             {generating
               ? <><Loader2 className="w-5 h-5 animate-spin" /> Generating…</>
               : aiUsed
                 ? <><Download className="w-5 h-5" /> Download as Word (.docx) · Free</>
-                : <><Download className="w-5 h-5" /> Download as Word (.docx) · 1 credit</>
+                : <><Download className="w-5 h-5" /> Download as Word (.docx) · {letterCost} credit{letterCost === 1 ? '' : 's'}</>
             }
           </Button>
 
@@ -559,6 +563,18 @@ export default function CoverLettersPage() {
           </p>
         </motion.div>
       </AnimatePresence>
+      {insufficientCredits && (
+        <InsufficientCreditsModal
+          needed={insufficientCredits.needed}
+          have={insufficientCredits.have}
+          message={insufficientCredits.message}
+          onDismiss={dismissInsufficientCredits}
+          onTopUp={() => { dismissInsufficientCredits(); setShowPurchaseModal(true); }}
+        />
+      )}
+      {showPurchaseModal && (
+        <PurchaseModal onClose={() => setShowPurchaseModal(false)} pricing={pricing} />
+      )}
     </div>
   );
 }

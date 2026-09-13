@@ -11,6 +11,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
 import { useFeatureGates } from '@/hooks/useFeatureGates';
+import { usePricing, PurchaseModal } from '@/components/credits/CreditBalance';
+import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
 
 // Builds correct public storage URL — getPublicUrl() sometimes omits /public/
 function publicStorageUrl(bucket: string, path: string): string {
@@ -54,9 +56,15 @@ interface Props { data: CVData; onChange?: (d: CVData) => void; onGenerated?: (u
 
 export default function CVStepReview({ data, onChange, onGenerated, isFree = false, aiUsed = false }: Props) {
   const { user } = useAuth();
-  const { balance, loading: creditsLoading, deduct } = useCredits();
+  const { balance, loading: creditsLoading, deduct, insufficientCredits, dismissInsufficientCredits } = useCredits();
+  const pricing = usePricing();
+  const { cvCost, letterCost } = pricing;
+  // Same figure computed inside handleGenerate — defined here too since the
+  // render below needs it for the warning banner and disabled-button check,
+  // which run before handleGenerate is ever called.
+  const cvRemainingCost = aiUsed ? Math.max(0, cvCost - letterCost) : cvCost;
   const { gates, loading: gatesLoading } = useFeatureGates();
-  const [showInsufficientModal, setShowInsufficientModal] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [view, setView] = useState<'preview' | 'summary'>('preview');
 
@@ -190,14 +198,11 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
     if (!exportRef.current) return;
 
     // ── Credit check ─────────────────────────────────────────────────────
-    // If AI summary was used (letter_usage, 20 credits already spent), only
-    // deduct the remaining 70. Otherwise deduct the full 90 (cv_usage).
-    const remainingCost = aiUsed ? 70 : 90;  // AI summary costs 20cr, so remaining = 90-20=70
+    // Server-side deduct-credits.js reads the real admin-configured cost
+    // from credit_costs directly — nothing to compute here anymore, the
+    // hook surfaces insufficientCredits automatically on failure.
     const ok = await deduct('cv_usage', fileName);
-    if (!ok) {
-      if (!isAdmin && balance < remainingCost) setShowInsufficientModal(true);
-      return;
-    }
+    if (!ok) return; // insufficientCredits is now set automatically by the hook if that was the cause
 
     setSending(true);
     try {
@@ -417,7 +422,7 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
           <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
           <p className="text-xs text-muted-foreground">
             Your CV will include a <strong>free watermark</strong> in the footer.{' '}
-            <a href="/credits" className="text-primary underline font-medium">Buy credits</a>{' '}
+            <button type="button" onClick={() => setShowPurchaseModal(true)} className="text-primary underline font-medium">Top up</button>{' '}
             to remove it — watermark is removed automatically on any paid download.
           </p>
         </div>
@@ -427,7 +432,7 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
           on purpose (same treatment as CoverLettersPage.tsx); the full
           numbers appear in the dedicated modal below once the user
           actually tries and hits the wall. */}
-      {!isAdmin && !creditsLoading && balance < (aiUsed ? 70 : 90) && (
+      {!isAdmin && !creditsLoading && balance < cvRemainingCost && (
         <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2.5">
           <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
@@ -441,7 +446,7 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
 
       <Button
         onClick={pdfUrl ? handleRedownload : handleGenerate}
-        disabled={sending || (!isAdmin && !pdfUrl && !creditsLoading && balance < (aiUsed ? 70 : 90))}
+        disabled={sending || (!isAdmin && !pdfUrl && !creditsLoading && balance < cvRemainingCost)}
         className="w-full h-12 rounded-xl text-sm font-semibold gap-2"
       >
         <Download className="w-4 h-4 shrink-0" />
@@ -456,34 +461,18 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
 
       {/* Insufficient credits modal — appears only after a failed attempt;
           specific numbers are useful here rather than intimidating. */}
-      {showInsufficientModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
-          onClick={e => { if (e.target === e.currentTarget) setShowInsufficientModal(false); }}>
-          <div className="bg-background rounded-2xl w-full max-w-sm shadow-xl p-6 space-y-4">
-            <div className="text-center">
-              <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-3">
-                <Coins className="w-7 h-7 text-amber-600 dark:text-amber-400" />
-              </div>
-              <h2 className="text-lg font-bold text-foreground">Not Enough Credits</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                You need {aiUsed ? 70 : 90} credits to download a CV. You currently have {balance}.
-              </p>
-            </div>
-            <div className="bg-muted rounded-xl p-3 space-y-1 text-xs text-muted-foreground">
-              <p>• Starter pack — R39 for 150 credits</p>
-              <p>• Standard pack — R59 for 300 credits</p>
-              <p>• Business pack — R199 for 2,000 credits</p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1 rounded-xl"
-                onClick={() => setShowInsufficientModal(false)}>Cancel</Button>
-              <Button className="flex-1 rounded-xl gap-1.5"
-                onClick={() => { setShowInsufficientModal(false); window.location.href = '/credits'; }}>
-                <Coins className="w-4 h-4" /> Buy Credits
-              </Button>
-            </div>
-          </div>
-        </div>
+      {insufficientCredits && (
+        <InsufficientCreditsModal
+          needed={insufficientCredits.needed}
+          have={insufficientCredits.have}
+          message={insufficientCredits.message}
+          onDismiss={dismissInsufficientCredits}
+          onTopUp={() => { dismissInsufficientCredits(); setShowPurchaseModal(true); }}
+        />
+      )}
+
+      {showPurchaseModal && (
+        <PurchaseModal onClose={() => setShowPurchaseModal(false)} pricing={pricing} />
       )}
     </div>
   );

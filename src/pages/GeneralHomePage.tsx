@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { usePricing } from '@/components/credits/CreditBalance';
 
 import { formatDistanceToNow } from 'date-fns';
 
@@ -29,6 +30,7 @@ const QUICK_ACTIONS = [
 
 export default function GeneralHomePage() {
   const { user } = useAuth();
+  const { cvCost, signupBonus } = usePricing();
 
   const [displayName, setDisplayName] = useState('');
   const [cvCount,     setCvCount]     = useState(0);
@@ -190,8 +192,8 @@ export default function GeneralHomePage() {
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
               {cvCount === 0
-                ? 'Each CV build costs 9 credits. New users get 18 free credits on signup.'
-                : 'Each CV download costs 9 credits — buy a credit pack to generate more.'}
+                ? `Each CV build costs ${cvCost} credits. New users get ${signupBonus} free credits on signup.`
+                : `Each CV download costs ${cvCost} credits — top up to generate more.`}
             </p>
             <Link to="/cv-builder">
               <Button size="sm" className="mt-2.5 h-7 text-xs rounded-xl px-3 gap-1">
