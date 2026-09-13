@@ -300,19 +300,28 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
           onDrop={e => { e.preventDefault(); setDragActive(false); if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } processFiles(Array.from(e.dataTransfer.files || [])); }}
           onClick={() => { if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } document.getElementById('cv-upload-input')?.click(); }}
         >
-          {/* multiple lets someone select 2 photos at once (e.g. both pages
-              of a 2-page CV) from their gallery — capped at MAX_IMAGES in
-              processFiles regardless of how many they actually pick. */}
-          <input id="cv-upload-input" type="file" accept=".pdf,.doc,.docx,image/jpeg,image/png,image/webp" multiple className="hidden"
+          {/* Kept for documents and drag-drop (desktop file browsers handle
+              multi-select fine regardless of accept list) — NOT relied on
+              for reliable mobile multi-photo selection, see cv-gallery-input
+              below for why. */}
+          <input id="cv-upload-input" type="file" accept=".pdf,.doc,.docx,image/jpeg,image/png,image/webp" className="hidden"
+            onChange={e => { processFiles(Array.from(e.target.files || [])); e.target.value = ''; }} disabled={uploading} />
+          {/* Dedicated to multi-photo selection specifically. A mixed
+              accept list (documents + specific image MIME types, as used
+              above) causes several mobile browsers — iOS Safari in
+              particular — to silently fall back to single-select even with
+              `multiple` set. A plain "image/*" wildcard, used on its own
+              with nothing else mixed in, reliably triggers the native
+              multi-select gallery picker instead. */}
+          <input id="cv-gallery-input" type="file" accept="image/*" multiple className="hidden"
             onChange={e => { processFiles(Array.from(e.target.files || [])); e.target.value = ''; }} disabled={uploading} />
           {/* capture="environment" opens the phone's camera directly on
-              mobile browsers, rather than the general photo library/file
-              picker the main drop-zone above uses — a much faster path for
+              mobile browsers, rather than a picker — a much faster path for
               someone who wants to photograph a printed CV right now rather
               than dig through their photo library or deal with PDF/DOCX.
               Left as single-shot (no multiple) since most mobile browsers
               only support one photo per camera invocation anyway — for a
-              2-page CV, the gallery picker above is the way to select both
+              2-page CV, the gallery button below is the way to select both
               at once. */}
           <input id="cv-camera-input" type="file" accept="image/jpeg,image/png" capture="environment" className="hidden"
             onChange={e => { processFiles(Array.from(e.target.files || [])); e.target.value = ''; }} disabled={uploading} />
@@ -327,13 +336,22 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
               <Upload className="w-7 h-7 mx-auto mb-2 text-muted-foreground" />
               <p className="text-sm font-medium text-foreground">Drop your CV here or tap to browse</p>
               <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, or up to {MAX_IMAGES} photos · AI will intelligently restructure all sections</p>
-              <button
-                type="button"
-                onClick={e => { e.stopPropagation(); if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } document.getElementById('cv-camera-input')?.click(); }}
-                className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/15 transition-colors rounded-lg px-3 py-1.5"
-              >
-                <Camera className="w-3.5 h-3.5" /> Take a Photo Instead
-              </button>
+              <div className="flex items-center justify-center gap-2 mt-3 flex-wrap">
+                <button
+                  type="button"
+                  onClick={e => { e.stopPropagation(); if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } document.getElementById('cv-camera-input')?.click(); }}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/15 transition-colors rounded-lg px-3 py-1.5"
+                >
+                  <Camera className="w-3.5 h-3.5" /> Take a Photo Instead
+                </button>
+                <button
+                  type="button"
+                  onClick={e => { e.stopPropagation(); if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } document.getElementById('cv-gallery-input')?.click(); }}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/15 transition-colors rounded-lg px-3 py-1.5"
+                >
+                  <Upload className="w-3.5 h-3.5" /> Choose Photos from Gallery
+                </button>
+              </div>
             </>
           )}
         </div>
