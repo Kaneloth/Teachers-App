@@ -14,7 +14,7 @@ interface ExpEntry { school: string; role: string; from: string; to: string; des
 interface Props {
   data: ExpEntry[];
   onChange: (d: ExpEntry[]) => void;
-  onAiUsed?: () => void;
+  onAiUsed?: (creditsSpent: number) => void;
   isEducator?: boolean;
 }
 
@@ -61,7 +61,7 @@ export default function CVStepExperience({ data, onChange, onAiUsed, isEducator 
     if (!pairs.length) { toast.error('Add at least one responsibility first.'); return; }
 
     if (!isAdmin) {
-      const ok = await deduct('letter_usage', `ai_improve_exp_${i}_${Date.now()}`);
+      const ok = await deduct('letter_usage', `cvbuild_improve_exp_${i}_${Date.now()}`);
       if (!ok) return;
     }
 
@@ -90,7 +90,7 @@ export default function CVStepExperience({ data, onChange, onAiUsed, isEducator 
       } else {
         setSuggestions(prev => ({ ...prev, [i]: changed }));
       }
-      onAiUsed?.();
+      onAiUsed?.(pricing.letterCost);
     } catch (err: any) {
       toast.error(err?.message?.includes('credit') ? err.message : 'Could not generate suggestions — please try again.');
     } finally {

@@ -52,17 +52,22 @@ interface CVData {
   hidden_sections?: string[];
 }
 
-interface Props { data: CVData; onChange?: (d: CVData) => void; onGenerated?: (url: string) => void; isFree?: boolean; aiUsed?: boolean }
+interface Props { data: CVData; onChange?: (d: CVData) => void; onGenerated?: (url: string) => void; isFree?: boolean; aiCreditsSpent?: number }
 
-export default function CVStepReview({ data, onChange, onGenerated, isFree = false, aiUsed = false }: Props) {
+export default function CVStepReview({ data, onChange, onGenerated, isFree = false, aiCreditsSpent = 0 }: Props) {
   const { user } = useAuth();
   const { balance, loading: creditsLoading, deduct, insufficientCredits, dismissInsufficientCredits } = useCredits();
   const pricing = usePricing();
-  const { cvCost, letterCost } = pricing;
+  const { cvCost } = pricing;
   // Same figure computed inside handleGenerate — defined here too since the
   // render below needs it for the warning banner and disabled-button check,
   // which run before handleGenerate is ever called.
-  const cvRemainingCost = aiUsed ? Math.max(0, cvCost - letterCost) : cvCost;
+  // Matches deduct-credits.js's own independent server-side computation
+  // (see that file) — this is an ESTIMATE for display purposes only, not
+  // the actual charge boundary. The server recomputes this itself from
+  // the ledger and is the true source of truth; this just keeps the UI
+  // from promising something different from what will actually happen.
+  const cvRemainingCost = Math.max(0, cvCost - aiCreditsSpent);
   const { gates, loading: gatesLoading } = useFeatureGates();
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);

@@ -34,7 +34,7 @@ interface Props {
     skills?: { subjects: string[]; soft_skills: string[]; languages: string[] };
   };
   onChange: (d: PersonalData) => void;
-  onAiUsed?: () => void;
+  onAiUsed?: (creditsSpent: number) => void;
   jobDescription?: string;
 }
 
@@ -76,7 +76,7 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
   const set = (field: keyof PersonalData, value: string) => onChange({ ...data, [field]: value });
 
   const generateSummary = async () => {
-    const aiRef = `ai_summary_${Date.now()}`;
+    const aiRef = `cvbuild_summary_${Date.now()}`;
     if (!isAdmin) {
       const ok = await deduct('letter_usage', aiRef);
       if (!ok) return;
@@ -110,7 +110,7 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
         if (isRateLimit && attempt < MAX_ATTEMPTS - 1) continue;
         if (!res.ok || !result.success) throw new Error(result.error || 'AI failed');
         set('bio', result.summary);
-        if (onAiUsed) onAiUsed();
+        if (onAiUsed) onAiUsed(pricing.letterCost);
         toast.success('Professional summary generated!');
         setGeneratingSummary(false);
         return;

@@ -147,8 +147,67 @@ export const handler = async (event) => {
     }
   }
 
-  const cost = COSTS[type];
-  const description = COST_LABELS[type] ? `${COST_LABELS[type]} (${cost} credits)` : type;
+  // ── CV download discount: reward prior AI actions on THIS CV ─────────────
+  // If the person already spent letter_usage credits on AI actions while
+  // building this specific CV (import, AI summary, bullet improvement,
+  // section suggestions), that spend counts toward the cv_usage cost
+  // instead of stacking on top of it — cost is max(0, cvCost - priorSpend),
+  // so heavy AI users can never be charged more than the standard price,
+  // and if their AI spend already exceeds it, the download itself is free
+  // (not negative — no refund, just zero additional charge).
+  //
+  // This is computed ENTIRELY server-side from the ledger — the request
+  // body carries no discount amount at all, since trusting a client-
+  // supplied "charge me less" number would let anyone open dev tools and
+  // request a free CV. ref_id prefix 'cvbuild_' identifies AI actions that
+  // happened specifically inside the CV Builder wizard (see CVBuilderPage
+  // .tsx, CVStepPersonal.tsx, CVStepExperience.tsx, CVStepExtras.tsx) —
+  // this deliberately excludes letter_usage spent on the separate Cover
+  // Letters feature, which isn't part of building this CV.
+  //
+  // The cutoff is this user's most recent PRIOR cv_usage charge (if any):
+  // AI actions are only "unclaimed" discount credit once, for the very
+  // next CV download — once that download happens, the cutoff moves
+  // forward, so the same AI spend can't be reused as a discount on a
+  // future, unrelated CV.
+  let cost = COSTS[type];
+  let discountApplied = 0;
+
+  if (type === 'cv_usage') {
+    const { data: lastCvUsage } = await supabase
+      .from('credit_ledger')
+      .select('created_at')
+      .eq('user_id', user.id)
+      .eq('type', 'cv_usage')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const cutoff = lastCvUsage?.created_at || '1970-01-01T00:00:00Z';
+
+    const { data: aiSpendRows, error: aiSpendErr } = await supabase
+      .from('credit_ledger')
+      .select('amount')
+      .eq('user_id', user.id)
+      .eq('type', 'letter_usage')
+      .gt('created_at', cutoff)
+      .like('ref_id', 'cvbuild_%');
+
+    if (aiSpendErr) {
+      // Fail closed on the discount specifically — if we can't verify
+      // prior AI spend, charge full price rather than risk an unverified
+      // discount. This never blocks the download itself, only how much
+      // of a discount it can claim.
+      console.error('[deduct-credits] Failed to compute CV discount, charging full price:', aiSpendErr);
+    } else {
+      const priorAiSpend = (aiSpendRows || []).reduce((sum, r) => sum + Math.abs(r.amount), 0);
+      discountApplied = Math.min(priorAiSpend, COSTS[type]);
+      cost = Math.max(0, COSTS[type] - discountApplied);
+    }
+  }
+
+  const description = discountApplied > 0
+    ? `${COST_LABELS[type] || type} (${cost} credits — ${discountApplied} credit discount from prior AI actions on this CV)`
+    : (COST_LABELS[type] ? `${COST_LABELS[type]} (${cost} credits)` : type);
 
   const { data: newBalance, error: deductErr } = await supabase.rpc('deduct_credits', {
     p_user_id:     user.id,

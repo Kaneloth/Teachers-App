@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Loader2, RotateCcw, Coins, Briefcase } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Loader2, RotateCcw, Coins, Briefcase, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
@@ -113,7 +113,7 @@ function StepStepper({ steps, current, onSelect }: { steps: string[]; current: n
 function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoading, onJobDesc, isEducator }: {
   onDataExtracted: (data: CVData) => void;
   deduct: (type: 'cv_usage' | 'letter_usage', refId?: string) => Promise<boolean>;
-  onAiUsed: () => void;
+  onAiUsed: (creditsSpent: number) => void;
   balance: number;
   creditsLoading: boolean;
   onJobDesc?: (jd: string) => void;
@@ -136,10 +136,19 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
     onDataExtracted(base);
   };
   const processFile = async (file: File) => {
-    const allowed = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    if (!allowed.includes(file.type))   { toast.error('Please upload a PDF or DOCX file'); return; }
+    const allowed = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'image/webp'];
+    // Rejected here, before any credit is spent — HEIC (the default photo
+    // format on most iPhones) isn't supported by the vision model this
+    // uses server-side, and letting it through this check would mean
+    // deducting a credit for an upload that's guaranteed to fail once it
+    // reaches the server.
+    if (file.type === 'image/heic' || file.type === 'image/heif') {
+      toast.error('HEIC photos aren\'t supported yet — switch your phone camera to "Most Compatible" format, or take a screenshot of the CV instead.', { duration: 6000 });
+      return;
+    }
+    if (!allowed.includes(file.type))   { toast.error('Please upload a PDF, DOCX, or a photo of your CV (JPEG/PNG)'); return; }
     if (file.size > 10 * 1024 * 1024)  { toast.error('File too large (max 10MB)');         return; }
-    const ok = await deduct('letter_usage', `cv_import_${Date.now()}`);
+    const ok = await deduct('letter_usage', `cvbuild_import_${Date.now()}`);
     if (!ok) return;
     setUploading(true);
     const MAX_UPLOAD_ATTEMPTS = 3;
@@ -159,7 +168,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
         if (isRateLimit && attempt < MAX_UPLOAD_ATTEMPTS - 1) continue;
         if (!res.ok || !result.success) throw new Error(result.error || 'Failed to process CV');
         mergeAndEmit(result.data, defaultData());
-        onAiUsed();
+        onAiUsed(letterCost);
         toast.success('CV imported! Review and complete your details.');
         setUploading(false);
         return;
@@ -176,7 +185,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
   };
   const processFreeText = async () => {
     if (!freeText.trim()) { toast.error('Please type something about yourself first.'); return; }
-    const ok = await deduct('letter_usage', `cv_freetext_${Date.now()}`);
+    const ok = await deduct('letter_usage', `cvbuild_freetext_${Date.now()}`);
     if (!ok) return;
     setUploading(true);
     const MAX_FT_ATTEMPTS = 3;
@@ -196,7 +205,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
         if (isRateLimit && attempt < MAX_FT_ATTEMPTS - 1) continue;
         if (!res.ok || !result.success) throw new Error(result.error || 'AI processing failed');
         mergeAndEmit(result.data, defaultData());
-        onAiUsed();
+        onAiUsed(letterCost);
         toast.success('AI has structured your info! Review and complete your details.');
         setUploading(false);
         return;
@@ -267,10 +276,17 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
           className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${dragActive ? 'border-primary bg-primary/5' : 'border-border bg-card'}`}
           onDragOver={e => { e.preventDefault(); setDragActive(true); }}
           onDragLeave={() => setDragActive(false)}
-          onDrop={e => { e.preventDefault(); setDragActive(false); if (balance < 1) { toast.error('Not enough credits to use AI import.'); return; } const f = e.dataTransfer.files?.[0]; if (f) processFile(f); }}
-          onClick={() => { if (balance < 1) { toast.error('Not enough credits to use AI import.'); return; } document.getElementById('cv-upload-input')?.click(); }}
+          onDrop={e => { e.preventDefault(); setDragActive(false); if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } const f = e.dataTransfer.files?.[0]; if (f) processFile(f); }}
+          onClick={() => { if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } document.getElementById('cv-upload-input')?.click(); }}
         >
-          <input id="cv-upload-input" type="file" accept=".pdf,.doc,.docx" className="hidden"
+          <input id="cv-upload-input" type="file" accept=".pdf,.doc,.docx,image/jpeg,image/png,image/webp" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = ''; }} disabled={uploading} />
+          {/* capture="environment" opens the phone's camera directly on
+              mobile browsers, rather than the general photo library/file
+              picker the main drop-zone above uses — a much faster path for
+              someone who wants to photograph a printed CV right now rather
+              than dig through their photo library or deal with PDF/DOCX. */}
+          <input id="cv-camera-input" type="file" accept="image/jpeg,image/png" capture="environment" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = ''; }} disabled={uploading} />
           {uploading ? (
             <div className="flex flex-col items-center gap-2">
@@ -282,7 +298,14 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
             <>
               <Upload className="w-7 h-7 mx-auto mb-2 text-muted-foreground" />
               <p className="text-sm font-medium text-foreground">Drop your CV here or tap to browse</p>
-              <p className="text-xs text-muted-foreground mt-1">PDF or DOCX · AI will intelligently restructure all sections</p>
+              <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, or a photo · AI will intelligently restructure all sections</p>
+              <button
+                type="button"
+                onClick={e => { e.stopPropagation(); if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } document.getElementById('cv-camera-input')?.click(); }}
+                className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/15 transition-colors rounded-lg px-3 py-1.5"
+              >
+                <Camera className="w-3.5 h-3.5" /> Take a Photo Instead
+              </button>
             </>
           )}
         </div>
@@ -303,7 +326,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
               disabled={uploading}
             />
           </div>
-          <button onClick={processFreeText} disabled={uploading || !freeText.trim() || (!creditsLoading && balance < 1)}
+          <button onClick={processFreeText} disabled={uploading || !freeText.trim() || (!creditsLoading && balance < letterCost)}
             className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl py-3 text-sm font-semibold transition-all disabled:opacity-50 hover:bg-primary/90">
             {uploading
               ? <><Loader2 className="w-4 h-4 animate-spin" /> AI is structuring your info…</>
@@ -390,7 +413,7 @@ export default function CVBuilderPage() {
   const [data,             setData]             = useState<CVData>(initialState.draft?.data ?? defaultData());
   const [draftSavedAt,     setDraftSavedAt]     = useState<string | null>(initialState.draft?.savedAt ?? null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [aiUsed,           setAiUsed]           = useState(false);
+  const [aiCreditsSpent,   setAiCreditsSpent]   = useState(0);
   useEffect(() => {
     const savedAt = new Date().toISOString();
     try {
@@ -433,7 +456,7 @@ export default function CVBuilderPage() {
     setStep(0);
     setDraftSavedAt(null);
     setShowResetConfirm(false);
-    setAiUsed(false);
+    setAiCreditsSpent(0);
     try { localStorage.removeItem(DRAFT_KEY); } catch {}
     toast.success('CV cleared — start fresh!');
   };
@@ -544,7 +567,7 @@ export default function CVBuilderPage() {
       <div className="px-4 pb-4 pt-1">
         <p className="text-sm text-muted-foreground">Build a professional CV in minutes</p>
       </div>
-      {step === 0 && <CVUploadZone onDataExtracted={handleAIDataExtracted} deduct={deduct} onAiUsed={() => setAiUsed(true)} balance={balance} creditsLoading={creditsLoading} onJobDesc={jd => setData(d => ({ ...d, job_description: jd }))} isEducator={isEducator} />}
+      {step === 0 && <CVUploadZone onDataExtracted={handleAIDataExtracted} deduct={deduct} onAiUsed={(amt: number) => setAiCreditsSpent(prev => prev + amt)} balance={balance} creditsLoading={creditsLoading} onJobDesc={jd => setData(d => ({ ...d, job_description: jd }))} isEducator={isEducator} />}
       <motion.div key="builder" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
         <div className="px-4 pb-2">
           <StepStepper steps={STEPS} current={step} onSelect={setStep} />
@@ -558,14 +581,14 @@ export default function CVBuilderPage() {
         <div className="px-4">
           <AnimatePresence mode="wait">
             <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
-              {step === 0 && <CVStepPersonal data={data.personal} fullCvData={data} onChange={personal => setData(d => ({ ...d, personal }))} onAiUsed={() => setAiUsed(true)} jobDescription={data.job_description} />}
+              {step === 0 && <CVStepPersonal data={data.personal} fullCvData={data} onChange={personal => setData(d => ({ ...d, personal }))} onAiUsed={(amt: number) => setAiCreditsSpent(prev => prev + amt)} jobDescription={data.job_description} />}
               {step === 1 && <CVStepEducation data={data.education} onChange={education => setData(d => ({ ...d, education }))} />}
-              {step === 2 && <CVStepExperience data={data.experience} onChange={experience => setData(d => ({ ...d, experience }))} onAiUsed={() => setAiUsed(true)} isEducator={isEducator} />}
+              {step === 2 && <CVStepExperience data={data.experience} onChange={experience => setData(d => ({ ...d, experience }))} onAiUsed={(amt: number) => setAiCreditsSpent(prev => prev + amt)} isEducator={isEducator} />}
               {step === 3 && <CVStepSkills data={data.skills} onChange={skills => setData(d => ({ ...d, skills }))} />}
-              {step === 4 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} fullCvData={{ personal: { bio: data.personal.bio }, education: data.education, experience: data.experience, skills: data.skills }} onAiUsed={() => setAiUsed(true)} isEducator={isEducator} />}
+              {step === 4 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} fullCvData={{ personal: { bio: data.personal.bio }, education: data.education, experience: data.experience, skills: data.skills }} onAiUsed={(amt: number) => setAiCreditsSpent(prev => prev + amt)} isEducator={isEducator} />}
               {step === 5 && <CVStepReferences data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
               {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} isFree={isFree} isEducator={isEducator} />}
-              {step === 7 && <CVStepReview data={data} onChange={setData} onGenerated={handleCVGenerated} isFree={isFree} aiUsed={aiUsed} />}
+              {step === 7 && <CVStepReview data={data} onChange={setData} onGenerated={handleCVGenerated} isFree={isFree} aiCreditsSpent={aiCreditsSpent} />}
             </motion.div>
           </AnimatePresence>
         </div>

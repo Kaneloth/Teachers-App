@@ -34,7 +34,7 @@ interface Props {
     experience?: { school: string; role: string; from: string; to: string; description: string }[];
     skills?: { subjects: string[]; soft_skills: string[]; languages: string[] };
   };
-  onAiUsed?: () => void;
+  onAiUsed?: (creditsSpent: number) => void;
   isEducator?: boolean;
 }
 
@@ -62,7 +62,7 @@ export default function CVStepExtras({ data, onChange, fullCvData, onAiUsed, isE
 
   const fetchSuggestions = async () => {
     if (!isAdmin) {
-      const ok = await deduct('letter_usage', `ai_suggest_sections_${Date.now()}`);
+      const ok = await deduct('letter_usage', `cvbuild_suggest_sections_${Date.now()}`);
       if (!ok) return;
     }
     setSuggesting(true);
@@ -92,7 +92,7 @@ export default function CVStepExtras({ data, onChange, fullCvData, onAiUsed, isE
       } else {
         setSuggestions(result.suggestions);
       }
-      onAiUsed?.();
+      onAiUsed?.(pricing.letterCost);
     } catch (err: any) {
       toast.error(err?.message?.includes('credit') ? err.message : 'Could not generate suggestions — please try again.');
     } finally {

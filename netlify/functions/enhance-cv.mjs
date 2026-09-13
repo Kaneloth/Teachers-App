@@ -2,6 +2,74 @@ import busboy from 'busboy';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+
+// Claude's vision API accepts these directly. HEIC/HEIF (the default
+// format on most iPhones) is deliberately NOT included — Claude's API
+// doesn't accept it, and converting it server-side would need a separate
+// conversion step (e.g. via ConvertAPI, already used elsewhere in this
+// project for other formats) that hasn't been built for this path yet.
+// In practice, iOS Safari's file picker commonly hands over a JPEG for
+// third-party-app compatibility even when the photo is stored as HEIC on
+// the phone, so many iPhone users won't actually hit this — but it's not
+// guaranteed, and a HEIC upload here will currently fail with the error
+// message below rather than silently mistranscribe.
+const VISION_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+// A photo of a printed/handwritten CV — no embedded text to extract like
+// a PDF/DOCX has, so this asks Claude to transcribe what it visually reads
+// instead. Deliberately a separate, narrow prompt (transcribe faithfully,
+// nothing else) rather than asking Claude to structure the CV directly —
+// keeping transcription and restructuring as two separate steps means the
+// exact same buildStructurePrompt/callGroq pipeline used for PDF/DOCX text
+// handles this too, instead of needing a second, parallel restructuring
+// path to maintain.
+async function extractTextFromImage(buffer, mimeType) {
+  if (!ANTHROPIC_API_KEY) {
+    throw new Error('Image upload is not configured on this server.');
+  }
+
+  const base64 = buffer.toString('base64');
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 2000,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
+          {
+            type: 'text',
+            text: 'This is a photo of a printed or handwritten CV/resume. Transcribe ALL text content exactly as it appears — every section, job title, date, bullet point, and contact detail. Preserve the structure using plain text (line breaks between sections, "- " for bullet points). Do not summarise, rephrase, or omit anything. Do not add any commentary — output ONLY the transcribed text.',
+          },
+        ],
+      }],
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    console.error('[enhance-cv] Claude vision API error:', res.status, errBody);
+    throw new Error('Could not read the photo — please make sure it\'s clear, well-lit, and shows the full CV.');
+  }
+
+  const data = await res.json();
+  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+
+  if (!text || text.length < 20) {
+    throw new Error('Could not find readable text in that photo — try a clearer, brighter shot with the whole CV in frame.');
+  }
+
+  return text;
+}
+
 async function extractTextFromBuffer(buffer, mimeType) {
   if (mimeType === 'application/pdf') {
     const data = await pdfParse(buffer);
@@ -12,8 +80,12 @@ async function extractTextFromBuffer(buffer, mimeType) {
   ) {
     const result = await mammoth.extractRawText({ buffer });
     return result.value;
+  } else if (VISION_MIME_TYPES.has(mimeType)) {
+    return extractTextFromImage(buffer, mimeType);
+  } else if (mimeType === 'image/heic' || mimeType === 'image/heif') {
+    throw new Error('HEIC photos aren\'t supported yet — please switch your phone camera to "Most Compatible" format, or take a screenshot of the CV instead.');
   } else {
-    throw new Error('Unsupported file type. Please upload PDF or DOCX.');
+    throw new Error('Unsupported file type. Please upload a PDF, DOCX, or a photo (JPEG/PNG) of your CV.');
   }
 }
 
