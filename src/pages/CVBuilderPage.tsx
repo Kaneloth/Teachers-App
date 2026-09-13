@@ -135,19 +135,40 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
     if (parsed.personal?.bio)            base.personal        = { ...base.personal, bio: parsed.personal.bio };
     onDataExtracted(base);
   };
-  const processFile = async (file: File) => {
+  const MAX_IMAGES = 2; // must match MAX_IMAGES in enhance-cv.mjs
+
+  const processFiles = async (files: File[]) => {
+    if (!files.length) return;
+
+    if (files.length > MAX_IMAGES) {
+      toast.error(`You can upload up to ${MAX_IMAGES} photos at once — for a longer CV, please upload a PDF or Word document instead.`);
+      return;
+    }
+
     const allowed = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'image/webp'];
+
     // Rejected here, before any credit is spent — HEIC (the default photo
     // format on most iPhones) isn't supported by the vision model this
     // uses server-side, and letting it through this check would mean
     // deducting a credit for an upload that's guaranteed to fail once it
     // reaches the server.
-    if (file.type === 'image/heic' || file.type === 'image/heif') {
+    if (files.some(f => f.type === 'image/heic' || f.type === 'image/heif')) {
       toast.error('HEIC photos aren\'t supported yet — switch your phone camera to "Most Compatible" format, or take a screenshot of the CV instead.', { duration: 6000 });
       return;
     }
-    if (!allowed.includes(file.type))   { toast.error('Please upload a PDF, DOCX, or a photo of your CV (JPEG/PNG)'); return; }
-    if (file.size > 10 * 1024 * 1024)  { toast.error('File too large (max 10MB)');         return; }
+    if (files.some(f => !allowed.includes(f.type))) { toast.error('Please upload a PDF, DOCX, or photo(s) of your CV (JPEG/PNG)'); return; }
+    if (files.some(f => f.size > 10 * 1024 * 1024)) { toast.error('File too large (max 10MB each)'); return; }
+
+    // More than one file only makes sense as consecutive photo pages of the
+    // same CV — mixing a PDF with a photo, or selecting two PDFs, has no
+    // sensible meaning here. Caught client-side too (not just server-side)
+    // so this fails before any credit is spent, same reasoning as HEIC above.
+    const imageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+    if (files.length > 1 && !files.every(f => imageTypes.has(f.type))) {
+      toast.error('Multiple files are only supported for photos of consecutive CV pages — please select just one PDF or Word document.');
+      return;
+    }
+
     const ok = await deduct('letter_usage', `cvbuild_import_${Date.now()}`);
     if (!ok) return;
     setUploading(true);
@@ -156,7 +177,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
       try {
         if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 3000));
         const formData = new FormData();
-        formData.append('cvFile', file);
+        for (const file of files) formData.append('cvFile', file);
         formData.append('cvType', isEducator ? 'educator' : 'general');
         if (jobDesc.trim()) formData.append('jobDescription', jobDesc.trim());
         const res    = await fetch('/.netlify/functions/enhance-cv', { method: 'POST', body: formData });
@@ -169,7 +190,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
         if (!res.ok || !result.success) throw new Error(result.error || 'Failed to process CV');
         mergeAndEmit(result.data, defaultData());
         onAiUsed(letterCost);
-        toast.success('CV imported! Review and complete your details.');
+        toast.success(files.length > 1 ? 'CV imported from your photos! Review and complete your details.' : 'CV imported! Review and complete your details.');
         setUploading(false);
         return;
       } catch (err: any) {
@@ -276,18 +297,25 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
           className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${dragActive ? 'border-primary bg-primary/5' : 'border-border bg-card'}`}
           onDragOver={e => { e.preventDefault(); setDragActive(true); }}
           onDragLeave={() => setDragActive(false)}
-          onDrop={e => { e.preventDefault(); setDragActive(false); if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } const f = e.dataTransfer.files?.[0]; if (f) processFile(f); }}
+          onDrop={e => { e.preventDefault(); setDragActive(false); if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } processFiles(Array.from(e.dataTransfer.files || [])); }}
           onClick={() => { if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } document.getElementById('cv-upload-input')?.click(); }}
         >
-          <input id="cv-upload-input" type="file" accept=".pdf,.doc,.docx,image/jpeg,image/png,image/webp" className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = ''; }} disabled={uploading} />
+          {/* multiple lets someone select 2 photos at once (e.g. both pages
+              of a 2-page CV) from their gallery — capped at MAX_IMAGES in
+              processFiles regardless of how many they actually pick. */}
+          <input id="cv-upload-input" type="file" accept=".pdf,.doc,.docx,image/jpeg,image/png,image/webp" multiple className="hidden"
+            onChange={e => { processFiles(Array.from(e.target.files || [])); e.target.value = ''; }} disabled={uploading} />
           {/* capture="environment" opens the phone's camera directly on
               mobile browsers, rather than the general photo library/file
               picker the main drop-zone above uses — a much faster path for
               someone who wants to photograph a printed CV right now rather
-              than dig through their photo library or deal with PDF/DOCX. */}
+              than dig through their photo library or deal with PDF/DOCX.
+              Left as single-shot (no multiple) since most mobile browsers
+              only support one photo per camera invocation anyway — for a
+              2-page CV, the gallery picker above is the way to select both
+              at once. */}
           <input id="cv-camera-input" type="file" accept="image/jpeg,image/png" capture="environment" className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = ''; }} disabled={uploading} />
+            onChange={e => { processFiles(Array.from(e.target.files || [])); e.target.value = ''; }} disabled={uploading} />
           {uploading ? (
             <div className="flex flex-col items-center gap-2">
               <Loader2 className="w-7 h-7 animate-spin text-primary" />
@@ -298,7 +326,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
             <>
               <Upload className="w-7 h-7 mx-auto mb-2 text-muted-foreground" />
               <p className="text-sm font-medium text-foreground">Drop your CV here or tap to browse</p>
-              <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, or a photo · AI will intelligently restructure all sections</p>
+              <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, or up to {MAX_IMAGES} photos · AI will intelligently restructure all sections</p>
               <button
                 type="button"
                 onClick={e => { e.stopPropagation(); if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } document.getElementById('cv-camera-input')?.click(); }}

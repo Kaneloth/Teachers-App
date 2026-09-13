@@ -16,6 +16,13 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 // message below rather than silently mistranscribe.
 const VISION_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
+// Cap on photos per upload for a multi-page CV. Kept deliberately small —
+// each additional image is incremental but non-zero cost, and a CV that
+// needs more than 2 photographed pages to capture is a good signal the
+// person should just upload a PDF/DOCX instead, which has no per-page cost
+// at all. Must match MAX_IMAGES in CVBuilderPage.tsx's client-side check.
+const MAX_IMAGES = 2;
+
 // A photo of a printed/handwritten CV — no embedded text to extract like
 // a PDF/DOCX has, so this asks Claude to transcribe what it visually reads
 // instead. Deliberately a separate, narrow prompt (transcribe faithfully,
@@ -24,12 +31,26 @@ const VISION_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 // exact same buildStructurePrompt/callGroq pipeline used for PDF/DOCX text
 // handles this too, instead of needing a second, parallel restructuring
 // path to maintain.
-async function extractTextFromImage(buffer, mimeType) {
+//
+// Accepts an ARRAY of images (1 or 2 — see MAX_IMAGES below) sent in a
+// SINGLE Claude call, rather than one call per image. This matters for
+// cost: attaching a second image to the same call only adds that image's
+// own token cost, with no duplicated system-prompt or per-call overhead —
+// materially cheaper than two separate round-trips for a 2-page CV photo.
+async function extractTextFromImages(images) {
   if (!ANTHROPIC_API_KEY) {
     throw new Error('Image upload is not configured on this server.');
   }
 
-  const base64 = buffer.toString('base64');
+  const multi = images.length > 1;
+  const imageBlocks = images.map(img => ({
+    type: 'image',
+    source: { type: 'base64', media_type: img.mimeType, data: img.buffer.toString('base64') },
+  }));
+
+  const instructions = multi
+    ? `These ${images.length} images show consecutive pages of the same CV/resume, in order. Transcribe ALL text content exactly as it appears across every page — every section, job title, date, bullet point, and contact detail. Preserve the structure using plain text (line breaks between sections, "- " for bullet points), and insert a line reading "--- Page break ---" between each page's content. Do not summarise, rephrase, or omit anything. Do not add any commentary — output ONLY the transcribed text.`
+    : 'This is a photo of a printed or handwritten CV/resume. Transcribe ALL text content exactly as it appears — every section, job title, date, bullet point, and contact detail. Preserve the structure using plain text (line breaks between sections, "- " for bullet points). Do not summarise, rephrase, or omit anything. Do not add any commentary — output ONLY the transcribed text.';
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -40,16 +61,10 @@ async function extractTextFromImage(buffer, mimeType) {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-5',
-      max_tokens: 2000,
+      max_tokens: multi ? 3500 : 2000,
       messages: [{
         role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
-          {
-            type: 'text',
-            text: 'This is a photo of a printed or handwritten CV/resume. Transcribe ALL text content exactly as it appears — every section, job title, date, bullet point, and contact detail. Preserve the structure using plain text (line breaks between sections, "- " for bullet points). Do not summarise, rephrase, or omit anything. Do not add any commentary — output ONLY the transcribed text.',
-          },
-        ],
+        content: [...imageBlocks, { type: 'text', text: instructions }],
       }],
     }),
   });
@@ -57,7 +72,9 @@ async function extractTextFromImage(buffer, mimeType) {
   if (!res.ok) {
     const errBody = await res.text().catch(() => '');
     console.error('[enhance-cv] Claude vision API error:', res.status, errBody);
-    throw new Error('Could not read the photo — please make sure it\'s clear, well-lit, and shows the full CV.');
+    throw new Error(multi
+      ? 'Could not read one or both photos — please make sure they\'re clear, well-lit, and each shows a full page of the CV.'
+      : 'Could not read the photo — please make sure it\'s clear, well-lit, and shows the full CV.');
   }
 
   const data = await res.json();
@@ -81,7 +98,7 @@ async function extractTextFromBuffer(buffer, mimeType) {
     const result = await mammoth.extractRawText({ buffer });
     return result.value;
   } else if (VISION_MIME_TYPES.has(mimeType)) {
-    return extractTextFromImage(buffer, mimeType);
+    return extractTextFromImages([{ buffer, mimeType }]);
   } else if (mimeType === 'image/heic' || mimeType === 'image/heif') {
     throw new Error('HEIC photos aren\'t supported yet — please switch your phone camera to "Most Compatible" format, or take a screenshot of the CV instead.');
   } else {
@@ -839,18 +856,17 @@ Reply with exactly one of: ${AVAILABLE_ICONS.join(', ')}`;
     return { statusCode: 400, body: 'Expected multipart/form-data or application/json' };
   }
 
-  let fileBuffer = null;
-  let fileMimeType = null;
+  let fileBuffers = []; // [{buffer, mimeType}, ...] — was a single overwritable variable, silently dropping every file but the last if more than one arrived
   let cvType = 'general';
   let jobDescription = '';
 
   await new Promise((resolve, reject) => {
     const bb = busboy({ headers: { 'content-type': contentType } });
     bb.on('file', (name, file, info) => {
-      fileMimeType = info.mimeType;
+      const mimeType = info.mimeType;
       const chunks = [];
       file.on('data', chunk => chunks.push(chunk));
-      file.on('end', () => { fileBuffer = Buffer.concat(chunks); });
+      file.on('end', () => { fileBuffers.push({ buffer: Buffer.concat(chunks), mimeType }); });
     });
     bb.on('field', (name, value) => {
       if (name === 'cvType') cvType = value;
@@ -861,13 +877,28 @@ Reply with exactly one of: ${AVAILABLE_ICONS.join(', ')}`;
     bb.end(Buffer.from(event.body, 'base64'));
   });
 
-  if (!fileBuffer) {
+  if (!fileBuffers.length) {
     return { statusCode: 400, body: 'No file uploaded' };
+  }
+
+  if (fileBuffers.length > MAX_IMAGES) {
+    return { statusCode: 400, body: JSON.stringify({ error: `Maximum ${MAX_IMAGES} photos per upload — for a longer CV, please upload a PDF or Word document instead.` }) };
   }
 
   let rawText;
   try {
-    rawText = await extractTextFromBuffer(fileBuffer, fileMimeType);
+    if (fileBuffers.length > 1) {
+      // Multiple files only makes sense as consecutive photo pages — a
+      // second PDF, or a PDF alongside a photo, has no sensible meaning
+      // here, so reject the mix explicitly rather than silently picking one.
+      const allImages = fileBuffers.every(f => VISION_MIME_TYPES.has(f.mimeType));
+      if (!allImages) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'Multiple files are only supported for photos of consecutive CV pages. Please upload a single PDF or Word document instead.' }) };
+      }
+      rawText = await extractTextFromImages(fileBuffers);
+    } else {
+      rawText = await extractTextFromBuffer(fileBuffers[0].buffer, fileBuffers[0].mimeType);
+    }
   } catch (err) {
     return { statusCode: 400, body: JSON.stringify({ error: err.message }) };
   }
