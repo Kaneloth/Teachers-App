@@ -554,7 +554,7 @@ export default function CoverLettersPage() {
               ? <><Loader2 className="w-5 h-5 animate-spin" /> Generating…</>
               : aiUsed
                 ? <><Download className="w-5 h-5" /> Download as Word (.docx) · Free</>
-                : <><Download className="w-5 h-5" /> Download as Word (.docx) · {letterCost} credit{letterCost === 1 ? '' : 's'}</>
+                : <><Download className="w-5 h-5" /> Download as Word (.docx)</>
             }
           </Button>
 
