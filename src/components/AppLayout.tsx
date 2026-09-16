@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import AppHeader from './AppHeader';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { useLastSeenHeartbeat } from '@/hooks/useLastSeenHeartbeat';
 
 // Tab page components
 import HomePage from '@/pages/Home';
@@ -86,6 +87,12 @@ export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  // Records genuine activity (distinct from login time) for the admin
+  // "last active" display — see useLastSeenHeartbeat.ts for the throttling
+  // and visibility-check logic. Mounted here, once, rather than per-page,
+  // since this component wraps every authenticated route.
+  useLastSeenHeartbeat();
 
   // ── Profile type — determines which tab set to show ───────────
   const [profileType, setProfileType] = useState<'educator' | 'general'>('educator');

@@ -44,7 +44,7 @@ export const handler = async (event) => {
   // ── 2. Fetch educators/profiles rows for these users ─────────────────────
   const { data: educatorRows } = await supabase
     .from('educators')
-    .select('user_id, full_name, profile_type, account_status, current_school, templates_unlocked, is_hidden')
+    .select('user_id, full_name, profile_type, account_status, current_school, templates_unlocked, is_hidden, last_seen_at')
     .in('user_id', userIds);
 
   const educatorMap = new Map((educatorRows ?? []).map(r => [r.user_id, r]));
@@ -89,6 +89,11 @@ export const handler = async (event) => {
       credit_balance:    creditMap.get(u.id) ?? 0,
       created_at:        u.created_at,
       last_sign_in_at:   u.last_sign_in_at,
+      // Genuine activity — see migration_last_seen.sql and
+      // useLastSeenHeartbeat.ts. Distinct from last_sign_in_at above,
+      // which only updates on login and can be stale for hours while
+      // someone is actively using the app.
+      last_seen_at:      edu?.last_seen_at || null,
     };
   });
 
