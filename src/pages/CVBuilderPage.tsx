@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Loader2, RotateCcw, Coins, Briefcase, Camera } from 'lucide-react';
@@ -126,6 +126,14 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
   const [jobDesc,       setJobDesc]       = useState('');
   const [showJobDesc,   setShowJobDesc]   = useState(false);
   const { letterCost } = usePricing();
+  // Refs, not id + getElementById — a direct reference to the exact DOM
+  // node React rendered for this component instance, with no risk of an
+  // id collision or picking up an unexpected/duplicate element elsewhere
+  // in the page. Matches the pattern already proven to work correctly for
+  // multi-select in ProfilePage.tsx's gallery picker.
+  const uploadInputRef  = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef  = useRef<HTMLInputElement>(null);
   const mergeAndEmit = (parsed: Partial<CVData>, base: CVData) => {
     if (parsed.education?.length)        base.education       = parsed.education;
     if (parsed.experience?.length)       base.experience      = parsed.experience;
@@ -298,13 +306,13 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
           onDragOver={e => { e.preventDefault(); setDragActive(true); }}
           onDragLeave={() => setDragActive(false)}
           onDrop={e => { e.preventDefault(); setDragActive(false); if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } processFiles(Array.from(e.dataTransfer.files || [])); }}
-          onClick={() => { if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } document.getElementById('cv-upload-input')?.click(); }}
+          onClick={() => { if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } uploadInputRef.current?.click(); }}
         >
           {/* Kept for documents and drag-drop (desktop file browsers handle
               multi-select fine regardless of accept list) — NOT relied on
-              for reliable mobile multi-photo selection, see cv-gallery-input
+              for reliable mobile multi-photo selection, see the input using galleryInputRef
               below for why. */}
-          <input id="cv-upload-input" type="file" accept=".pdf,.doc,.docx,image/jpeg,image/png,image/webp" className="hidden"
+          <input ref={uploadInputRef} type="file" accept=".pdf,.doc,.docx,image/jpeg,image/png,image/webp" className="hidden"
             onChange={e => { processFiles(Array.from(e.target.files || [])); e.target.value = ''; }} disabled={uploading} />
           {/* Dedicated to multi-photo selection specifically. A mixed
               accept list (documents + specific image MIME types, as used
@@ -313,7 +321,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
               `multiple` set. A plain "image/*" wildcard, used on its own
               with nothing else mixed in, reliably triggers the native
               multi-select gallery picker instead. */}
-          <input id="cv-gallery-input" type="file" accept="image/*" multiple className="hidden"
+          <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden"
             onChange={e => { processFiles(Array.from(e.target.files || [])); e.target.value = ''; }} disabled={uploading} />
           {/* capture="environment" opens the phone's camera directly on
               mobile browsers, rather than a picker — a much faster path for
@@ -323,7 +331,7 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
               only support one photo per camera invocation anyway — for a
               2-page CV, the gallery button below is the way to select both
               at once. */}
-          <input id="cv-camera-input" type="file" accept="image/jpeg,image/png" capture="environment" className="hidden"
+          <input ref={cameraInputRef} type="file" accept="image/jpeg,image/png" capture="environment" className="hidden"
             onChange={e => { processFiles(Array.from(e.target.files || [])); e.target.value = ''; }} disabled={uploading} />
           {uploading ? (
             <div className="flex flex-col items-center gap-2">
@@ -339,14 +347,14 @@ function CVUploadZone({ onDataExtracted, deduct, onAiUsed, balance, creditsLoadi
               <div className="flex items-center justify-center gap-2 mt-3 flex-wrap">
                 <button
                   type="button"
-                  onClick={e => { e.stopPropagation(); if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } document.getElementById('cv-camera-input')?.click(); }}
+                  onClick={e => { e.stopPropagation(); if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } cameraInputRef.current?.click(); }}
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/15 transition-colors rounded-lg px-3 py-1.5"
                 >
                   <Camera className="w-3.5 h-3.5" /> Take a Photo Instead
                 </button>
                 <button
                   type="button"
-                  onClick={e => { e.stopPropagation(); if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } document.getElementById('cv-gallery-input')?.click(); }}
+                  onClick={e => { e.stopPropagation(); if (balance < letterCost) { toast.error('Not enough credits to use AI import.'); return; } galleryInputRef.current?.click(); }}
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/15 transition-colors rounded-lg px-3 py-1.5"
                 >
                   <Upload className="w-3.5 h-3.5" /> Choose Photos from Gallery
