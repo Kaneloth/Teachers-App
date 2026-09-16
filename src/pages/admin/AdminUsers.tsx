@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
 import {
   Search, ChevronRight, Crown, X, User, CheckCircle, UserX, Ban,
   ShieldCheck, FileText, Coins, Save, Loader2, Plus, Minus,
@@ -12,6 +13,18 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { initials, avatarColor, statusBadge } from './adminHelpers';
+
+// Highlighted (primary color) when recently active — matches the "still
+// here right now" signal admins actually care about; muted gray once it's
+// old enough that the exact recency isn't really the point anymore.
+const RECENTLY_ACTIVE_MS = 15 * 60 * 1000; // 15 minutes
+
+function lastActiveDisplay(lastSeenAt: string | null): { text: string; recent: boolean } {
+  if (!lastSeenAt) return { text: 'Never', recent: false };
+  const date = new Date(lastSeenAt);
+  const recent = Date.now() - date.getTime() < RECENTLY_ACTIVE_MS;
+  return { text: formatDistanceToNow(date, { addSuffix: true }), recent };
+}
 
 interface AdminUser {
   id: string;
@@ -29,6 +42,10 @@ interface AdminUser {
   credit_balance: number;
   created_at: string;
   last_sign_in_at: string | null;
+  // Genuine activity, not just login time — see migration_last_seen.sql
+  // and useLastSeenHeartbeat.ts. null for accounts that predate this
+  // feature or haven't opened the app since it shipped.
+  last_seen_at: string | null;
   templates_unlocked?: boolean;
   is_hidden?: boolean;
 }
@@ -451,7 +468,9 @@ export default function AdminUsers() {
         <p className="text-center text-sm text-muted-foreground py-10">No users found</p>
       ) : (
         <div className="space-y-0 rounded-2xl border border-border overflow-hidden bg-card">
-          {users.map((u, i) => (
+          {users.map((u, i) => {
+            const lastActive = lastActiveDisplay(u.last_seen_at);
+            return (
             <div key={u.id}>
               {i > 0 && <div className="border-t border-border mx-4" />}
               <button onClick={() => setEditing(u)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors">
@@ -470,11 +489,17 @@ export default function AdminUsers() {
                     <p className="text-[11px] font-mono text-primary/80 truncate">{u.user_code}</p>
                   )}
                 </div>
-                {statusBadge(u.account_status, u.email_confirmed, u.profile_type)}
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {statusBadge(u.account_status, u.email_confirmed, u.profile_type)}
+                  <span className={`text-[11px] ${lastActive.recent ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
+                    {lastActive.text}
+                  </span>
+                </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground ml-1 shrink-0" />
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
