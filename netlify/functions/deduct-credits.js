@@ -10,6 +10,38 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// ── Feature-specific ledger descriptions ──────────────────────────────────
+// COST_LABELS[type] (from credit_costs) is one generic label per `type`
+// column — e.g. every letter_usage deduction reads "Cover letter / AI
+// action" regardless of which feature actually triggered it. In reality
+// letter_usage is shared by several CV Builder AI actions (import, AI
+// summary, bullet improvement, section suggestions) AND actual Cover
+// Letters actions, so that one label was misleading users into thinking
+// their CV Builder AI usage was "cover letter" spend.
+//
+// This derives an accurate, feature-specific label from the ref_id prefix
+// each caller already sets (see CVBuilderPage.tsx, CVStepPersonal.tsx,
+// CVStepExperience.tsx, CVStepExtras.tsx for cvbuild_* prefixes, and
+// CoverLettersPage.tsx for ai_letter_*/letter_* prefixes). It's a pure
+// display fix — it does NOT change which ref_ids count toward the cv_usage
+// discount below (that still requires the 'cvbuild_' prefix specifically).
+// Falls back to the generic COST_LABELS[type] whenever ref_id doesn't match
+// anything recognized, so nothing here can produce a blank description.
+function describeAction(type, ref_id) {
+  if (type !== 'letter_usage' || !ref_id) return null;
+
+  if (ref_id.startsWith('cvbuild_import_'))          return 'CV import (AI)';
+  if (ref_id.startsWith('cvbuild_freetext_'))         return 'CV import (AI)';
+  if (ref_id.startsWith('cvbuild_summary_'))          return 'CV professional summary (AI)';
+  if (ref_id.startsWith('ai_summary_'))               return 'CV professional summary (AI)';
+  if (ref_id.startsWith('cvbuild_improve_exp_'))      return 'CV experience bullet improvement (AI)';
+  if (ref_id.startsWith('cvbuild_suggest_sections_')) return 'CV section suggestions (AI)';
+  if (ref_id.startsWith('ai_letter_'))                return 'Cover letter generation (AI)';
+  if (ref_id.startsWith('letter_'))                   return 'Cover letter download';
+
+  return null; // unrecognized — caller falls back to the generic label
+}
+
 // Costs used to be a hardcoded object here (cv_usage: 90, letter_usage: 20,
 // etc.). They now live in the credit_costs table — see lib/pricing.js and
 // Admin → Money → Pricing (AdminPricing.tsx) — so admins can retune them
@@ -205,9 +237,10 @@ export const handler = async (event) => {
     }
   }
 
+  const actionLabel = describeAction(type, ref_id) || COST_LABELS[type] || type;
   const description = discountApplied > 0
-    ? `${COST_LABELS[type] || type} (${cost} credits — ${discountApplied} credit discount from prior AI actions on this CV)`
-    : (COST_LABELS[type] ? `${COST_LABELS[type]} (${cost} credits)` : type);
+    ? `${actionLabel} (${cost} credits — ${discountApplied} credit discount from prior AI actions on this CV)`
+    : `${actionLabel} (${cost} credits)`;
 
   const { data: newBalance, error: deductErr } = await supabase.rpc('deduct_credits', {
     p_user_id:     user.id,
