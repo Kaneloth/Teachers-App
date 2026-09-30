@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import AutoGrowTextarea from '@/components/AutoGrowTextarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, X, Sparkles, Loader2, Check, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, X, Sparkles, Lightbulb, Loader2, Check, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
@@ -29,6 +29,14 @@ export default function CVStepExperience({ data, onChange, onAiUsed, isEducator 
 
   const [improving,   setImproving]   = useState<Record<number, boolean>>({});
   const [suggestions, setSuggestions] = useState<Record<number, Suggestion[] | undefined>>({});
+
+  // ── AI: suggest brand-new points (not rewordings) ────────────────────────
+  // Separate from `improving`/`suggestions` above, which only ever rewrite
+  // bullets the person already wrote. This proposes entirely new candidate
+  // bullets — for users who genuinely did more in a role than they managed
+  // to write down (often an English-fluency gap, not a lack of experience).
+  const [suggestingPoints, setSuggestingPoints] = useState<Record<number, boolean>>({});
+  const [pointSuggestions, setPointSuggestions] = useState<Record<number, string[] | undefined>>({});
 
   const add    = () => onChange([...data, { school: '', role: '', from: '', to: '', description: '' }]);
   const remove = (i: number) => onChange(data.filter((_, idx) => idx !== i));
@@ -118,7 +126,75 @@ export default function CVStepExperience({ data, onChange, onAiUsed, isEducator 
   };
   const declineAll = (i: number) => setSuggestions(prev => ({ ...prev, [i]: undefined }));
 
-  const aiDisabled = (i: number) => improving[i] || (!isAdmin && !creditsLoading && balance < 20);
+  const aiDisabled = (i: number) => improving[i] || (!isAdmin && !creditsLoading && balance < pricing.letterCost);
+
+  // ── AI: suggest additional points the person may have left out ──────────
+  // Unlike improveEntry above, this asks for genuinely NEW bullets — common,
+  // role-typical duties the person may have had but didn't think to write
+  // down (a frequent gap for users who aren't fully fluent in English).
+  // Every result is shown as an accept/reject suggestion below; nothing is
+  // added to the CV until the person explicitly accepts it, since only they
+  // can actually confirm whether a given duty applied to their own job.
+  const suggestNewPoints = async (i: number) => {
+    const role = data[i].role.trim();
+    if (!role) { toast.error('Add a job title first — AI needs it to know what to suggest.'); return; }
+
+    if (!isAdmin) {
+      const ok = await deduct('letter_usage', `cvbuild_suggest_exp_${i}_${Date.now()}`);
+      if (!ok) return;
+    }
+
+    setSuggestingPoints(prev => ({ ...prev, [i]: true }));
+    try {
+      const existingBullets = getBullets(data[i].description).filter(b => b.trim());
+      const res = await fetch('/.netlify/functions/enhance-cv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'suggest_experience_points',
+          role,
+          school: data[i].school,
+          existingBullets,
+          cvType: isEducator ? 'educator' : 'general',
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || 'AI failed');
+
+      const newSuggestions: string[] = Array.isArray(result.suggestions) ? result.suggestions : [];
+      if (!newSuggestions.length) {
+        toast.info("No extra suggestions — you've likely already covered the typical duties for this role.");
+      } else {
+        setPointSuggestions(prev => ({ ...prev, [i]: newSuggestions }));
+      }
+      onAiUsed?.(pricing.letterCost);
+    } catch (err: any) {
+      toast.error(err?.message?.includes('credit') || err?.message?.includes('job title') ? err.message : 'Could not generate suggestions — please try again.');
+    } finally {
+      setSuggestingPoints(prev => ({ ...prev, [i]: false }));
+    }
+  };
+
+  const acceptPointSuggestion = (i: number, text: string) => {
+    // Drop any lingering blank bullet(s) rather than adding the new point
+    // below an empty line — first real point for a role often starts as a
+    // single blank placeholder.
+    const cleaned = getBullets(data[i].description).filter(b => b.trim());
+    setBullets(i, [...cleaned, text]);
+    setPointSuggestions(prev => ({ ...prev, [i]: prev[i]?.filter(s => s !== text) }));
+  };
+  const declinePointSuggestion = (i: number, text: string) => {
+    setPointSuggestions(prev => ({ ...prev, [i]: prev[i]?.filter(s => s !== text) }));
+  };
+  const acceptAllPoints = (i: number) => {
+    const list = pointSuggestions[i] || [];
+    const cleaned = getBullets(data[i].description).filter(b => b.trim());
+    setBullets(i, [...cleaned, ...list]);
+    setPointSuggestions(prev => ({ ...prev, [i]: undefined }));
+  };
+  const declineAllPoints = (i: number) => setPointSuggestions(prev => ({ ...prev, [i]: undefined }));
+
+  const suggestDisabled = (i: number) => suggestingPoints[i] || (!isAdmin && !creditsLoading && balance < pricing.letterCost);
 
   return (
     <div className="space-y-3">
@@ -156,14 +232,22 @@ export default function CVStepExperience({ data, onChange, onAiUsed, isEducator 
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-x-3 gap-y-1">
                 <Label className="text-sm font-medium">Key Responsibilities / Achievements</Label>
-                <button type="button" onClick={() => improveEntry(i)} disabled={aiDisabled(i)}
-                  className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50 shrink-0">
-                  {improving[i]
-                    ? <><Loader2 className="w-3 h-3 animate-spin" /> Improving…</>
-                    : <><Sparkles className="w-3 h-3" /> Improve with AI</>}
-                </button>
+                <div className="flex items-center gap-3 shrink-0">
+                  <button type="button" onClick={() => suggestNewPoints(i)} disabled={suggestDisabled(i)}
+                    className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50">
+                    {suggestingPoints[i]
+                      ? <><Loader2 className="w-3 h-3 animate-spin" /> Thinking…</>
+                      : <><Lightbulb className="w-3 h-3" /> Suggest points</>}
+                  </button>
+                  <button type="button" onClick={() => improveEntry(i)} disabled={aiDisabled(i)}
+                    className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50">
+                    {improving[i]
+                      ? <><Loader2 className="w-3 h-3 animate-spin" /> Improving…</>
+                      : <><Sparkles className="w-3 h-3" /> Improve with AI</>}
+                  </button>
+                </div>
               </div>
               <p className="text-xs text-muted-foreground -mt-0.5">Each point will appear as a bullet on your CV</p>
               <div className="space-y-2">
@@ -186,10 +270,44 @@ export default function CVStepExperience({ data, onChange, onAiUsed, isEducator 
                 className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors mt-1">
                 <Plus className="w-3.5 h-3.5" /> Add point
               </button>
-              <p className="text-xs text-muted-foreground">Tap "Improve with AI" for suggested wording, then accept or decline each one.</p>
+              <p className="text-xs text-muted-foreground">
+                Only wrote one or two points? Tap "Suggest points" for other duties typical of this role — you decide which ones actually apply.
+              </p>
             </div>
 
-            {/* ── AI suggestions panel ── */}
+            {/* ── AI: suggested NEW points (not yet on the CV) ── */}
+            {pointSuggestions[i] && pointSuggestions[i]!.length > 0 && (
+              <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                    <Lightbulb className="w-3.5 h-3.5" /> Other duties for this role — only add what applies to you
+                  </p>
+                  {pointSuggestions[i]!.length > 1 && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => declineAllPoints(i)} className="text-[11px] text-muted-foreground hover:text-destructive transition-colors">Dismiss all</button>
+                      <button onClick={() => acceptAllPoints(i)} className="text-[11px] text-primary font-medium hover:text-primary/80 transition-colors">Add all</button>
+                    </div>
+                  )}
+                </div>
+                {pointSuggestions[i]!.map(text => (
+                  <div key={text} className="bg-card rounded-lg border border-border p-2.5 space-y-1.5">
+                    <p className="text-xs text-foreground">{text}</p>
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <button onClick={() => acceptPointSuggestion(i, text)}
+                        className="flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors">
+                        <Check className="w-3 h-3" /> Yes, add this
+                      </button>
+                      <button onClick={() => declinePointSuggestion(i, text)}
+                        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-destructive transition-colors">
+                        <X className="w-3 h-3" /> Not applicable
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── AI: reworded suggestions for EXISTING points ── */}
             {entrySuggestions && entrySuggestions.length > 0 && (
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-3">
                 <div className="flex items-center justify-between">

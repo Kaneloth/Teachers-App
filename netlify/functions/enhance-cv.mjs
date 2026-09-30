@@ -371,6 +371,44 @@ Return ONLY valid JSON in this exact format, with EXACTLY ${bullets.length} item
 {"suggestions": ${JSON.stringify(bullets.map(() => 'rewritten version of this bullet'))}}`;
 }
 
+// ── Mode 7: Suggest ADDITIONAL experience bullet points ─────────────────────
+// Different job from buildBulletImprovementPrompt above: that one only
+// rewords bullets the person already wrote. This one proposes entirely NEW
+// bullets for duties they likely had but didn't think to write down —
+// common for users who aren't fully fluent in English and under-describe a
+// role, leaving their CV looking thin even though their actual experience
+// was fuller. Every suggestion must be a GENERIC, role-typical duty (never
+// a specific invented achievement/number/name) precisely because the person
+// — not the AI — is the one confirming it actually happened; the frontend
+// presents every result as an accept/reject suggestion, never auto-added.
+function buildAdditionalBulletsPrompt(role, school, existingBullets, isEducator) {
+  const context = school ? ` at ${school}` : '';
+  const professionHint = isEducator
+    ? 'This is for a South African educator\'s CV — teaching/classroom duties are appropriate where genuinely typical of the role.'
+    : 'This is for a South African professional\'s CV in a non-education field — do not add teaching/classroom framing unless the role itself is teaching-related.';
+  const existingList = existingBullets.length
+    ? existingBullets.map((b, i) => `${i + 1}. ${b}`).join('\n')
+    : '(none yet — this is their first point for this role)';
+
+  return `You are helping a South African job-seeker complete their CV. Many users of this tool are not fully fluent in English and, even though they genuinely performed a full range of duties in a role, they often only manage to write down one or two points — leaving their CV looking thin. Your job is to suggest OTHER duties/responsibilities that are commonly and typically part of a "${role}" role${context}, which this person may have simply forgotten to mention or struggled to put into words.
+
+These are SUGGESTIONS ONLY. The person will personally review every single one and keep only what genuinely applied to their own job — you are never asserting these as confirmed facts about this specific person.
+
+ABSOLUTE RULES — DO NOT VIOLATE:
+1. NEVER invent specific numbers, percentages, team sizes, budgets, project names, client/employer names, dates, or measurable outcomes. Every suggestion must be a GENERIC duty typical of this role — not a specific, unverifiable achievement or statistic.
+2. Do NOT repeat or closely rephrase anything already listed below — only suggest duties NOT already covered.
+3. Keep each suggestion short (one line), written in the same plain style as a normal CV bullet (past tense, no "I", no hedging words like "may have" or "possibly" — write it as a straightforward duty statement the person can either confirm or discard).
+4. ${professionHint}
+5. Suggest at most 5 points. If the role title is too vague to suggest anything sensibly specific to it (e.g. just "Staff"), return fewer — an empty list is a correct, honest result, not a failure.
+6. Every suggestion should be broadly true of MOST people who hold a "${role}" role, so the person can honestly confirm it applies — avoid anything unusually senior, niche, or company-specific that most people in this role would NOT have done.
+
+ALREADY LISTED FOR THIS ROLE (do not repeat these):
+${existingList}
+
+Return ONLY valid JSON in this exact format:
+{"suggestions": ["additional duty/responsibility bullet 1", "additional duty/responsibility bullet 2"]}`;
+}
+
 // ── Mode 6: Suggest additional CV sections ──────────────────────────────────
 // Same anti-hallucination DNA as buildSummaryPrompt/buildBulletImprovementPrompt
 // above: this NEVER invents a certification, award, or experience the person
@@ -699,6 +737,60 @@ export const handler = async (event) => {
         return {
           statusCode: 200,
           body: JSON.stringify({ success: true, suggestions: safeSuggestions }),
+        };
+      }
+
+      // ── Mode 7: Suggest ADDITIONAL experience bullet points ─────────────
+      // Called with: { action: 'suggest_experience_points', role, school?,
+      //                existingBullets: string[], cvType? }
+      // Unlike improve_experience_bullets above, this returns brand-new
+      // candidate bullets rather than rewordings of existing ones — the
+      // frontend presents each as an accept/reject suggestion; nothing is
+      // added to the CV without the person explicitly accepting it.
+      if (body.action === 'suggest_experience_points') {
+        const role = (body.role || '').trim();
+        if (!role) {
+          return { statusCode: 400, body: JSON.stringify({ error: 'Add a job title first so AI knows what role to suggest points for.' }) };
+        }
+        const existingBullets = Array.isArray(body.existingBullets)
+          ? body.existingBullets.filter(b => typeof b === 'string' && b.trim()).map(b => b.trim())
+          : [];
+
+        const isEducator = body.cvType !== 'general';
+        const prompt = buildAdditionalBulletsPrompt(role, (body.school || '').trim(), existingBullets, isEducator);
+        const raw = await callGroq(prompt, true);
+
+        let suggestions;
+        try {
+          const parsed = safeParseJson(raw);
+          suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
+        } catch (err) {
+          console.error('[enhance-cv] suggest_experience_points: failed to parse suggestions', err);
+          suggestions = [];
+        }
+
+        // Defensive validation: keep only reasonably-sized real strings,
+        // drop near-duplicates of each other and of what's already listed
+        // (a simple case-insensitive containment check — enough to catch
+        // the model re-describing something already there), cap at 5. This
+        // never blocks the request — an empty result is a valid, honest
+        // outcome (see prompt rule 5), not something to retry or error on.
+        const existingLower = existingBullets.map(b => b.toLowerCase());
+        const seen = new Set();
+        const safePointSuggestions = suggestions
+          .filter(s => typeof s === 'string' && s.trim().length >= 8 && s.trim().length <= 220)
+          .map(s => s.trim())
+          .filter(s => {
+            const lower = s.toLowerCase();
+            if (seen.has(lower)) return false;
+            seen.add(lower);
+            return !existingLower.some(e => e.includes(lower) || lower.includes(e));
+          })
+          .slice(0, 5);
+
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ success: true, suggestions: safePointSuggestions }),
         };
       }
 

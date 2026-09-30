@@ -35,6 +35,7 @@ function describeAction(type, ref_id) {
   if (ref_id.startsWith('cvbuild_summary_'))          return 'CV professional summary (AI)';
   if (ref_id.startsWith('ai_summary_'))               return 'CV professional summary (AI)';
   if (ref_id.startsWith('cvbuild_improve_exp_'))      return 'CV experience bullet improvement (AI)';
+  if (ref_id.startsWith('cvbuild_suggest_exp_'))      return 'CV experience point suggestions (AI)';
   if (ref_id.startsWith('cvbuild_suggest_sections_')) return 'CV section suggestions (AI)';
   if (ref_id.startsWith('ai_letter_'))                return 'Cover letter generation (AI)';
   if (ref_id.startsWith('letter_'))                   return 'Cover letter download';
