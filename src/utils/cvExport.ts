@@ -136,6 +136,22 @@ function hex(h: string): RGB {
 function lighten([r,g,b]: RGB, t=0.85): RGB {
   return [Math.round(r+(255-r)*t), Math.round(g+(255-g)*t), Math.round(b+(255-b)*t)];
 }
+// Soft drop shadow behind a circular photo (mirrors the CSS
+// "box-shadow: 0 2px 10px rgba(0,0,0,0.15)" look used on photo circles in
+// the live preview). jsPDF's circle fill has no blur, so this is faked
+// with a handful of concentric rings, each a bit larger and a bit lighter
+// than the last, nudged slightly down-right like a real light-from-above
+// shadow — drawn BEFORE the white halo/photo so it only shows as a soft
+// fringe around the edge once they're painted on top.
+function photoShadow(p: any, cx: number, cy: number, r: number) {
+  const rings = 5;
+  for (let i = rings; i >= 1; i--) {
+    const t = i / rings; // 1 = outermost/lightest ring .. ~0.2 = innermost/darkest
+    const [gr,gg,gb] = lighten([0,0,0], 0.78 + t*0.18); // outer rings nearly white, inner rings a soft gray
+    fill(p, gr, gg, gb);
+    p.circle(cx + 0.6, cy + 1.1, r + i * 0.5, 'F');
+  }
+}
 
 // ── Drawing helpers ───────────────────────────────────────────────────────────
 function hLine(p: any, x: number, y: number, w: number, r=209, g=213, b=219, lw=0.3) {
@@ -2765,9 +2781,11 @@ function drawDove(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   reset(p);
 
   if (photoUrl) {
+    photoShadow(p, PHOTO_L+PHOTO_D/2, PHOTO_T+PHOTO_D/2, PHOTO_D/2+1.6);
     fill(p,255,255,255); p.circle(PHOTO_L+PHOTO_D/2, PHOTO_T+PHOTO_D/2, PHOTO_D/2+1.6, 'F');
     p.addImage(photoUrl,'PNG', PHOTO_L, PHOTO_T, PHOTO_D, PHOTO_D);
   } else {
+    photoShadow(p, PHOTO_L+PHOTO_D/2, PHOTO_T+PHOTO_D/2, PHOTO_D/2+1.6);
     fill(p,255,255,255); p.circle(PHOTO_L+PHOTO_D/2, PHOTO_T+PHOTO_D/2, PHOTO_D/2+1.6, 'F');
     fill(p,ar,ag,ab); p.circle(PHOTO_L+PHOTO_D/2, PHOTO_T+PHOTO_D/2, PHOTO_D/2, 'F');
     const ini = owner.split(' ').map((n:string)=>n[0]||'').join('').slice(0,2).toUpperCase();
