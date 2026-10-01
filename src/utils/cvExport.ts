@@ -2588,7 +2588,7 @@ function drawSkyline(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
       const dRange = [e.from,e.to].filter(Boolean).join(' – ');
       y = textWithDate(p, e.role||'', dRange, ex, y, ew, BOTTOM, np, GXW, [17,24,39], 10, true);
       if (e.school) { p.setFont(F,'italic'); p.setFontSize(8.5); tc(p,ar,ag,ab); y = wrapped(p, e.school, ex, y, ew, BOTTOM, np, GXW); }
-      if (e.description) { tc(p,55,65,81); for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean)) y=bulletLine(p,l,ex,y,ew,accent,BOTTOM,np,GXW); }
+      if (e.description) { p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81); for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean)) y=bulletLine(p,l,ex,y,ew,accent,BOTTOM,np,GXW); }
       y += ITEM_GAP+2;
     }
   }
