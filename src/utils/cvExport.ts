@@ -2485,7 +2485,13 @@ function drawSkyline(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
     p.triangle(0,0, clipX,yCut, 0,triH, 'F'); }
   reset(p);
 
-  const sx = ML+2; const smw = SB-6;
+  // The sidebar's own inset mirrors the React preview's 20px padding on a
+  // 240px-wide div — i.e. measured from the SIDEBAR's left edge (x=0 on the
+  // page), not from the page's outer document margin (ML). Using ML+2 here
+  // previously anchored the text block ~12mm further right than the live
+  // preview, which is the extra left gutter you're seeing in the PDF.
+  const sidePad = SB/12; // 20/240 of the sidebar width
+  const sx = sidePad; const smw = SB-2*sidePad;
   if (photoUrl) {
     p.addImage(photoUrl,'PNG', sx+smw/2-15, MT, 30, 30);
   } else {
