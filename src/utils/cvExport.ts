@@ -2643,53 +2643,86 @@ function drawAzure(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
   let y = Math.max(headerY+photoSize, cy+5) + 7;
   hLine(p, ML, y, PW-ML-MR, 229,231,235, 0.4); y += 8;
 
-  const np = () => { p.addPage(); reset(p); fill(p,DARK[0],DARK[1],DARK[2]); p.rect(0,PH-1.6,PW,1.6,'F'); reset(p); return MT+6; };
+  // Two INDEPENDENT columns, each tracking its own y and its own page
+  // number, both sharing one jsPDF document whose "current page" is a
+  // single global pointer. Giving each column its own plain addPage()
+  // broke that: whichever column overflowed first physically created the
+  // next page and left jsPDF's cursor there, so when the OTHER column's
+  // (still page-1-appropriate) y was next used to draw, it landed on
+  // whatever page the first column had already moved to — which is why
+  // Experience (column 2) could end up entirely on a later page than the
+  // page its heading was actually meant to start on, or a "page 2" could
+  // show mismatched leftovers from both columns at different heights.
+  // Fix: track how many pages exist so far, and have each column's own
+  // page-break function either reuse a page the OTHER column already
+  // created (p.setPage) or create a genuinely new one — never both
+  // blindly calling addPage() for what should be the same page.
+  let pagesSoFar = 1;
+  const gotoPage = (idx: number): number => {
+    if (idx > pagesSoFar) {
+      p.addPage(); pagesSoFar = idx; reset(p);
+      fill(p,DARK[0],DARK[1],DARK[2]); p.rect(0,PH-1.6,PW,1.6,'F'); reset(p);
+    } else {
+      p.setPage(idx); reset(p);
+    }
+    return MT+6;
+  };
+  let y1Page = 1; const np1 = () => gotoPage(++y1Page);
+  let y2Page = 1; const np2 = () => gotoPage(++y2Page);
 
   const c1 = ML; const cw1 = (PW-ML-MR)*0.36;
   const c2 = ML+cw1+10; const cw2 = PW-MR-c2;
   let y1 = y; let y2 = y;
 
   if (pr.bio) {
-    y1 = sectionHeading(p,'Summary',c1,y1,cw1,accent,'underline',BOTTOM,np);
+    y1 = sectionHeading(p,'Summary',c1,y1,cw1,accent,'underline',BOTTOM,np1);
     p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,55,65,81);
-    y1 = wrapped(p,pr.bio,c1,y1,cw1,BOTTOM,np); y1 += ITEM_GAP;
+    y1 = wrapped(p,pr.bio,c1,y1,cw1,BOTTOM,np1); y1 += ITEM_GAP;
   }
   if (edu.length) {
-    y1 = sectionHeading(p,'Education',c1,y1,cw1,accent,'underline',BOTTOM,np);
+    y1 = sectionHeading(p,'Education',c1,y1,cw1,accent,'underline',BOTTOM,np1);
     for (const e of edu) {
-      if (y1+16>BOTTOM) y1=np();
+      if (y1+16>BOTTOM) y1=np1();
       if (e.year) { p.setFont(F,'bold'); p.setFontSize(8); tc(p,107,114,128); p.text(e.year,c1,y1); y1+=3.8; }
-      p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,24,39); y1=wrapped(p,e.qualification||'',c1,y1,cw1,BOTTOM,np);
-      p.setFont(F,'normal'); p.setFontSize(8); tc(p,107,114,128); y1=wrapped(p,e.institution||'',c1,y1,cw1,BOTTOM,np);
+      p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,24,39); y1=wrapped(p,e.qualification||'',c1,y1,cw1,BOTTOM,np1);
+      p.setFont(F,'normal'); p.setFontSize(8); tc(p,107,114,128); y1=wrapped(p,e.institution||'',c1,y1,cw1,BOTTOM,np1);
       y1 += ITEM_GAP;
     }
   }
   const allSkills = [...(sk.subjects||[]), ...(sk.soft_skills||[])];
   if (allSkills.length) {
-    y1 = sectionHeading(p,'Skills',c1,y1,cw1,accent,'underline',BOTTOM,np);
+    y1 = sectionHeading(p,'Skills',c1,y1,cw1,accent,'underline',BOTTOM,np1);
     p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,55,65,81);
-    for (const s of allSkills) { if (y1+LINE_H>BOTTOM) y1=np(); y1=bulletLine(p,s,c1,y1,cw1,accent,BOTTOM,np); }
+    for (const s of allSkills) { if (y1+LINE_H>BOTTOM) y1=np1(); y1=bulletLine(p,s,c1,y1,cw1,accent,BOTTOM,np1); }
     y1 += ITEM_GAP;
   }
   if (sk.languages?.length) {
-    y1 = sectionHeading(p,'Language',c1,y1,cw1,accent,'underline',BOTTOM,np);
+    y1 = sectionHeading(p,'Language',c1,y1,cw1,accent,'underline',BOTTOM,np1);
     p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,55,65,81);
-    for (const l of sk.languages) { if (y1+LINE_H>BOTTOM) y1=np(); y1=bulletLine(p,l,c1,y1,cw1,accent,BOTTOM,np); }
+    for (const l of sk.languages) { if (y1+LINE_H>BOTTOM) y1=np1(); y1=bulletLine(p,l,c1,y1,cw1,accent,BOTTOM,np1); }
   }
 
+  // Column 1 may have left jsPDF's cursor on a later page than where
+  // column 2 needs to start (page 1, at its own initial y) — point it
+  // back explicitly rather than inheriting wherever column 1 ended up.
+  p.setPage(1); reset(p);
+
   if (exp.length) {
-    y2 = sectionHeading(p,'Work Experience',c2,y2,cw2,accent,'underline',BOTTOM,np);
+    y2 = sectionHeading(p,'Work Experience',c2,y2,cw2,accent,'underline',BOTTOM,np2);
     for (const e of exp) {
-      if (y2+16>BOTTOM) y2=np();
+      if (y2+16>BOTTOM) y2=np2();
       p.setFont(F,'bold'); p.setFontSize(10); tc(p,17,24,39); p.text(e.role||'',c2,y2);
       const dRange = [e.from,e.to].filter(Boolean).join(' – ');
       if (dRange) { p.setFont(F,'normal'); p.setFontSize(8); tc(p,107,114,128); p.text(dRange, c2+cw2-p.getTextWidth(dRange), y2); }
       y2 += LINE_H;
-      if (e.school) { p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,ar,ag,ab); y2 = wrapped(p,e.school,c2,y2,cw2,BOTTOM,np); }
-      if (e.description) { p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81); for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean)) y2=bulletLine(p,l,c2,y2,cw2,accent,BOTTOM,np); }
+      if (e.school) { p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,ar,ag,ab); y2 = wrapped(p,e.school,c2,y2,cw2,BOTTOM,np2); }
+      if (e.description) { p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81); for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean)) y2=bulletLine(p,l,c2,y2,cw2,accent,BOTTOM,np2); }
       y2 += ITEM_GAP+1;
     }
   }
-  y2 = drawCustom(p,customs,accent,'underline',c2,y2,cw2,BOTTOM,np);
-  refsPage(p,refs,accent,'underline',np,BOTTOM,owner,wm);
+  y2 = drawCustom(p,customs,accent,'underline',c2,y2,cw2,BOTTOM,np2);
+  // References always starts on a genuinely fresh page of its own
+  // (refsPage calls addPage() unconditionally), so it's unaffected by
+  // which page either column's cursor was last left on.
+  refsPage(p,refs,accent,'underline',np2,BOTTOM,owner,wm);
 }
