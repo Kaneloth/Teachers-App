@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,29 @@ export default function Register() {
   const [contactMsg,      setContactMsg]      = useState('');
   const [contactSending,  setContactSending]  = useState(false);
 
+  // ── Bot trap ──────────────────────────────────────────────────────────
+  // "website" is a honeypot: hidden from real users (off-screen, not
+  // display:none, aria-hidden, no tab stop), but a plausible-looking field
+  // name that form-filling bots tend to fill in anyway. Real users never
+  // see or touch it. formRenderedAt backs a second, independent signal —
+  // genuine humans take at least a couple of seconds to fill this form;
+  // a near-instant submit is itself suspicious even if the honeypot was
+  // left alone. Neither check ever blocks on a false-positive basis: the
+  // honeypot is a hard gate (a real user truly cannot fill it in), while
+  // the timing check alone is logged but does NOT block, since some real
+  // users (autofill, re-submitting after a typo) could plausibly be fast.
+  const [honeypot, setHoneypot] = useState('');
+  const formRenderedAt = useRef(Date.now());
+
+  const logBotAttempt = (reason: 'honeypot_filled' | 'submitted_too_fast', elapsedMs: number) => {
+    // Fire-and-forget — never block or fail the (fake) success path on this.
+    fetch('/.netlify/functions/log-bot-signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, reason, elapsed_ms: elapsedMs }),
+    }).catch(() => {});
+  };
+
   // Client-side password rules matching Supabase settings
   const pwRules = [
     { label: 'At least 8 characters',        met: password.length >= 8 },
@@ -43,6 +66,23 @@ export default function Register() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError(null);
+
+    // Honeypot tripped — this is a bot. Fake a normal success (same screen
+    // a real user would see) so it has no signal that it was caught, and
+    // silently skip ever calling supabase.auth.signUp — no account, no
+    // email, nothing actually happens.
+    if (honeypot.trim() !== '') {
+      logBotAttempt('honeypot_filled', Date.now() - formRenderedAt.current);
+      setStep('email-otp');
+      toast.success('Check your email for a verification code!');
+      return;
+    }
+
+    // Too-fast submit — log only, never block a real (if unusually quick) user.
+    const elapsed = Date.now() - formRenderedAt.current;
+    if (elapsed < 1500) {
+      logBotAttempt('submitted_too_fast', elapsed);
+    }
 
     if (!pwValid) {
       setPasswordError('password_requirements');
@@ -281,6 +321,27 @@ export default function Register() {
       </div>
 
       <form onSubmit={handleRegister} className="space-y-4">
+        {/* Honeypot — invisible to real users, irresistible to bots that
+            auto-fill every input they find. Positioned off-screen rather
+            than display:none (some bots skip display:none fields), kept
+            out of tab order, and hidden from assistive tech so screen
+            reader users never even know it's there. */}
+        <div
+          style={{ position: 'absolute', left: '-9999px', top: 'auto', width: '1px', height: '1px', overflow: 'hidden' }}
+          aria-hidden="true"
+        >
+          <Label htmlFor="website">Leave this field blank</Label>
+          <Input
+            id="website"
+            name="website"
+            type="text"
+            value={honeypot}
+            onChange={e => setHoneypot(e.target.value)}
+            tabIndex={-1}
+            autoComplete="off"
+          />
+        </div>
+
         <div className="space-y-1.5">
           <Label htmlFor="fullName">Full Name</Label>
           <Input id="fullName" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Thabo Pretorius" className="rounded-xl" required />

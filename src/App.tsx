@@ -48,6 +48,7 @@ import AdminTestimonials from '@/pages/admin/AdminTestimonials';
 import AdminFeatureGates from '@/pages/admin/AdminFeatureGates';
 import AdminTools from '@/pages/admin/AdminTools';
 import AdminTransactions from '@/pages/admin/AdminTransactions';
+import AdminBotSignups from '@/pages/admin/AdminBotSignups';
 import AdminCreditsMovement from '@/pages/admin/AdminCreditsMovement';
 
 const queryClient = new QueryClient();
@@ -181,6 +182,7 @@ export default function App() {
                     <Route path="/admin/tools"        element={<AdminTools />} />
                     <Route path="/admin/transactions" element={<AdminTransactions />} />
                     <Route path="/admin/credits-movement" element={<AdminCreditsMovement />} />
+                    <Route path="/admin/bot-signups"  element={<AdminBotSignups />} />
                   </Route>
                 </Route>
               </Route>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Coins, ScrollText, GraduationCap,
-  ShieldCheck, Star, SlidersHorizontal, Wrench, Menu, X, ArrowLeft, User, Tag, Wallet,
+  ShieldCheck, Star, SlidersHorizontal, Wrench, Menu, X, ArrowLeft, User, Tag, Bot,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -27,8 +27,6 @@ const NAV_SECTIONS = [
     items: [
       { path: '/admin/credits',      icon: Coins,         label: 'Credits & Payments' },
       { path: '/admin/pricing',      icon: Tag,           label: 'Pricing' },
-	  { path: '/admin/transactions', icon: Wallet, label: 'Transactions' },
-	  { path: '/admin/credits-movement', icon: Coins, label: 'Credits Movement' },
     ],
   },
   {
@@ -42,6 +40,7 @@ const NAV_SECTIONS = [
     items: [
       { path: '/admin/gates',        icon: SlidersHorizontal, label: 'Feature Gates' },
       { path: '/admin/audit-log',    icon: ScrollText,        label: 'Audit Log' },
+      { path: '/admin/bot-signups',  icon: Bot,                label: 'Bot Sign-ups' },
       { path: '/admin/tools',        icon: Wrench,             label: 'Tools' },
     ],
   },
