@@ -3105,11 +3105,31 @@ const MONOGRAM_GRAY = '#f5f5f5';
 const MONOGRAM_INK = '#262626';
 const MONOGRAM_SIDEBAR_W = 294;
 
-function MonogramLabel({ title, children, center }: { title: string; children: React.ReactNode; center?: boolean }) {
+function MonogramLabel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: '22px', textAlign: center ? 'center' : undefined }}>
+    <div style={{ marginBottom: '22px' }}>
       <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2.5px', color: MONOGRAM_INK, marginBottom: '12px' }}>{title}</div>
       {children}
+    </div>
+  );
+}
+
+// A single continuous divider band — same gray as the sidebar itself, so
+// it reads as part of the same palette — spanning the full page width,
+// with thin WHITE hairlines at the top, the exact center, and the bottom.
+// Those hairlines are real full-width lines (not just empty/transparent
+// gaps that would let the sidebar's own background show through), so the
+// divider stays visually distinct from the sidebar immediately above and
+// below it instead of blending into one unbroken gray block, while the
+// center line gives it a layered "double divider" look. All three lines
+// run edge-to-edge across both the sidebar and the main column, because
+// this div itself spans the full page width independent of either column.
+function MonogramDividerBar() {
+  return (
+    <div style={{ position: 'relative', height: '38px', background: MONOGRAM_GRAY }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: '#ffffff' }} />
+      <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', background: '#ffffff', transform: 'translateY(-50%)' }} />
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '1px', background: '#ffffff' }} />
     </div>
   );
 }
@@ -3158,33 +3178,27 @@ function MonogramTemplate({ data, wrapperStyle, validEdu, validExp, watermark, s
             </div>
           </div>
 
-          {/* Gap bar — only needs to paint gray on the white (main-column)
-              side; the sidebar side is already covered by the continuous
-              background div above. */}
-          <div style={{ display: 'flex', position: 'relative', height: '26px' }}>
-            <div style={{ width: `${MONOGRAM_SIDEBAR_W}px`, minWidth: `${MONOGRAM_SIDEBAR_W}px` }} />
-            <div style={{ flex: 1, background: MONOGRAM_GRAY }} />
-          </div>
+          {/* Full-width divider ribbon — edge-to-edge across both the
+              sidebar and the main column, independent of either container. */}
+          <MonogramDividerBar />
 
-          {/* Content row */}
+          {/* Content row — extra top padding gives Contact/Summary some
+              breathing room below the divider bars instead of sitting
+              flush against them. */}
           <div style={{ display: 'flex', position: 'relative' }}>
-          <div style={{ width: `${MONOGRAM_SIDEBAR_W}px`, minWidth: `${MONOGRAM_SIDEBAR_W}px`, padding: '0 30px 36px', textAlign: 'center' }}>
+          <div style={{ width: `${MONOGRAM_SIDEBAR_W}px`, minWidth: `${MONOGRAM_SIDEBAR_W}px`, padding: '28px 36px 36px' }}>
             {(personal.phone || personal.email || personal.address) && (
-              <MonogramLabel title="Contact" center>
-                {personal.phone   && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '12px', color: '#374151', marginBottom: '10px' }}>{ICONS.phone}{personal.phone}</div>}
-                {personal.email   && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '12px', color: '#374151', marginBottom: '10px', wordBreak: 'break-word' }}>{ICONS.mail}{personal.email}</div>}
-                {personal.address && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '12px', color: '#374151', wordBreak: 'break-word' }}>{ICONS.mapPin}{personal.address}</div>}
+              <MonogramLabel title="Contact">
+                {personal.phone   && <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: '#374151', marginBottom: '10px' }}>{ICONS.phone}{personal.phone}</div>}
+                {personal.email   && <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: '#374151', marginBottom: '10px', wordBreak: 'break-word' }}>{ICONS.mail}{personal.email}</div>}
+                {personal.address && <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: '#374151', wordBreak: 'break-word' }}>{ICONS.mapPin}{personal.address}</div>}
               </MonogramLabel>
             )}
             {!hidden?.has('skills') && allSkills.length > 0 && (
-              <MonogramLabel title={skillsLabel} center>
-                {allSkills.map((s: string, i: number) => (
-                  <div key={i} style={{ fontSize: '12px', lineHeight: '1.5', color: '#374151', marginBottom: '4px' }}>{s}</div>
-                ))}
-              </MonogramLabel>
+              <MonogramLabel title={skillsLabel}><BulletList items={allSkills} /></MonogramLabel>
             )}
             {validEdu.length > 0 && (
-              <MonogramLabel title="Education" center>
+              <MonogramLabel title="Education">
                 {validEdu.map((e: any, i: number) => (
                   <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '14px' : 0 }}>
                     <div style={{ fontSize: '11.5px', fontWeight: 700, color: MONOGRAM_INK, textTransform: 'uppercase', wordBreak: 'break-word' }}>{e.institution}</div>
@@ -3195,15 +3209,11 @@ function MonogramTemplate({ data, wrapperStyle, validEdu, validExp, watermark, s
               </MonogramLabel>
             )}
             {skills?.languages?.length > 0 && (
-              <MonogramLabel title="Language" center>
-                {skills.languages.map((l: string, i: number) => (
-                  <div key={i} style={{ fontSize: '12px', lineHeight: '1.5', color: '#374151', marginBottom: '4px' }}>{l}</div>
-                ))}
-              </MonogramLabel>
+              <MonogramLabel title="Language"><BulletList items={skills.languages} /></MonogramLabel>
             )}
           </div>
 
-          <div style={{ flex: 1, minWidth: 0, padding: '0 40px 36px' }}>
+          <div style={{ flex: 1, minWidth: 0, padding: '28px 40px 36px' }}>
             {personal.bio && (
               <MonogramLabel title="Summary">
                 <p style={{ fontSize: '12px', color: '#374151', lineHeight: '1.7', margin: 0 }}>{personal.bio}</p>

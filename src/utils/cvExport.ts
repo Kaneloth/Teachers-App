@@ -3160,27 +3160,22 @@ function monogramLabel(p: any, t: string, x: number, y: number, ink: RGB, size=8
   return y + 6;
 }
 
-// Draws one line of text centered on cx, splitting to fit maxW first.
-// Returns the new y after the (possibly multi-line) text.
-function centeredLines(p: any, text: string, cx: number, y: number, maxW: number, lineH = 4): number {
-  const ls = p.splitTextToSize(text, maxW) as string[];
-  for (const l of ls) { p.text(l, cx - p.getTextWidth(l)/2, y); y += lineH; }
-  return y;
-}
-
 function drawMonogram(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
   const INK:RGB = hex('#262626');
   const GRAY:RGB = [245,245,245];
 
-  const SB = 78, HEADER_H = 52, GAP_H = 7;
-  const contentTop = HEADER_H + GAP_H;
+  // A single continuous divider band — same gray as the sidebar — spans
+  // the FULL page width (not just the sidebar). Real white hairlines at
+  // top/center/bottom keep it visually distinct from the sidebar instead
+  // of blending into one unbroken block, while the center line gives it a
+  // layered "double divider" look.
+  const BAND_H = 10, EXTRA_TOP = 8;
+  const GAP_H = BAND_H;
+  const SB = 78, HEADER_H = 52;
+  const contentTop = HEADER_H + GAP_H + EXTRA_TOP;
 
   // ── Sidebar gray background: ONE continuous rect spanning the full page
-  // height (covers the header cell, the gap bar, and the content area in a
-  // single draw call) rather than three separately-drawn same-color rects.
-  // Three abutting shapes of the identical fill can still show a hairline
-  // seam at their shared edges in some renderers — exactly the "two
-  // separate bars" artifact reported — so one shape is used instead. ──
+  // height, so the sidebar column itself never shows any seam. ──
   fill(p,GRAY[0],GRAY[1],GRAY[2]); p.rect(0,0,SB,PH,'F'); reset(p);
   const circD = 29, circCX = SB/2, circCY = HEADER_H/2;
   if (photoUrl) {
@@ -3204,6 +3199,18 @@ function drawMonogram(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
   p.text(jobTitle, nameX, nameY + nameLines.length*8.5 - 1);
   reset(p);
 
+  // ── Full-width divider ribbon, edge-to-edge across both the sidebar and
+  // the main column, independent of either container. ──
+  {
+    const bandY = HEADER_H;
+    fill(p,GRAY[0],GRAY[1],GRAY[2]); p.rect(0,bandY,PW,BAND_H,'F');
+    dc(p,255,255,255); p.setLineWidth(0.15);
+    p.line(0,bandY,PW,bandY);                     // top hairline
+    p.line(0,bandY+BAND_H/2,PW,bandY+BAND_H/2);    // center hairline
+    p.line(0,bandY+BAND_H,PW,bandY+BAND_H);        // bottom hairline
+    reset(p);
+  }
+
   // ── Shared pagination tracker for the two independent columns ── npS()
   // additionally repaints the full-height gray background on any new page
   // it creates, since that page starts out white.
@@ -3221,22 +3228,21 @@ function drawMonogram(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
   };
   let mPage = 1; const npM = () => gotoPage(++mPage);
 
-  // ── Sidebar: Contact / Key Skills / Education / Language — all content
-  // centered horizontally within the sidebar column (cx = SB/2). ──
-  const cx = SB/2, smw = SB-20;
+  // ── Sidebar: Contact / Key Skills / Education / Language — left-aligned
+  // with bulleted lists, inset with equal left/right margins (sx on both
+  // sides) so the column reads as evenly balanced without text-centering
+  // individual lines. ──
+  const sx = 10, smw = SB-20;
   let sy = contentTop + 10;
   if (pr.phone||pr.email||pr.address) {
-    sy = monogramLabel(p,'Contact',cx,sy,INK,8.5,true) + 2;
+    sy = monogramLabel(p,'Contact',sx,sy,INK) + 2;
     const items:[string,string][] = [[ICON.phone,pr.phone],[ICON.envelope,pr.email],[ICON.mapMarker,pr.address]].filter(([,v])=>!!v) as any;
     for (const [glyph,v] of items) {
       if (sy > PH-14) sy = npS();
-      p.setFont(F,'normal'); p.setFontSize(8.5);
       const ls = p.splitTextToSize(v, smw-10) as string[];
-      const widest = Math.max(...ls.map((l:string)=>p.getTextWidth(l)));
-      const groupW = 9 + widest, startX = cx - groupW/2;
-      drawIcon(p, glyph, startX, sy-0.6, 7.5, [55,65,81]);
-      tc(p,55,65,81);
-      ls.forEach((l:string,li:number)=>p.text(l, startX+9, sy+li*4));
+      drawIcon(p, glyph, sx, sy-0.6, 7.5, [55,65,81]);
+      p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,55,65,81);
+      ls.forEach((l:string,li:number)=>p.text(l, sx+9, sy+li*4));
       sy += ls.length*4 + 4;
     }
     sy += 4;
@@ -3244,32 +3250,35 @@ function drawMonogram(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
   const allSkills=[...(sk.subjects||[]),...(sk.soft_skills||[])];
   if (allSkills.length) {
     if (sy > PH-20) sy = npS();
-    sy = monogramLabel(p,'Key Skills',cx,sy,INK,8.5,true) + 2;
-    p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,55,65,81);
+    sy = monogramLabel(p,'Key Skills',sx,sy,INK) + 2;
     for (const s of allSkills) {
       if (sy > PH-14) sy = npS();
-      sy = centeredLines(p, s, cx, sy, smw);
+      p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,55,65,81);
+      const ls = p.splitTextToSize(`•  ${s}`, smw) as string[];
+      for (const l of ls) { p.text(l,sx,sy); sy+=4; }
     }
     sy += 4;
   }
   if (edu.length) {
     if (sy > PH-20) sy = npS();
-    sy = monogramLabel(p,'Education',cx,sy,INK,8.5,true) + 2;
+    sy = monogramLabel(p,'Education',sx,sy,INK) + 2;
     for (const e of edu) {
       if (sy > PH-22) sy = npS();
       p.setFont(F,'bold'); p.setFontSize(8.5); tc(p,INK[0],INK[1],INK[2]);
-      sy = centeredLines(p, (e.institution||'').toUpperCase(), cx, sy, smw, 3.8);
-      if (e.year) { p.setFont(F,'bold'); p.setFontSize(8); p.text(e.year, cx-p.getTextWidth(e.year)/2, sy); sy+=3.8; }
+      const l1 = p.splitTextToSize((e.institution||'').toUpperCase(), smw) as string[];
+      l1.forEach((l:string)=>{p.text(l,sx,sy); sy+=3.8;});
+      if (e.year) { p.setFont(F,'bold'); p.setFontSize(8); p.text(e.year,sx,sy); sy+=3.8; }
       p.setFont(F,'normal'); p.setFontSize(8); tc(p,75,85,99);
-      sy = centeredLines(p, e.qualification||'', cx, sy, smw, 3.8);
+      const l2 = p.splitTextToSize(e.qualification||'', smw) as string[];
+      l2.forEach((l:string)=>{p.text(l,sx,sy); sy+=3.8;});
       sy += 4;
     }
   }
   if (sk.languages?.length) {
     if (sy > PH-20) sy = npS();
-    sy = monogramLabel(p,'Language',cx,sy,INK,8.5,true) + 2;
+    sy = monogramLabel(p,'Language',sx,sy,INK) + 2;
     p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,55,65,81);
-    for (const l of sk.languages) { if (sy>PH-14) sy=npS(); sy = centeredLines(p, l, cx, sy, smw); }
+    for (const l of sk.languages) { if (sy>PH-14) sy=npS(); p.text(`•  ${l}`,sx,sy); sy+=4; }
   }
 
   // ── Main column: Summary / Work Experience — reset jsPDF's cursor back
