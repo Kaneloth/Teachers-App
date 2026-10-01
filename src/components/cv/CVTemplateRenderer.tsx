@@ -79,6 +79,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'skyline':  "'Segoe UI', Arial, sans-serif",
     'azure':    "'Segoe UI', Arial, sans-serif",
     'dove':     "'Segoe UI', Arial, sans-serif",
+    'panel':    "Arial, Helvetica, sans-serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -111,6 +112,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'skyline'      ? <SkylineTemplate      {...T} /> :
     template === 'azure'        ? <AzureTemplate        {...T} /> :
     template === 'dove'         ? <DoveTemplate         {...T} /> :
+    template === 'panel'        ? <PanelTemplate        {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -2828,6 +2830,145 @@ function DoveTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
       {renderReferencesPage(data.references, '#1f2937', watermark, '#d1d5db', '28px 40px', hidden)}
+    </div>
+  );
+}
+
+/* ── Panel ───────────────────────────────────────────────────────────────── */
+const PANEL_BAND_BG = '#f3f4f6';
+const PANEL_INK = '#111827';
+
+function PanelBand({ title }: { title: string }) {
+  return (
+    <div style={{ background: PANEL_BAND_BG, padding: '10px 40px', textAlign: 'center' }}>
+      <span style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '3px', color: PANEL_INK }}>{title}</span>
+    </div>
+  );
+}
+
+function PanelRow({ when, heading, subheading, description }: { when?: string; heading: React.ReactNode; subheading?: string; description?: string }) {
+  return (
+    <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+      <div style={{ width: '100px', flexShrink: 0, fontSize: '11.5px', color: '#374151' }}>{when}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.3px', color: PANEL_INK, wordBreak: 'break-word' }}>
+          {heading}{subheading ? ` | ${subheading}` : ''}
+        </div>
+        {description && <div style={{ fontSize: '11.5px', color: '#4b5563', lineHeight: '1.6', marginTop: '4px' }}>{description}</div>}
+      </div>
+    </div>
+  );
+}
+
+function PanelTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', expLabel = 'Work Experience', hidden }: any) {
+  const { personal, skills } = data;
+  const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
+  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+
+  return (
+    <div style={{ ...wrapperStyle }}>
+      <div
+        className="cv-content-page"
+        style={{
+          width: '794px',
+          minHeight: forExportMinHeight(wrapperStyle),
+          boxSizing: 'border-box',
+          position: 'relative',
+          background: '#fff',
+        }}
+      >
+        {/* Header */}
+        <div style={{ padding: '34px 40px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '22px' }}>
+            {personal.photo_url ? (
+              <img src={personal.photo_url} alt="" style={{ width: '104px', height: '104px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+            ) : (
+              <div style={{ width: '104px', height: '104px', borderRadius: '50%', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '28px', fontWeight: 800, color: '#6b7280' }}>
+                {(personal.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '30px', fontWeight: 800, color: PANEL_INK, wordBreak: 'break-word' }}>{personal.full_name || 'Your Name'}</div>
+              <div style={{ fontSize: '14px', color: '#4b5563', marginTop: '2px' }}>{jobTitle}</div>
+              <div style={{ width: '42px', height: '2px', background: PANEL_INK, margin: '10px 0' }} />
+              <div style={{ display: 'flex', gap: '20px', fontSize: '11.5px', color: '#374151', flexWrap: 'wrap' }}>
+                {personal.phone   && <span>{ICONS.phone} {personal.phone}</span>}
+                {personal.email   && <span>{ICONS.mail} {personal.email}</span>}
+                {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {personal.bio && (
+          <>
+            <PanelBand title="About Me" />
+            <div style={{ padding: '18px 40px' }}>
+              <p style={{ fontSize: '12px', color: '#374151', lineHeight: '1.7', margin: 0 }}>{personal.bio}</p>
+            </div>
+          </>
+        )}
+
+        {validEdu.length > 0 && (
+          <>
+            <PanelBand title="Education" />
+            <div style={{ padding: '18px 40px 4px' }}>
+              {validEdu.map((e: any, i: number) => (
+                <PanelRow key={i} when={e.year} heading={e.institution} subheading={e.qualification} description={undefined} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {validExp.length > 0 && (
+          <>
+            <PanelBand title={expLabel} />
+            <div style={{ padding: '18px 40px 4px' }}>
+              {validExp.map((e: any, i: number) => (
+                <PanelRow key={i} when={[e.from, e.to].filter(Boolean).join(' - ')} heading={e.school} subheading={e.role} description={e.description} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {!hidden?.has('skills') && (allSkills.length > 0 || skills?.languages?.length > 0) && (
+          <>
+            <PanelBand title={skillsLabel} />
+            <div style={{ padding: '18px 40px 24px' }}>
+              {allSkills.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', columnGap: '24px', rowGap: '9px', marginBottom: skills?.languages?.length ? '16px' : 0 }}>
+                  {allSkills.map((s: string, i: number) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#374151' }}>
+                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: PANEL_INK, flexShrink: 0 }} />
+                      {s}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {skills?.languages?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: '#6b7280', marginBottom: '6px' }}>Language</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', columnGap: '24px', rowGap: '9px' }}>
+                    {skills.languages.map((l: string, i: number) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#374151' }}>
+                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: PANEL_INK, flexShrink: 0 }} />
+                        {l}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        <div style={{ padding: '0 40px 28px' }}>
+          {renderCustomSections(data.custom_sections, PANEL_INK, '#e5e7eb', hidden)}
+        </div>
+
+        {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
+      </div>
+      {renderReferencesPage(data.references, PANEL_INK, watermark, '#e5e7eb', '28px 40px', hidden)}
     </div>
   );
 }

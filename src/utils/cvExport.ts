@@ -508,6 +508,7 @@ shaded:'#374151', crimson:'#c0392b', sage:'#7fa37f',
     skyline:'#3e63b0',
     azure:'#2f6fad',
     dove:'#3c5a7a',
+    panel:'#111827',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -691,6 +692,7 @@ export async function exportElementAsPDF(
     skyline:      ()=>drawSkyline(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     azure:        ()=>drawAzure(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     dove:         ()=>drawDove(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    panel:        ()=>drawPanel(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -2873,4 +2875,133 @@ function drawDove(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   }
   y = drawCustom(p,customs,DARK,'bar',onFirstPage?cx:mainCX,y,onFirstPage?cmw:mainCMW,BOTTOM,np,GXW);
   refsPage(p,refs,DARK,'bar',np,BOTTOM,owner,wm);
+}
+
+// ── Panel — full-width banded section headers, single-column body ─────────────
+// Mirrors the React PanelTemplate: a plain header (photo + name/title +
+// short divider + contact row), then alternating full-bleed light-gray
+// "bands" (edge-to-edge, centered uppercase title) and white content
+// blocks for About Me / Education / Work Experience / Skills. Each
+// education/experience entry is a two-column row — a narrow fixed-width
+// date column on the left, heading+subheading+description on the right —
+// drawn with a dedicated panelRow() helper below rather than reusing
+// textWithDate()/eduLines(), since those put the date at the right edge
+// instead of in a left-hand column.
+const PANEL_BAND: RGB = [243,244,246];
+const PANEL_INK: RGB = [17,24,39];
+const PANEL_DATE_W = 26; // mm — width reserved for the left date column
+
+function panelBand(p: any, title: string, y: number): number {
+  fill(p,PANEL_BAND[0],PANEL_BAND[1],PANEL_BAND[2]); p.rect(0,y,PW,9,'F');
+  tc(p,PANEL_INK[0],PANEL_INK[1],PANEL_INK[2]); p.setFont(F,'bold'); p.setFontSize(10.5);
+  const txt = title.toUpperCase();
+  const tw = p.getTextWidth(txt);
+  p.text(txt, (PW-tw)/2, y+6.3);
+  reset(p);
+  return y + 9 + 8; // clearance below the band before content starts
+}
+
+function panelRow(p: any, when: string, heading: string, subheading: string, description: string|undefined,
+                  y: number, bottom: number, newPage: ()=>number): number {
+  if (y+12 > bottom) y = newPage();
+  const dx = ML, hx = ML+PANEL_DATE_W, hw = PW-MR-hx;
+  p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,55,65,81);
+  const dateLines = p.splitTextToSize(when||'', PANEL_DATE_W-3) as string[];
+  dateLines.forEach((l:string,i:number)=>p.text(l, dx, y+i*4));
+  p.setFont(F,'bold'); p.setFontSize(9); tc(p,PANEL_INK[0],PANEL_INK[1],PANEL_INK[2]);
+  const headingText = subheading ? `${heading} | ${subheading}` : heading;
+  let endY = wrapped(p, headingText.toUpperCase(), hx, y, hw, bottom, newPage);
+  if (description) {
+    p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,75,85,99);
+    endY = wrapped(p, description, hx, endY+1, hw, bottom, newPage);
+  }
+  return endY + 6;
+}
+
+function drawPanel(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
+  const accent = PANEL_INK;
+
+  const photoSize = 28, headerY = MT+2;
+  const textX = photoUrl ? ML+photoSize+8 : ML;
+  if (photoUrl) {
+    p.addImage(photoUrl,'PNG', ML, headerY, photoSize, photoSize);
+  } else {
+    fill(p,229,231,235); p.circle(ML+photoSize/2, headerY+photoSize/2, photoSize/2, 'F');
+    const ini = owner.split(' ').map((n:string)=>n[0]||'').join('').slice(0,2).toUpperCase();
+    tc(p,107,114,128); p.setFont(F,'bold'); p.setFontSize(12); p.text(ini, ML+photoSize/2-p.getTextWidth(ini)/2, headerY+photoSize/2+4);
+  }
+  tc(p,PANEL_INK[0],PANEL_INK[1],PANEL_INK[2]); p.setFont(F,'bold'); p.setFontSize(18);
+  p.text(owner, textX, headerY+10);
+  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu?'Educator':'Professional')).trim();
+  p.setFont(F,'normal'); p.setFontSize(10); tc(p,75,85,99);
+  p.text(jobTitle, textX, headerY+17);
+  fill(p,PANEL_INK[0],PANEL_INK[1],PANEL_INK[2]); p.rect(textX, headerY+21, 12, 0.6, 'F');
+  reset(p);
+  const contactItems:[string,string][] = [[ICON.phone,pr.phone],[ICON.envelope,pr.email],[ICON.mapMarker,pr.address]].filter(([,v])=>!!v) as any;
+  let ccx = textX; const ccy = headerY+28;
+  for (const [glyph,v] of contactItems) { ccx = iconText(p, glyph, v, ccx, ccy, 8, [55,65,81]); ccx += 6; }
+
+  reset(p);
+  let y = Math.max(headerY+photoSize, ccy+4) + 8;
+  const np = () => { p.addPage(); reset(p); return MT+6; };
+
+  if (pr.bio) {
+    y = panelBand(p,'About Me',y);
+    p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
+    y = wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np); y += 8;
+  }
+  if (edu.length) {
+    y = panelBand(p,'Education',y);
+    for (const e of edu) y = panelRow(p, e.year||'', e.institution||'', e.qualification||'', undefined, y, BOTTOM, np);
+    y += 2;
+  }
+  if (exp.length) {
+    y = panelBand(p,'Work Experience',y);
+    for (const e of exp) {
+      const ds = [e.from,e.to].filter(Boolean).join(' - ');
+      const desc = e.description ? (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean).join('  ') : undefined;
+      y = panelRow(p, ds, e.school||'', e.role||'', desc, y, BOTTOM, np);
+    }
+    y += 2;
+  }
+  const allSkills = [...(sk.subjects||[]), ...(sk.soft_skills||[])];
+  if (allSkills.length || sk.languages?.length) {
+    y = panelBand(p,'Key Skills',y);
+    if (allSkills.length) {
+      const colW = (PW-ML-MR-2*8)/3;
+      p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
+      for (let i=0; i<allSkills.length; i+=3) {
+        if (y+LINE_H>BOTTOM) y=np();
+        for (let c=0; c<3; c++) {
+          const s = allSkills[i+c]; if (!s) continue;
+          const sx = ML + c*(colW+8);
+          dot(p, sx+0.5, y-0.2, accent, 1);
+          p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
+          const ls = p.splitTextToSize(s, colW-4) as string[];
+          p.text(ls[0], sx+4, y);
+        }
+        y += LINE_H;
+      }
+      y += sk.languages?.length ? 4 : 0;
+    }
+    if (sk.languages?.length) {
+      p.setFont(F,'bold'); p.setFontSize(8); tc(p,107,114,128); p.text('LANGUAGE', ML, y); y += 5;
+      const colW = (PW-ML-MR-2*8)/3;
+      for (let i=0; i<sk.languages.length; i+=3) {
+        if (y+LINE_H>BOTTOM) y=np();
+        for (let c=0; c<3; c++) {
+          const s = sk.languages[i+c]; if (!s) continue;
+          const sx = ML + c*(colW+8);
+          dot(p, sx+0.5, y-0.2, accent, 1);
+          p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
+          const ls = p.splitTextToSize(s, colW-4) as string[];
+          p.text(ls[0], sx+4, y);
+        }
+        y += LINE_H;
+      }
+    }
+    y += 6;
+  }
+  y = drawCustom(p,customs,accent,'bar',ML,y,PW-ML-MR,BOTTOM,np);
+  refsPage(p,refs,accent,'bar',np,BOTTOM,owner,wm,undefined,false);
 }
