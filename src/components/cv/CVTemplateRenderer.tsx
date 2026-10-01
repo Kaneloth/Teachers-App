@@ -78,6 +78,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'casual':   "'Arial', Helvetica, sans-serif",
     'skyline':  "'Segoe UI', Arial, sans-serif",
     'azure':    "'Segoe UI', Arial, sans-serif",
+    'dove':     "'Segoe UI', Arial, sans-serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -109,6 +110,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'casual'       ? <CasualTemplate       {...T} /> :
     template === 'skyline'      ? <SkylineTemplate      {...T} /> :
     template === 'azure'        ? <AzureTemplate        {...T} /> :
+    template === 'dove'         ? <DoveTemplate         {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -2685,6 +2687,147 @@ function AzureTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
       {renderReferencesPage(data.references, accent, watermark, undefined, '28px 40px', hidden)}
+    </div>
+  );
+}
+
+/* ── Dove Sidebar Label ──────────────────────────────────────────────────
+   Built for Dove's own light blue-gray sidebar (not reused from the dark
+   solid-sidebar SidebarSection component) — that mismatch is exactly what
+   made Skyline's sidebar labels render invisible, so every light-sidebar
+   template gets its own label styled for ITS background. */
+function DoveSidebarLabel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: '18px' }}>
+      <div style={{ fontSize: '12.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#1f2937', marginBottom: '10px', borderBottom: '1.5px solid rgba(31,41,55,0.22)', paddingBottom: '6px' }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+/* ── Dove Template ───────────────────────────────────────────────────────
+   Soft blue-gray banner behind a circular photo at top, with a matching
+   blue-gray sidebar "card" beneath it for Contact/Education/Skills/
+   Language, and a plain white main column for About Me/Work Experience.
+   The sidebar's background is a separate absolutely-positioned div pinned
+   to the body's full height (top-0/bottom-0 inside a position:relative
+   parent) rather than its own flex-child background — the same
+   "stretch to the tallest column" fix proven on Skyline, just without
+   needing a gradient since only one column needs a tint here. */
+function DoveTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', expLabel = 'Work Experience', hidden }: any) {
+  const { personal, skills } = data;
+  const accent = '#3c5a7a';
+  const bannerBg = '#cfdbe8';
+  // The banner is shorter than it first looks and stops well above where
+  // the sidebar card begins (plain white in between, per the earlier fix),
+  // and now wraps partway around the photo circle instead of leaving a gap
+  // before it — its left edge sits at the photo's own horizontal center,
+  // so the photo's right half appears to sit "on" the banner while its own
+  // white border ring is what actually separates the two colors, not a gap
+  // of page background.
+  const BANNER_TOP = 68, BANNER_H = 174;
+  const PHOTO_D = 196, PHOTO_L = 54, PHOTO_T = 56;
+  const BANNER_LEFT = PHOTO_L + PHOTO_D / 2; // wraps around the photo's right half
+  const HEADER_BOX_H = BANNER_TOP + BANNER_H; // 242 — banner's own bottom edge
+  const SIDEBAR_GAP = 53; // white space between banner bottom and sidebar top
+  const SIDEBAR_W = 270;
+  const SIDEBAR_RADIUS = 36; // rounded top corners on the sidebar card
+  const SIDEBAR_PAD_TOP = 40; // top padding inside the sidebar card (also aligns "About Me" to the sidebar's first line)
+  const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
+
+  return (
+    <div style={{ ...wrapperStyle }}>
+      <div
+        className="cv-content-page"
+        style={{
+          width: '794px',
+          minHeight: forExportMinHeight(wrapperStyle),
+          boxSizing: 'border-box',
+          position: 'relative',
+          background: '#fff',
+        }}
+      >
+        {/* Header: banner + photo. The photo's bottom intentionally
+            overflows past this box's own height (HEADER_BOX_H), which is
+            fine — nothing is painted over that overflow until the sidebar
+            card further down, and the gap is sized so it never reaches it. */}
+        <div style={{ position: 'relative', height: `${HEADER_BOX_H}px` }}>
+          <div style={{ position: 'absolute', top: `${BANNER_TOP}px`, left: `${BANNER_LEFT}px`, right: 0, height: `${BANNER_H}px`, background: bannerBg }} />
+          {personal.photo_url ? (
+            <img src={personal.photo_url} alt="" style={{ position: 'absolute', left: `${PHOTO_L}px`, top: `${PHOTO_T}px`, width: `${PHOTO_D}px`, height: `${PHOTO_D}px`, borderRadius: '50%', objectFit: 'cover', border: '6px solid #fff', boxShadow: '0 2px 10px rgba(0,0,0,0.15)' }} />
+          ) : (
+            <div style={{ position: 'absolute', left: `${PHOTO_L}px`, top: `${PHOTO_T}px`, width: `${PHOTO_D}px`, height: `${PHOTO_D}px`, borderRadius: '50%', background: '#fff', border: '6px solid #fff', boxShadow: '0 2px 10px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '46px', fontWeight: 800, color: accent }}>
+              {(personal.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          {/* Name/title centered vertically within the banner's own height,
+              independent of the banner's (now photo-overlapping) left
+              edge — anchored instead to clear the photo on the right. */}
+          <div style={{ position: 'absolute', left: `${PHOTO_L + PHOTO_D + 24}px`, top: `${BANNER_TOP}px`, height: `${BANNER_H}px`, right: '30px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ fontSize: '30px', fontWeight: 800, letterSpacing: '1px', color: '#1f2937', wordBreak: 'break-word' }}>{(personal.full_name || 'Your Name').toUpperCase()}</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: accent, marginTop: '8px' }}>{personal.job_title || validExp[0]?.role || 'Professional'}</div>
+          </div>
+        </div>
+
+        {/* Body: sidebar card + main column. The sidebar background is
+            inset from this box's own top by SIDEBAR_GAP, not flush with
+            it — that's what keeps it from touching the banner above. */}
+        <div style={{ position: 'relative' }}>
+          <div style={{ position: 'absolute', top: `${SIDEBAR_GAP}px`, bottom: 0, left: 0, width: `${SIDEBAR_W}px`, background: bannerBg, borderRadius: `${SIDEBAR_RADIUS}px ${SIDEBAR_RADIUS}px 0 0` }} />
+          <div style={{ display: 'flex' }}>
+            <div style={{ width: `${SIDEBAR_W}px`, minWidth: `${SIDEBAR_W}px`, position: 'relative', zIndex: 1, padding: `${SIDEBAR_GAP + SIDEBAR_PAD_TOP}px 24px 28px` }}>
+              {(personal.phone || personal.email || personal.address) && (
+                <div style={{ marginBottom: '18px' }}>
+                  {personal.phone   && <div style={{ marginBottom: '8px', fontSize: '11.5px', color: '#1f2937' }}>{ICONS.phone} {personal.phone}</div>}
+                  {personal.email   && <div style={{ marginBottom: '8px', fontSize: '11.5px', color: '#1f2937', wordBreak: 'break-word' }}>{ICONS.mail} {personal.email}</div>}
+                  {personal.address && <div style={{ fontSize: '11.5px', color: '#1f2937', wordBreak: 'break-word' }}>{ICONS.mapPin} {personal.address}</div>}
+                </div>
+              )}
+              {validEdu.length > 0 && (
+                <DoveSidebarLabel title="Education">
+                  {validEdu.map((e: any, i: number) => (
+                    <div key={i} style={{ marginBottom: '14px' }}>
+                      <div style={{ fontSize: '12px', color: '#1f2937', wordBreak: 'break-word' }}>{e.qualification}</div>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', wordBreak: 'break-word' }}>{e.institution}</div>
+                      {e.year && <div style={{ fontSize: '11px', color: '#4b5563', marginTop: '2px' }}>{e.year}</div>}
+                    </div>
+                  ))}
+                </DoveSidebarLabel>
+              )}
+              {!hidden?.has('skills') && allSkills.length > 0 && (
+                <DoveSidebarLabel title={skillsLabel}><BulletList items={allSkills} /></DoveSidebarLabel>
+              )}
+              {skills?.languages?.length > 0 && (
+                <DoveSidebarLabel title="Language"><BulletList items={skills.languages} /></DoveSidebarLabel>
+              )}
+            </div>
+
+            <div style={{ flex: 1, padding: `${SIDEBAR_GAP + SIDEBAR_PAD_TOP}px 36px 28px`, minWidth: 0 }}>
+              {personal.bio && (
+                <Section title="About Me" color="#1f2937" borderColor="#d1d5db">
+                  <p style={{ fontSize: '12px', color: '#374151', lineHeight: '1.6', margin: 0 }}>{personal.bio}</p>
+                </Section>
+              )}
+              {validExp.length > 0 && (
+                <Section title={expLabel} color="#1f2937" borderColor="#d1d5db">
+                  {validExp.map((e: any, i: number) => (
+                    <div key={i} style={{ marginBottom: '18px' }}>
+                      {(e.from || e.to) && <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151' }}>{[e.from, e.to].filter(Boolean).join(' – ')}</div>}
+                      {e.school && <div style={{ fontSize: '12px', color: '#6b7280' }}>{e.school}</div>}
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827', marginTop: '2px', wordBreak: 'break-word' }}>{e.role}</div>
+                      {renderDescription(e.description, accent)}
+                    </div>
+                  ))}
+                </Section>
+              )}
+              {renderCustomSections(data.custom_sections, '#1f2937', '#d1d5db', hidden)}
+            </div>
+          </div>
+        </div>
+
+        {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
+      </div>
+      {renderReferencesPage(data.references, '#1f2937', watermark, '#d1d5db', '28px 40px', hidden)}
     </div>
   );
 }

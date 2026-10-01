@@ -491,6 +491,7 @@ shaded:'#374151', crimson:'#c0392b', sage:'#7fa37f',
     casual:'#111111',
     skyline:'#3e63b0',
     azure:'#2f6fad',
+    dove:'#3c5a7a',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -673,6 +674,7 @@ export async function exportElementAsPDF(
     casual:       ()=>drawCasual(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     skyline:      ()=>drawSkyline(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     azure:        ()=>drawAzure(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    dove:         ()=>drawDove(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -2725,4 +2727,132 @@ function drawAzure(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
   // (refsPage calls addPage() unconditionally), so it's unaffected by
   // which page either column's cursor was last left on.
   refsPage(p,refs,accent,'underline',np2,BOTTOM,owner,wm);
+}
+
+// ── Dove — Soft blue-gray banner + matching sidebar card, circular photo ─────
+function drawDove(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
+  const accent:RGB = hex('#3c5a7a'); const [ar,ag,ab] = accent;
+  const BANNER:RGB = hex('#cfdbe8'); const [brr,bgg,bbb] = BANNER;
+  const DARK:RGB = [31,41,55];
+
+  // Measured directly off the reference screenshot (pixel-sampled), not
+  // eyeballed — an earlier guess had the banner touching the sidebar and
+  // the photo fully contained inside the banner, neither of which match
+  // the original. The banner is shorter than it looks and stops well
+  // above where the sidebar card begins (a real gap of plain white
+  // between them), and the photo's own diameter is larger than the
+  // banner is tall, so it overlaps the banner at the top but pokes out
+  // below its bottom edge into that white gap — while its right edge
+  // still stays a few mm clear of the banner's left edge, never
+  // touching it either. All figures below are mm, converted from the
+  // reference at the same 794px/210mm scale the React preview uses.
+  // Banner now wraps partway around the photo (its left edge sits at the
+  // photo's own horizontal center) instead of leaving a gap before it —
+  // the photo's white border ring is what separates the two colors where
+  // they overlap, not page background. Name/title are centered vertically
+  // within the banner's own height, independent of its (photo-overlapping)
+  // left edge. The sidebar card gets rounded top corners via roundedRect.
+  const BANNER_TOP = 18, BANNER_H = 46; // banner's own bottom = 64
+  const PHOTO_D = 52, PHOTO_L = 14, PHOTO_T = 15;
+  const BANNER_LEFT = PHOTO_L + PHOTO_D/2; // wraps around the photo's right half
+  const SIDEBAR_TOP = 78; // leaves a 14mm gap below the banner's bottom (64 -> 78)
+  const SIDEBAR_PAD_TOP = 16; // top padding inside the sidebar card (also aligns "About Me" to the sidebar's first line)
+  const SB = 71; const cx = SB+8; const cmw = PW-MR-cx;
+  const mainCX = ML; const mainCMW = PW-ML-MR; // page 2+ — normal margin, no sidebar offset
+
+  fill(p,brr,bgg,bbb); p.rect(BANNER_LEFT,BANNER_TOP,PW-BANNER_LEFT,BANNER_H,'F');
+  fill(p,brr,bgg,bbb); p.roundedRect(0,SIDEBAR_TOP,SB+2,PH-SIDEBAR_TOP,10,10,'F');
+  reset(p);
+
+  if (photoUrl) {
+    fill(p,255,255,255); p.circle(PHOTO_L+PHOTO_D/2, PHOTO_T+PHOTO_D/2, PHOTO_D/2+1.6, 'F');
+    p.addImage(photoUrl,'PNG', PHOTO_L, PHOTO_T, PHOTO_D, PHOTO_D);
+  } else {
+    fill(p,255,255,255); p.circle(PHOTO_L+PHOTO_D/2, PHOTO_T+PHOTO_D/2, PHOTO_D/2+1.6, 'F');
+    fill(p,ar,ag,ab); p.circle(PHOTO_L+PHOTO_D/2, PHOTO_T+PHOTO_D/2, PHOTO_D/2, 'F');
+    const ini = owner.split(' ').map((n:string)=>n[0]||'').join('').slice(0,2).toUpperCase();
+    tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(20); p.text(ini, PHOTO_L+PHOTO_D/2-p.getTextWidth(ini)/2, PHOTO_T+PHOTO_D/2+4);
+  }
+
+  const textX = PHOTO_L+PHOTO_D+9;
+  const bannerCenterY = BANNER_TOP + BANNER_H/2;
+  tc(p,DARK[0],DARK[1],DARK[2]); p.setFont(F,'bold'); p.setFontSize(19);
+  p.text(owner.toUpperCase(), textX, bannerCenterY-3);
+  p.setFont(F,'bold'); p.setFontSize(10.5); tc(p,ar,ag,ab);
+  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu?'Educator':'Professional')).trim();
+  p.text(jobTitle, textX, bannerCenterY+8);
+
+  // ── Sidebar content ──
+  reset(p);
+  const sx = 8; const smw = SB-14;
+  let sy = SIDEBAR_TOP+SIDEBAR_PAD_TOP;
+  if (pr.phone||pr.email||pr.address) {
+    const cColor:RGB=[31,41,55];
+    const iconIndent = 7*0.55+1.5;
+    if (pr.phone) { iconText(p, ICON.phone, pr.phone, sx, sy, 8, cColor); sy += 5.5; }
+    if (pr.email) {
+      drawIcon(p, ICON.envelope, sx, sy-0.6, 7, cColor);
+      p.setFont(F,'normal'); p.setFontSize(8); tc(p,cColor[0],cColor[1],cColor[2]);
+      const ls=p.splitTextToSize(pr.email, smw-iconIndent) as string[];
+      ls.forEach((l:string)=>{ p.text(l, sx+iconIndent, sy); sy+=4; });
+    }
+    if (pr.address) {
+      drawIcon(p, ICON.mapMarker, sx, sy-0.6, 7, cColor);
+      p.setFont(F,'normal'); p.setFontSize(8); tc(p,cColor[0],cColor[1],cColor[2]);
+      const ls=p.splitTextToSize(pr.address, smw-iconIndent) as string[];
+      ls.forEach((l:string)=>{ p.text(l, sx+iconIndent, sy); sy+=4; });
+    }
+    sy += 5;
+  }
+  if (edu.length) {
+    sy = sidebarLabel(p,'Education',sx,sy,smw,[31,41,55],[180,194,212]);
+    for (const e of edu) {
+      if (sy > PH-30) break;
+      p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,31,41,55);
+      const l1=p.splitTextToSize(e.qualification||'', smw) as string[]; l1.forEach((l:string)=>{p.text(l,sx,sy); sy+=3.8;});
+      p.setFont(F,'bold'); tc(p,31,41,55);
+      const l2=p.splitTextToSize(e.institution||'', smw) as string[]; l2.forEach((l:string)=>{p.text(l,sx,sy); sy+=3.8;});
+      if (e.year) { p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,75,85,99); p.text(e.year,sx,sy); sy+=4; }
+      sy += 3;
+    }
+  }
+  const allSkills=[...(sk.subjects||[]),...(sk.soft_skills||[])];
+  if (allSkills.length) {
+    sy = sidebarLabel(p,'Key Skills',sx,sy,smw,[31,41,55],[180,194,212]);
+    p.setFont(F,'normal'); p.setFontSize(8); tc(p,31,41,55);
+    for (const s of allSkills) { if (sy > PH-14) break; const ls=p.splitTextToSize(`•  ${s}`, smw) as string[]; for (const l of ls) { p.text(l,sx,sy); sy+=3.8; } }
+    sy += 3;
+  }
+  if (sk.languages?.length) {
+    sy = sidebarLabel(p,'Language',sx,sy,smw,[31,41,55],[180,194,212]);
+    p.setFont(F,'normal'); p.setFontSize(8); tc(p,31,41,55);
+    for (const l of sk.languages) { if (sy > PH-14) break; p.text(`•  ${l}`,sx,sy); sy+=3.8; }
+  }
+
+  // ── Main column — About Me / Work Experience ──
+  reset(p);
+  let y = SIDEBAR_TOP+SIDEBAR_PAD_TOP;
+  const np = () => { p.addPage(); reset(p); return MT+6; };
+  let onFirstPage = true;
+  const GXW = (): [number,number] => { onFirstPage = false; return [mainCX, mainCMW]; };
+
+  if (pr.bio) {
+    y = sectionHeading(p,'About Me',onFirstPage?cx:mainCX,y,onFirstPage?cmw:mainCMW,DARK,'bar',BOTTOM,np,GXW,ICON.fileText);
+    p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
+    y = wrapped(p,pr.bio,onFirstPage?cx:mainCX,y,onFirstPage?cmw:mainCMW,BOTTOM,np,GXW); y+=ITEM_GAP+1;
+  }
+  if (exp.length) {
+    y = sectionHeading(p,'Work Experience',onFirstPage?cx:mainCX,y,onFirstPage?cmw:mainCMW,DARK,'bar',BOTTOM,np,GXW,ICON.briefcase);
+    for (const e of exp) {
+      if (y+18>BOTTOM) { y=np(); onFirstPage=false; }
+      const [ex,ew] = onFirstPage?[cx,cmw]:[mainCX,mainCMW];
+      if (e.from||e.to) { p.setFont(F,'bold'); p.setFontSize(8.5); tc(p,55,65,81); p.text([e.from,e.to].filter(Boolean).join(' – '),ex,y); y+=4; }
+      if (e.school) { p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,107,114,128); y=wrapped(p,e.school,ex,y,ew,BOTTOM,np,GXW); }
+      p.setFont(F,'bold'); p.setFontSize(11); tc(p,17,24,39); y=wrapped(p,e.role||'',ex,y,ew,BOTTOM,np,GXW);
+      if (e.description) { p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81); for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean)) y=bulletLine(p,l,ex,y,ew,DARK,BOTTOM,np,GXW); }
+      y += ITEM_GAP+2;
+    }
+  }
+  y = drawCustom(p,customs,DARK,'bar',onFirstPage?cx:mainCX,y,onFirstPage?cmw:mainCMW,BOTTOM,np,GXW);
+  refsPage(p,refs,DARK,'bar',np,BOTTOM,owner,wm);
 }
