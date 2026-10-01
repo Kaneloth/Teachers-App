@@ -2467,11 +2467,22 @@ function drawSkyline(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   const SB = 62; const cx = ML+SB+8; const cmw = PW-MR-cx;
   const mainCX = ML; const mainCMW = PW-ML-MR; // page 2+ — normal margin, no sidebar offset
 
-  // Page-1 sidebar background + diagonal accent wedge (the wedge's
-  // hypotenuse clears the main column's text-start x by ~3mm of vertical
-  // drop at most, so it never collides with page-1 heading text).
+  // Page-1 sidebar background + diagonal accent wedge.
+  // In the React preview the wedge is its OWN 340px-wide triangle (clip-path
+  // polygon 0,0 / 100%,0 / 0,65%) sitting inside a 240px-wide sidebar div
+  // with overflow:hidden — so the wedge's natural pointed top-right corner
+  // gets truncated by that second, independent clip, leaving a flat
+  // VERTICAL edge at the sidebar boundary for the top portion, and only
+  // the diagonal hypotenuse below that. The PDF previously drew only the
+  // wedge's own unclipped triangle (0,0)-(90,0)-(0,52) — correct in shape,
+  // but never cut down to the sidebar width, so its point stuck out past
+  // the gray area into the main column instead of being squared off there.
   fill(p,gr,gg,gb); p.rect(0,0,SB+2,PH,'F');
-  fill(p,ar,ag,ab); p.triangle(0,0, 90,0, 0,52, 'F');
+  fill(p,ar,ag,ab);
+  { const triW=90, triH=52, clipX=SB+2;
+    const yCut = triH * (1 - clipX/triW); // y where the hypotenuse crosses the sidebar's right edge
+    p.triangle(0,0, clipX,0, clipX,yCut, 'F');
+    p.triangle(0,0, clipX,yCut, 0,triH, 'F'); }
   reset(p);
 
   const sx = ML+2; const smw = SB-6;
