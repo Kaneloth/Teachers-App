@@ -509,6 +509,7 @@ shaded:'#374151', crimson:'#c0392b', sage:'#7fa37f',
     azure:'#2f6fad',
     dove:'#3c5a7a',
     panel:'#111827',
+    terracotta:'#d35400',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -693,6 +694,7 @@ export async function exportElementAsPDF(
     azure:        ()=>drawAzure(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     dove:         ()=>drawDove(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     panel:        ()=>drawPanel(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    terracotta:   ()=>drawTerracotta(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -3004,4 +3006,138 @@ function drawPanel(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
   }
   y = drawCustom(p,customs,accent,'bar',ML,y,PW-ML-MR,BOTTOM,np);
   refsPage(p,refs,accent,'bar',np,BOTTOM,owner,wm,undefined,false);
+}
+
+// ── Terracotta — two-tone name header + boxed contact card, orange accents ─────
+// Mirrors the React TerracottaTemplate: a two-tone name (first name ink,
+// last name bold accent) with job title below on the left, a light-gray
+// contact card with a thick accent bottom border on the right, then a
+// full-width accent rule under both. Below that, a plain single-column
+// body: Work Experience (▶-marker entries with a right-aligned accent
+// date), Education (bold qualification + right-aligned year), and a Skills
+// section laid out as side-by-side columns (Hard Skills / Technical
+// Skills / Languages). The skills columns are drawn row-by-row across all
+// columns sharing ONE y/page tracker — not each column paginating on its
+// own — to avoid the jsPDF single-current-page-pointer desync bug class
+// found and fixed in Azure (independent per-column addPage() calls there
+// corrupted the other column's draw position).
+function drawTerracotta(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
+  const accent:RGB = hex('#d35400'); const [ar,ag,ab] = accent;
+  const INK:RGB = [31,41,55];
+
+  const nameParts = owner.trim().split(' ');
+  const firstName = nameParts.length>1 ? nameParts.slice(0,-1).join(' ') : nameParts[0];
+  const lastName  = nameParts.length>1 ? nameParts[nameParts.length-1] : '';
+  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu?'Educator':'Professional')).trim();
+
+  // ── Contact card (measure its height first so the header-bottom rule
+  // can sit below whichever is taller, the card or the name block) ──
+  const contactItems = [pr.address, pr.phone, pr.email].filter(Boolean) as string[];
+  const boxW = 70, boxX = PW-MR-boxW;
+  let boxH = 8;
+  if (contactItems.length) {
+    p.setFont(F,'normal'); p.setFontSize(8);
+    for (const c of contactItems) boxH += Math.max(1,(p.splitTextToSize(c, boxW-10) as string[]).length) * 4 + 1;
+    boxH += 3;
+  }
+  if (contactItems.length) {
+    fill(p,243,244,246); p.rect(boxX, MT, boxW, boxH, 'F');
+    fill(p,ar,ag,ab); p.rect(boxX, MT+boxH-1.2, boxW, 1.2, 'F');
+    reset(p);
+    let cy = MT+6;
+    for (const c of contactItems) {
+      p.setFont(F,'normal'); p.setFontSize(8); tc(p,55,65,81);
+      p.text('•', boxX+4, cy);
+      const ls = p.splitTextToSize(c, boxW-10) as string[];
+      ls.forEach((l:string,li:number)=>p.text(l, boxX+8, cy+li*4));
+      cy += ls.length*4 + 1;
+    }
+  }
+
+  tc(p,INK[0],INK[1],INK[2]); p.setFont(F,'bold'); p.setFontSize(19);
+  let nx = ML;
+  if (firstName) { const t=firstName+(lastName?' ':''); p.text(t, nx, MT+8); nx += p.getTextWidth(t); }
+  if (lastName) { tc(p,ar,ag,ab); p.text(lastName, nx, MT+8); }
+  tc(p,INK[0],INK[1],INK[2]); p.setFont(F,'bold'); p.setFontSize(11);
+  p.text(jobTitle, ML, MT+15);
+
+  const headerBottom = Math.max(MT+18, contactItems.length ? MT+boxH+2 : 0);
+  fill(p,ar,ag,ab); p.rect(0, headerBottom, PW, 1.2, 'F');
+  reset(p);
+
+  let y = headerBottom + 10;
+  const np = () => { p.addPage(); reset(p); return MT+6; };
+  const GXW = (): [number,number] => [ML, PW-ML-MR];
+
+  if (pr.bio) {
+    p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
+    y = wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW); y += SECTION_GAP;
+  }
+
+  if (exp.length) {
+    y = sectionHeading(p,'Work Experience',ML,y,PW-ML-MR,accent,'underline',BOTTOM,np,GXW);
+    y += 3;
+    const tx = ML+5, tw = PW-MR-tx;
+    for (const e of exp) {
+      if (y+14>BOTTOM) y=np();
+      fill(p,INK[0],INK[1],INK[2]); p.triangle(ML, y-3.2, ML, y-0.8, ML+2.2, y-2, 'F'); reset(p);
+      const roleText = `${e.role||''}${e.school?` | ${e.school}`:''}`;
+      const ds = [e.from,e.to].filter(Boolean).join(' – ');
+      y = textWithDate(p, roleText, ds, tx, y, tw, BOTTOM, np, undefined, INK, 10, true, accent, 8.5);
+      if (e.description) {
+        p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
+        for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))
+          y = bulletLine(p,l,tx,y,tw,accent,BOTTOM,np);
+      }
+      y += ITEM_GAP+2;
+    }
+    y += 2;
+  }
+
+  if (edu.length) {
+    y = sectionHeading(p,'Education',ML,y,PW-ML-MR,accent,'underline',BOTTOM,np,GXW);
+    y += 3;
+    for (const e of edu) {
+      if (y+12>BOTTOM) y=np();
+      y = textWithDate(p, e.qualification||'', e.year||'', ML, y, PW-ML-MR, BOTTOM, np, GXW, INK, 10, true, accent, 8.5);
+      p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,75,85,99);
+      y = wrapped(p, e.institution||'', ML, y, PW-ML-MR, BOTTOM, np, GXW);
+      y += ITEM_GAP+1;
+    }
+    y += 2;
+  }
+
+  const skillGroups: [string,string[]][] = ([
+    ['Hard Skills',      sk.subjects    || []],
+    ['Technical Skills', sk.soft_skills || []],
+    ['Languages',        sk.languages   || []],
+  ] as [string,string[]][]).filter(([,items]) => items.length > 0);
+
+  if (skillGroups.length) {
+    y = sectionHeading(p,'Key Skills',ML,y,PW-ML-MR,accent,'underline',BOTTOM,np,GXW);
+    y += 3;
+    const gap = 10; const colW = (PW-ML-MR-gap*(skillGroups.length-1))/skillGroups.length;
+    const colX = skillGroups.map((_,g)=>ML+g*(colW+gap));
+    if (y+LINE_H>BOTTOM) y=np();
+    p.setFont(F,'bold'); p.setFontSize(9); tc(p,INK[0],INK[1],INK[2]);
+    skillGroups.forEach(([label],g)=>p.text(label, colX[g], y));
+    y += LINE_H;
+    const maxItems = Math.max(...skillGroups.map(([,items])=>items.length));
+    for (let r=0; r<maxItems; r++) {
+      if (y+LINE_H>BOTTOM) y=np();
+      for (let g=0; g<skillGroups.length; g++) {
+        const item = skillGroups[g][1][r];
+        if (!item) continue;
+        dot(p, colX[g]+0.5, y-0.2, accent);
+        p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
+        const ls = p.splitTextToSize(item, colW-BULLET_INDENT) as string[];
+        p.text(ls[0], colX[g]+BULLET_INDENT, y);
+      }
+      y += LINE_H;
+    }
+    y += ITEM_GAP+2;
+  }
+
+  y = drawCustom(p,customs,accent,'underline',ML,y,PW-ML-MR,BOTTOM,np,GXW);
+  refsPage(p,refs,accent,'underline',np,BOTTOM,owner,wm,undefined,false);
 }

@@ -80,6 +80,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'azure':    "'Segoe UI', Arial, sans-serif",
     'dove':     "'Segoe UI', Arial, sans-serif",
     'panel':    "Arial, Helvetica, sans-serif",
+    'terracotta': "Arial, Helvetica, sans-serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -113,6 +114,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'azure'        ? <AzureTemplate        {...T} /> :
     template === 'dove'         ? <DoveTemplate         {...T} /> :
     template === 'panel'        ? <PanelTemplate        {...T} /> :
+    template === 'terracotta'   ? <TerracottaTemplate   {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -2969,6 +2971,130 @@ function PanelTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
       {renderReferencesPage(data.references, PANEL_INK, watermark, '#e5e7eb', '28px 40px', hidden)}
+    </div>
+  );
+}
+
+/* ── Terracotta ──────────────────────────────────────────────────────────── */
+const TERRACOTTA_ACCENT = '#d35400';
+const TERRACOTTA_INK = '#1f2937';
+
+function TerracottaSkillCol({ label, items, accent }: { label: string; items: string[]; accent: string }) {
+  if (!items.length) return null;
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: '12px', fontWeight: 700, color: TERRACOTTA_INK, marginBottom: '8px' }}>{label}</div>
+      {items.map((s, i) => (
+        <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '11.5px', color: '#374151', marginBottom: '5px' }}>
+          <span style={{ color: accent }}>•</span>{s}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TerracottaTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', expLabel = 'Work Experience', hidden }: any) {
+  const { personal, skills } = data;
+  const accent = TERRACOTTA_ACCENT;
+  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const nameParts = (personal.full_name || 'Your Name').trim().split(' ');
+  const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
+  const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+
+  const skillGroups: [string, string[]][] = [
+    ['Hard Skills', skills?.subjects || []],
+    ['Technical Skills', skills?.soft_skills || []],
+    ['Languages', skills?.languages || []],
+  ].filter(([, items]) => items.length > 0) as [string, string[]][];
+
+  return (
+    <div style={{ ...wrapperStyle }}>
+      <div
+        className="cv-content-page"
+        style={{
+          width: '794px',
+          minHeight: forExportMinHeight(wrapperStyle),
+          boxSizing: 'border-box',
+          position: 'relative',
+          background: '#fff',
+        }}
+      >
+        {/* Header: two-tone name + job title on the left, a boxed contact
+            card (light-gray, terracotta bottom border) on the right, then a
+            full-width terracotta rule beneath everything. */}
+        <div style={{ padding: '32px 40px 0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '24px', flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '30px', fontWeight: 800, color: TERRACOTTA_INK, wordBreak: 'break-word' }}>
+                {firstName}{lastName ? <> <span style={{ color: accent }}>{lastName}</span></> : null}
+              </div>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: TERRACOTTA_INK, marginTop: '4px' }}>{jobTitle}</div>
+            </div>
+            {(personal.address || personal.phone || personal.email) && (
+              <div style={{ background: '#f3f4f6', borderBottom: `4px solid ${accent}`, padding: '14px 18px', minWidth: '220px', flexShrink: 0 }}>
+                {personal.address && <div style={{ display: 'flex', gap: '6px', fontSize: '11px', color: '#374151', marginBottom: '5px' }}><span>•</span>{personal.address}</div>}
+                {personal.phone   && <div style={{ display: 'flex', gap: '6px', fontSize: '11px', color: '#374151', marginBottom: '5px' }}><span>•</span>{personal.phone}</div>}
+                {personal.email   && <div style={{ display: 'flex', gap: '6px', fontSize: '11px', color: '#374151', wordBreak: 'break-word' }}><span>•</span>{personal.email}</div>}
+              </div>
+            )}
+          </div>
+          <div style={{ height: '3px', background: accent, marginTop: '18px' }} />
+        </div>
+
+        <div style={{ padding: '22px 40px 28px' }}>
+          {personal.bio && (
+            <div style={{ marginBottom: '26px' }}>
+              <p style={{ fontSize: '12px', color: '#374151', lineHeight: '1.7', margin: 0 }}>{personal.bio}</p>
+            </div>
+          )}
+
+          {validExp.length > 0 && (
+            <Section title={expLabel} color={accent} borderColor="#e5e7eb">
+              {validExp.map((e: any, i: number) => (
+                <div key={i} style={{ marginBottom: i < validExp.length - 1 ? '16px' : 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                    <span style={{ color: TERRACOTTA_INK, fontSize: '9px', marginTop: '4px', flexShrink: 0 }}>▶</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                        <span style={{ fontWeight: 700, fontSize: '12.5px', color: TERRACOTTA_INK, wordBreak: 'break-word' }}>{e.role}{e.school ? ` | ${e.school}` : ''}</span>
+                        {(e.from || e.to) && <span style={{ fontSize: '11px', color: accent, fontWeight: 600, whiteSpace: 'nowrap' }}>{[e.from, e.to].filter(Boolean).join(' – ')}</span>}
+                      </div>
+                      {renderDescription(e.description, accent)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </Section>
+          )}
+
+          {validEdu.length > 0 && (
+            <Section title="Education" color={accent} borderColor="#e5e7eb">
+              {validEdu.map((e: any, i: number) => (
+                <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '14px' : 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                    <span style={{ fontWeight: 700, fontSize: '12.5px', color: TERRACOTTA_INK, wordBreak: 'break-word' }}>{e.qualification}</span>
+                    {e.year && <span style={{ fontSize: '11px', color: accent, fontWeight: 600, whiteSpace: 'nowrap' }}>{e.year}</span>}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: '#4b5563', marginTop: '2px', wordBreak: 'break-word' }}>{e.institution}</div>
+                </div>
+              ))}
+            </Section>
+          )}
+
+          {!hidden?.has('skills') && skillGroups.length > 0 && (
+            <Section title={skillsLabel} color={accent} borderColor="#e5e7eb">
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${skillGroups.length}, 1fr)`, columnGap: '28px' }}>
+                {skillGroups.map(([label, items]) => <TerracottaSkillCol key={label} label={label} items={items} accent={accent} />)}
+              </div>
+            </Section>
+          )}
+
+          {renderCustomSections(data.custom_sections, accent, '#e5e7eb', hidden)}
+        </div>
+
+        {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
+      </div>
+      {renderReferencesPage(data.references, accent, watermark, '#e5e7eb', '28px 40px', hidden)}
     </div>
   );
 }
