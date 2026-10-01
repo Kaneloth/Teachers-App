@@ -2449,10 +2449,35 @@ function SkylineTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
     <div style={{ ...wrapperStyle }}>
       <div
         className="cv-content-page"
-        style={{ width: '794px', minHeight: forExportMinHeight(wrapperStyle), boxSizing: 'border-box', background: '#fff', position: 'relative', display: 'flex' }}
+        style={{
+          width: '794px',
+          minHeight: forExportMinHeight(wrapperStyle),
+          boxSizing: 'border-box',
+          // The gray sidebar fill lives HERE, as a background-image gradient
+          // on the outer container, not as `background` on the sidebar
+          // column div below. A flex child's own background only ever
+          // covers ITS content height — if Education/Experience in the main
+          // column run longer than Contact/About Me/Skills in the sidebar
+          // (very common), relying on flex "stretch" to make the sidebar
+          // div tall enough left the gray cut short partway down the page,
+          // with the taller column's lower content sitting on bare white.
+          // A background-image gradient painted on the parent instead always
+          // covers the parent's FULL actual height (which is simply
+          // whichever column ends up taller) — so the gray sidebar never
+          // runs out no matter which side is longer. This is the standard
+          // "equal-height columns" CSS technique, used instead of debugging
+          // flex stretch across this app's various preview wrappers.
+          background: `linear-gradient(to right, ${sidebarBg} 0, ${sidebarBg} 240px, #fff 240px, #fff 100%)`,
+          position: 'relative',
+          display: 'flex',
+        }}
       >
         {/* ── Sidebar ── */}
-        <div style={{ width: '240px', minWidth: '240px', background: sidebarBg, position: 'relative', overflow: 'hidden' }}>
+        {/* No `background` here anymore — the parent's gradient above
+            already paints this column's full-height gray; this div is now
+            purely for layout (width) and for positioning the diagonal
+            wedge/content on top of that gray. */}
+        <div style={{ width: '240px', minWidth: '240px', position: 'relative', overflow: 'hidden' }}>
           {/* Diagonal accent wedge */}
           <div style={{ position: 'absolute', top: 0, left: 0, width: '340px', height: '300px', background: accent, clipPath: 'polygon(0 0, 100% 0, 0 65%)' }} />
           <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '34px 20px 0' }}>
