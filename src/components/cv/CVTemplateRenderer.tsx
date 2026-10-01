@@ -3127,9 +3127,9 @@ function MonogramLabel({ title, children }: { title: string; children: React.Rea
 function MonogramDividerBar() {
   return (
     <div style={{ position: 'relative', height: '38px', background: MONOGRAM_GRAY }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: '#ffffff' }} />
-      <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', background: '#ffffff', transform: 'translateY(-50%)' }} />
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '1px', background: '#ffffff' }} />
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: '#ffffff' }} />
+      <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '3px', background: '#ffffff', transform: 'translateY(-50%)' }} />
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: '#ffffff' }} />
     </div>
   );
 }

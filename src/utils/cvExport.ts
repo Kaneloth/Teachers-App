@@ -3204,28 +3204,29 @@ function drawMonogram(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
   {
     const bandY = HEADER_H;
     fill(p,GRAY[0],GRAY[1],GRAY[2]); p.rect(0,bandY,PW,BAND_H,'F');
-    dc(p,255,255,255); p.setLineWidth(0.15);
+    dc(p,255,255,255); p.setLineWidth(0.45);
     p.line(0,bandY,PW,bandY);                     // top hairline
     p.line(0,bandY+BAND_H/2,PW,bandY+BAND_H/2);    // center hairline
     p.line(0,bandY+BAND_H,PW,bandY+BAND_H);        // bottom hairline
     reset(p);
   }
 
-  // ── Shared pagination tracker for the two independent columns ── npS()
-  // additionally repaints the full-height gray background on any new page
-  // it creates, since that page starts out white.
+  // ── Shared pagination tracker for the two independent columns. Whenever
+  // EITHER column spills onto a genuinely new page — not just the sidebar
+  // — that page gets the gray sidebar-column background painted on it
+  // immediately, so a new page started by the main column overflowing
+  // (with the sidebar still "on" page 1) never leaves orphaned content
+  // sitting next to blank white space; the sidebar strip simply continues
+  // onto every page the document spans. ──
   let pagesSoFar = 1;
   const gotoPage = (idx: number): number => {
-    if (idx > pagesSoFar) { p.addPage(); pagesSoFar = idx; reset(p); }
-    else { p.setPage(idx); reset(p); }
+    if (idx > pagesSoFar) {
+      p.addPage(); pagesSoFar = idx; reset(p);
+      fill(p,GRAY[0],GRAY[1],GRAY[2]); p.rect(0,0,SB,PH,'F'); reset(p);
+    } else { p.setPage(idx); reset(p); }
     return MT;
   };
-  let sPage = 1;
-  const npS = () => {
-    const y = gotoPage(++sPage);
-    fill(p,GRAY[0],GRAY[1],GRAY[2]); p.rect(0,0,SB,PH,'F'); reset(p);
-    return y;
-  };
+  let sPage = 1; const npS = () => gotoPage(++sPage);
   let mPage = 1; const npM = () => gotoPage(++mPage);
 
   // ── Sidebar: Contact / Key Skills / Education / Language — left-aligned
