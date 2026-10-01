@@ -2618,7 +2618,7 @@ function drawAzure(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
   fill(p,DARK[0],DARK[1],DARK[2]); p.rect(0,PH-1.6,PW,1.6,'F');
   reset(p);
 
-  const headerY = MT;
+  const headerY = MT + 8;
   const photoSize = 27;
   const textX = photoUrl ? ML+photoSize+8 : ML;
   if (photoUrl) {

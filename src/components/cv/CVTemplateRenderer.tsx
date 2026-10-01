@@ -2610,7 +2610,7 @@ function AzureTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
         {/* Closing bar at the very bottom of the page */}
         <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '6px', background: '#1f2937' }} />
 
-        <div style={{ position: 'relative', padding: '34px 40px 0' }}>
+        <div style={{ position: 'relative', padding: '84px 40px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
             {personal.photo_url ? (
               <img src={personal.photo_url} alt="" style={{ width: '104px', height: '104px', borderRadius: '50%', objectFit: 'cover', border: '4px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', flexShrink: 0 }} />
