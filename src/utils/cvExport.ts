@@ -510,6 +510,7 @@ shaded:'#374151', crimson:'#c0392b', sage:'#7fa37f',
     dove:'#3c5a7a',
     panel:'#111827',
     terracotta:'#d35400',
+    monogram:'#262626',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -695,6 +696,7 @@ export async function exportElementAsPDF(
     dove:         ()=>drawDove(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     panel:        ()=>drawPanel(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     terracotta:   ()=>drawTerracotta(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    monogram:     ()=>drawMonogram(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -3139,4 +3141,164 @@ function drawTerracotta(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custo
 
   y = drawCustom(p,customs,accent,'underline',ML,y,PW-ML-MR,BOTTOM,np,GXW);
   refsPage(p,refs,accent,'underline',np,BOTTOM,owner,wm,undefined,false);
+}
+
+// ── Monogram — circular initials badge, light-gray two-column layout ──────────
+// Mirrors the React MonogramTemplate: a header split into a gray cell (a
+// circular initials badge, or photo if provided) and a white cell (name +
+// job title), a thin gray "gap bar" full width, then a light-gray sidebar
+// (Contact / Key Skills / Education / Language) beside a white main column
+// (Summary / Work Experience). Sidebar and main are two INDEPENDENTLY
+// paginating columns, so — exactly like Azure — this uses the shared
+// page-reuse pattern (gotoPage/pagesSoFar) rather than letting each column
+// call p.addPage() on its own, which would desync jsPDF's single global
+// "current page" pointer (the bug class found and fixed in Azure).
+function monogramLabel(p: any, t: string, x: number, y: number, ink: RGB, size=8.5, center=false): number {
+  tc(p,ink[0],ink[1],ink[2]); p.setFont(F,'bold'); p.setFontSize(size);
+  const s = t.toUpperCase();
+  p.text(s, center ? x - p.getTextWidth(s)/2 : x, y);
+  return y + 6;
+}
+
+// Draws one line of text centered on cx, splitting to fit maxW first.
+// Returns the new y after the (possibly multi-line) text.
+function centeredLines(p: any, text: string, cx: number, y: number, maxW: number, lineH = 4): number {
+  const ls = p.splitTextToSize(text, maxW) as string[];
+  for (const l of ls) { p.text(l, cx - p.getTextWidth(l)/2, y); y += lineH; }
+  return y;
+}
+
+function drawMonogram(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
+  const INK:RGB = hex('#262626');
+  const GRAY:RGB = [245,245,245];
+
+  const SB = 78, HEADER_H = 52, GAP_H = 7;
+  const contentTop = HEADER_H + GAP_H;
+
+  // ── Sidebar gray background: ONE continuous rect spanning the full page
+  // height (covers the header cell, the gap bar, and the content area in a
+  // single draw call) rather than three separately-drawn same-color rects.
+  // Three abutting shapes of the identical fill can still show a hairline
+  // seam at their shared edges in some renderers — exactly the "two
+  // separate bars" artifact reported — so one shape is used instead. ──
+  fill(p,GRAY[0],GRAY[1],GRAY[2]); p.rect(0,0,SB,PH,'F'); reset(p);
+  const circD = 29, circCX = SB/2, circCY = HEADER_H/2;
+  if (photoUrl) {
+    fill(p,255,255,255); p.circle(circCX, circCY, circD/2+0.3, 'F');
+    p.addImage(photoUrl,'PNG', circCX-circD/2, circCY-circD/2, circD, circD);
+  } else {
+    dc(p,INK[0],INK[1],INK[2]); p.setLineWidth(0.5); p.circle(circCX, circCY, circD/2, 'S');
+    const ini = owner.split(' ').map((n:string)=>n[0]||'').join('').slice(0,2).toUpperCase();
+    tc(p,INK[0],INK[1],INK[2]); p.setFont(F,'bold'); p.setFontSize(15);
+    p.text(ini, circCX-p.getTextWidth(ini)/2, circCY+4);
+  }
+  reset(p);
+
+  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu?'Educator':'Professional')).trim();
+  const nameX = SB+12;
+  tc(p,INK[0],INK[1],INK[2]); p.setFont(F,'bold'); p.setFontSize(22);
+  const nameLines = p.splitTextToSize(owner, PW-MR-nameX) as string[];
+  const nameY = HEADER_H/2 - (nameLines.length>1 ? 4 : 0);
+  nameLines.forEach((l:string,i:number)=>p.text(l, nameX, nameY+i*8.5));
+  p.setFont(F,'normal'); p.setFontSize(12); tc(p,75,85,99);
+  p.text(jobTitle, nameX, nameY + nameLines.length*8.5 - 1);
+  reset(p);
+
+  // ── Shared pagination tracker for the two independent columns ── npS()
+  // additionally repaints the full-height gray background on any new page
+  // it creates, since that page starts out white.
+  let pagesSoFar = 1;
+  const gotoPage = (idx: number): number => {
+    if (idx > pagesSoFar) { p.addPage(); pagesSoFar = idx; reset(p); }
+    else { p.setPage(idx); reset(p); }
+    return MT;
+  };
+  let sPage = 1;
+  const npS = () => {
+    const y = gotoPage(++sPage);
+    fill(p,GRAY[0],GRAY[1],GRAY[2]); p.rect(0,0,SB,PH,'F'); reset(p);
+    return y;
+  };
+  let mPage = 1; const npM = () => gotoPage(++mPage);
+
+  // ── Sidebar: Contact / Key Skills / Education / Language — all content
+  // centered horizontally within the sidebar column (cx = SB/2). ──
+  const cx = SB/2, smw = SB-20;
+  let sy = contentTop + 10;
+  if (pr.phone||pr.email||pr.address) {
+    sy = monogramLabel(p,'Contact',cx,sy,INK,8.5,true) + 2;
+    const items:[string,string][] = [[ICON.phone,pr.phone],[ICON.envelope,pr.email],[ICON.mapMarker,pr.address]].filter(([,v])=>!!v) as any;
+    for (const [glyph,v] of items) {
+      if (sy > PH-14) sy = npS();
+      p.setFont(F,'normal'); p.setFontSize(8.5);
+      const ls = p.splitTextToSize(v, smw-10) as string[];
+      const widest = Math.max(...ls.map((l:string)=>p.getTextWidth(l)));
+      const groupW = 9 + widest, startX = cx - groupW/2;
+      drawIcon(p, glyph, startX, sy-0.6, 7.5, [55,65,81]);
+      tc(p,55,65,81);
+      ls.forEach((l:string,li:number)=>p.text(l, startX+9, sy+li*4));
+      sy += ls.length*4 + 4;
+    }
+    sy += 4;
+  }
+  const allSkills=[...(sk.subjects||[]),...(sk.soft_skills||[])];
+  if (allSkills.length) {
+    if (sy > PH-20) sy = npS();
+    sy = monogramLabel(p,'Key Skills',cx,sy,INK,8.5,true) + 2;
+    p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,55,65,81);
+    for (const s of allSkills) {
+      if (sy > PH-14) sy = npS();
+      sy = centeredLines(p, s, cx, sy, smw);
+    }
+    sy += 4;
+  }
+  if (edu.length) {
+    if (sy > PH-20) sy = npS();
+    sy = monogramLabel(p,'Education',cx,sy,INK,8.5,true) + 2;
+    for (const e of edu) {
+      if (sy > PH-22) sy = npS();
+      p.setFont(F,'bold'); p.setFontSize(8.5); tc(p,INK[0],INK[1],INK[2]);
+      sy = centeredLines(p, (e.institution||'').toUpperCase(), cx, sy, smw, 3.8);
+      if (e.year) { p.setFont(F,'bold'); p.setFontSize(8); p.text(e.year, cx-p.getTextWidth(e.year)/2, sy); sy+=3.8; }
+      p.setFont(F,'normal'); p.setFontSize(8); tc(p,75,85,99);
+      sy = centeredLines(p, e.qualification||'', cx, sy, smw, 3.8);
+      sy += 4;
+    }
+  }
+  if (sk.languages?.length) {
+    if (sy > PH-20) sy = npS();
+    sy = monogramLabel(p,'Language',cx,sy,INK,8.5,true) + 2;
+    p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,55,65,81);
+    for (const l of sk.languages) { if (sy>PH-14) sy=npS(); sy = centeredLines(p, l, cx, sy, smw); }
+  }
+
+  // ── Main column: Summary / Work Experience — reset jsPDF's cursor back
+  // to page 1 first, since the sidebar loop above may have left it on a
+  // later page ──
+  reset(p); p.setPage(1); reset(p);
+  const mx = SB+16, mmw = PW-MR-mx;
+  let my = contentTop + 10;
+  if (pr.bio) {
+    my = monogramLabel(p,'Summary',mx,my,INK) + 2;
+    p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
+    my = wrapped(p,pr.bio,mx,my,mmw,BOTTOM,npM); my += 6;
+  }
+  if (exp.length) {
+    my = monogramLabel(p,'Work Experience',mx,my,INK) + 2;
+    for (const e of exp) {
+      if (my+16>BOTTOM) my=npM();
+      p.setFont(F,'bold'); p.setFontSize(9.5); tc(p,INK[0],INK[1],INK[2]);
+      my = wrapped(p,(e.role||'').toUpperCase(),mx,my,mmw,BOTTOM,npM);
+      if (e.school) { p.setFont(F,'bold'); p.setFontSize(8.5); tc(p,75,85,99); my = wrapped(p,e.school,mx,my,mmw,BOTTOM,npM); }
+      if (e.from||e.to) { p.setFont(F,'bold'); p.setFontSize(8); tc(p,75,85,99); p.text([e.from,e.to].filter(Boolean).join(' - '),mx,my); my+=4; }
+      if (e.description) {
+        p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81);
+        for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))
+          my = bulletLine(p,l,mx,my,mmw,INK,BOTTOM,npM);
+      }
+      my += ITEM_GAP+3;
+    }
+  }
+  my = drawCustom(p,customs,INK,'bar',mx,my,mmw,BOTTOM,npM);
+  refsPage(p,refs,INK,'bar',npM,BOTTOM,owner,wm,undefined,false);
 }

@@ -81,6 +81,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'dove':     "'Segoe UI', Arial, sans-serif",
     'panel':    "Arial, Helvetica, sans-serif",
     'terracotta': "Arial, Helvetica, sans-serif",
+    'monogram': "Arial, Helvetica, sans-serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -115,6 +116,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'dove'         ? <DoveTemplate         {...T} /> :
     template === 'panel'        ? <PanelTemplate        {...T} /> :
     template === 'terracotta'   ? <TerracottaTemplate   {...T} /> :
+    template === 'monogram'     ? <MonogramTemplate     {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -3094,6 +3096,139 @@ function TerracottaTemplate({ data, wrapperStyle, validEdu, validExp, watermark,
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
       {renderReferencesPage(data.references, accent, watermark, accent, '28px 40px', hidden)}
+    </div>
+  );
+}
+
+/* ── Monogram ────────────────────────────────────────────────────────────── */
+const MONOGRAM_GRAY = '#f5f5f5';
+const MONOGRAM_INK = '#262626';
+const MONOGRAM_SIDEBAR_W = 294;
+
+function MonogramLabel({ title, children, center }: { title: string; children: React.ReactNode; center?: boolean }) {
+  return (
+    <div style={{ marginBottom: '22px', textAlign: center ? 'center' : undefined }}>
+      <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2.5px', color: MONOGRAM_INK, marginBottom: '12px' }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function MonogramTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', expLabel = 'Work Experience', hidden }: any) {
+  const { personal, skills } = data;
+  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const initials = (personal.full_name || 'Your Name').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+  const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
+
+  return (
+    <div style={{ ...wrapperStyle }}>
+      <div
+        className="cv-content-page"
+        style={{
+          width: '794px',
+          minHeight: forExportMinHeight(wrapperStyle),
+          boxSizing: 'border-box',
+          position: 'relative',
+          background: '#fff',
+        }}
+      >
+        {/* The sidebar's gray background is ONE absolutely-positioned div
+            spanning the full page height (top:0 to bottom:0), drawn once
+            behind everything else in this x-range — not three separate
+            stacked divs (header cell / gap bar / content cell) of the same
+            color. Three abutting same-color shapes can show a hairline
+            seam at their shared edges depending on the renderer (this is
+            what produced the "two separate bars" artifact); one continuous
+            shape makes that impossible. */}
+        <div style={{ position: 'relative' }}>
+          <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${MONOGRAM_SIDEBAR_W}px`, background: MONOGRAM_GRAY }} />
+
+          {/* Header row: monogram circle (left) + name/title (right) */}
+          <div style={{ display: 'flex', position: 'relative' }}>
+            <div style={{ width: `${MONOGRAM_SIDEBAR_W}px`, minWidth: `${MONOGRAM_SIDEBAR_W}px`, padding: '40px 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '110px', height: '110px', borderRadius: '50%', border: `1.5px solid ${MONOGRAM_INK}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                {personal.photo_url
+                  ? <img src={personal.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span style={{ fontSize: '26px', fontWeight: 700, letterSpacing: '2px', color: MONOGRAM_INK }}>{initials}</span>}
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 0, padding: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div style={{ fontSize: '36px', fontWeight: 800, color: MONOGRAM_INK, wordBreak: 'break-word' }}>{personal.full_name || 'Your Name'}</div>
+              <div style={{ fontSize: '18px', color: '#4b5563', marginTop: '6px' }}>{jobTitle}</div>
+            </div>
+          </div>
+
+          {/* Gap bar — only needs to paint gray on the white (main-column)
+              side; the sidebar side is already covered by the continuous
+              background div above. */}
+          <div style={{ display: 'flex', position: 'relative', height: '26px' }}>
+            <div style={{ width: `${MONOGRAM_SIDEBAR_W}px`, minWidth: `${MONOGRAM_SIDEBAR_W}px` }} />
+            <div style={{ flex: 1, background: MONOGRAM_GRAY }} />
+          </div>
+
+          {/* Content row */}
+          <div style={{ display: 'flex', position: 'relative' }}>
+          <div style={{ width: `${MONOGRAM_SIDEBAR_W}px`, minWidth: `${MONOGRAM_SIDEBAR_W}px`, padding: '0 30px 36px', textAlign: 'center' }}>
+            {(personal.phone || personal.email || personal.address) && (
+              <MonogramLabel title="Contact" center>
+                {personal.phone   && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '12px', color: '#374151', marginBottom: '10px' }}>{ICONS.phone}{personal.phone}</div>}
+                {personal.email   && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '12px', color: '#374151', marginBottom: '10px', wordBreak: 'break-word' }}>{ICONS.mail}{personal.email}</div>}
+                {personal.address && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '12px', color: '#374151', wordBreak: 'break-word' }}>{ICONS.mapPin}{personal.address}</div>}
+              </MonogramLabel>
+            )}
+            {!hidden?.has('skills') && allSkills.length > 0 && (
+              <MonogramLabel title={skillsLabel} center>
+                {allSkills.map((s: string, i: number) => (
+                  <div key={i} style={{ fontSize: '12px', lineHeight: '1.5', color: '#374151', marginBottom: '4px' }}>{s}</div>
+                ))}
+              </MonogramLabel>
+            )}
+            {validEdu.length > 0 && (
+              <MonogramLabel title="Education" center>
+                {validEdu.map((e: any, i: number) => (
+                  <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '14px' : 0 }}>
+                    <div style={{ fontSize: '11.5px', fontWeight: 700, color: MONOGRAM_INK, textTransform: 'uppercase', wordBreak: 'break-word' }}>{e.institution}</div>
+                    {e.year && <div style={{ fontSize: '11px', fontWeight: 700, color: MONOGRAM_INK, marginTop: '2px' }}>{e.year}</div>}
+                    <div style={{ fontSize: '11.5px', color: '#4b5563', marginTop: '2px', wordBreak: 'break-word' }}>{e.qualification}</div>
+                  </div>
+                ))}
+              </MonogramLabel>
+            )}
+            {skills?.languages?.length > 0 && (
+              <MonogramLabel title="Language" center>
+                {skills.languages.map((l: string, i: number) => (
+                  <div key={i} style={{ fontSize: '12px', lineHeight: '1.5', color: '#374151', marginBottom: '4px' }}>{l}</div>
+                ))}
+              </MonogramLabel>
+            )}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0, padding: '0 40px 36px' }}>
+            {personal.bio && (
+              <MonogramLabel title="Summary">
+                <p style={{ fontSize: '12px', color: '#374151', lineHeight: '1.7', margin: 0 }}>{personal.bio}</p>
+              </MonogramLabel>
+            )}
+            {validExp.length > 0 && (
+              <MonogramLabel title={expLabel}>
+                {validExp.map((e: any, i: number) => (
+                  <div key={i} style={{ marginBottom: i < validExp.length - 1 ? '18px' : 0 }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: MONOGRAM_INK, textTransform: 'uppercase', wordBreak: 'break-word' }}>{e.role}</div>
+                    {e.school && <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#4b5563', marginTop: '2px', wordBreak: 'break-word' }}>{e.school}</div>}
+                    {(e.from || e.to) && <div style={{ fontSize: '11px', fontWeight: 700, color: '#4b5563', marginTop: '2px' }}>{[e.from, e.to].filter(Boolean).join(' - ')}</div>}
+                    {renderDescription(e.description, MONOGRAM_INK)}
+                  </div>
+                ))}
+              </MonogramLabel>
+            )}
+            {renderCustomSections(data.custom_sections, MONOGRAM_INK, '#d1d5db', hidden)}
+          </div>
+          </div>
+        </div>
+
+        {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
+      </div>
+      {renderReferencesPage(data.references, MONOGRAM_INK, watermark, '#d1d5db', '28px 40px', hidden)}
     </div>
   );
 }

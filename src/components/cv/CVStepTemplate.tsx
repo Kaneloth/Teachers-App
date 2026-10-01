@@ -69,6 +69,7 @@ const TEMPLATES = [
   { id: 'dove',         name: 'Dove',         description: 'Soft blue-gray banner and matching rounded sidebar card beneath a circular photo. Calm, professional two-column layout.' },
   { id: 'panel',        name: 'Panel',        description: 'Full-width light-gray section bands with a clean single-column layout. Simple, airy and easy to scan.' },
   { id: 'terracotta',   name: 'Terracotta',   description: 'Two-tone name header with a boxed contact card and warm terracotta-orange accents. Clean single-column layout for work history and skills.' },
+  { id: 'monogram',     name: 'Monogram',     description: 'A circular initials badge beside your name, light-gray two-column layout below. Minimal and sophisticated.' },
 ];
 
 const FREE_TEMPLATE = 'classic';
@@ -78,7 +79,7 @@ interface Props { selected: string; onChange: (id: string) => void; isFree?: boo
 export default function CVStepTemplate({ selected, onChange, isFree = false, isEducator = true }: Props) {
   const handleSelect = (id: string) => {
     if (isFree && id !== FREE_TEMPLATE) {
-      toast.info('Top up to unlock all 15 templates.', { duration: 3000 });
+      toast.info('Top up to unlock all 16 templates.', { duration: 3000 });
       return;
     }
     onChange(id);
@@ -116,7 +117,7 @@ export default function CVStepTemplate({ selected, onChange, isFree = false, isE
         <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2">
           <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
           <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug">
-            Free credits include the <strong>Classic</strong> template. Top up to unlock all 15 templates — permanently.
+            Free credits include the <strong>Classic</strong> template. Top up to unlock all 16 templates — permanently.
           </p>
         </div>
       )}
