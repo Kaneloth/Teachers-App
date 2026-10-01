@@ -2493,6 +2493,11 @@ function drawSkyline(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   const sidePad = SB/12; // 20/240 of the sidebar width
   const sx = sidePad; const smw = SB-2*sidePad;
   if (photoUrl) {
+    // The React preview rings the circular photo with a 4px white border
+    // (120px photo + 4px each side); a plain white circle drawn first,
+    // slightly larger than the photo, reproduces that ring since the
+    // photo itself is pre-cropped to a circle with a transparent surround.
+    fill(p,255,255,255); p.circle(sx+smw/2, MT+15, 16, 'F');
     p.addImage(photoUrl,'PNG', sx+smw/2-15, MT, 30, 30);
   } else {
     fill(p,255,255,255); p.circle(sx+smw/2, MT+15, 15, 'F');
