@@ -2430,6 +2430,23 @@ function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
 // page-2+-horizontal-strip pattern this style previously needed to avoid
 // leaving an unused white strip on pages after the first; this template's
 // cvExport.ts counterpart, drawSkyline, follows that same pattern).
+// A dedicated sidebar-section label for Skyline, NOT the shared
+// `SidebarSection` component above. `SidebarSection` was built for the old
+// dead SidebarTemplate's solid dark-blue sidebar — it renders its title in
+// white text at 55% opacity, which is illegible (reads as "missing"/
+// "merged into the background") on Skyline's light-gray sidebar. Confirmed
+// by rendering both versions and sampling actual pixel colors — the white
+// labels were genuinely near-invisible, not just hard to see in a casual
+// screenshot.
+function SkylineSidebarLabel({ title, accent, children }: { title: string; accent: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: '16px' }}>
+      <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: accent, marginBottom: '8px', borderBottom: '1px solid #d7deea', paddingBottom: '4px' }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
 function SkylineTimelineItem({ children, accent }: { children: React.ReactNode; accent: string }) {
   return (
     <div style={{ position: 'relative', paddingLeft: '16px', borderLeft: `2px solid ${accent}33`, marginBottom: '16px' }}>
@@ -2493,29 +2510,29 @@ function SkylineTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
           </div>
           <div style={{ position: 'relative', zIndex: 1, padding: '26px 20px 28px' }}>
             {(personal.phone || personal.email || personal.address) && (
-              <SidebarSection title="Contact">
+              <SkylineSidebarLabel title="Contact" accent={accent}>
                 {personal.phone   && <div style={{ marginBottom: '6px', fontSize: '11px', color: '#374151' }}>{ICONS.phone} {personal.phone}</div>}
                 {personal.email   && <div style={{ marginBottom: '6px', fontSize: '11px', color: '#374151', wordBreak: 'break-word' }}>{ICONS.mail} {personal.email}</div>}
                 {personal.address && <div style={{ fontSize: '11px', color: '#374151', wordBreak: 'break-word' }}>{ICONS.mapPin} {personal.address}</div>}
-              </SidebarSection>
+              </SkylineSidebarLabel>
             )}
             {personal.bio && (
-              <SidebarSection title="About Me">
+              <SkylineSidebarLabel title="About Me" accent={accent}>
                 <p style={{ fontSize: '11px', color: '#374151', lineHeight: '1.6', margin: 0 }}>{personal.bio}</p>
-              </SidebarSection>
+              </SkylineSidebarLabel>
             )}
             {!hidden?.has('skills') && allSkills.length > 0 && (
-              <SidebarSection title={skillsLabel}>
+              <SkylineSidebarLabel title={skillsLabel} accent={accent}>
                 {allSkills.map((s: string, i: number) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '5px', fontSize: '11px', color: '#374151' }}>
                     <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: accent, marginTop: '4px', flexShrink: 0 }} />
                     {s}
                   </div>
                 ))}
-              </SidebarSection>
+              </SkylineSidebarLabel>
             )}
             {skills?.languages?.length > 0 && (
-              <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>
+              <SkylineSidebarLabel title="Languages" accent={accent}><BulletList items={skills.languages} /></SkylineSidebarLabel>
             )}
           </div>
         </div>

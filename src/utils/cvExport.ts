@@ -2493,10 +2493,31 @@ function drawSkyline(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 
   if (pr.phone||pr.email||pr.address) {
     sy = sidebarLabel(p,'Contact',sx,sy,smw,[55,65,81],[209,213,219]);
-    p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,55,65,81);
-    if (pr.phone)   { p.text(pr.phone, sx, sy); sy+=4; }
-    if (pr.email)   { const ls=p.splitTextToSize(pr.email,smw) as string[]; ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=3.6;}); sy+=0.5; }
-    if (pr.address) { const ls=p.splitTextToSize(pr.address,smw) as string[]; ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=3.6;}); sy+=0.5; }
+    const contactColor:RGB=[55,65,81];
+    // Icon + wrapped text: the icon only draws beside the FIRST line of a
+    // wrapped item (email/address can wrap to 2+ lines on a narrow
+    // sidebar); continuation lines indent to align under the text, not
+    // back out under the icon. Previously this block only ever called
+    // p.text() with no drawIcon()/iconText() call at all, so the PDF
+    // export had no contact icons even though the React preview (which
+    // uses its own ICONS emoji map) does — the two were drawn by
+    // completely separate code paths that had drifted out of sync.
+    const iconIndent = 7.5*0.55 + 1.5;
+    if (pr.phone) { iconText(p, ICON.phone, pr.phone, sx, sy, 7.5, contactColor); sy += 4; }
+    if (pr.email) {
+      drawIcon(p, ICON.envelope, sx, sy-0.5, 6.5, contactColor);
+      p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,contactColor[0],contactColor[1],contactColor[2]);
+      const ls=p.splitTextToSize(pr.email, smw-iconIndent) as string[];
+      ls.forEach((l:string)=>{ p.text(l, sx+iconIndent, sy); sy+=3.6; });
+      sy+=0.5;
+    }
+    if (pr.address) {
+      drawIcon(p, ICON.mapMarker, sx, sy-0.5, 6.5, contactColor);
+      p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,contactColor[0],contactColor[1],contactColor[2]);
+      const ls=p.splitTextToSize(pr.address, smw-iconIndent) as string[];
+      ls.forEach((l:string)=>{ p.text(l, sx+iconIndent, sy); sy+=3.6; });
+      sy+=0.5;
+    }
     sy += 3;
   }
   if (pr.bio) {
