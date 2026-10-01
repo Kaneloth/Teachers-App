@@ -489,6 +489,7 @@ shaded:'#374151', crimson:'#c0392b', sage:'#7fa37f',
     elegant:'#475569',
     heritage:'#334155',
     casual:'#111111',
+    skyline:'#3e63b0',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -669,6 +670,7 @@ export async function exportElementAsPDF(
     elegant:      ()=>drawElegant(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     heritage:     ()=>drawHeritage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     casual:       ()=>drawCasual(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    skyline:      ()=>drawSkyline(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -2447,4 +2449,111 @@ function drawCasual(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
 
   y = drawCustom(p,customs,accent,'tag-underline',ML,y,W,BOTTOM,np,GXW);
   refsPage(p,refs,accent,'tag-underline',np,BOTTOM,owner,wm,PL_BG,false);
+}
+
+// ── 11. SKYLINE — Light-gray sidebar cut by a diagonal blue wedge, dotted timeline ──
+// PDF counterpart of SkylineTemplate in CVTemplateRenderer.tsx. Follows the
+// same page-1-only-sidebar / page-2+-horizontal-strip pagination pattern
+// documented on drawSidebar (and drawModern) above, which is what let this
+// codebase ship a full-height sidebar without the old bug of every page
+// after the first carrying a large unused white strip where the sidebar
+// used to be. Here the "strip" is a thin accent rule rather than a filled
+// band, since the sidebar itself is a neutral gray, not a strong brand color.
+function drawSkyline(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
+  const accent:RGB = hex('#3e63b0'); const [ar,ag,ab] = accent;
+  const GRAY:RGB = [244,245,247]; const [gr,gg,gb] = GRAY;
+  void isEdu;
+  // Sidebar width mirrors the React preview's 240/794 proportion of the page.
+  const SB = 62; const cx = ML+SB+8; const cmw = PW-MR-cx;
+  const mainCX = ML; const mainCMW = PW-ML-MR; // page 2+ — normal margin, no sidebar offset
+
+  // Page-1 sidebar background + diagonal accent wedge (the wedge's
+  // hypotenuse clears the main column's text-start x by ~3mm of vertical
+  // drop at most, so it never collides with page-1 heading text).
+  fill(p,gr,gg,gb); p.rect(0,0,SB+2,PH,'F');
+  fill(p,ar,ag,ab); p.triangle(0,0, 90,0, 0,52, 'F');
+  reset(p);
+
+  const sx = ML+2; const smw = SB-6;
+  if (photoUrl) {
+    p.addImage(photoUrl,'PNG', sx+smw/2-15, MT, 30, 30);
+  } else {
+    fill(p,255,255,255); p.circle(sx+smw/2, MT+15, 15, 'F');
+    const ini = owner.split(' ').map((n:string)=>n[0]||'').join('').slice(0,2).toUpperCase();
+    tc(p,ar,ag,ab); p.setFont(F,'bold'); p.setFontSize(12); p.text(ini, sx+smw/2-p.getTextWidth(ini)/2, MT+17.5);
+  }
+  let sy = MT+30+8;
+  tc(p,ar,ag,ab); p.setFont(F,'bold'); p.setFontSize(12);
+  { const nw=p.getTextWidth(owner); p.text(owner, sx+smw/2-Math.min(nw,smw)/2, sy); }
+  sy += 5;
+  const jobTitle = (pr.job_title || exp[0]?.role || 'Professional').trim();
+  tc(p,107,114,128); p.setFont(F,'normal'); p.setFontSize(8);
+  { const jw=p.getTextWidth(jobTitle); p.text(jobTitle, sx+smw/2-Math.min(jw,smw)/2, sy); }
+  sy += 10;
+
+  if (pr.phone||pr.email||pr.address) {
+    sy = sidebarLabel(p,'Contact',sx,sy,smw,[55,65,81],[209,213,219]);
+    p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,55,65,81);
+    if (pr.phone)   { p.text(pr.phone, sx, sy); sy+=4; }
+    if (pr.email)   { const ls=p.splitTextToSize(pr.email,smw) as string[]; ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=3.6;}); sy+=0.5; }
+    if (pr.address) { const ls=p.splitTextToSize(pr.address,smw) as string[]; ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=3.6;}); sy+=0.5; }
+    sy += 3;
+  }
+  if (pr.bio) {
+    sy = sidebarLabel(p,'About Me',sx,sy,smw,[55,65,81],[209,213,219]);
+    p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,55,65,81);
+    const bioLines = p.splitTextToSize(pr.bio, smw) as string[];
+    for (const l of bioLines) { if (sy > PH-30) break; p.text(l, sx, sy); sy += 3.8; }
+    sy += 3;
+  }
+  const allSkills = [...(sk.subjects||[]), ...(sk.soft_skills||[])];
+  if (allSkills.length) {
+    sy = sidebarLabel(p,'Key Skills',sx,sy,smw,[55,65,81],[209,213,219]);
+    p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,55,65,81);
+    for (const s of allSkills) {
+      if (sy > PH-14) break; // sidebar isn't paginated — stop gracefully rather than overrun the footer
+      const ls = p.splitTextToSize(`•  ${s}`, smw) as string[];
+      for (const l of ls) { p.text(l, sx, sy); sy += 3.8; }
+    }
+    sy += 3;
+  }
+  if (sk.languages?.length) {
+    sy = sidebarLabel(p,'Languages',sx,sy,smw,[55,65,81],[209,213,219]);
+    p.setFont(F,'normal'); p.setFontSize(7.5); tc(p,55,65,81);
+    for (const l of sk.languages) { if (sy > PH-14) break; p.text(`•  ${l}`, sx, sy); sy += 3.8; }
+  }
+
+  // ── Main column — Education / Experience as a dotted timeline ──
+  reset(p);
+  let y = MT;
+  const np = () => { p.addPage(); reset(p); fill(p,ar,ag,ab); p.rect(0,0,PW,2.5,'F'); reset(p); return MT+6; };
+  let onFirstPage = true;
+  const GXW = (): [number,number] => { onFirstPage = false; return [mainCX, mainCMW]; };
+
+  if (edu.length) {
+    y = sectionHeading(p,'Education',onFirstPage?cx:mainCX,y,onFirstPage?cmw:mainCMW,accent,'bar',BOTTOM,np,GXW,ICON.graduationCap);
+    for (const e of edu) {
+      if (y+14>BOTTOM) { y=np(); onFirstPage=false; }
+      const [ex,ew] = onFirstPage?[cx,cmw]:[mainCX,mainCMW];
+      dot(p, ex-3.5, y-0.8, accent, 1.6);
+      y = textWithDate(p, e.qualification||'', e.year||'', ex, y, ew, BOTTOM, np, GXW, [17,24,39], 10, true);
+      if (e.institution) { p.setFont(F,'italic'); p.setFontSize(8.5); tc(p,ar,ag,ab); y = wrapped(p, e.institution, ex, y, ew, BOTTOM, np, GXW); }
+      y += ITEM_GAP+2;
+    }
+  }
+  if (exp.length) {
+    y = sectionHeading(p,'Work Experience',onFirstPage?cx:mainCX,y,onFirstPage?cmw:mainCMW,accent,'bar',BOTTOM,np,GXW,ICON.briefcase);
+    for (const e of exp) {
+      if (y+16>BOTTOM) { y=np(); onFirstPage=false; }
+      const [ex,ew] = onFirstPage?[cx,cmw]:[mainCX,mainCMW];
+      dot(p, ex-3.5, y-0.8, accent, 1.6);
+      const dRange = [e.from,e.to].filter(Boolean).join(' – ');
+      y = textWithDate(p, e.role||'', dRange, ex, y, ew, BOTTOM, np, GXW, [17,24,39], 10, true);
+      if (e.school) { p.setFont(F,'italic'); p.setFontSize(8.5); tc(p,ar,ag,ab); y = wrapped(p, e.school, ex, y, ew, BOTTOM, np, GXW); }
+      if (e.description) { tc(p,55,65,81); for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean)) y=bulletLine(p,l,ex,y,ew,accent,BOTTOM,np,GXW); }
+      y += ITEM_GAP+2;
+    }
+  }
+  y = drawCustom(p,customs,accent,'bar',onFirstPage?cx:mainCX,y,onFirstPage?cmw:mainCMW,BOTTOM,np,GXW);
+  refsPage(p,refs,accent,'bar',np,BOTTOM,owner,wm);
 }

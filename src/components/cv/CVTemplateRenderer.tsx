@@ -76,6 +76,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'elegant': "Georgia, 'Times New Roman', serif",
     'heritage': "Georgia, 'Times New Roman', serif",
     'casual':   "'Arial', Helvetica, sans-serif",
+    'skyline':  "'Segoe UI', Arial, sans-serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -105,6 +106,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'elegant'      ? <ElegantTemplate      {...T} /> :
     template === 'heritage'     ? <HeritageTemplate     {...T} /> :
     template === 'casual'       ? <CasualTemplate       {...T} /> :
+    template === 'skyline'      ? <SkylineTemplate      {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -2415,6 +2417,119 @@ function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
       <div style={{ background: PL_BG }}>{renderReferencesPage(data.references, PL_INK, watermark, undefined, undefined, hidden)}</div>
+    </div>
+  );
+}
+
+/* ── Skyline Template ────────────────────────────────────────────────────── */
+// Two-column: a light-gray sidebar (photo, name, Contact / About Me / Skills)
+// cut by a diagonal blue accent wedge in the top-left corner, with
+// Education/Experience in the main column as a dotted timeline — a
+// deliberate re-attempt at a sidebar-style layout (see the dead
+// SidebarTemplate/drawSidebar above for the page-1-only-sidebar /
+// page-2+-horizontal-strip pattern this style previously needed to avoid
+// leaving an unused white strip on pages after the first; this template's
+// cvExport.ts counterpart, drawSkyline, follows that same pattern).
+function SkylineTimelineItem({ children, accent }: { children: React.ReactNode; accent: string }) {
+  return (
+    <div style={{ position: 'relative', paddingLeft: '16px', borderLeft: `2px solid ${accent}33`, marginBottom: '16px' }}>
+      <span style={{ position: 'absolute', left: '-5px', top: '4px', width: '8px', height: '8px', borderRadius: '50%', background: accent, border: '2px solid #fff' }} />
+      {children}
+    </div>
+  );
+}
+
+function SkylineTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', expLabel = 'Work Experience', hidden }: any) {
+  const { personal, skills } = data;
+  const accent = '#3e63b0';
+  const sidebarBg = '#f4f5f7';
+  const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
+
+  return (
+    <div style={{ ...wrapperStyle }}>
+      <div
+        className="cv-content-page"
+        style={{ width: '794px', minHeight: forExportMinHeight(wrapperStyle), boxSizing: 'border-box', background: '#fff', position: 'relative', display: 'flex' }}
+      >
+        {/* ── Sidebar ── */}
+        <div style={{ width: '240px', minWidth: '240px', background: sidebarBg, position: 'relative', overflow: 'hidden' }}>
+          {/* Diagonal accent wedge */}
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '340px', height: '300px', background: accent, clipPath: 'polygon(0 0, 100% 0, 0 65%)' }} />
+          <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '34px 20px 0' }}>
+            {personal.photo_url ? (
+              <img src={personal.photo_url} alt="" style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: '4px solid #fff', boxShadow: '0 2px 10px rgba(0,0,0,0.15)' }} />
+            ) : (
+              <div style={{ width: '120px', height: '120px', borderRadius: '50%', background: '#fff', border: '4px solid #fff', boxShadow: '0 2px 10px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', fontSize: '34px', fontWeight: 800, color: accent }}>
+                {(personal.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div style={{ fontSize: '21px', fontWeight: 800, color: accent, marginTop: '16px', lineHeight: '1.2', wordBreak: 'break-word' }}>{personal.full_name || 'Your Name'}</div>
+            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '3px' }}>{personal.job_title || validExp[0]?.role || 'Professional'}</div>
+          </div>
+          <div style={{ position: 'relative', zIndex: 1, padding: '26px 20px 28px' }}>
+            {(personal.phone || personal.email || personal.address) && (
+              <SidebarSection title="Contact">
+                {personal.phone   && <div style={{ marginBottom: '6px', fontSize: '11px', color: '#374151' }}>{ICONS.phone} {personal.phone}</div>}
+                {personal.email   && <div style={{ marginBottom: '6px', fontSize: '11px', color: '#374151', wordBreak: 'break-word' }}>{ICONS.mail} {personal.email}</div>}
+                {personal.address && <div style={{ fontSize: '11px', color: '#374151', wordBreak: 'break-word' }}>{ICONS.mapPin} {personal.address}</div>}
+              </SidebarSection>
+            )}
+            {personal.bio && (
+              <SidebarSection title="About Me">
+                <p style={{ fontSize: '11px', color: '#374151', lineHeight: '1.6', margin: 0 }}>{personal.bio}</p>
+              </SidebarSection>
+            )}
+            {!hidden?.has('skills') && allSkills.length > 0 && (
+              <SidebarSection title={skillsLabel}>
+                {allSkills.map((s: string, i: number) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '5px', fontSize: '11px', color: '#374151' }}>
+                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: accent, marginTop: '4px', flexShrink: 0 }} />
+                    {s}
+                  </div>
+                ))}
+              </SidebarSection>
+            )}
+            {skills?.languages?.length > 0 && (
+              <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>
+            )}
+          </div>
+        </div>
+
+        {/* ── Main column ── */}
+        <div style={{ flex: 1, padding: '34px 30px 28px', minWidth: 0 }}>
+          {validEdu.length > 0 && (
+            <Section title="Education" color={accent} icon={ICONS.graduation}>
+              {validEdu.map((e: any, i: number) => (
+                <SkylineTimelineItem key={i} accent={accent}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', columnGap: '10px' }}>
+                    <div style={{ fontWeight: 700, color: '#111827', fontSize: '13px', wordBreak: 'break-word' }}>{e.qualification}</div>
+                    {e.year && <div style={{ fontSize: '11px', color: '#9ca3af', whiteSpace: 'nowrap' }}>{e.year}</div>}
+                  </div>
+                  <div style={{ fontSize: '12px', color: accent, fontStyle: 'italic', wordBreak: 'break-word' }}>{e.institution}</div>
+                </SkylineTimelineItem>
+              ))}
+            </Section>
+          )}
+          {validExp.length > 0 && (
+            <Section title={expLabel} color={accent} icon={ICONS.briefcase}>
+              {validExp.map((e: any, i: number) => (
+                <SkylineTimelineItem key={i} accent={accent}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', columnGap: '10px' }}>
+                    <div style={{ fontWeight: 700, color: '#111827', fontSize: '13px', wordBreak: 'break-word' }}>{e.role}</div>
+                    {(e.from || e.to) && <div style={{ fontSize: '11px', color: '#9ca3af', whiteSpace: 'nowrap' }}>{[e.from, e.to].filter(Boolean).join(' – ')}</div>}
+                  </div>
+                  <div style={{ fontSize: '12px', color: accent, fontStyle: 'italic', wordBreak: 'break-word' }}>{e.school}</div>
+                  {renderDescription(e.description, accent)}
+                </SkylineTimelineItem>
+              ))}
+            </Section>
+          )}
+          {renderCustomSections(data.custom_sections, accent, undefined, hidden)}
+        </div>
+
+        {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
+      </div>
+      {renderReferencesPage(data.references, accent, watermark, undefined, undefined, hidden)}
     </div>
   );
 }
