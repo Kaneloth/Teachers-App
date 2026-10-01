@@ -490,6 +490,7 @@ shaded:'#374151', crimson:'#c0392b', sage:'#7fa37f',
     heritage:'#334155',
     casual:'#111111',
     skyline:'#3e63b0',
+    azure:'#2f6fad',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -671,6 +672,7 @@ export async function exportElementAsPDF(
     heritage:     ()=>drawHeritage(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     casual:       ()=>drawCasual(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     skyline:      ()=>drawSkyline(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    azure:        ()=>drawAzure(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -2599,4 +2601,95 @@ function drawSkyline(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   }
   y = drawCustom(p,customs,accent,'bar',onFirstPage?cx:mainCX,y,onFirstPage?cmw:mainCMW,BOTTOM,np,GXW);
   refsPage(p,refs,accent,'bar',np,BOTTOM,owner,wm);
+}
+
+// ── Azure — Light-blue corner swatch, circular photo, two-column body ────────
+function drawAzure(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
+  const accent:RGB = hex('#2f6fad'); const [ar,ag,ab] = accent;
+  const BANNER:RGB = hex('#bfe0f5'); const [brr,bgg,bbb] = BANNER;
+  const DARK:RGB = [31,41,55];
+
+  // Decorative corner swatch behind the header, and a slim closing bar at
+  // the very bottom of the page — mirrors the two accent shapes in the
+  // React preview. Painted first so header/body text always draws on top.
+  fill(p,brr,bgg,bbb); p.rect(0,0,58,12,'F');
+  fill(p,DARK[0],DARK[1],DARK[2]); p.rect(0,PH-1.6,PW,1.6,'F');
+  reset(p);
+
+  const headerY = MT;
+  const photoSize = 27;
+  const textX = photoUrl ? ML+photoSize+8 : ML;
+  if (photoUrl) {
+    fill(p,255,255,255); p.circle(ML+photoSize/2, headerY+photoSize/2, photoSize/2+1.2, 'F');
+    p.addImage(photoUrl,'PNG', ML, headerY, photoSize, photoSize);
+  } else {
+    fill(p,255,255,255); p.circle(ML+photoSize/2, headerY+photoSize/2, photoSize/2+1.2, 'F');
+    fill(p,ar,ag,ab); p.circle(ML+photoSize/2, headerY+photoSize/2, photoSize/2, 'F');
+    const ini = owner.split(' ').map((n:string)=>n[0]||'').join('').slice(0,2).toUpperCase();
+    tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(11); p.text(ini, ML+photoSize/2-p.getTextWidth(ini)/2, headerY+photoSize/2+3);
+  }
+  tc(p,DARK[0],DARK[1],DARK[2]); p.setFont(F,'normal'); p.setFontSize(19);
+  p.text(owner.toUpperCase(), textX, headerY+9);
+  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu?'Educator':'Professional')).trim();
+  p.setFont(F,'normal'); p.setFontSize(9.5); tc(p,107,114,128);
+  p.text(jobTitle, textX, headerY+16);
+
+  let cy = headerY + 23;
+  const contactItems:[string,string][] = [[ICON.phone,pr.phone],[ICON.envelope,pr.email],[ICON.mapMarker,pr.address]].filter(([,v])=>!!v) as any;
+  let ccx = textX;
+  for (const [glyph,v] of contactItems) { ccx = iconText(p, glyph, v, ccx, cy, 7.5, [55,65,81]); ccx += 5; }
+
+  reset(p);
+  let y = Math.max(headerY+photoSize, cy+5) + 7;
+  hLine(p, ML, y, PW-ML-MR, 229,231,235, 0.4); y += 8;
+
+  const np = () => { p.addPage(); reset(p); fill(p,DARK[0],DARK[1],DARK[2]); p.rect(0,PH-1.6,PW,1.6,'F'); reset(p); return MT+6; };
+
+  const c1 = ML; const cw1 = (PW-ML-MR)*0.36;
+  const c2 = ML+cw1+10; const cw2 = PW-MR-c2;
+  let y1 = y; let y2 = y;
+
+  if (pr.bio) {
+    y1 = sectionHeading(p,'Summary',c1,y1,cw1,accent,'underline',BOTTOM,np);
+    p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,55,65,81);
+    y1 = wrapped(p,pr.bio,c1,y1,cw1,BOTTOM,np); y1 += ITEM_GAP;
+  }
+  if (edu.length) {
+    y1 = sectionHeading(p,'Education',c1,y1,cw1,accent,'underline',BOTTOM,np);
+    for (const e of edu) {
+      if (y1+16>BOTTOM) y1=np();
+      if (e.year) { p.setFont(F,'bold'); p.setFontSize(8); tc(p,107,114,128); p.text(e.year,c1,y1); y1+=3.8; }
+      p.setFont(F,'bold'); p.setFontSize(9); tc(p,17,24,39); y1=wrapped(p,e.qualification||'',c1,y1,cw1,BOTTOM,np);
+      p.setFont(F,'normal'); p.setFontSize(8); tc(p,107,114,128); y1=wrapped(p,e.institution||'',c1,y1,cw1,BOTTOM,np);
+      y1 += ITEM_GAP;
+    }
+  }
+  const allSkills = [...(sk.subjects||[]), ...(sk.soft_skills||[])];
+  if (allSkills.length) {
+    y1 = sectionHeading(p,'Skills',c1,y1,cw1,accent,'underline',BOTTOM,np);
+    p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,55,65,81);
+    for (const s of allSkills) { if (y1+LINE_H>BOTTOM) y1=np(); y1=bulletLine(p,s,c1,y1,cw1,accent,BOTTOM,np); }
+    y1 += ITEM_GAP;
+  }
+  if (sk.languages?.length) {
+    y1 = sectionHeading(p,'Language',c1,y1,cw1,accent,'underline',BOTTOM,np);
+    p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,55,65,81);
+    for (const l of sk.languages) { if (y1+LINE_H>BOTTOM) y1=np(); y1=bulletLine(p,l,c1,y1,cw1,accent,BOTTOM,np); }
+  }
+
+  if (exp.length) {
+    y2 = sectionHeading(p,'Work Experience',c2,y2,cw2,accent,'underline',BOTTOM,np);
+    for (const e of exp) {
+      if (y2+16>BOTTOM) y2=np();
+      p.setFont(F,'bold'); p.setFontSize(10); tc(p,17,24,39); p.text(e.role||'',c2,y2);
+      const dRange = [e.from,e.to].filter(Boolean).join(' – ');
+      if (dRange) { p.setFont(F,'normal'); p.setFontSize(8); tc(p,107,114,128); p.text(dRange, c2+cw2-p.getTextWidth(dRange), y2); }
+      y2 += LINE_H;
+      if (e.school) { p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,ar,ag,ab); y2 = wrapped(p,e.school,c2,y2,cw2,BOTTOM,np); }
+      if (e.description) { p.setFont(F,'normal'); p.setFontSize(9); tc(p,55,65,81); for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean)) y2=bulletLine(p,l,c2,y2,cw2,accent,BOTTOM,np); }
+      y2 += ITEM_GAP+1;
+    }
+  }
+  y2 = drawCustom(p,customs,accent,'underline',c2,y2,cw2,BOTTOM,np);
+  refsPage(p,refs,accent,'underline',np,BOTTOM,owner,wm);
 }

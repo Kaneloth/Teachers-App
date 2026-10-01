@@ -65,6 +65,7 @@ const TEMPLATES = [
   { id: 'heritage',     name: 'Heritage',     description: 'Formal centered layout with double-rule headings and a top contact bar.' },
   { id: 'casual',       name: 'Casual',       description: 'Same cream & circles design as Playful but single-column. Great for longer CVs.' },
   { id: 'skyline',      name: 'Skyline',      description: 'Gray sidebar cut by a diagonal blue accent, photo up top, dotted timeline for education and experience.' },
+  { id: 'azure',        name: 'Azure',        description: 'Light-blue corner accent behind a circular photo, thin uppercase name, two-column body for a clean professional look.' },
 ];
 
 const FREE_TEMPLATE = 'classic';
@@ -74,7 +75,7 @@ interface Props { selected: string; onChange: (id: string) => void; isFree?: boo
 export default function CVStepTemplate({ selected, onChange, isFree = false, isEducator = true }: Props) {
   const handleSelect = (id: string) => {
     if (isFree && id !== FREE_TEMPLATE) {
-      toast.info('Top up to unlock all 11 templates.', { duration: 3000 });
+      toast.info('Top up to unlock all 12 templates.', { duration: 3000 });
       return;
     }
     onChange(id);
@@ -112,7 +113,7 @@ export default function CVStepTemplate({ selected, onChange, isFree = false, isE
         <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2">
           <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
           <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug">
-            Free credits include the <strong>Classic</strong> template. Top up to unlock all 11 templates — permanently.
+            Free credits include the <strong>Classic</strong> template. Top up to unlock all 12 templates — permanently.
           </p>
         </div>
       )}

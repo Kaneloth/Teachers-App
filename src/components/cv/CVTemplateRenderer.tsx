@@ -77,6 +77,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'heritage': "Georgia, 'Times New Roman', serif",
     'casual':   "'Arial', Helvetica, sans-serif",
     'skyline':  "'Segoe UI', Arial, sans-serif",
+    'azure':    "'Segoe UI', Arial, sans-serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -107,6 +108,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'heritage'     ? <HeritageTemplate     {...T} /> :
     template === 'casual'       ? <CasualTemplate       {...T} /> :
     template === 'skyline'      ? <SkylineTemplate      {...T} /> :
+    template === 'azure'        ? <AzureTemplate        {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -2572,6 +2574,117 @@ function SkylineTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
       {renderReferencesPage(data.references, accent, watermark, undefined, undefined, hidden)}
+    </div>
+  );
+}
+
+/* ── Azure Template ──────────────────────────────────────────────────────
+   Light-blue corner swatch behind a circular photo, thin uppercase name,
+   and a genuine two-column body (not a shaded sidebar) — a narrower left
+   column for Summary/Education/Skills/Language, a wider right column for
+   Experience. A slim dark bar closes off the bottom of every page. */
+function AzureTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', expLabel = 'Work Experience', hidden }: any) {
+  const { personal, skills } = data;
+  const accent = '#2f6fad';
+  const banner = '#bfe0f5';
+  const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
+  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+
+  return (
+    <div style={{ ...wrapperStyle }}>
+      <div
+        className="cv-content-page"
+        style={{
+          width: '794px',
+          minHeight: forExportMinHeight(wrapperStyle),
+          boxSizing: 'border-box',
+          position: 'relative',
+          background: '#fff',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Decorative corner swatch, sitting behind the header */}
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '230px', height: '46px', background: banner }} />
+        {/* Closing bar at the very bottom of the page */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '6px', background: '#1f2937' }} />
+
+        <div style={{ position: 'relative', padding: '34px 40px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+            {personal.photo_url ? (
+              <img src={personal.photo_url} alt="" style={{ width: '104px', height: '104px', borderRadius: '50%', objectFit: 'cover', border: '4px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', flexShrink: 0 }} />
+            ) : (
+              <div style={{ width: '104px', height: '104px', borderRadius: '50%', background: '#fff', border: '4px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '28px', fontWeight: 800, color: accent }}>
+                {(personal.full_name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '30px', fontWeight: 300, letterSpacing: '3px', textTransform: 'uppercase', color: '#1f2937', wordBreak: 'break-word' }}>{personal.full_name || 'Your Name'}</div>
+              <div style={{ fontSize: '14px', color: '#6b7280', letterSpacing: '1px', marginTop: '4px' }}>{jobTitle}</div>
+              <div style={{ display: 'flex', gap: '18px', marginTop: '12px', fontSize: '11px', color: '#374151', flexWrap: 'wrap' }}>
+                {personal.phone   && <span>{ICONS.phone} {personal.phone}</span>}
+                {personal.email   && <span>{ICONS.mail} {personal.email}</span>}
+                {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ height: '1px', background: '#e5e7eb', margin: '22px 40px 0' }} />
+
+        <div style={{ display: 'flex', gap: '36px', padding: '24px 40px 30px' }}>
+          {/* Left column — narrower: Summary / Education / Skills / Language */}
+          <div style={{ width: '36%', minWidth: 0 }}>
+            {personal.bio && (
+              <Section title="Summary" color={accent}>
+                <p style={{ fontSize: '11.5px', color: '#374151', lineHeight: '1.6', margin: 0 }}>{personal.bio}</p>
+              </Section>
+            )}
+            {validEdu.length > 0 && (
+              <Section title="Education" color={accent}>
+                {validEdu.map((e: any, i: number) => (
+                  <div key={i} style={{ marginBottom: '14px' }}>
+                    {e.year && <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#374151' }}>{e.year}</div>}
+                    <div style={{ fontWeight: 700, color: '#111827', fontSize: '12px', wordBreak: 'break-word' }}>{e.qualification}</div>
+                    <div style={{ fontSize: '11px', color: '#6b7280', wordBreak: 'break-word' }}>{e.institution}</div>
+                  </div>
+                ))}
+              </Section>
+            )}
+            {!hidden?.has('skills') && allSkills.length > 0 && (
+              <Section title={skillsLabel} color={accent}>
+                <BulletList items={allSkills} />
+              </Section>
+            )}
+            {skills?.languages?.length > 0 && (
+              <Section title="Language" color={accent}>
+                <BulletList items={skills.languages} />
+              </Section>
+            )}
+          </div>
+
+          {/* Right column — wider: Experience */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {validExp.length > 0 && (
+              <Section title={expLabel} color={accent}>
+                {validExp.map((e: any, i: number) => (
+                  <div key={i} style={{ marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', columnGap: '10px' }}>
+                      <div style={{ fontWeight: 700, color: '#111827', fontSize: '13px', wordBreak: 'break-word' }}>{e.role}</div>
+                      {(e.from || e.to) && <div style={{ fontSize: '11px', color: '#9ca3af', whiteSpace: 'nowrap' }}>{[e.from, e.to].filter(Boolean).join(' – ')}</div>}
+                    </div>
+                    <div style={{ fontSize: '12px', color: accent, wordBreak: 'break-word' }}>{e.school}</div>
+                    {renderDescription(e.description, accent)}
+                  </div>
+                ))}
+              </Section>
+            )}
+            {renderCustomSections(data.custom_sections, accent, undefined, hidden)}
+          </div>
+        </div>
+
+        {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
+      </div>
+      {renderReferencesPage(data.references, accent, watermark, undefined, '28px 40px', hidden)}
     </div>
   );
 }
