@@ -3038,7 +3038,6 @@ function TerracottaTemplate({ data, wrapperStyle, validEdu, validExp, watermark,
               </div>
             )}
           </div>
-          <div style={{ height: '3px', background: accent, marginTop: '18px' }} />
         </div>
 
         <div style={{ padding: '22px 40px 28px' }}>
@@ -3049,7 +3048,7 @@ function TerracottaTemplate({ data, wrapperStyle, validEdu, validExp, watermark,
           )}
 
           {validExp.length > 0 && (
-            <Section title={expLabel} color={accent} borderColor="#e5e7eb">
+            <Section title={expLabel} color={accent} borderColor={accent}>
               {validExp.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: i < validExp.length - 1 ? '16px' : 0 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
@@ -3068,7 +3067,7 @@ function TerracottaTemplate({ data, wrapperStyle, validEdu, validExp, watermark,
           )}
 
           {validEdu.length > 0 && (
-            <Section title="Education" color={accent} borderColor="#e5e7eb">
+            <Section title="Education" color={accent} borderColor={accent}>
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '14px' : 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
@@ -3082,19 +3081,19 @@ function TerracottaTemplate({ data, wrapperStyle, validEdu, validExp, watermark,
           )}
 
           {!hidden?.has('skills') && skillGroups.length > 0 && (
-            <Section title={skillsLabel} color={accent} borderColor="#e5e7eb">
+            <Section title={skillsLabel} color={accent} borderColor={accent}>
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${skillGroups.length}, 1fr)`, columnGap: '28px' }}>
                 {skillGroups.map(([label, items]) => <TerracottaSkillCol key={label} label={label} items={items} accent={accent} />)}
               </div>
             </Section>
           )}
 
-          {renderCustomSections(data.custom_sections, accent, '#e5e7eb', hidden)}
+          {renderCustomSections(data.custom_sections, accent, accent, hidden)}
         </div>
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, accent, watermark, '#e5e7eb', '28px 40px', hidden)}
+      {renderReferencesPage(data.references, accent, watermark, accent, '28px 40px', hidden)}
     </div>
   );
 }

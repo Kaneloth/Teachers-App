@@ -3062,7 +3062,6 @@ function drawTerracotta(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custo
   p.text(jobTitle, ML, MT+15);
 
   const headerBottom = Math.max(MT+18, contactItems.length ? MT+boxH+2 : 0);
-  fill(p,ar,ag,ab); p.rect(0, headerBottom, PW, 1.2, 'F');
   reset(p);
 
   let y = headerBottom + 10;
