@@ -3394,14 +3394,15 @@ function drawFrame(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
   // Education and Experience. The whole row is kept together — height is
   // estimated first so a page break never splits the two columns. ──
   const dateColW = 42, rx = ML+dateColW+4, rw = PW-MR-rx;
-  const drawDateRow = (dateText: string, sub: string, heading: string, body?: string) => {
+  const drawDateRow = (dateText: string, sub: string, heading: string, bodyLines?: string[]) => {
     p.setFont(F,'normal'); p.setFontSize(8.5);
     const subLines = sub ? (p.splitTextToSize(sub, dateColW) as string[]).length : 0;
     p.setFont(F,'bold'); p.setFontSize(9.5);
     const headLines = heading ? (p.splitTextToSize(heading, rw) as string[]).length : 0;
     p.setFont(F,'normal'); p.setFontSize(8.5);
-    const bodyLines = body ? (p.splitTextToSize(body, rw) as string[]).length : 0;
-    const estH = Math.max(subLines+1, headLines+bodyLines) * 4.2 + 6;
+    const wrappedBody: string[][] = (bodyLines||[]).map(b => p.splitTextToSize(b, rw-BULLET_INDENT) as string[]);
+    const bodyLineCount = wrappedBody.reduce((n,ls)=>n+ls.length,0);
+    const estH = Math.max(subLines+1, headLines+bodyLineCount) * 4.2 + 6;
     if (y + estH > BOTTOM) y = np();
 
     const rowStartY = y;
@@ -3419,10 +3420,16 @@ function drawFrame(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
       const hLines = p.splitTextToSize(heading, rw) as string[];
       hLines.forEach((l:string)=>{p.text(l,rx,ry); ry+=4.2;});
     }
-    if (body) {
+    // Each description line gets its own bullet marker, rather than being
+    // run together into one dense paragraph — much easier to scan.
+    if (wrappedBody.length) {
       p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,MUTED[0],MUTED[1],MUTED[2]);
-      const bl = p.splitTextToSize(body, rw) as string[];
-      bl.forEach((l:string)=>{p.text(l,rx,ry); ry+=3.8;});
+      for (const ls of wrappedBody) {
+        ls.forEach((l:string,li:number)=>{
+          if (li===0) dot(p, rx+0.8, ry-0.2, INK, 1.1);
+          p.text(l, rx+BULLET_INDENT, ry); ry += 3.8;
+        });
+      }
     }
     y = Math.max(ly, ry) + 6;
   };
@@ -3437,8 +3444,8 @@ function drawFrame(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
     y = sectionHeading(p,'Experience',ML,y,PW-ML-MR,INK,'tag-underline',BOTTOM,np,GXW);
     for (const e of exp) {
       const ds = [e.from,e.to].filter(Boolean).join(' - ');
-      const desc = e.description ? (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean).join('  ') : '';
-      drawDateRow(ds, e.school||'', e.role||'', desc);
+      const descLines = e.description ? (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean) : [];
+      drawDateRow(ds, e.school||'', e.role||'', descLines);
     }
     y += 2;
   }
@@ -3455,17 +3462,30 @@ function drawFrame(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
     const perCol = Math.ceil(allSkills.length/cols);
     const grid: string[][] = Array.from({length:cols},(_,g)=>allSkills.slice(g*perCol,(g+1)*perCol));
     const maxItems = Math.max(...grid.map(c=>c.length));
+    p.setFont(F,'normal'); p.setFontSize(9);
     for (let r=0; r<maxItems; r++) {
-      if (y+LINE_H>BOTTOM) y=np();
+      // Wrap every column's item for this row FIRST, so the row's height
+      // is the tallest of them — a fixed single-line row height here was
+      // the cause of a long, wrapped skill (e.g. "Interpersonal
+      // Communication") overlapping the row below it.
+      const rowLines: string[][] = [];
+      let maxLines = 1;
       for (let g=0; g<cols; g++) {
         const item = grid[g][r];
-        if (!item) continue;
+        const ls = item ? (p.splitTextToSize(item, colW-BULLET_INDENT) as string[]) : [];
+        rowLines.push(ls);
+        if (ls.length > maxLines) maxLines = ls.length;
+      }
+      const rowH = maxLines*4 + 2.5;
+      if (y+rowH>BOTTOM) y=np();
+      for (let g=0; g<cols; g++) {
+        const ls = rowLines[g];
+        if (!ls.length) continue;
         dot(p, colX[g]+0.5, y-0.2, INK);
-        p.setFont(F,'normal'); p.setFontSize(9); tc(p,BODY[0],BODY[1],BODY[2]);
-        const ls = p.splitTextToSize(item, colW-BULLET_INDENT) as string[];
+        tc(p,BODY[0],BODY[1],BODY[2]);
         ls.forEach((l:string,li:number)=>p.text(l, colX[g]+BULLET_INDENT, y+li*4));
       }
-      y += LINE_H;
+      y += rowH;
     }
     y += 2;
   }

@@ -3256,7 +3256,7 @@ const FRAME_MUTED  = '#64748b';
 const FRAME_BODY   = '#374151';
 const FRAME_BORDER = '#cbd5e1';
 
-function FrameDateRow({ dateText, sub, heading, body }: { dateText?: string; sub?: string; heading?: string; body?: string }) {
+function FrameDateRow({ dateText, sub, heading, bodyLines }: { dateText?: string; sub?: string; heading?: string; bodyLines?: string[] }) {
   return (
     <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
       <div style={{ width: '110px', minWidth: '110px' }}>
@@ -3265,7 +3265,16 @@ function FrameDateRow({ dateText, sub, heading, body }: { dateText?: string; sub
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         {heading && <div style={{ fontSize: '12.5px', fontWeight: 700, color: FRAME_INK, wordBreak: 'break-word' }}>{heading}</div>}
-        {body && <div style={{ fontSize: '11px', color: FRAME_MUTED, marginTop: '2px', lineHeight: '1.6' }}>{body}</div>}
+        {bodyLines && bodyLines.length > 0 && (
+          <div style={{ margin: '4px 0 0' }}>
+            {bodyLines.map((line, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '2px' }}>
+                <span style={{ color: FRAME_INK, marginTop: '2px', flexShrink: 0, fontSize: '11px' }}>•</span>
+                <span style={{ fontSize: '11px', lineHeight: '1.6', color: FRAME_MUTED }}>{line}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3338,7 +3347,7 @@ function FrameTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
                   dateText={[e.from, e.to].filter(Boolean).join(' - ')}
                   sub={e.school}
                   heading={e.role}
-                  body={(e.description || '').split('\n').map((s: string) => s.trim()).filter(Boolean).join('  ')}
+                  bodyLines={(e.description || '').split('\n').map((s: string) => s.trim()).filter(Boolean)}
                 />
               ))}
             </TagUnderlineSection>
