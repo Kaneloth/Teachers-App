@@ -14,7 +14,7 @@ import TemplatePreviewModal from './TemplatePreviewModal';
  */
 export default function TemplateGalleryGrid() {
   const boxRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.26);
+  const [scale, setScale] = useState(0.17);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function TemplateGalleryGrid() {
 
   return (
     <div id="templates">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2.5 sm:gap-3">
         {TEMPLATES.map((t, i) => (
           <motion.button
             key={t.id}
@@ -59,12 +59,12 @@ export default function TemplateGalleryGrid() {
                   thumbnail
                 />
               </div>
-              <div className="absolute inset-0 bg-[#0A2463]/0 group-hover:bg-[#0A2463]/5 transition-colors flex items-end justify-center pb-3 opacity-0 group-hover:opacity-100">
-                <span className="text-xs font-semibold bg-white/95 text-[#0A2463] px-3 py-1 rounded-full shadow-sm">Preview</span>
+              <div className="absolute inset-0 bg-[#0A2463]/0 group-hover:bg-[#0A2463]/5 transition-colors flex items-end justify-center pb-2 opacity-0 group-hover:opacity-100">
+                <span className="text-[10px] font-semibold bg-white/95 text-[#0A2463] px-2 py-0.5 rounded-full shadow-sm">Preview</span>
               </div>
             </div>
-            <div className="p-2.5">
-              <p className="text-sm font-semibold text-[#1A1A2E]">{t.name}</p>
+            <div className="px-2 py-1.5">
+              <p className="text-xs font-semibold text-[#1A1A2E] truncate">{t.name}</p>
             </div>
           </motion.button>
         ))}

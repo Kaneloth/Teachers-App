@@ -1,10 +1,43 @@
-import { useEffect, useRef, useState } from 'react';
+import { Component, useEffect, useRef, useState } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CVTemplateRenderer from '@/components/cv/CVTemplateRenderer';
 import { SAMPLE_DATA, PAGE_WIDTH_PX, TEMPLATES } from '@/components/cv/CVStepTemplate';
+
+// A plain blank box with no error message (the symptom reported against
+// this modal) is the single hardest failure mode to debug — it looks
+// identical whether the data is wrong, a template threw, or nothing
+// rendered at all. This boundary turns that into a visible, specific
+// message instead of silence, so a real rendering bug is diagnosable from
+// a screenshot alone rather than needing the browser console.
+class TemplateRenderBoundary extends Component<{ templateId: string; children: ReactNode }, { error: string | null }> {
+  state: { error: string | null } = { error: null };
+  static getDerivedStateFromError(err: unknown) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+  componentDidCatch(err: unknown, info: ErrorInfo) {
+    console.error(`[TemplatePreviewModal] "${this.props.templateId}" failed to render:`, err, info.componentStack);
+  }
+  componentDidUpdate(prev: { templateId: string }) {
+    if (prev.templateId !== this.props.templateId && this.state.error) this.setState({ error: null });
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex items-center justify-center h-full p-6 text-center">
+          <div>
+            <p className="text-sm font-semibold text-red-600 mb-1">Couldn't render this template</p>
+            <p className="text-xs text-[#6B7280]">{this.state.error}</p>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface TemplatePreviewModalProps {
   index: number;
@@ -121,12 +154,14 @@ export default function TemplatePreviewModal({ index, onClose, onNavigate }: Tem
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.15 }}
                   >
-                    <CVTemplateRenderer
-                      data={{ ...SAMPLE_DATA, template: template.id } as any}
-                      forExport={false}
-                      watermark={false}
-                      cvType="general"
-                    />
+                    <TemplateRenderBoundary templateId={template.id}>
+                      <CVTemplateRenderer
+                        data={{ ...SAMPLE_DATA, template: template.id } as any}
+                        forExport={false}
+                        watermark={false}
+                        cvType="general"
+                      />
+                    </TemplateRenderBoundary>
                   </motion.div>
                 </AnimatePresence>
               </div>

@@ -8,6 +8,7 @@ import PathCard from '@/components/landing/PathCard';
 import FeatureBullet from '@/components/landing/FeatureBullet';
 import PhoneMockup from '@/components/landing/PhoneMockup';
 import CVPreviewMockup from '@/components/landing/CVPreviewMockup';
+import ContactForm from '@/components/landing/ContactForm';
 
 /**
  * The homepage hub. Short and scannable (under 3 mobile scroll-lengths) —
@@ -169,6 +170,8 @@ export default function LandingPage() {
           </Link>
         </div>
       </section>
+
+      <ContactForm />
 
       <Footer />
     </div>

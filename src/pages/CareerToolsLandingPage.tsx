@@ -5,7 +5,7 @@ import { Sparkles, FileEdit, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/landing/Header';
 import Footer from '@/components/landing/Footer';
-import TestimonialCard from '@/components/landing/TestimonialCard';
+import TestimonialsSection from '@/components/landing/TestimonialsSection';
 import FeatureBullet from '@/components/landing/FeatureBullet';
 import ATSScoreMeter from '@/components/landing/ATSScoreMeter';
 import CVPreviewMockup from '@/components/landing/CVPreviewMockup';
@@ -163,17 +163,19 @@ export default function CareerToolsLandingPage() {
         </div>
       </section>
 
-      {/* ── Testimonials ─────────────────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-        <div className="text-center mb-10">
-          <h2 className="text-2xl sm:text-3xl font-bold text-[#1A1A2E]">Job Seekers Who Got Hired</h2>
-        </div>
-        <div className="grid sm:grid-cols-3 gap-4">
-          <TestimonialCard initials="LP" name="Lerato P." meta="Admin Assistant, Durban" quote="The ATS score caught three things I'd never have known to fix. Got a callback the same week." />
-          <TestimonialCard initials="JV" name="Johan V." meta="Sales Rep, Pretoria" quote="Picked a template, pasted in my job history, done in fifteen minutes. Looked better than anything I'd made myself." delay={0.08} />
-          <TestimonialCard initials="AK" name="Aisha K." meta="Graduate, Cape Town" quote="The cover letter generator alone saved me hours across a dozen applications." delay={0.16} />
-        </div>
-      </section>
+      {/* ── Testimonials — real, admin-approved reviews, same pool and
+          moderation flow as the old landing page (testimonials table) ── */}
+      <TestimonialsSection
+        eyebrow="What Users Say"
+        heading="Job Seekers Who Got Hired"
+        subheading="Real stories from people who found their next opportunity on Crosssa."
+        formSource="cv_download_prompt"
+        fallback={[
+          { name: 'Lerato P.', role_label: 'Admin Assistant, Durban', quote: "The ATS score caught three things I'd never have known to fix. Got a callback the same week." },
+          { name: 'Johan V.', role_label: 'Sales Rep, Pretoria', quote: "Picked a template, pasted in my job history, done in fifteen minutes. Looked better than anything I'd made myself." },
+          { name: 'Aisha K.', role_label: 'Graduate, Cape Town', quote: 'The cover letter generator alone saved me hours across a dozen applications.' },
+        ]}
+      />
 
       {/* ── CTA ───────────────────────────────────────────────────────── */}
       <section className="bg-[#0A2463] py-14 sm:py-16">

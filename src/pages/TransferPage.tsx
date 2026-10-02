@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import Header from '@/components/landing/Header';
 import Footer from '@/components/landing/Footer';
 import StepCard from '@/components/landing/StepCard';
-import TestimonialCard from '@/components/landing/TestimonialCard';
+import TestimonialsSection from '@/components/landing/TestimonialsSection';
 import FeatureBullet from '@/components/landing/FeatureBullet';
 import PhoneMockup from '@/components/landing/PhoneMockup';
 import MapRadiusVisual from '@/components/landing/MapRadiusVisual';
@@ -171,19 +171,20 @@ export default function TransferPage() {
         </div>
       </section>
 
-      {/* ── Testimonials ─────────────────────────────────────────────── */}
-      <section className="bg-[#F8F9FB] py-14 sm:py-20">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl sm:text-3xl font-bold text-[#1A1A2E]">Educators Who Found Their Match</h2>
-          </div>
-          <div className="grid sm:grid-cols-3 gap-4">
-            <TestimonialCard initials="NM" name="Nomvula M." meta="Gauteng" quote="Got my SMS alert within two weeks. The radius search found someone eight district lines away — I'd never have found her myself." />
-            <TestimonialCard initials="TK" name="Thabo K." meta="Western Cape" quote="No more scrolling Facebook groups at midnight. It just scans for you, every single day." delay={0.08} />
-            <TestimonialCard initials="SB" name="Sarah B." meta="KwaZulu-Natal" quote="The chat made the whole process easy — we sorted out our swap in under a week." delay={0.16} />
-          </div>
-        </div>
-      </section>
+      {/* ── Testimonials — real, admin-approved reviews, same pool and
+          moderation flow as the old landing page (testimonials table) ── */}
+      <TestimonialsSection
+        eyebrow="What Educators Say"
+        heading="Educators Who Found Their Match"
+        subheading="Real stories from educators who found their transfer on Crosssa."
+        formSource="match_prompt"
+        dark
+        fallback={[
+          { name: 'Nomvula M.', role_label: 'Gauteng', quote: "Got my SMS alert within two weeks. The radius search found someone eight district lines away — I'd never have found her myself." },
+          { name: 'Thabo K.', role_label: 'Western Cape', quote: 'No more scrolling Facebook groups at midnight. It just scans for you, every single day.' },
+          { name: 'Sarah B.', role_label: 'KwaZulu-Natal', quote: 'The chat made the whole process easy — we sorted out our swap in under a week.' },
+        ]}
+      />
 
       {/* ── CTA ───────────────────────────────────────────────────────── */}
       <section className="bg-[#0A2463] py-14 sm:py-16">
