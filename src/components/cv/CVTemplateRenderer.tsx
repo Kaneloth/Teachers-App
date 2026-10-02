@@ -214,6 +214,16 @@ function renderReferencesPage(
   borderColor?: string,
   padding = '28px 36px',
   hidden?: Set<string>,
+  // FIX: this page used to always pad itself out to a full A4 height
+  // (unlike every other page component, which already uses
+  // forExportMinHeight to skip that padding outside of real PDF export).
+  // With the tiny single-reference sample data used for the public preview
+  // (and any real CV with few references), that left a long blank rectangle
+  // below the actual reference cards. Defaulting to the "preview" wrapper
+  // shape means any call site that forgets to pass this explicitly still
+  // gets the correct (unpadded) behavior rather than silently reintroducing
+  // the bug.
+  wrapperStyle: React.CSSProperties = { width: '100%' },
 ): React.ReactNode {
   if (hidden?.has('references')) return null;
   const validRefs = (refs || []).filter(r => r.name);
@@ -223,7 +233,7 @@ function renderReferencesPage(
       className="cv-page"
       style={{
         width: '794px',
-        minHeight: `${A4_PAGE_H_PX}px`,
+        minHeight: forExportMinHeight(wrapperStyle),
         boxSizing: 'border-box',
         background: '#fff',
         position: 'relative',
