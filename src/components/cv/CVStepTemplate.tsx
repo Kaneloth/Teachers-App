@@ -8,11 +8,15 @@ import CVTemplateRenderer from './CVTemplateRenderer';
 // rectangle. The renderer itself is always laid out at 794px wide (A4 at
 // ~96dpi), so PAGE_WIDTH_PX is the reference we scale that 794px down to
 // fit whatever the box's actual rendered width turns out to be.
-const PAGE_WIDTH_PX = 794;
+export const PAGE_WIDTH_PX = 794;
 
 // ── Sample data used for all template previews ────────────────────────────────
 // Enough content to show the header, one experience entry, education, and skills
-const SAMPLE_DATA = {
+// Exported so the public /explore/career-tools template gallery (which has
+// no real CV data to render with — visitors haven't signed up yet) can
+// reuse the exact same sample CV and template list as this in-app picker,
+// instead of keeping a second copy that could drift out of sync.
+export const SAMPLE_DATA = {
   personal: {
     full_name:  'Name Surname',
     email:      'name.surname@example.com',
@@ -53,7 +57,7 @@ const SAMPLE_DATA = {
   custom_sections: [],
 };
 
-const TEMPLATES = [
+export const TEMPLATES = [
   { id: 'classic',      name: 'Classic',      description: 'Clean dark-header layout. Professional and easy to scan.' },
   { id: 'minimal',      name: 'Minimal',      description: 'Clean and simple. Lets your content speak for itself.' },
   { id: 'bold',         name: 'Bold',         description: 'Striking pink/magenta header. Eye-catching design.' },
@@ -78,7 +82,10 @@ const TEMPLATES = [
   { id: 'mosaic',       name: 'Mosaic',       description: 'Warm cream page with a rust display name, a narrow address/contact/education sidebar, and geometric triangle clusters tucked into two corners.' },
 ];
 
-const FREE_TEMPLATE = 'classic';
+// Exported so other call sites (e.g. CVBuilderPage.tsx's pre-sign-up
+// template handoff) can check the same lock rule instead of hardcoding
+// their own copy of which template is free, which could drift out of sync.
+export const FREE_TEMPLATE = 'classic';
 
 interface Props { selected: string; onChange: (id: string) => void; isFree?: boolean; isEducator?: boolean }
 

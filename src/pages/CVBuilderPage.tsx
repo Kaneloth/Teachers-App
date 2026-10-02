@@ -17,7 +17,7 @@ import CVStepReferences from '@/components/cv/CVStepReferences';
 import type { RefEntry } from '@/components/cv/CVStepReferences';
 import CVStepExtras from '@/components/cv/CVStepExtras';
 import type { CustomSection } from '@/components/cv/CVStepExtras';
-import CVStepTemplate from '@/components/cv/CVStepTemplate';
+import CVStepTemplate, { FREE_TEMPLATE } from '@/components/cv/CVStepTemplate';
 import CVStepReview from '@/components/cv/CVStepReview';
 import LastCVBanner from '@/components/cv/LastCVBanner';
 import CVPreviewDrawer from '@/components/cv/CVPreviewDrawer';
@@ -396,7 +396,18 @@ export default function CVBuilderPage() {
         return d?.data ? d : null;
       } catch { return null; }
     })();
-    return { lastMeta, draft, showBuilder: draft ? true : !lastMeta.last_cv_data };
+    // A template chosen on the public /explore/career-tools gallery's
+    // "Use this template" button, before the person had an account, is
+    // handed off here via localStorage (TemplatePreviewModal.tsx sets it
+    // right before redirecting to /register). It only pre-selects a
+    // brand-new CV — an in-progress draft's own template choice always
+    // wins — and is read once so it never leaks into a later, unrelated CV.
+    let presetTemplate: string | null = null;
+    try {
+      presetTemplate = localStorage.getItem('crosssa_selected_template');
+      if (presetTemplate) localStorage.removeItem('crosssa_selected_template');
+    } catch {}
+    return { lastMeta, draft, presetTemplate, showBuilder: draft ? true : !lastMeta.last_cv_data };
   });
   const [freshMeta, setFreshMeta] = useState(initialState.lastMeta);
   const lastCVData                = freshMeta.last_cv_data;
@@ -406,15 +417,21 @@ export default function CVBuilderPage() {
   const [hasPurchased,      setHasPurchased]      = useState(false);
   const [templatesUnlocked, setTemplatesUnlocked] = useState(false);
   const [isEducator,         setIsEducator]         = useState(false);
+  // True once hasPurchased/templatesUnlocked have come back from Supabase, so
+  // isFree below reflects the account's real gating state rather than the
+  // useState defaults it starts with. The preset-template effect further down
+  // waits on this before deciding whether a pre-sign-up template choice is
+  // actually allowed, instead of trusting isFree while it's still mid-flight.
+  const [gatingResolved, setGatingResolved] = useState(false);
   useEffect(() => {
     if (!user) return;
-    supabase
+    const purchased = supabase
       .from('credit_ledger')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .in('type', ['purchase', 'monthly_pro'])
       .then(({ count }) => setHasPurchased((count ?? 0) > 0));
-    supabase
+    const educatorRow = supabase
       .from('educators')
       .select('templates_unlocked, profile_type')
       .eq('user_id', user.id)
@@ -433,10 +450,32 @@ export default function CVBuilderPage() {
         // wrong section labels and job-title fallbacks for real educators.
         setData(prev => (prev.cvType === (educator ? 'educator' : 'general') ? prev : { ...prev, cvType: educator ? 'educator' : 'general' }));
       });
+    Promise.all([purchased, educatorRow]).then(() => setGatingResolved(true));
   }, [user]);
   // templates_access gate: when OFF (false), all templates are free for everyone
   const templatesGateActive = !gatesLoading && gates.templates_access !== false;
   const isFree = templatesGateActive && !hasPurchased && !isAdmin && !templatesUnlocked;
+  // Applies a template chosen pre-sign-up on the public gallery (see
+  // initialState.presetTemplate above) — but only once we actually know
+  // whether this account is gated, and only if the chosen template is one
+  // this account is allowed to have. Doing this here (after gatingResolved)
+  // rather than in the synchronous data useState is what makes the lock
+  // real: an unpaid new account requesting a locked template is quietly
+  // left on the free default instead of getting the paid template for free.
+  const presetAppliedRef = useRef(false);
+  useEffect(() => {
+    if (presetAppliedRef.current) return;
+    if (!initialState.presetTemplate) return;
+    if (initialState.draft) return; // an in-progress draft's own template always wins
+    if (!gatingResolved) return;
+    presetAppliedRef.current = true;
+    const requested = initialState.presetTemplate;
+    if (requested === FREE_TEMPLATE || !isFree) {
+      setData(prev => (prev.template === requested ? prev : { ...prev, template: requested }));
+    } else {
+      toast.info('That template needs a top-up — your CV is starting on the free template instead.', { duration: 4000 });
+    }
+  }, [gatingResolved, isFree]);
   const [showBuilder,      setShowBuilder]      = useState(initialState.showBuilder);
   const [step,             setStep]             = useState(initialState.draft?.step ?? 0);
   // Lives here (not in CVStepReview.tsx) because handleCVGenerated below
@@ -448,7 +487,16 @@ export default function CVBuilderPage() {
   // switches to the LastCVBanner view below), so the prompt belongs here.
   const [showTestimonialPrompt, setShowTestimonialPrompt] = useState(false);
   const [drawerHandleHeight, setDrawerHandleHeight] = useState(0);
-  const [data,             setData]             = useState<CVData>(initialState.draft?.data ?? defaultData());
+  // presetTemplate is NOT applied here. Which templates are locked depends on
+  // isFree, which itself depends on hasPurchased/templatesUnlocked/isAdmin —
+  // none of which are known yet at this synchronous initial-state point (they
+  // resolve later via the Supabase effect below). Applying the preset here
+  // unconditionally would hand a brand-new, unpaid account any of the 22
+  // templates just by picking it on the public gallery before signing up,
+  // with nothing downstream re-checking it. See the effect below instead.
+  const [data,             setData]             = useState<CVData>(
+    initialState.draft?.data ?? defaultData()
+  );
   const [draftSavedAt,     setDraftSavedAt]     = useState<string | null>(initialState.draft?.savedAt ?? null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [aiCreditsSpent,   setAiCreditsSpent]   = useState(0);

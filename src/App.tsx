@@ -12,6 +12,8 @@ import AuthLayout from '@/components/AuthLayout';
 // No PublicLayout needed – About is now a landing section
 
 import LandingPage from '@/pages/LandingPage';
+import TransferPage from '@/pages/TransferPage';
+import CareerToolsLandingPage from '@/pages/CareerToolsLandingPage';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
@@ -124,8 +126,15 @@ export default function App() {
           <BrowserRouter basename={base}>
             <ScrollToTop />
             <Routes>
-              {/* Public landing (includes About section) */}
-              <Route path="/" element={<LandingPage />} />
+              {/* Public landing hub + the two public path showcases. These
+                  live at /explore/* rather than /transfer and /career-tools
+                  because /career-tools is already the authenticated in-app
+                  tool switcher (see the "Main app" routes + AppLayout.tsx's
+                  bottom nav below) — reusing that path here would collide
+                  with it. */}
+              <Route path="/"                        element={<LandingPage />} />
+              <Route path="/explore/transfer"         element={<TransferPage />} />
+              <Route path="/explore/career-tools"     element={<CareerToolsLandingPage />} />
 
               {/* Auth routes (landing‑style, no header) */}
               <Route element={<AuthLayout />}>
