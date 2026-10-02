@@ -535,6 +535,7 @@ shaded:'#374151', crimson:'#c0392b', sage:'#7fa37f',
     frame:'#1e293b',
     ledger:'#18181b',
     dossier:'#1f2937',
+    noir:'#111111',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -724,6 +725,7 @@ export async function exportElementAsPDF(
     frame:        ()=>drawFrame(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     ledger:       ()=>drawLedger(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     dossier:      ()=>drawDossier(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    noir:         ()=>drawNoir(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -3927,6 +3929,191 @@ function drawDossier(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   }
 
   // ── Land references after whichever column ran furthest ──────────────────
+  gotoPage(Math.max(lPage, rPage, pagesSoFar));
+  refsPage(p, refs, INK, 'tag-underline', () => { p.addPage(); reset(p); return MT; }, BOTTOM, owner, wm, undefined, false);
+}
+
+// ── Noir Template ───────────────────────────────────────────────────────
+// Editorial, monochrome two-column layout: a circular photo and a narrow
+// left column (Contact / Languages / About Me) beside a thin vertical
+// rule, with a wide right column led by a large serif display name, a
+// small solid accent bar, and bold-serif section headings over plain
+// sans-serif paragraphs (work/education entries read as prose, not
+// bullets — Noir's main point of difference from every other template).
+// Distinct from Dossier (no shaded header, no centered summary, serif is
+// reserved for headings/name only — body copy stays sans-serif, and the
+// left column leads with a photo instead of Education).
+function drawNoir(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
+  const INK   = hex('#111111');
+  const MUTED = hex('#6b7280');
+  const BODY  = hex('#4b5563');
+  const RULE  = hex('#d1d5db');
+
+  const LEFT_W = 56, GAP = 10;
+  const CX = ML + LEFT_W + GAP / 2;
+  const RX = ML + LEFT_W + GAP;
+  const RW = PW - MR - RX;
+
+  const bodyTop = MT + 4;
+  let pagesSoFar = 1;
+  const gotoPage = (idx: number): number => {
+    if (idx > pagesSoFar) {
+      p.addPage(); pagesSoFar = idx; reset(p);
+      dc(p, RULE[0], RULE[1], RULE[2]); p.setLineWidth(0.3);
+      p.line(CX, bodyTop, CX, BOTTOM);
+      reset(p);
+      return bodyTop;
+    }
+    p.setPage(idx); reset(p);
+    return bodyTop;
+  };
+  dc(p, RULE[0], RULE[1], RULE[2]); p.setLineWidth(0.3);
+  p.line(CX, bodyTop, CX, BOTTOM);
+  reset(p);
+
+  let lPage = 1; const npL = () => gotoPage(++lPage);
+  let rPage = 1; const npR = () => gotoPage(++rPage);
+  const GXWL = (): [number, number] => [ML, LEFT_W];
+  const GXWR = (): [number, number] => [RX, RW];
+
+  const colHeading = (x: number, yy: number, maxW: number, title: string): number => {
+    p.setFont('times', 'bold'); p.setFontSize(12); tc(p, INK[0], INK[1], INK[2]);
+    p.text(title, x, yy);
+    return yy + 7;
+  };
+
+  // ── Left column: photo, Contact, Languages, About Me ─────────────────────
+  let ly = bodyTop;
+  if (photoUrl) {
+    const D = 34;
+    fill(p, 255, 255, 255); p.circle(ML + D / 2, ly + D / 2, D / 2 + 1, 'F');
+    p.addImage(photoUrl, 'PNG', ML, ly, D, D);
+    reset(p);
+    ly += D + 8;
+  }
+  const contactItems: [string, string][] = [
+    [ICON.phone, pr.phone], [ICON.envelope, pr.email], [ICON.mapMarker, pr.address],
+  ].filter(([, v]) => !!v) as any;
+  if (contactItems.length) {
+    ly = colHeading(ML, ly, LEFT_W, 'Contact');
+    for (const [glyph, val] of contactItems) {
+      if (ly + 8 > BOTTOM) ly = npL();
+      drawIconInCircle(p, glyph, ML + 3.2, ly - 1, 3.2, INK, [255, 255, 255], 6.5);
+      p.setFont(F, 'bold'); p.setFontSize(9); tc(p, BODY[0], BODY[1], BODY[2]);
+      ly = wrapped(p, val, ML + 9, ly, LEFT_W - 9, BOTTOM, npL, (): [number, number] => [ML + 9, LEFT_W - 9]);
+      ly += 3;
+    }
+    ly += 3;
+  }
+  if (sk.languages?.length) {
+    ly = colHeading(ML, ly, LEFT_W, 'Languages');
+    for (const lang of sk.languages) {
+      if (ly + 5 > BOTTOM) ly = npL();
+      p.setFont(F, 'bold'); p.setFontSize(9); tc(p, INK[0], INK[1], INK[2]);
+      p.text(lang, ML, ly);
+      ly += 5.5;
+    }
+    ly += 3;
+  }
+  if ((pr.bio || '').trim()) {
+    ly = colHeading(ML, ly, LEFT_W, 'About Me');
+    p.setFont(F, 'normal'); p.setFontSize(8.5); tc(p, BODY[0], BODY[1], BODY[2]);
+    ly = wrapped(p, pr.bio.trim(), ML, ly, LEFT_W, BOTTOM, npL, GXWL, 4.2);
+  }
+
+  // ── Right column: name/title header, Work experience, Education, Skills ──
+  let ry = bodyTop;
+  p.setFont('times', 'bold'); p.setFontSize(25); tc(p, INK[0], INK[1], INK[2]);
+  ry = wrapped(p, owner, RX, ry, RW, BOTTOM, npR, GXWR, 9);
+  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  if (jobTitle) {
+    p.setFont(F, 'normal'); p.setFontSize(12); tc(p, MUTED[0], MUTED[1], MUTED[2]);
+    p.text(jobTitle, RX, ry);
+    ry += 8;
+  }
+  fill(p, INK[0], INK[1], INK[2]); p.rect(RX, ry - 3, 16, 3, 'F'); reset(p);
+  ry += 9;
+
+  if (exp.length) {
+    ry = colHeading(RX, ry, RW, 'Work experience');
+    for (const e of exp) {
+      if (ry + 14 > BOTTOM) ry = npR();
+      const ds = [[e.from, e.to].filter(Boolean).join(' - '), e.school].filter(Boolean).join(' | ');
+      if (ds) { p.setFont(F, 'bold'); p.setFontSize(9); tc(p, MUTED[0], MUTED[1], MUTED[2]); ry = wrapped(p, ds.toUpperCase(), RX, ry, RW, BOTTOM, npR, GXWR); }
+      p.setFont(F, 'bold'); p.setFontSize(10.5); tc(p, INK[0], INK[1], INK[2]);
+      ry = wrapped(p, e.role || '', RX, ry, RW, BOTTOM, npR, GXWR);
+      if (e.description) {
+        p.setFont(F, 'normal'); p.setFontSize(9); tc(p, BODY[0], BODY[1], BODY[2]);
+        const para = (e.description as string).split('\n').map((s: string) => s.trim()).filter(Boolean).join(' ');
+        ry = wrapped(p, para, RX, ry, RW, BOTTOM, npR, GXWR, 4.3);
+      }
+      ry += ITEM_GAP + 3;
+    }
+    ry += 2;
+  }
+
+  if (edu.length) {
+    ry = colHeading(RX, ry, RW, 'Education');
+    for (const e of edu) {
+      if (ry + 10 > BOTTOM) ry = npR();
+      const ds = [e.year, e.institution].filter(Boolean).join(' | ');
+      if (ds) { p.setFont(F, 'bold'); p.setFontSize(9); tc(p, MUTED[0], MUTED[1], MUTED[2]); ry = wrapped(p, ds.toUpperCase(), RX, ry, RW, BOTTOM, npR, GXWR); }
+      p.setFont(F, 'bold'); p.setFontSize(10.5); tc(p, INK[0], INK[1], INK[2]);
+      ry = wrapped(p, e.qualification || '', RX, ry, RW, BOTTOM, npR, GXWR);
+      ry += ITEM_GAP + 3;
+    }
+    ry += 2;
+  }
+
+  const skillPara = (items: string[]): string => items.join(', ') + (items.length ? '.' : '');
+  if (sk.soft_skills?.length) {
+    ry = colHeading(RX, ry, RW, 'Soft skills');
+    p.setFont(F, 'normal'); p.setFontSize(9); tc(p, BODY[0], BODY[1], BODY[2]);
+    ry = wrapped(p, skillPara(sk.soft_skills), RX, ry, RW, BOTTOM, npR, GXWR, 4.3);
+    ry += 5;
+  }
+  if (sk.subjects?.length) {
+    ry = colHeading(RX, ry, RW, 'Hard skills');
+    p.setFont(F, 'normal'); p.setFontSize(9); tc(p, BODY[0], BODY[1], BODY[2]);
+    ry = wrapped(p, skillPara(sk.subjects), RX, ry, RW, BOTTOM, npR, GXWR, 4.3);
+    ry += 5;
+  }
+
+  const validCustoms = (customs || []).filter((s: any) => {
+    if (!s.title) return false;
+    return (s.type === 'text' && !!(s.content && s.content.trim()))
+      || (s.type === 'bullets' && !!(s.content && (s.content as string).split('\n').map((l: string) => l.trim()).filter(Boolean).length))
+      || (s.type === 'table' && !!(s.columns?.length && s.rows?.length));
+  });
+  for (const sec of validCustoms) {
+    if (ry + 14 > BOTTOM) ry = npR();
+    ry = colHeading(RX, ry, RW, sec.title);
+    if (sec.type === 'text') {
+      p.setFont(F, 'normal'); p.setFontSize(9); tc(p, BODY[0], BODY[1], BODY[2]);
+      ry = wrapped(p, sec.content, RX, ry, RW, BOTTOM, npR, GXWR, 4.3);
+    } else if (sec.type === 'bullets') {
+      p.setFont(F, 'normal'); p.setFontSize(9);
+      for (const l of (sec.content as string).split('\n').map((s: string) => s.trim()).filter(Boolean))
+        ry = bulletLine(p, l, RX, ry, RW, INK, BOTTOM, npR, GXWR);
+    } else if (sec.type === 'table' && sec.columns?.length && sec.rows?.length) {
+      const cw = RW / sec.columns.length;
+      fill(p, INK[0], INK[1], INK[2]); tc(p, 255, 255, 255);
+      p.rect(RX, ry - 4, RW, 6, 'F');
+      p.setFont(F, 'bold'); p.setFontSize(8);
+      sec.columns.forEach((col: string, ci: number) => p.text(col, RX + ci * cw + 1, ry));
+      ry += 6; p.setFont(F, 'normal'); p.setFontSize(8.5);
+      for (let ri = 0; ri < sec.rows.length; ri++) {
+        if (ry + 6 > BOTTOM) ry = npR();
+        if (ri % 2 === 0) { fill(p, 249, 250, 251); p.rect(RX, ry - 4, RW, 6, 'F'); }
+        tc(p, 55, 65, 81);
+        sec.rows[ri].forEach((cell: string, ci: number) => p.text(String(cell || ''), RX + ci * cw + 1, ry));
+        ry += 6;
+      }
+      reset(p);
+    }
+    ry += 4;
+  }
+
   gotoPage(Math.max(lPage, rPage, pagesSoFar));
   refsPage(p, refs, INK, 'tag-underline', () => { p.addPage(); reset(p); return MT; }, BOTTOM, owner, wm, undefined, false);
 }

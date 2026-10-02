@@ -85,6 +85,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'frame': "Arial, Helvetica, sans-serif",
     'ledger': "Arial, Helvetica, sans-serif",
     'dossier': "Georgia, 'Times New Roman', serif",
+    'noir': "Arial, Helvetica, sans-serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -123,6 +124,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'frame'        ? <FrameTemplate        {...T} /> :
     template === 'ledger'       ? <LedgerTemplate       {...T} /> :
     template === 'dossier'      ? <DossierTemplate      {...T} /> :
+    template === 'noir'         ? <NoirTemplate         {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -3747,6 +3749,172 @@ function DossierTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hi
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
       {renderReferencesPage(data.references, DOSSIER_INK, watermark, DOSSIER_RULE, '28px 40px', hidden)}
+    </div>
+  );
+}
+
+/* ── Noir Template ──────────────────────────────────────────────────────── */
+// Editorial monochrome layout: a circular photo atop a narrow left column
+// (Contact / Languages / About Me) beside a thin vertical rule, and a wide
+// right column led by a large serif display name and a small solid accent
+// bar, with bold-serif section headings over plain sans-serif paragraphs —
+// work and education entries read as prose, not bullet lists, which is
+// Noir's main point of difference from every other template.
+const NOIR_INK   = '#111111';
+const NOIR_MUTED = '#6b7280';
+const NOIR_BODY  = '#4b5563';
+const NOIR_RULE  = '#d1d5db';
+
+function NoirHeading({ children }: { children: React.ReactNode }) {
+  return <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: '15px', fontWeight: 700, color: NOIR_INK, marginBottom: '8px' }}>{children}</div>;
+}
+
+function NoirTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hidden }: any) {
+  const { personal, skills } = data;
+  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const otherCustoms = (data.custom_sections || []).filter((s: any) => s.title && !hidden?.has(`custom:${s.title}`));
+
+  return (
+    <div style={{ ...wrapperStyle, fontFamily: "Arial, Helvetica, sans-serif" }}>
+      <div
+        className="cv-content-page"
+        style={{
+          width: '794px',
+          minHeight: forExportMinHeight(wrapperStyle),
+          boxSizing: 'border-box',
+          position: 'relative',
+          background: '#fff',
+          padding: '40px 44px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'stretch' }}>
+          <div style={{ width: '210px', minWidth: '210px', paddingRight: '28px', borderRight: `1px solid ${NOIR_RULE}` }}>
+            {personal.photo_url && (
+              <img src={personal.photo_url} alt="" style={{ width: '128px', height: '128px', borderRadius: '50%', objectFit: 'cover', filter: 'grayscale(100%)', marginBottom: '20px' }} />
+            )}
+
+            {(personal.phone || personal.email || personal.address) && (
+              <div style={{ marginBottom: '24px' }}>
+                <NoirHeading>Contact</NoirHeading>
+                {[[ICONS.phone, personal.phone], [ICONS.mail, personal.email], [ICONS.mapPin, personal.address]].filter(([, v]) => !!v).map(([icon, v]: any, i: number) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                    <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: NOIR_INK, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', flexShrink: 0 }}>{icon}</span>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: NOIR_BODY, wordBreak: 'break-word' }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {skills?.languages?.length > 0 && (
+              <div style={{ marginBottom: '24px' }}>
+                <NoirHeading>Languages</NoirHeading>
+                {skills.languages.map((l: string, i: number) => (
+                  <div key={i} style={{ fontSize: '11px', fontWeight: 700, color: NOIR_INK, marginBottom: '6px' }}>{l}</div>
+                ))}
+              </div>
+            )}
+
+            {personal.bio && (
+              <div>
+                <NoirHeading>About Me</NoirHeading>
+                <p style={{ fontSize: '10.5px', color: NOIR_BODY, lineHeight: '1.6', margin: 0 }}>{personal.bio}</p>
+              </div>
+            )}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0, paddingLeft: '28px' }}>
+            <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: '26px', fontWeight: 700, color: NOIR_INK, wordBreak: 'break-word' }}>{personal.full_name || 'Your Name'}</div>
+            {jobTitle && <div style={{ fontSize: '13px', color: NOIR_MUTED, marginTop: '4px' }}>{jobTitle}</div>}
+            <div style={{ width: '34px', height: '6px', background: NOIR_INK, margin: '14px 0 20px' }} />
+
+            {validExp.length > 0 && (
+              <div style={{ marginBottom: '22px' }}>
+                <NoirHeading>Work experience</NoirHeading>
+                {validExp.map((e: any, i: number) => {
+                  const ds = [[e.from, e.to].filter(Boolean).join(' - '), e.school].filter(Boolean).join(' | ');
+                  const para = (e.description || '').split('\n').map((s: string) => s.trim()).filter(Boolean).join(' ');
+                  return (
+                    <div key={i} style={{ marginBottom: i < validExp.length - 1 ? '16px' : 0 }}>
+                      {ds && <div style={{ fontSize: '10.5px', fontWeight: 700, color: NOIR_MUTED, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{ds}</div>}
+                      <div style={{ fontSize: '12.5px', fontWeight: 700, color: NOIR_INK, marginTop: '2px', wordBreak: 'break-word' }}>{e.role}</div>
+                      {para && <p style={{ fontSize: '11px', color: NOIR_BODY, lineHeight: '1.6', margin: '4px 0 0' }}>{para}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {validEdu.length > 0 && (
+              <div style={{ marginBottom: '22px' }}>
+                <NoirHeading>Education</NoirHeading>
+                {validEdu.map((e: any, i: number) => {
+                  const ds = [e.year, e.institution].filter(Boolean).join(' | ');
+                  return (
+                    <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '12px' : 0 }}>
+                      {ds && <div style={{ fontSize: '10.5px', fontWeight: 700, color: NOIR_MUTED, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{ds}</div>}
+                      <div style={{ fontSize: '12.5px', fontWeight: 700, color: NOIR_INK, marginTop: '2px', wordBreak: 'break-word' }}>{e.qualification}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {skills?.soft_skills?.length > 0 && (
+              <div style={{ marginBottom: '18px' }}>
+                <NoirHeading>Soft skills</NoirHeading>
+                <p style={{ fontSize: '11px', color: NOIR_BODY, lineHeight: '1.6', margin: 0 }}>{skills.soft_skills.join(', ')}.</p>
+              </div>
+            )}
+            {skills?.subjects?.length > 0 && (
+              <div style={{ marginBottom: '18px' }}>
+                <NoirHeading>Hard skills</NoirHeading>
+                <p style={{ fontSize: '11px', color: NOIR_BODY, lineHeight: '1.6', margin: 0 }}>{skills.subjects.join(', ')}.</p>
+              </div>
+            )}
+
+            {otherCustoms.map((s: any, idx: number) => {
+              let content: React.ReactNode = null;
+              if (s.type === 'text') {
+                content = (s.content && s.content.trim()) ? <p style={{ color: NOIR_BODY, margin: 0, fontSize: '11px', lineHeight: '1.6' }}>{s.content}</p> : null;
+              } else if (s.type === 'bullets') {
+                const lines = (s.content || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
+                content = lines.length ? (
+                  <div>
+                    {lines.map((line: string, i: number) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '2px' }}>
+                        <span style={{ color: NOIR_INK, marginTop: '2px', flexShrink: 0, fontSize: '11px' }}>•</span>
+                        <span style={{ fontSize: '11px', lineHeight: '1.5', color: NOIR_BODY }}>{line}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null;
+              } else if (s.type === 'table') {
+                const cols = s.columns || []; const rows = s.rows || [];
+                if (cols.length && rows.length) {
+                  content = (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                      <thead>
+                        <tr>{cols.map((col: string, ci: number) => <th key={ci} style={{ background: NOIR_INK, color: '#fff', padding: '6px 10px', textAlign: 'left', fontWeight: 700, fontSize: '10px' }}>{col}</th>)}</tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((row: string[], ri: number) => (
+                          <tr key={ri} style={{ background: ri % 2 === 0 ? '#f9fafb' : '#fff' }}>
+                            {row.map((cell: string, ci: number) => <td key={ci} style={{ padding: '6px 10px', color: NOIR_BODY, borderBottom: '1px solid #e5e7eb', fontSize: '11px' }}>{cell}</td>)}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  );
+                }
+              }
+              return content ? <div key={idx} style={{ marginBottom: '18px' }}><NoirHeading>{s.title}</NoirHeading>{content}</div> : null;
+            })}
+          </div>
+        </div>
+
+        {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
+      </div>
+      {renderReferencesPage(data.references, NOIR_INK, watermark, NOIR_RULE, '28px 40px', hidden)}
     </div>
   );
 }
