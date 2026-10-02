@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Radar, MessageSquare, MessageCircle, Download, FileText, GraduationCap, ShieldCheck, Briefcase } from 'lucide-react';
+import { User, Radar, MessageSquare, MessageCircle, UserCheck, Mail, FileText, School, ClipboardList, Send, Phone, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/landing/Header';
 import Footer from '@/components/landing/Footer';
@@ -11,11 +11,27 @@ import FeatureBullet from '@/components/landing/FeatureBullet';
 import PhoneMockup from '@/components/landing/PhoneMockup';
 import MapRadiusVisual from '@/components/landing/MapRadiusVisual';
 
-const GUIDES = [
-  { icon: FileText,     title: 'The Complete Guide to Cross Transfers in SA',    text: 'What a cross transfer is, who qualifies, and how the process actually works.' },
-  { icon: GraduationCap,title: 'How to Prepare Your Transfer Application',        text: 'The documents, approvals and timing that make an application go smoothly.' },
-  { icon: Briefcase,    title: 'Understanding Post Levels and Phase Matching',    text: 'Why phase and post level matter for finding a genuinely workable swap.' },
-  { icon: ShieldCheck,  title: 'SACE Verification: What You Need to Know',        text: 'Keeping your registration in order before you start looking.' },
+// Mirrors the real, in-app Provincial DoE Cross-Transfer guide (Guides tab)
+// step for step — this teaser must stay in sync with that page, not read
+// as a separate, generic "transfer tips" blog.
+const TRANSFER_STEPS = [
+  { icon: UserCheck,     title: 'Confirm your match',                                    text: 'Verify in the Matches tab that both you and the other educator have confirmed the mutual transfer.' },
+  { icon: Mail,          title: 'Write a request letter to your principal & SGB',         text: 'Formally request approval to apply for the transfer.' },
+  { icon: FileText,      title: 'Obtain a release letter from your current school',       text: "Confirming your current school is willing to let you go." },
+  { icon: School,        title: 'Obtain an acceptance letter from the receiving school',  text: "Confirming they're willing to take you on." },
+  { icon: ClipboardList, title: 'Complete the official Annexure A form',                  text: 'The official Provincial DoE reference form for cross transfers.' },
+  { icon: Send,          title: 'Submit all documents',                                   text: 'To both principals and your education district office.' },
+  { icon: Phone,         title: 'Follow up with district and HR',                         text: 'Keep checking in until the transfer is formally approved.' },
+];
+
+// Same 4 templates as the in-app guide. No download links here — the real
+// files are pre-filled with the signed-in educator's own details and only
+// unlock once they're inside the app.
+const TRANSFER_TEMPLATES = [
+  { icon: Mail,          name: 'Request Letter',    desc: 'To your principal & SGB' },
+  { icon: FileText,      name: 'Release Letter',    desc: 'From your current school' },
+  { icon: School,        name: 'Acceptance Letter', desc: 'From the receiving school' },
+  { icon: ClipboardList, name: 'Annexure A',        desc: 'Official Provincial DoE reference form' },
 ];
 
 export default function TransferPage() {
@@ -140,34 +156,68 @@ export default function TransferPage() {
         </div>
       </section>
 
-      {/* ── Transfer Guides & Resources ──────────────────────────────── */}
+      {/* ── Transfer Guides & Resources — the real, in-app Provincial DoE
+          cross-transfer guide (7 steps, 4 templates), not a generic blog
+          list. Templates show name + source only, no download affordance:
+          the real files are pre-filled per-educator and only unlock once
+          signed in, which this teaser shouldn't imply it can hand over. ── */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-        <div className="text-center mb-10">
+        <div className="text-center mb-4">
           <h2 className="text-2xl sm:text-3xl font-bold text-[#1A1A2E] mb-2">Transfer Guides & Resources</h2>
-          <p className="text-sm text-[#6B7280]">Everything you need to know before you apply.</p>
+          <p className="text-sm text-[#6B7280] max-w-xl mx-auto">
+            The exact Provincial DoE cross-transfer process, with 4 ready-to-use templates pre-filled with your own details once you sign up.
+          </p>
         </div>
-        <div className="grid sm:grid-cols-2 gap-4">
-          {GUIDES.map(({ icon: Icon, title, text }, i) => (
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-10">
+          {['7 Steps', '4 Templates', 'Provincial DoE', 'Cross-Transfer'].map(label => (
+            <span key={label} className="text-xs font-semibold px-3 py-1 rounded-full bg-[#0066FF]/10 text-[#0066FF]">{label}</span>
+          ))}
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-4 mb-10">
+          {TRANSFER_STEPS.map(({ icon: Icon, title, text }, i) => (
             <motion.div
               key={title}
               initial={{ opacity: 0, y: 14 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-40px' }}
-              transition={{ delay: i * 0.06 }}
+              transition={{ delay: i * 0.05 }}
               className="bg-white rounded-2xl border border-[#E5E7EB] p-5 flex gap-4"
             >
-              <div className="w-10 h-10 rounded-xl bg-[#0066FF]/10 flex items-center justify-center shrink-0">
-                <Icon className="w-5 h-5 text-[#0066FF]" strokeWidth={1.75} />
+              <div className="w-8 h-8 rounded-full bg-[#0066FF]/10 flex items-center justify-center shrink-0 text-xs font-bold text-[#0066FF]">
+                {i + 1}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm text-[#1A1A2E] mb-1">{title}</p>
-                <p className="text-xs text-[#6B7280] leading-relaxed mb-2">{text}</p>
-                <button className="text-xs font-semibold text-[#0066FF] inline-flex items-center gap-1">
-                  <Download className="w-3 h-3" /> Download
-                </button>
+                <div className="flex items-center gap-2 mb-1">
+                  <Icon className="w-4 h-4 text-[#0066FF] shrink-0" strokeWidth={1.75} />
+                  <p className="font-semibold text-sm text-[#1A1A2E]">{title}</p>
+                </div>
+                <p className="text-xs text-[#6B7280] leading-relaxed">{text}</p>
               </div>
             </motion.div>
           ))}
+        </div>
+
+        <div className="bg-[#F8F9FB] rounded-2xl border border-[#E5E7EB] p-6 sm:p-8">
+          <p className="text-sm font-semibold text-[#1A1A2E] mb-4">4 templates included</p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {TRANSFER_TEMPLATES.map(({ icon: Icon, name, desc }) => (
+              <div key={name} className="bg-white rounded-xl border border-[#E5E7EB] p-4 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#0066FF]/10 flex items-center justify-center shrink-0">
+                  <Icon className="w-4 h-4 text-[#0066FF]" strokeWidth={1.75} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-[#1A1A2E]">{name}</p>
+                  <p className="text-xs text-[#6B7280]">{desc}</p>
+                </div>
+                <Lock className="w-3.5 h-3.5 text-[#9CA3AF] shrink-0" />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-[#6B7280] text-center mt-5">
+            Templates are pre-filled with your own details and unlock once you sign up.{' '}
+            <Link to="/register" className="font-semibold text-[#0066FF] hover:underline">Sign up free →</Link>
+          </p>
         </div>
       </section>
 
