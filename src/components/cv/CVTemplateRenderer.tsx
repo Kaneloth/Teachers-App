@@ -82,6 +82,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'panel':    "Arial, Helvetica, sans-serif",
     'terracotta': "Arial, Helvetica, sans-serif",
     'monogram': "Arial, Helvetica, sans-serif",
+    'frame': "Arial, Helvetica, sans-serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -117,6 +118,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'panel'        ? <PanelTemplate        {...T} /> :
     template === 'terracotta'   ? <TerracottaTemplate   {...T} /> :
     template === 'monogram'     ? <MonogramTemplate     {...T} /> :
+    template === 'frame'        ? <FrameTemplate        {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -3034,9 +3036,9 @@ function TerracottaTemplate({ data, wrapperStyle, validEdu, validExp, watermark,
             </div>
             {(personal.address || personal.phone || personal.email) && (
               <div style={{ background: '#f3f4f6', borderBottom: `4px solid ${accent}`, padding: '14px 18px', minWidth: '220px', flexShrink: 0 }}>
-                {personal.address && <div style={{ display: 'flex', gap: '6px', fontSize: '11px', color: '#374151', marginBottom: '5px' }}><span>•</span>{personal.address}</div>}
-                {personal.phone   && <div style={{ display: 'flex', gap: '6px', fontSize: '11px', color: '#374151', marginBottom: '5px' }}><span>•</span>{personal.phone}</div>}
-                {personal.email   && <div style={{ display: 'flex', gap: '6px', fontSize: '11px', color: '#374151', wordBreak: 'break-word' }}><span>•</span>{personal.email}</div>}
+                {personal.address && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#374151', marginBottom: '5px' }}>{ICONS.mapPin}{personal.address}</div>}
+                {personal.phone   && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#374151', marginBottom: '5px' }}>{ICONS.phone}{personal.phone}</div>}
+                {personal.email   && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#374151', wordBreak: 'break-word' }}>{ICONS.mail}{personal.email}</div>}
               </div>
             )}
           </div>
@@ -3239,6 +3241,131 @@ function MonogramTemplate({ data, wrapperStyle, validEdu, validExp, watermark, s
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
       {renderReferencesPage(data.references, MONOGRAM_INK, watermark, '#d1d5db', '28px 40px', hidden)}
+    </div>
+  );
+}
+
+/* ── Frame Template ─────────────────────────────────────────────────────── */
+// A thin inset border frames every page, with a bold centered uppercase
+// name, a tri-icon contact row spread evenly across the width, and a
+// single-column body. Education and Experience use a two-column
+// date-on-the-left / content-on-the-right row, and Skills render as a flat
+// 4-column bulleted grid. Monochrome slate palette.
+const FRAME_INK    = '#1e293b';
+const FRAME_MUTED  = '#64748b';
+const FRAME_BODY   = '#374151';
+const FRAME_BORDER = '#cbd5e1';
+
+function FrameDateRow({ dateText, sub, heading, body }: { dateText?: string; sub?: string; heading?: string; body?: string }) {
+  return (
+    <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+      <div style={{ width: '110px', minWidth: '110px' }}>
+        {dateText && <div style={{ fontSize: '11.5px', fontWeight: 700, color: FRAME_INK }}>{dateText}</div>}
+        {sub && <div style={{ fontSize: '11px', color: FRAME_MUTED, marginTop: '2px', wordBreak: 'break-word' }}>{sub}</div>}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {heading && <div style={{ fontSize: '12.5px', fontWeight: 700, color: FRAME_INK, wordBreak: 'break-word' }}>{heading}</div>}
+        {body && <div style={{ fontSize: '11px', color: FRAME_MUTED, marginTop: '2px', lineHeight: '1.6' }}>{body}</div>}
+      </div>
+    </div>
+  );
+}
+
+function FrameTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Skills', expLabel = 'Experience', hidden }: any) {
+  const { personal, skills } = data;
+  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
+  const cols = 4;
+  const perCol = Math.ceil(allSkills.length / cols);
+  const skillGrid = Array.from({ length: cols }, (_, g) => allSkills.slice(g * perCol, (g + 1) * perCol));
+
+  return (
+    <div style={{ ...wrapperStyle }}>
+      <div
+        className="cv-content-page"
+        style={{
+          width: '794px',
+          minHeight: forExportMinHeight(wrapperStyle),
+          boxSizing: 'border-box',
+          position: 'relative',
+          background: '#fff',
+          padding: '18px',
+        }}
+      >
+        {/* The frame — a thin inset border around the whole page. In the
+            real PDF export (cvExport.ts/jsPDF) this border is repainted on
+            every page the document spans; here in the live preview it
+            simply wraps all the content as one continuous border. */}
+        <div style={{ border: `1px solid ${FRAME_BORDER}`, padding: '32px 40px' }}>
+          <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '1px', color: FRAME_INK, textAlign: 'center', wordBreak: 'break-word' }}>
+            {(personal.full_name || 'Your Name').toUpperCase()}
+          </div>
+          <div style={{ fontSize: '13px', color: FRAME_MUTED, textAlign: 'center', letterSpacing: '2px', marginTop: '6px' }}>{jobTitle.toUpperCase()}</div>
+
+          <div style={{ height: '1px', background: FRAME_INK, margin: '18px 0' }} />
+
+          {(personal.phone || personal.address || personal.email) && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-evenly', flexWrap: 'wrap', gap: '12px' }}>
+                {personal.phone   && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: FRAME_BODY }}>{ICONS.phone}{personal.phone}</div>}
+                {personal.address && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: FRAME_BODY, wordBreak: 'break-word' }}>{ICONS.mapPin}{personal.address}</div>}
+                {personal.email   && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: FRAME_BODY, wordBreak: 'break-word' }}>{ICONS.mail}{personal.email}</div>}
+              </div>
+              <div style={{ height: '1px', background: FRAME_INK, margin: '18px 0' }} />
+            </>
+          )}
+
+          {personal.bio && (
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: FRAME_INK, marginBottom: '10px' }}>About Me</div>
+              <p style={{ fontSize: '12px', color: FRAME_BODY, lineHeight: '1.7', margin: 0 }}>{personal.bio}</p>
+            </div>
+          )}
+
+          {validEdu.length > 0 && (
+            <TagUnderlineSection title="Education" color={FRAME_INK}>
+              {validEdu.map((e: any, i: number) => (
+                <FrameDateRow key={i} dateText={e.year} sub={e.institution} heading={e.qualification} />
+              ))}
+            </TagUnderlineSection>
+          )}
+
+          {validExp.length > 0 && (
+            <TagUnderlineSection title={expLabel} color={FRAME_INK}>
+              {validExp.map((e: any, i: number) => (
+                <FrameDateRow
+                  key={i}
+                  dateText={[e.from, e.to].filter(Boolean).join(' - ')}
+                  sub={e.school}
+                  heading={e.role}
+                  body={(e.description || '').split('\n').map((s: string) => s.trim()).filter(Boolean).join('  ')}
+                />
+              ))}
+            </TagUnderlineSection>
+          )}
+
+          {!hidden?.has('skills') && allSkills.length > 0 && (
+            <TagUnderlineSection title={skillsLabel} color={FRAME_INK}>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, columnGap: '16px' }}>
+                {skillGrid.map((colItems, ci) => (
+                  <div key={ci}>
+                    {colItems.map((s, i) => (
+                      <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '11.5px', color: FRAME_BODY, marginBottom: '6px' }}>
+                        <span style={{ color: FRAME_INK }}>•</span>{s}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </TagUnderlineSection>
+          )}
+
+          {renderCustomSections(data.custom_sections, FRAME_INK, FRAME_BORDER, hidden)}
+        </div>
+
+        {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
+      </div>
+      {renderReferencesPage(data.references, FRAME_INK, watermark, FRAME_BORDER, '28px 40px', hidden)}
     </div>
   );
 }

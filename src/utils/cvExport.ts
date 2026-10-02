@@ -511,6 +511,7 @@ shaded:'#374151', crimson:'#c0392b', sage:'#7fa37f',
     panel:'#111827',
     terracotta:'#d35400',
     monogram:'#262626',
+    frame:'#1e293b',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -697,6 +698,7 @@ export async function exportElementAsPDF(
     panel:        ()=>drawPanel(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     terracotta:   ()=>drawTerracotta(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     monogram:     ()=>drawMonogram(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    frame:        ()=>drawFrame(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -3034,12 +3036,12 @@ function drawTerracotta(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custo
 
   // ── Contact card (measure its height first so the header-bottom rule
   // can sit below whichever is taller, the card or the name block) ──
-  const contactItems = [pr.address, pr.phone, pr.email].filter(Boolean) as string[];
+  const contactItems: [string,string][] = [[ICON.mapMarker,pr.address],[ICON.phone,pr.phone],[ICON.envelope,pr.email]].filter(([,v])=>!!v) as any;
   const boxW = 70, boxX = PW-MR-boxW;
   let boxH = 8;
   if (contactItems.length) {
     p.setFont(F,'normal'); p.setFontSize(8);
-    for (const c of contactItems) boxH += Math.max(1,(p.splitTextToSize(c, boxW-10) as string[]).length) * 4 + 1;
+    for (const [,c] of contactItems) boxH += Math.max(1,(p.splitTextToSize(c, boxW-12) as string[]).length) * 4 + 1;
     boxH += 3;
   }
   if (contactItems.length) {
@@ -3047,11 +3049,11 @@ function drawTerracotta(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custo
     fill(p,ar,ag,ab); p.rect(boxX, MT+boxH-1.2, boxW, 1.2, 'F');
     reset(p);
     let cy = MT+6;
-    for (const c of contactItems) {
+    for (const [glyph,c] of contactItems) {
+      drawIcon(p, glyph, boxX+4, cy-0.6, 7, [55,65,81]);
       p.setFont(F,'normal'); p.setFontSize(8); tc(p,55,65,81);
-      p.text('•', boxX+4, cy);
-      const ls = p.splitTextToSize(c, boxW-10) as string[];
-      ls.forEach((l:string,li:number)=>p.text(l, boxX+8, cy+li*4));
+      const ls = p.splitTextToSize(c, boxW-12) as string[];
+      ls.forEach((l:string,li:number)=>p.text(l, boxX+9, cy+li*4));
       cy += ls.length*4 + 1;
     }
   }
@@ -3311,4 +3313,163 @@ function drawMonogram(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
   }
   my = drawCustom(p,customs,INK,'bar',mx,my,mmw,BOTTOM,npM);
   refsPage(p,refs,INK,'bar',npM,BOTTOM,owner,wm,undefined,false);
+}
+
+// ── 17. FRAME — Thin inset border around every page, bold centered
+// uppercase name, tri-icon contact row, single-column body with
+// two-column (date | content) rows for Education and Experience, and a
+// flat 4-column bulleted Skills grid. Monochrome slate palette. ──
+function drawFrame(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
+  const INK:RGB = hex('#1e293b');
+  const MUTED:RGB = hex('#64748b');
+  const BODY:RGB = hex('#374151');
+  const BORDER:RGB = hex('#cbd5e1');
+
+  // The border is inset from the page edges, and on the bottom edge also
+  // inset above the global footer band so the two never overlap.
+  const FRAME_TOP = 8, FRAME_SIDE = 8, FRAME_BOTTOM = FOOTER_H + 4;
+  const drawFrameBorder = () => {
+    dc(p,BORDER[0],BORDER[1],BORDER[2]); p.setLineWidth(0.5);
+    p.rect(FRAME_SIDE, FRAME_TOP, PW-FRAME_SIDE*2, PH-FRAME_TOP-FRAME_BOTTOM, 'S');
+    reset(p);
+  };
+  drawFrameBorder();
+
+  let y = MT + 10;
+  const np = () => { p.addPage(); reset(p); drawFrameBorder(); return MT + 10; };
+  const GXW = (): [number,number] => [ML, PW-ML-MR];
+
+  // ── Name + job title, centered, shrinking the name to fit one line ──
+  const nameUp = owner.toUpperCase();
+  let nameSize = 24;
+  p.setFont(F,'bold'); p.setFontSize(nameSize); tc(p,INK[0],INK[1],INK[2]);
+  let tw = p.getTextWidth(nameUp);
+  while (tw > PW-ML-MR && nameSize > 14) { nameSize--; p.setFontSize(nameSize); tw = p.getTextWidth(nameUp); }
+  p.text(nameUp, (PW-tw)/2, y);
+  y += 9;
+
+  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu?'Educator':'Professional')).trim();
+  if (jobTitle) {
+    const jt = jobTitle.toUpperCase();
+    p.setFont(F,'normal'); p.setFontSize(11); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+    tw = p.getTextWidth(jt);
+    p.text(jt, (PW-tw)/2, y);
+    y += 8;
+  }
+  reset(p);
+
+  hLine(p, ML, y, PW-ML-MR, INK[0],INK[1],INK[2], 0.35);
+  y += 8;
+
+  // ── Contact row: icon+text items spread evenly across the full width ──
+  const items: [string,string][] = [[ICON.phone,pr.phone],[ICON.mapMarker,pr.address],[ICON.envelope,pr.email]].filter(([,v])=>!!v) as any;
+  if (items.length) {
+    p.setFont(F,'normal'); p.setFontSize(9);
+    const widths = items.map(([,v])=>7.5+p.getTextWidth(v));
+    const totalW = widths.reduce((a,b)=>a+b,0);
+    const availW = PW-ML-MR;
+    const gap = items.length>1 ? Math.max(6,(availW-totalW)/(items.length-1)) : 0;
+    let cx = items.length>1 ? ML : (PW-totalW)/2;
+    items.forEach(([glyph,v],i)=>{
+      drawIcon(p, glyph, cx, y-0.6, 8, INK);
+      p.setFont(F,'normal'); p.setFontSize(9); tc(p,BODY[0],BODY[1],BODY[2]);
+      p.text(v, cx+7.5, y);
+      cx += widths[i] + gap;
+    });
+    y += 8;
+    hLine(p, ML, y, PW-ML-MR, INK[0],INK[1],INK[2], 0.35);
+    y += 8;
+  }
+
+  // ── About Me — heading only, no rule, straight into the paragraph ──
+  if (pr.bio) {
+    p.setFont(F,'bold'); p.setFontSize(12); tc(p,INK[0],INK[1],INK[2]);
+    p.text('ABOUT ME', ML, y); y += 6;
+    p.setFont(F,'normal'); p.setFontSize(9.5); tc(p,BODY[0],BODY[1],BODY[2]);
+    y = wrapped(p,pr.bio,ML,y,PW-ML-MR,BOTTOM,np,GXW);
+    y += SECTION_GAP;
+  }
+
+  // ── Shared two-column (date+sub | heading+body) row, used by both
+  // Education and Experience. The whole row is kept together — height is
+  // estimated first so a page break never splits the two columns. ──
+  const dateColW = 42, rx = ML+dateColW+4, rw = PW-MR-rx;
+  const drawDateRow = (dateText: string, sub: string, heading: string, body?: string) => {
+    p.setFont(F,'normal'); p.setFontSize(8.5);
+    const subLines = sub ? (p.splitTextToSize(sub, dateColW) as string[]).length : 0;
+    p.setFont(F,'bold'); p.setFontSize(9.5);
+    const headLines = heading ? (p.splitTextToSize(heading, rw) as string[]).length : 0;
+    p.setFont(F,'normal'); p.setFontSize(8.5);
+    const bodyLines = body ? (p.splitTextToSize(body, rw) as string[]).length : 0;
+    const estH = Math.max(subLines+1, headLines+bodyLines) * 4.2 + 6;
+    if (y + estH > BOTTOM) y = np();
+
+    const rowStartY = y;
+    let ly = y;
+    if (dateText) { p.setFont(F,'bold'); p.setFontSize(9); tc(p,INK[0],INK[1],INK[2]); p.text(dateText, ML, ly); ly += 4.2; }
+    if (sub) {
+      p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+      const ls = p.splitTextToSize(sub, dateColW) as string[];
+      ls.forEach((l:string)=>{p.text(l,ML,ly); ly+=3.8;});
+    }
+
+    let ry = rowStartY;
+    if (heading) {
+      p.setFont(F,'bold'); p.setFontSize(9.5); tc(p,INK[0],INK[1],INK[2]);
+      const hLines = p.splitTextToSize(heading, rw) as string[];
+      hLines.forEach((l:string)=>{p.text(l,rx,ry); ry+=4.2;});
+    }
+    if (body) {
+      p.setFont(F,'normal'); p.setFontSize(8.5); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+      const bl = p.splitTextToSize(body, rw) as string[];
+      bl.forEach((l:string)=>{p.text(l,rx,ry); ry+=3.8;});
+    }
+    y = Math.max(ly, ry) + 6;
+  };
+
+  if (edu.length) {
+    y = sectionHeading(p,'Education',ML,y,PW-ML-MR,INK,'tag-underline',BOTTOM,np,GXW);
+    for (const e of edu) drawDateRow(e.year||'', e.institution||'', e.qualification||'');
+    y += 2;
+  }
+
+  if (exp.length) {
+    y = sectionHeading(p,'Experience',ML,y,PW-ML-MR,INK,'tag-underline',BOTTOM,np,GXW);
+    for (const e of exp) {
+      const ds = [e.from,e.to].filter(Boolean).join(' - ');
+      const desc = e.description ? (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean).join('  ') : '';
+      drawDateRow(ds, e.school||'', e.role||'', desc);
+    }
+    y += 2;
+  }
+
+  // ── Skills — flat 4-column bulleted grid (shared-y-per-row, so no
+  // column can paginate independently of the others) ──
+  const allSkills = [...(sk.subjects||[]), ...(sk.soft_skills||[])];
+  if (allSkills.length) {
+    y = sectionHeading(p,'Skills',ML,y,PW-ML-MR,INK,'tag-underline',BOTTOM,np,GXW);
+    y += 2;
+    const cols = 4, gap = 8;
+    const colW = (PW-ML-MR-gap*(cols-1))/cols;
+    const colX = Array.from({length:cols},(_,g)=>ML+g*(colW+gap));
+    const perCol = Math.ceil(allSkills.length/cols);
+    const grid: string[][] = Array.from({length:cols},(_,g)=>allSkills.slice(g*perCol,(g+1)*perCol));
+    const maxItems = Math.max(...grid.map(c=>c.length));
+    for (let r=0; r<maxItems; r++) {
+      if (y+LINE_H>BOTTOM) y=np();
+      for (let g=0; g<cols; g++) {
+        const item = grid[g][r];
+        if (!item) continue;
+        dot(p, colX[g]+0.5, y-0.2, INK);
+        p.setFont(F,'normal'); p.setFontSize(9); tc(p,BODY[0],BODY[1],BODY[2]);
+        const ls = p.splitTextToSize(item, colW-BULLET_INDENT) as string[];
+        ls.forEach((l:string,li:number)=>p.text(l, colX[g]+BULLET_INDENT, y+li*4));
+      }
+      y += LINE_H;
+    }
+    y += 2;
+  }
+
+  y = drawCustom(p,customs,INK,'tag-underline',ML,y,PW-ML-MR,BOTTOM,np,GXW);
+  refsPage(p,refs,INK,'tag-underline',np,BOTTOM,owner,wm,undefined,false);
 }
