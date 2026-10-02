@@ -87,6 +87,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'dossier': "Georgia, 'Times New Roman', serif",
     'noir': "Arial, Helvetica, sans-serif",
     'portfolio': "Arial, Helvetica, sans-serif",
+    'letterpress': "Arial, Helvetica, sans-serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -127,6 +128,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'dossier'      ? <DossierTemplate      {...T} /> :
     template === 'noir'         ? <NoirTemplate         {...T} /> :
     template === 'portfolio'    ? <PortfolioTemplate    {...T} /> :
+    template === 'letterpress'  ? <LetterpressTemplate  {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -4100,6 +4102,185 @@ function PortfolioTemplate({ data, wrapperStyle, validEdu, validExp, watermark, 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
       {renderReferencesPage(data.references, PORTFOLIO_INK, watermark, PORTFOLIO_TAB, '28px 40px', hidden)}
+    </div>
+  );
+}
+
+/* ── Letterpress Template ───────────────────────────────────────────────── */
+// Minimalist, centered masthead layout: wide letter-spaced name and job
+// title, an italic pipe-separated contact line, and bold letter-spaced
+// section headings with no underline, box or icon — the only rules on the
+// page are thin full-width separators between major blocks. Distinct from
+// Portfolio (no tab boxes, no contact band, no icons) and from
+// Dossier/Heritage (no double rule under headings, centered masthead
+// instead of a left-aligned or shaded one).
+const LETTERPRESS_INK   = '#1f2937';
+const LETTERPRESS_MUTED = '#6b7280';
+const LETTERPRESS_BODY  = '#374151';
+const LETTERPRESS_RULE  = '#d1d5db';
+
+function LetterpressHeading({ children, align = 'center' }: { children: React.ReactNode; align?: 'center' | 'left' }) {
+  const text = typeof children === 'string' ? children.toUpperCase().split('').join(' ') : children;
+  return (
+    <div style={{ fontSize: '12px', fontWeight: 700, color: LETTERPRESS_INK, textAlign: align, marginBottom: '10px' }}>
+      {text}
+    </div>
+  );
+}
+
+function LetterpressTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hidden }: any) {
+  const { personal, skills } = data;
+  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const contactParts = [personal.phone, personal.email, personal.portfolio || personal.website].filter(Boolean);
+  const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
+  const certSection = (data.custom_sections || []).find((s: any) => /certif/i.test(s.title || '') && s.content && !hidden?.has(`custom:${s.title}`));
+  const remainingCustoms = (data.custom_sections || []).filter((s: any) => s !== certSection && s.title && !hidden?.has(`custom:${s.title}`));
+
+  return (
+    <div style={{ ...wrapperStyle, fontFamily: "Arial, Helvetica, sans-serif" }}>
+      <div
+        className="cv-content-page"
+        style={{
+          width: '794px',
+          minHeight: forExportMinHeight(wrapperStyle),
+          boxSizing: 'border-box',
+          position: 'relative',
+          background: '#fff',
+          padding: '44px 48px',
+        }}
+      >
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '25px', fontWeight: 800, letterSpacing: '5px', color: LETTERPRESS_INK, wordBreak: 'break-word' }}>{(personal.full_name || 'Your Name').toUpperCase()}</div>
+          {jobTitle && <div style={{ fontSize: '12.5px', fontWeight: 700, letterSpacing: '3px', color: LETTERPRESS_MUTED, marginTop: '8px' }}>{jobTitle.toUpperCase()}</div>}
+          {contactParts.length > 0 && (
+            <div style={{ fontSize: '11px', fontStyle: 'italic', color: LETTERPRESS_BODY, marginTop: '10px' }}>
+              {contactParts.join('   |   ')}
+            </div>
+          )}
+        </div>
+        <div style={{ height: '1px', background: LETTERPRESS_RULE, margin: '18px 0' }} />
+
+        {personal.bio && (
+          <div style={{ marginBottom: '20px' }}>
+            <LetterpressHeading>Profile</LetterpressHeading>
+            <p style={{ fontSize: '11px', color: LETTERPRESS_BODY, lineHeight: '1.7', margin: 0 }}>{personal.bio}</p>
+            <div style={{ height: '1px', background: LETTERPRESS_RULE, margin: '18px 0 0' }} />
+          </div>
+        )}
+
+        {validExp.length > 0 && (
+          <div style={{ marginBottom: '20px' }}>
+            <LetterpressHeading>Work Experience</LetterpressHeading>
+            {validExp.map((e: any, i: number) => (
+              <div key={i} style={{ marginBottom: i < validExp.length - 1 ? '16px' : 0 }}>
+                {e.role && <div style={{ fontSize: '9.5px', color: LETTERPRESS_MUTED, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{e.role}</div>}
+                {e.school && <div style={{ fontSize: '12.5px', fontWeight: 700, color: LETTERPRESS_INK, marginTop: '2px', wordBreak: 'break-word' }}>{e.school}</div>}
+                {(e.from || e.to) && <div style={{ fontSize: '10.5px', fontStyle: 'italic', color: LETTERPRESS_MUTED, marginTop: '2px' }}>{[e.from, e.to].filter(Boolean).join(' - ')}</div>}
+                {renderDescription(e.description, LETTERPRESS_INK, '11px')}
+              </div>
+            ))}
+            <div style={{ height: '1px', background: LETTERPRESS_RULE, margin: '18px 0 0' }} />
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '28px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {validEdu.length > 0 && (
+              <div style={{ marginBottom: '18px' }}>
+                <LetterpressHeading align="left">Education</LetterpressHeading>
+                {validEdu.map((e: any, i: number) => (
+                  <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '10px' : 0 }}>
+                    <div style={{ fontSize: '11.5px', fontWeight: 700, color: LETTERPRESS_INK, wordBreak: 'break-word' }}>{e.institution}</div>
+                    {e.year && <div style={{ fontSize: '10.5px', color: LETTERPRESS_MUTED, marginTop: '1px' }}>{e.year}</div>}
+                    {e.qualification && <div style={{ fontSize: '10.5px', color: LETTERPRESS_BODY, marginTop: '1px' }}>{e.qualification}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {certSection && (
+              <div>
+                <LetterpressHeading align="left">{certSection.title}</LetterpressHeading>
+                {certSection.type === 'bullets'
+                  ? (certSection.content as string).split('\n').map((l: string) => l.trim()).filter(Boolean).map((l: string, i: number) => (
+                      <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '10.5px', color: LETTERPRESS_BODY, marginBottom: '5px' }}>
+                        <span style={{ color: LETTERPRESS_INK }}>•</span>{l}
+                      </div>
+                    ))
+                  : <p style={{ fontSize: '10.5px', color: LETTERPRESS_BODY, lineHeight: '1.6', margin: 0 }}>{certSection.content}</p>}
+              </div>
+            )}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {allSkills.length > 0 && (
+              <div style={{ marginBottom: '18px' }}>
+                <LetterpressHeading align="left">Skills</LetterpressHeading>
+                {allSkills.map((s: string, i: number) => (
+                  <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '10.5px', color: LETTERPRESS_BODY, marginBottom: '5px' }}>
+                    <span style={{ color: LETTERPRESS_INK }}>•</span>{s}
+                  </div>
+                ))}
+              </div>
+            )}
+            {skills?.languages?.length > 0 && (
+              <div>
+                <LetterpressHeading align="left">Languages</LetterpressHeading>
+                {skills.languages.map((s: string, i: number) => (
+                  <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '10.5px', color: LETTERPRESS_BODY, marginBottom: '5px' }}>
+                    <span style={{ color: LETTERPRESS_INK }}>•</span>{s}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {remainingCustoms.map((s: any, idx: number) => {
+          let content: React.ReactNode = null;
+          if (s.type === 'text') {
+            content = (s.content && s.content.trim()) ? <p style={{ color: LETTERPRESS_BODY, margin: 0, fontSize: '11px', lineHeight: '1.6' }}>{s.content}</p> : null;
+          } else if (s.type === 'bullets') {
+            const lines = (s.content || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
+            content = lines.length ? (
+              <div>
+                {lines.map((line: string, i: number) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '2px' }}>
+                    <span style={{ color: LETTERPRESS_INK, marginTop: '2px', flexShrink: 0, fontSize: '11px' }}>•</span>
+                    <span style={{ fontSize: '11px', lineHeight: '1.5', color: LETTERPRESS_BODY }}>{line}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null;
+          } else if (s.type === 'table') {
+            const cols = s.columns || []; const rows = s.rows || [];
+            if (cols.length && rows.length) {
+              content = (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                  <thead>
+                    <tr>{cols.map((col: string, ci: number) => <th key={ci} style={{ background: LETTERPRESS_INK, color: '#fff', padding: '6px 10px', textAlign: 'left', fontWeight: 700, fontSize: '10px' }}>{col}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row: string[], ri: number) => (
+                      <tr key={ri} style={{ background: ri % 2 === 0 ? '#f9fafb' : '#fff' }}>
+                        {row.map((cell: string, ci: number) => <td key={ci} style={{ padding: '6px 10px', color: LETTERPRESS_BODY, borderBottom: '1px solid #e5e7eb', fontSize: '11px' }}>{cell}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              );
+            }
+          }
+          return content ? (
+            <div key={idx} style={{ marginTop: '20px' }}>
+              <div style={{ height: '1px', background: LETTERPRESS_RULE, margin: '0 0 18px' }} />
+              <LetterpressHeading>{s.title}</LetterpressHeading>
+              {content}
+            </div>
+          ) : null;
+        })}
+
+        {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
+      </div>
+      {renderReferencesPage(data.references, LETTERPRESS_INK, watermark, LETTERPRESS_RULE, '28px 40px', hidden)}
     </div>
   );
 }

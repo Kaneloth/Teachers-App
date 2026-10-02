@@ -75,6 +75,7 @@ const TEMPLATES = [
   { id: 'dossier',      name: 'Dossier',      description: 'Formal serif layout with a mixed-weight name, icon contact block, centered summary and a true two-column body split by a vertical rule. Classic and dignified.' },
   { id: 'noir',         name: 'Noir',         description: 'Editorial monochrome layout with a circular photo, bold serif name and headings, and work history written as prose instead of bullets. Minimal and design-forward.' },
   { id: 'portfolio',    name: 'Portfolio',    description: 'Bold wide-tracked name, a light slate contact bar, and section headings drawn as small tab labels. Clean and designer-friendly.' },
+  { id: 'letterpress',  name: 'Letterpress',  description: 'Centered letter-spaced masthead, an italic contact line, and plain bold-caps headings with thin rules between sections. Airy and minimalist.' },
 ];
 
 const FREE_TEMPLATE = 'classic';
@@ -84,7 +85,7 @@ interface Props { selected: string; onChange: (id: string) => void; isFree?: boo
 export default function CVStepTemplate({ selected, onChange, isFree = false, isEducator = true }: Props) {
   const handleSelect = (id: string) => {
     if (isFree && id !== FREE_TEMPLATE) {
-      toast.info('Top up to unlock all 21 templates.', { duration: 3000 });
+      toast.info('Top up to unlock all 22 templates.', { duration: 3000 });
       return;
     }
     onChange(id);
@@ -122,7 +123,7 @@ export default function CVStepTemplate({ selected, onChange, isFree = false, isE
         <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2">
           <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
           <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug">
-            Free credits include the <strong>Classic</strong> template. Top up to unlock all 21 templates — permanently.
+            Free credits include the <strong>Classic</strong> template. Top up to unlock all 22 templates — permanently.
           </p>
         </div>
       )}
