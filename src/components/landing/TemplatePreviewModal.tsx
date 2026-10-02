@@ -162,7 +162,14 @@ export default function TemplatePreviewModal({ index, onClose, onNavigate }: Tem
           exit={{ opacity: 0, scale: 0.96, y: 12 }}
           transition={{ duration: 0.2 }}
           onClick={e => e.stopPropagation()}
-          className="relative w-full max-w-5xl max-h-[92vh] bg-white rounded-2xl overflow-hidden flex flex-col"
+          // A definite height (not just a max-height cap) matters here: a
+          // flex column only distributes space to its flex-1 child when the
+          // column itself has a definite size to distribute. With max-height
+          // alone, the browser sizes the panel by hugging its children's
+          // natural height first — so the content pane below also hugs its
+          // (very tall, multi-page) content instead of being clamped to a
+          // scrollable box, and nothing in it can actually scroll.
+          className="relative w-full max-w-5xl h-[min(92vh,800px)] bg-white rounded-2xl overflow-hidden flex flex-col"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E5E7EB] shrink-0">
@@ -207,10 +214,10 @@ export default function TemplatePreviewModal({ index, onClose, onNavigate }: Tem
               <ChevronRight className="w-5 h-5" />
             </button>
 
-            {/* Zoom controls — also a non-scrolling layer so they stay put
-                while the page below scrolls or is zoomed past the
-                viewport's width/height. */}
-            <div className="absolute bottom-3 right-3 z-10 flex items-center gap-0.5 bg-white rounded-full shadow-md border border-[#E5E7EB] p-1">
+            {/* Zoom controls — a non-scrolling layer so they stay put while
+                the page below scrolls or is zoomed past the viewport. Top
+                corner (not bottom) so they're never near the CTA footer. */}
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-0.5 bg-white rounded-full shadow-md border border-[#E5E7EB] p-1">
               <button
                 onClick={() => setZoom(z => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))}
                 disabled={zoom <= ZOOM_MIN}
@@ -281,7 +288,7 @@ export default function TemplatePreviewModal({ index, onClose, onNavigate }: Tem
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-            <p className="hidden sm:block text-xs text-[#6B7280] flex-1">{template.description}</p>
+            <p className="hidden sm:block text-xs text-[#6B7280] flex-1 min-w-0 truncate pr-3">{template.description}</p>
             <Button
               onClick={useThisTemplate}
               className="ml-auto h-10 rounded-xl text-sm font-semibold bg-[#FF6B35] hover:bg-[#e55a2b] text-white border-0 px-5"
