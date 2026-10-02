@@ -59,24 +59,53 @@ interface TemplatePreviewModalProps {
  * a query param, so it survives the sign-up → email-confirm → onboarding
  * hop without needing to be threaded through every intermediate redirect.
  */
+// A4 height-to-width ratio (297/210), used only as a plausible first-paint
+// guess for a single-page CV before the real content height is measured.
+const A4_RATIO = 297 / 210;
+
 export default function TemplatePreviewModal({ index, onClose, onNavigate }: TemplatePreviewModalProps) {
   const navigate = useNavigate();
   const frameRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.4);
+  // The *unscaled* height of the rendered CV, in px. A CV with references
+  // (like the sample data) renders as two stacked A4 pages, not one — a
+  // fixed single-page aspect-ratio box would clip the second page with no
+  // way to reach it. Instead the frame's height always matches the real
+  // content (scaled), so the modal's own scroll area (below) can reach
+  // every page, however many there are.
+  const [contentHeight, setContentHeight] = useState(PAGE_WIDTH_PX * A4_RATIO);
   const template = TEMPLATES[index];
 
   useEffect(() => {
-    const el = frameRef.current;
-    if (!el) return;
-    const measure = () => {
-      const width = el.getBoundingClientRect().width;
+    const frameEl = frameRef.current;
+    if (!frameEl) return;
+    const measureWidth = () => {
+      const width = frameEl.getBoundingClientRect().width;
       if (width > 0) setScale(width / PAGE_WIDTH_PX);
     };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    window.addEventListener('resize', measure);
-    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+    measureWidth();
+    const roWidth = new ResizeObserver(measureWidth);
+    roWidth.observe(frameEl);
+    window.addEventListener('resize', measureWidth);
+    return () => { roWidth.disconnect(); window.removeEventListener('resize', measureWidth); };
+  }, []);
+
+  useEffect(() => {
+    const contentEl = contentRef.current;
+    if (!contentEl) return;
+    // offsetHeight/ResizeObserver report the element's own pre-transform
+    // layout size — unaffected by the `transform: scale()` applied to this
+    // same node below — which is exactly the "real" height we need to then
+    // multiply by scale ourselves for the frame's visual height.
+    const measureHeight = () => {
+      const height = contentEl.offsetHeight;
+      if (height > 0) setContentHeight(height);
+    };
+    measureHeight();
+    const roHeight = new ResizeObserver(measureHeight);
+    roHeight.observe(contentEl);
+    return () => roHeight.disconnect();
   }, []);
 
   useEffect(() => {
@@ -129,8 +158,19 @@ export default function TemplatePreviewModal({ index, onClose, onNavigate }: Tem
             </button>
           </div>
 
-          {/* A4 frame + prev/next */}
-          <div className="relative flex-1 min-h-0 bg-[#F3F4F6] flex items-center justify-center px-4 sm:px-16 py-5 overflow-y-auto">
+          {/* A4 frame + prev/next. items-start (not center): a CV with a
+              references page renders taller than this panel, and a
+              vertically-centered flex child auto-scrolls to show its own
+              *middle* on mount — confusing for a document preview, which
+              should always open at the top of page 1, like any normal
+              document viewer. Horizontal centering (mx-auto below) still
+              applies for the common case where the frame is narrower than
+              this column. */}
+          <div className="relative flex-1 min-h-0 bg-[#F3F4F6]">
+            {/* Arrows sit in this non-scrolling layer (a sibling of the
+                scroll area, not a child of it) so they stay fixed on screen
+                when a tall multi-page preview scrolls — previously they
+                were inside the scrolling div and scrolled away with it. */}
             <button
               onClick={() => onNavigate((index - 1 + TEMPLATES.length) % TEMPLATES.length)}
               className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white shadow-md items-center justify-center text-[#1A1A2E] hover:bg-[#F8F9FB] z-10"
@@ -138,13 +178,22 @@ export default function TemplatePreviewModal({ index, onClose, onNavigate }: Tem
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
+            <button
+              onClick={() => onNavigate((index + 1) % TEMPLATES.length)}
+              className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white shadow-md items-center justify-center text-[#1A1A2E] hover:bg-[#F8F9FB] z-10"
+              aria-label="Next template"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
 
+            <div className="h-full overflow-y-auto flex items-start justify-center px-4 sm:px-16 py-5">
             <div
               ref={frameRef}
-              className="relative bg-white shadow-xl mx-auto overflow-hidden"
-              style={{ aspectRatio: '210 / 297', width: '100%', maxWidth: '460px' }}
+              className="relative bg-white shadow-xl mx-auto overflow-hidden shrink-0"
+              style={{ width: '100%', maxWidth: '460px', height: contentHeight * scale }}
             >
               <div
+                ref={contentRef}
                 style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: PAGE_WIDTH_PX, pointerEvents: 'none' }}
               >
                 <AnimatePresence mode="wait">
@@ -166,14 +215,7 @@ export default function TemplatePreviewModal({ index, onClose, onNavigate }: Tem
                 </AnimatePresence>
               </div>
             </div>
-
-            <button
-              onClick={() => onNavigate((index + 1) % TEMPLATES.length)}
-              className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white shadow-md items-center justify-center text-[#1A1A2E] hover:bg-[#F8F9FB] z-10"
-              aria-label="Next template"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
+            </div>
           </div>
 
           {/* Mobile prev/next + CTA footer */}
