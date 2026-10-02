@@ -3280,13 +3280,29 @@ function FrameDateRow({ dateText, sub, heading, bodyLines }: { dateText?: string
   );
 }
 
+function FrameBulletGrid({ items, cols }: { items: string[]; cols: number }) {
+  const perCol = Math.ceil(items.length / cols);
+  const grid = Array.from({ length: cols }, (_, g) => items.slice(g * perCol, (g + 1) * perCol));
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, columnGap: '16px' }}>
+      {grid.map((colItems, ci) => (
+        <div key={ci}>
+          {colItems.map((s, i) => (
+            <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '11.5px', color: FRAME_BODY, marginBottom: '6px' }}>
+              <span style={{ color: FRAME_INK }}>•</span>{s}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function FrameTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Skills', expLabel = 'Experience', hidden }: any) {
   const { personal, skills } = data;
   const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
   const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
-  const cols = 4;
-  const perCol = Math.ceil(allSkills.length / cols);
-  const skillGrid = Array.from({ length: cols }, (_, g) => allSkills.slice(g * perCol, (g + 1) * perCol));
+  const languages: string[] = skills?.languages || [];
 
   return (
     <div style={{ ...wrapperStyle }}>
@@ -3355,17 +3371,13 @@ function FrameTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
 
           {!hidden?.has('skills') && allSkills.length > 0 && (
             <TagUnderlineSection title={skillsLabel} color={FRAME_INK}>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, columnGap: '16px' }}>
-                {skillGrid.map((colItems, ci) => (
-                  <div key={ci}>
-                    {colItems.map((s, i) => (
-                      <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '11.5px', color: FRAME_BODY, marginBottom: '6px' }}>
-                        <span style={{ color: FRAME_INK }}>•</span>{s}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
+              <FrameBulletGrid items={allSkills} cols={4} />
+            </TagUnderlineSection>
+          )}
+
+          {languages.length > 0 && (
+            <TagUnderlineSection title="Languages" color={FRAME_INK}>
+              <FrameBulletGrid items={languages} cols={Math.min(4, languages.length)} />
             </TagUnderlineSection>
           )}
 

@@ -425,7 +425,7 @@ function refsPage(p: any, refs: any[], accent: RGB, headStyle: HeadingStyle,
 function drawCustom(p: any, sections: any[], accent: RGB, headStyle: HeadingStyle,
                     x: number, y: number, maxW: number,
                     bottom: number, newPage: ()=>number,
-                    getXW?: ()=>[number,number], font: string = F): number {
+                    getXW?: ()=>[number,number], font: string = F, useIcons: boolean = true): number {
   if (!sections?.filter((s:any)=>s.title).length) return y;
   for (const sec of sections) {
     const hasContent =
@@ -444,9 +444,9 @@ function drawCustom(p: any, sections: any[], accent: RGB, headStyle: HeadingStyl
       envelope: ICON.envelope, phone: ICON.phone, mapMarker: ICON.mapMarker, book: ICON.book,
     };
     const resolvedKey = (sec as any).__resolvedIcon as string | null;
-    const sectionIcon = resolvedKey && ICON_MAP[resolvedKey]
+    const sectionIcon = !useIcons ? undefined : (resolvedKey && ICON_MAP[resolvedKey]
       ? ICON_MAP[resolvedKey]
-      : (/award|achievement|honour|honor|recognition/i.test(sec.title) ? ICON.trophy : undefined);
+      : (/award|achievement|honour|honor|recognition/i.test(sec.title) ? ICON.trophy : undefined));
     // BUG FIX: x/maxW were the function's fixed parameters and were never
     // updated even when content overflowed to a new page mid-loop —
     // wrapped()/bulletLine()/sectionHeading() each correctly compute a
@@ -3450,24 +3450,22 @@ function drawFrame(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
     y += 2;
   }
 
-  // ── Skills — flat 4-column bulleted grid (shared-y-per-row, so no
-  // column can paginate independently of the others) ──
-  const allSkills = [...(sk.subjects||[]), ...(sk.soft_skills||[])];
-  if (allSkills.length) {
-    y = sectionHeading(p,'Skills',ML,y,PW-ML-MR,INK,'tag-underline',BOTTOM,np,GXW);
+  // ── Flat N-column bulleted grid, shared by Skills and Languages below
+  // (shared-y-per-row, so no column can paginate independently of the
+  // others, and each row's height is the tallest wrapped item in it so a
+  // long, wrapped entry never overlaps the row beneath it). ──
+  const drawBulletGrid = (title: string, items: string[], cols: number) => {
+    if (!items.length) return;
+    y = sectionHeading(p,title,ML,y,PW-ML-MR,INK,'tag-underline',BOTTOM,np,GXW);
     y += 2;
-    const cols = 4, gap = 8;
+    const gap = 8;
     const colW = (PW-ML-MR-gap*(cols-1))/cols;
     const colX = Array.from({length:cols},(_,g)=>ML+g*(colW+gap));
-    const perCol = Math.ceil(allSkills.length/cols);
-    const grid: string[][] = Array.from({length:cols},(_,g)=>allSkills.slice(g*perCol,(g+1)*perCol));
+    const perCol = Math.ceil(items.length/cols);
+    const grid: string[][] = Array.from({length:cols},(_,g)=>items.slice(g*perCol,(g+1)*perCol));
     const maxItems = Math.max(...grid.map(c=>c.length));
     p.setFont(F,'normal'); p.setFontSize(9);
     for (let r=0; r<maxItems; r++) {
-      // Wrap every column's item for this row FIRST, so the row's height
-      // is the tallest of them — a fixed single-line row height here was
-      // the cause of a long, wrapped skill (e.g. "Interpersonal
-      // Communication") overlapping the row below it.
       const rowLines: string[][] = [];
       let maxLines = 1;
       for (let g=0; g<cols; g++) {
@@ -3488,8 +3486,16 @@ function drawFrame(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
       y += rowH;
     }
     y += 2;
-  }
+  };
 
-  y = drawCustom(p,customs,INK,'tag-underline',ML,y,PW-ML-MR,BOTTOM,np,GXW);
+  const allSkills = [...(sk.subjects||[]), ...(sk.soft_skills||[])];
+  drawBulletGrid('Skills', allSkills, 4);
+  drawBulletGrid('Languages', sk.languages||[], Math.min(4, Math.max(1,(sk.languages||[]).length)));
+
+  // Custom sections stay icon-free here (useIcons=false) so their
+  // tag-underline rule reads exactly like Education/Experience/Skills —
+  // an icon glyph sitting right beside the rule was making it read as a
+  // thicker line than the icon-free headings elsewhere in this template.
+  y = drawCustom(p,customs,INK,'tag-underline',ML,y,PW-ML-MR,BOTTOM,np,GXW,F,false);
   refsPage(p,refs,INK,'tag-underline',np,BOTTOM,owner,wm,undefined,false);
 }
