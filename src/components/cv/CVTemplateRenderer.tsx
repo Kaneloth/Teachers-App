@@ -4195,7 +4195,10 @@ function MosaicTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hid
       >
         <MosaicCorner corner="tr" />
         <MosaicCorner corner="bl" />
-        <div style={{ position: 'absolute', top: '40px', left: '18px', width: '5px', height: '42px', background: MOSAIC_RUST }} />
+        {/* Runs from the true page edge down to just above "Mailing Address",
+            flush with the left column's own left edge (the page's 44px
+            padding-left) rather than offset into the margin beside it. */}
+        <div style={{ position: 'absolute', top: 0, left: '44px', width: '5px', height: '34px', background: MOSAIC_RUST }} />
 
         <div style={{ display: 'flex', gap: '38px', position: 'relative' }}>
           <div style={{ width: '200px', minWidth: '200px' }}>

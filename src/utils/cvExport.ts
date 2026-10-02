@@ -4376,8 +4376,11 @@ function drawMosaic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   const GXWL = (): [number, number] => [ML, LEFT_W];
   const GXWR = (): [number, number] => [RX, RW];
 
-  // ── Thin rust accent bar, top-left ───────────────────────────────────────
-  fill(p, RUST[0], RUST[1], RUST[2]); p.rect(ML - 7, MT - 2, 1.4, 11, 'F'); reset(p);
+  // ── Thin rust accent bar, running from the true page edge down to just
+  // above "Mailing Address" — flush with the left column's own left edge
+  // (x = ML), not offset into the margin beside it, matching the reference
+  // where the bar and the sidebar text share one vertical line. ───────────
+  fill(p, RUST[0], RUST[1], RUST[2]); p.rect(ML, 0, 1.6, MT + 4, 'F'); reset(p);
 
   const rustLabel = (x: number, yy: number, title: string): number => {
     p.setFont(F, 'bold'); p.setFontSize(9); tc(p, RUST[0], RUST[1], RUST[2]);
