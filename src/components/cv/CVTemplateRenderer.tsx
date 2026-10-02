@@ -87,7 +87,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'dossier': "Georgia, 'Times New Roman', serif",
     'noir': "Arial, Helvetica, sans-serif",
     'portfolio': "Arial, Helvetica, sans-serif",
-    'letterpress': "Arial, Helvetica, sans-serif",
+    'mosaic': "Arial, Helvetica, sans-serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -128,7 +128,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'dossier'      ? <DossierTemplate      {...T} /> :
     template === 'noir'         ? <NoirTemplate         {...T} /> :
     template === 'portfolio'    ? <PortfolioTemplate    {...T} /> :
-    template === 'letterpress'  ? <LetterpressTemplate  {...T} /> :
+    template === 'mosaic'       ? <MosaicTemplate       {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -4106,35 +4106,78 @@ function PortfolioTemplate({ data, wrapperStyle, validEdu, validExp, watermark, 
   );
 }
 
-/* ── Letterpress Template ───────────────────────────────────────────────── */
-// Minimalist, centered masthead layout: wide letter-spaced name and job
-// title, an italic pipe-separated contact line, and bold letter-spaced
-// section headings with no underline, box or icon — the only rules on the
-// page are thin full-width separators between major blocks. Distinct from
-// Portfolio (no tab boxes, no contact band, no icons) and from
-// Dossier/Heritage (no double rule under headings, centered masthead
-// instead of a left-aligned or shaded one).
-const LETTERPRESS_INK   = '#1f2937';
-const LETTERPRESS_MUTED = '#6b7280';
-const LETTERPRESS_BODY  = '#374151';
-const LETTERPRESS_RULE  = '#d1d5db';
 
-function LetterpressHeading({ children, align = 'center' }: { children: React.ReactNode; align?: 'center' | 'left' }) {
-  const text = typeof children === 'string' ? children.toUpperCase().split('').join(' ') : children;
+/* ── Mosaic Template ────────────────────────────────────────────────────── */
+// Warm cream page with a thin rust accent bar over a narrow left sidebar
+// (Mailing Address / Contact Info / Education / Skills) and a wide right
+// column led by a large rust display name, beside abstract geometric
+// triangle-mosaic clusters tucked into the top-right and bottom-left
+// corners — that corner ornament, not a heading rule or icon, is this
+// template's signature; section labels are plain bold rust caps with no
+// underline or box. Distinct from Dossier/Noir/Portfolio (none use a
+// tinted page background or corner ornamentation) and from Terracotta
+// (white page, boxed contact card, single column, brighter orange) —
+// Mosaic is cream-on-rust, two-column, and geometric.
+const MOSAIC_RUST  = '#a8502e';
+const MOSAIC_INK   = '#3a352e';
+const MOSAIC_MUTED = '#6f6a5e';
+const MOSAIC_BODY  = '#4b463d';
+const MOSAIC_BG    = '#ece7dd';
+const MOSAIC_TRI_A = '#e1dbcd';
+const MOSAIC_TRI_B = '#d5cdbb';
+
+// Mirrors cvExport.ts's mosaicCorner/trianglePair algorithm in SVG terms:
+// a tapering cluster of diagonally-split squares anchored to one page
+// corner, row 0 (nearest the corner) holding the most cells and each
+// further row holding one fewer, so the cluster narrows away from the
+// corner. Coordinates are local to the cluster's own bounding box so the
+// SVG can simply be absolutely positioned at that corner.
+function mosaicCornerPolygons(cell: number, n: number, corner: 'tr' | 'bl'): React.ReactNode[] {
+  const polys: React.ReactNode[] = [];
+  const span = n * cell;
+  for (let row = 0; row < n; row++) {
+    const cols = n - row;
+    for (let col = 0; col < cols; col++) {
+      const x = corner === 'tr' ? span - (col + 1) * cell : col * cell;
+      const y = corner === 'tr' ? row * cell : span - (row + 1) * cell;
+      const flip = (row + col) % 2 === 0;
+      const key = `${corner}-${row}-${col}`;
+      if (!flip) {
+        polys.push(<polygon key={key + 'a'} points={`${x},${y} ${x + cell},${y} ${x},${y + cell}`} fill={MOSAIC_TRI_A} />);
+        polys.push(<polygon key={key + 'b'} points={`${x + cell},${y} ${x + cell},${y + cell} ${x},${y + cell}`} fill={MOSAIC_TRI_B} />);
+      } else {
+        polys.push(<polygon key={key + 'a'} points={`${x},${y} ${x + cell},${y} ${x + cell},${y + cell}`} fill={MOSAIC_TRI_A} />);
+        polys.push(<polygon key={key + 'b'} points={`${x},${y} ${x},${y + cell} ${x + cell},${y + cell}`} fill={MOSAIC_TRI_B} />);
+      }
+    }
+  }
+  return polys;
+}
+
+function MosaicCorner({ corner }: { corner: 'tr' | 'bl' }) {
+  const cell = corner === 'tr' ? 34 : 30; // px — roughly the 9mm/8mm cells the PDF side uses, at 794px/210mm
+  const n = corner === 'tr' ? 4 : 3;
+  const size = n * cell;
+  const posStyle: React.CSSProperties = corner === 'tr'
+    ? { position: 'absolute', top: 0, right: 0, width: size, height: size }
+    : { position: 'absolute', bottom: 0, left: 0, width: size, height: size };
   return (
-    <div style={{ fontSize: '12px', fontWeight: 700, color: LETTERPRESS_INK, textAlign: align, marginBottom: '10px' }}>
-      {text}
-    </div>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={posStyle}>
+      {mosaicCornerPolygons(cell, n, corner)}
+    </svg>
   );
 }
 
-function LetterpressTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hidden }: any) {
+function MosaicLabel({ children }: { children: React.ReactNode }) {
+  return <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.3px', color: MOSAIC_RUST, textTransform: 'uppercase', marginBottom: '7px' }}>{children}</div>;
+}
+
+function MosaicTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hidden }: any) {
   const { personal, skills } = data;
   const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
-  const contactParts = [personal.phone, personal.email, personal.portfolio || personal.website].filter(Boolean);
   const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
-  const certSection = (data.custom_sections || []).find((s: any) => /certif/i.test(s.title || '') && s.content && !hidden?.has(`custom:${s.title}`));
-  const remainingCustoms = (data.custom_sections || []).filter((s: any) => s !== certSection && s.title && !hidden?.has(`custom:${s.title}`));
+  const achSection = (data.custom_sections || []).find((s: any) => /achiev/i.test(s.title || '') && s.content && !hidden?.has(`custom:${s.title}`));
+  const remainingCustoms = (data.custom_sections || []).filter((s: any) => s !== achSection && s.title && !hidden?.has(`custom:${s.title}`));
 
   return (
     <div style={{ ...wrapperStyle, fontFamily: "Arial, Helvetica, sans-serif" }}>
@@ -4145,142 +4188,151 @@ function LetterpressTemplate({ data, wrapperStyle, validEdu, validExp, watermark
           minHeight: forExportMinHeight(wrapperStyle),
           boxSizing: 'border-box',
           position: 'relative',
-          background: '#fff',
-          padding: '44px 48px',
+          background: MOSAIC_BG,
+          padding: '40px 44px',
+          overflow: 'hidden',
         }}
       >
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '25px', fontWeight: 800, letterSpacing: '5px', color: LETTERPRESS_INK, wordBreak: 'break-word' }}>{(personal.full_name || 'Your Name').toUpperCase()}</div>
-          {jobTitle && <div style={{ fontSize: '12.5px', fontWeight: 700, letterSpacing: '3px', color: LETTERPRESS_MUTED, marginTop: '8px' }}>{jobTitle.toUpperCase()}</div>}
-          {contactParts.length > 0 && (
-            <div style={{ fontSize: '11px', fontStyle: 'italic', color: LETTERPRESS_BODY, marginTop: '10px' }}>
-              {contactParts.join('   |   ')}
-            </div>
-          )}
-        </div>
-        <div style={{ height: '1px', background: LETTERPRESS_RULE, margin: '18px 0' }} />
+        <MosaicCorner corner="tr" />
+        <MosaicCorner corner="bl" />
+        <div style={{ position: 'absolute', top: '40px', left: '18px', width: '5px', height: '42px', background: MOSAIC_RUST }} />
 
-        {personal.bio && (
-          <div style={{ marginBottom: '20px' }}>
-            <LetterpressHeading>Profile</LetterpressHeading>
-            <p style={{ fontSize: '11px', color: LETTERPRESS_BODY, lineHeight: '1.7', margin: 0 }}>{personal.bio}</p>
-            <div style={{ height: '1px', background: LETTERPRESS_RULE, margin: '18px 0 0' }} />
-          </div>
-        )}
-
-        {validExp.length > 0 && (
-          <div style={{ marginBottom: '20px' }}>
-            <LetterpressHeading>Work Experience</LetterpressHeading>
-            {validExp.map((e: any, i: number) => (
-              <div key={i} style={{ marginBottom: i < validExp.length - 1 ? '16px' : 0 }}>
-                {e.role && <div style={{ fontSize: '9.5px', color: LETTERPRESS_MUTED, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{e.role}</div>}
-                {e.school && <div style={{ fontSize: '12.5px', fontWeight: 700, color: LETTERPRESS_INK, marginTop: '2px', wordBreak: 'break-word' }}>{e.school}</div>}
-                {(e.from || e.to) && <div style={{ fontSize: '10.5px', fontStyle: 'italic', color: LETTERPRESS_MUTED, marginTop: '2px' }}>{[e.from, e.to].filter(Boolean).join(' - ')}</div>}
-                {renderDescription(e.description, LETTERPRESS_INK, '11px')}
+        <div style={{ display: 'flex', gap: '38px', position: 'relative' }}>
+          <div style={{ width: '200px', minWidth: '200px' }}>
+            {personal.address && (
+              <div style={{ marginBottom: '22px' }}>
+                <MosaicLabel>Mailing Address</MosaicLabel>
+                <div style={{ fontSize: '11px', color: MOSAIC_BODY, lineHeight: '1.6', wordBreak: 'break-word' }}>{personal.address}</div>
               </div>
-            ))}
-            <div style={{ height: '1px', background: LETTERPRESS_RULE, margin: '18px 0 0' }} />
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: '28px' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
+            )}
+            {(personal.phone || personal.email || personal.portfolio || personal.website) && (
+              <div style={{ marginBottom: '22px' }}>
+                <MosaicLabel>Contact Info</MosaicLabel>
+                {[personal.phone, personal.email, personal.portfolio || personal.website].filter(Boolean).map((v, i) => (
+                  <div key={i} style={{ fontSize: '11px', color: MOSAIC_BODY, marginBottom: '4px', wordBreak: 'break-word' }}>{v}</div>
+                ))}
+              </div>
+            )}
             {validEdu.length > 0 && (
-              <div style={{ marginBottom: '18px' }}>
-                <LetterpressHeading align="left">Education</LetterpressHeading>
+              <div style={{ marginBottom: '22px' }}>
+                <MosaicLabel>Education</MosaicLabel>
                 {validEdu.map((e: any, i: number) => (
-                  <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '10px' : 0 }}>
-                    <div style={{ fontSize: '11.5px', fontWeight: 700, color: LETTERPRESS_INK, wordBreak: 'break-word' }}>{e.institution}</div>
-                    {e.year && <div style={{ fontSize: '10.5px', color: LETTERPRESS_MUTED, marginTop: '1px' }}>{e.year}</div>}
-                    {e.qualification && <div style={{ fontSize: '10.5px', color: LETTERPRESS_BODY, marginTop: '1px' }}>{e.qualification}</div>}
+                  <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '14px' : 0 }}>
+                    {e.qualification && <div style={{ fontSize: '11.5px', fontWeight: 700, color: MOSAIC_INK, wordBreak: 'break-word' }}>{e.qualification}</div>}
+                    {e.year && <div style={{ fontSize: '10px', fontWeight: 700, color: MOSAIC_MUTED, marginTop: '2px' }}>{e.year}</div>}
+                    {e.institution && (
+                      <div style={{ display: 'flex', gap: '6px', fontSize: '10.5px', color: MOSAIC_BODY, marginTop: '3px' }}>
+                        <span style={{ color: MOSAIC_RUST }}>•</span>{e.institution}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
-            {certSection && (
-              <div>
-                <LetterpressHeading align="left">{certSection.title}</LetterpressHeading>
-                {certSection.type === 'bullets'
-                  ? (certSection.content as string).split('\n').map((l: string) => l.trim()).filter(Boolean).map((l: string, i: number) => (
-                      <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '10.5px', color: LETTERPRESS_BODY, marginBottom: '5px' }}>
-                        <span style={{ color: LETTERPRESS_INK }}>•</span>{l}
-                      </div>
-                    ))
-                  : <p style={{ fontSize: '10.5px', color: LETTERPRESS_BODY, lineHeight: '1.6', margin: 0 }}>{certSection.content}</p>}
-              </div>
-            )}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
             {allSkills.length > 0 && (
-              <div style={{ marginBottom: '18px' }}>
-                <LetterpressHeading align="left">Skills</LetterpressHeading>
+              <div style={{ marginBottom: '22px' }}>
+                <MosaicLabel>Skills</MosaicLabel>
                 {allSkills.map((s: string, i: number) => (
-                  <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '10.5px', color: LETTERPRESS_BODY, marginBottom: '5px' }}>
-                    <span style={{ color: LETTERPRESS_INK }}>•</span>{s}
+                  <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '11px', color: MOSAIC_BODY, marginBottom: '5px' }}>
+                    <span style={{ color: MOSAIC_RUST }}>•</span>{s}
                   </div>
                 ))}
               </div>
             )}
             {skills?.languages?.length > 0 && (
               <div>
-                <LetterpressHeading align="left">Languages</LetterpressHeading>
+                <MosaicLabel>Languages</MosaicLabel>
                 {skills.languages.map((s: string, i: number) => (
-                  <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '10.5px', color: LETTERPRESS_BODY, marginBottom: '5px' }}>
-                    <span style={{ color: LETTERPRESS_INK }}>•</span>{s}
+                  <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '11px', color: MOSAIC_BODY, marginBottom: '5px' }}>
+                    <span style={{ color: MOSAIC_RUST }}>•</span>{s}
                   </div>
                 ))}
               </div>
             )}
           </div>
-        </div>
 
-        {remainingCustoms.map((s: any, idx: number) => {
-          let content: React.ReactNode = null;
-          if (s.type === 'text') {
-            content = (s.content && s.content.trim()) ? <p style={{ color: LETTERPRESS_BODY, margin: 0, fontSize: '11px', lineHeight: '1.6' }}>{s.content}</p> : null;
-          } else if (s.type === 'bullets') {
-            const lines = (s.content || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
-            content = lines.length ? (
-              <div>
-                {lines.map((line: string, i: number) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '2px' }}>
-                    <span style={{ color: LETTERPRESS_INK, marginTop: '2px', flexShrink: 0, fontSize: '11px' }}>•</span>
-                    <span style={{ fontSize: '11px', lineHeight: '1.5', color: LETTERPRESS_BODY }}>{line}</span>
+          <div style={{ flex: 1, minWidth: 0, paddingTop: '2px' }}>
+            <div style={{ fontSize: '34px', fontWeight: 800, color: MOSAIC_RUST, lineHeight: '1.1', wordBreak: 'break-word' }}>{personal.full_name || 'Your Name'}</div>
+            {jobTitle && <div style={{ fontSize: '15px', color: MOSAIC_INK, marginTop: '6px' }}>{jobTitle}</div>}
+
+            {personal.bio && (
+              <div style={{ marginTop: '22px' }}>
+                <MosaicLabel>About me</MosaicLabel>
+                <p style={{ fontSize: '11.5px', color: MOSAIC_BODY, lineHeight: '1.7', margin: 0 }}>{personal.bio}</p>
+              </div>
+            )}
+
+            {validExp.length > 0 && (
+              <div style={{ marginTop: '22px' }}>
+                <MosaicLabel>Work Experience</MosaicLabel>
+                {validExp.map((e: any, i: number) => (
+                  <div key={i} style={{ marginBottom: i < validExp.length - 1 ? '16px' : 0, display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {e.school && <div style={{ fontSize: '12.5px', fontWeight: 700, color: MOSAIC_INK, wordBreak: 'break-word' }}>{e.school}</div>}
+                      {e.role && <div style={{ fontSize: '11px', color: MOSAIC_MUTED, marginTop: '1px' }}>{e.role}</div>}
+                      {renderDescription(e.description, MOSAIC_RUST, '11px')}
+                    </div>
+                    {(e.from || e.to) && (
+                      <div style={{ fontSize: '10px', color: MOSAIC_MUTED, textAlign: 'right', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                        {[e.from, e.to].filter(Boolean).join(' - ')}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
-            ) : null;
-          } else if (s.type === 'table') {
-            const cols = s.columns || []; const rows = s.rows || [];
-            if (cols.length && rows.length) {
-              content = (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                  <thead>
-                    <tr>{cols.map((col: string, ci: number) => <th key={ci} style={{ background: LETTERPRESS_INK, color: '#fff', padding: '6px 10px', textAlign: 'left', fontWeight: 700, fontSize: '10px' }}>{col}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row: string[], ri: number) => (
-                      <tr key={ri} style={{ background: ri % 2 === 0 ? '#f9fafb' : '#fff' }}>
-                        {row.map((cell: string, ci: number) => <td key={ci} style={{ padding: '6px 10px', color: LETTERPRESS_BODY, borderBottom: '1px solid #e5e7eb', fontSize: '11px' }}>{cell}</td>)}
-                      </tr>
+            )}
+
+            {achSection && (
+              <div style={{ marginTop: '22px' }}>
+                <MosaicLabel>{achSection.title}</MosaicLabel>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px' }}>
+                  {(achSection.content as string).split('\n').map((l: string) => l.trim()).filter(Boolean).map((l: string, i: number) => (
+                    <div key={i} style={{ fontSize: '11px', fontWeight: 700, color: MOSAIC_INK }}>{l}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {remainingCustoms.map((s: any, idx: number) => {
+              let content: React.ReactNode = null;
+              if (s.type === 'text') {
+                content = <p style={{ color: MOSAIC_BODY, margin: 0, fontSize: '11.5px', lineHeight: '1.6' }}>{s.content}</p>;
+              } else if (s.type === 'bullets') {
+                const lines = (s.content || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
+                content = (
+                  <div>
+                    {lines.map((line: string, i: number) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '2px' }}>
+                        <span style={{ color: MOSAIC_RUST, marginTop: '2px', flexShrink: 0, fontSize: '11px' }}>•</span>
+                        <span style={{ fontSize: '11.5px', lineHeight: '1.5', color: MOSAIC_BODY }}>{line}</span>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              );
-            }
-          }
-          return content ? (
-            <div key={idx} style={{ marginTop: '20px' }}>
-              <div style={{ height: '1px', background: LETTERPRESS_RULE, margin: '0 0 18px' }} />
-              <LetterpressHeading>{s.title}</LetterpressHeading>
-              {content}
-            </div>
-          ) : null;
-        })}
+                  </div>
+                );
+              } else if (s.type === 'table' && s.columns?.length && s.rows?.length) {
+                content = (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                    <thead>
+                      <tr>{s.columns.map((col: string, ci: number) => <th key={ci} style={{ background: MOSAIC_RUST, color: '#fff', padding: '6px 10px', textAlign: 'left', fontWeight: 700, fontSize: '10px' }}>{col}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {s.rows.map((row: string[], ri: number) => (
+                        <tr key={ri} style={{ background: ri % 2 === 0 ? '#f3eee5' : 'transparent' }}>
+                          {row.map((cell: string, ci: number) => <td key={ci} style={{ padding: '6px 10px', color: MOSAIC_BODY, borderBottom: '1px solid #d8d2c4', fontSize: '11px' }}>{cell}</td>)}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                );
+              }
+              return content ? <div key={idx} style={{ marginTop: '20px' }}><MosaicLabel>{s.title}</MosaicLabel>{content}</div> : null;
+            })}
+          </div>
+        </div>
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, LETTERPRESS_INK, watermark, LETTERPRESS_RULE, '28px 40px', hidden)}
+      {renderReferencesPage(data.references, MOSAIC_RUST, watermark, '#d8d2c4', '28px 40px', hidden)}
     </div>
   );
 }

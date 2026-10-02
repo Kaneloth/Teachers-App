@@ -537,7 +537,7 @@ shaded:'#374151', crimson:'#c0392b', sage:'#7fa37f',
     dossier:'#1f2937',
     noir:'#111111',
     portfolio:'#1f2937',
-    letterpress:'#1f2937',
+    mosaic:'#a8502e',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -729,7 +729,7 @@ export async function exportElementAsPDF(
     dossier:      ()=>drawDossier(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     noir:         ()=>drawNoir(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     portfolio:    ()=>drawPortfolio(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
-    letterpress:  ()=>drawLetterpress(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    mosaic:       ()=>drawMosaic(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -4315,204 +4315,221 @@ function drawPortfolio(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custom
   refsPage(p, refs, INK, 'bar', np, BOTTOM, owner, wm);
 }
 
-// ── Letterpress Template ────────────────────────────────────────────────
-// Minimalist, centered masthead layout: wide letter-spaced name and job
-// title, an italic pipe-separated contact line, and bold letter-spaced
-// section headings with NO underline, box or icon — the only rules on the
-// page are thin full-width separators between major blocks (not glued to
-// each heading, unlike every other template's heading style). Work
-// entries lead with a small muted uppercase role line above the bold
-// company name. Distinct from Portfolio (no tab boxes, no contact band,
-// no icons at all) and from Dossier/Heritage (headings carry no rule of
-// their own, and letter-spacing uses jsPDF's charSpace rather than a
-// centered serif double-rule).
-function centeredSpaced(p: any, text: string, y: number, size: number, charSpace: number, color: RGB, bold = true): number {
-  p.setFont(F, bold ? 'bold' : 'normal'); p.setFontSize(size);
-  const baseW = p.getTextWidth(text);
-  const totalW = baseW + charSpace * Math.max(0, text.length - 1);
-  const x = (PW - totalW) / 2;
-  tc(p, color[0], color[1], color[2]);
-  p.text(text, x, y, { charSpace });
-  return totalW;
+// ── Mosaic Template ───────────────────────────────────────────────────────
+// Warm cream page with a thin rust accent bar over a narrow left sidebar
+// (Mailing Address / Contact Info / Education / Skills) and a wide right
+// column led by a large rust display name, beside abstract geometric
+// triangle-mosaic clusters tucked into the top-right and bottom-left
+// corners. Section labels are plain bold rust caps with no rule, icon or
+// box — the triangle motif (not a heading style) is this template's
+// signature. Distinct from Dossier/Noir/Portfolio/Ledger (none of those
+// use a tinted page background or corner ornamentation) and from
+// Terracotta (white page, boxed contact card, single column, brighter
+// orange) — Mosaic is cream-on-rust, two-column, and geometric.
+function trianglePair(p: any, x: number, y: number, cell: number, a: RGB, b: RGB, flip: boolean) {
+  fill(p, a[0], a[1], a[2]);
+  if (!flip) p.triangle(x, y, x + cell, y, x, y + cell, 'F');
+  else       p.triangle(x, y, x + cell, y, x + cell, y + cell, 'F');
+  fill(p, b[0], b[1], b[2]);
+  if (!flip) p.triangle(x + cell, y, x + cell, y + cell, x, y + cell, 'F');
+  else       p.triangle(x, y, x, y + cell, x + cell, y + cell, 'F');
 }
-
-function drawLetterpress(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
-  const INK   = hex('#1f2937');
-  const MUTED = hex('#6b7280');
-  const BODY  = hex('#374151');
-  const RULE  = hex('#d1d5db');
-
-  let y = MT + 12;
-  const np = () => { p.addPage(); reset(p); return MT + 10; };
-  const GXW = (): [number, number] => [ML, PW - ML - MR];
-  const FULL = PW - ML - MR;
-
-  // ── Centered masthead: name, job title, italic contact line ─────────────
-  centeredSpaced(p, owner.toUpperCase(), y, 21, 2.4, INK);
-  y += 9;
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
-  if (jobTitle) { centeredSpaced(p, jobTitle.toUpperCase(), y, 10.5, 1.8, MUTED); y += 7; }
-
-  const contactParts = [pr.phone, pr.email, pr.portfolio || pr.website].filter(Boolean);
-  if (contactParts.length) {
-    const line = contactParts.join('   |   ');
-    p.setFont(F, 'italic'); p.setFontSize(9.5);
-    const tw = p.getTextWidth(line);
-    tc(p, BODY[0], BODY[1], BODY[2]);
-    p.text(line, (PW - tw) / 2, y);
-    y += 8;
+// Tapering triangular cluster of split-diagonal squares tucked into a page
+// corner — row 0 (the row nearest the corner) has the most cells, each
+// further row has one fewer, so the cluster narrows away from the corner
+// the way the reference design's corner ornament does.
+function mosaicCorner(p: any, originX: number, originY: number, cell: number, n: number,
+                      a: RGB, b: RGB, corner: 'tr' | 'bl') {
+  for (let row = 0; row < n; row++) {
+    const cols = n - row;
+    for (let col = 0; col < cols; col++) {
+      let x: number, y: number;
+      if (corner === 'tr') { x = originX - (col + 1) * cell; y = originY + row * cell; }
+      else                 { x = originX + col * cell;       y = originY - (row + 1) * cell; }
+      trianglePair(p, x, y, cell, a, b, (row + col) % 2 === 0);
+    }
   }
   reset(p);
-  y += 3;
-  hLine(p, ML, y, FULL, RULE[0], RULE[1], RULE[2], 0.4);
-  y += 11;
+}
 
-  const letterHeading = (title: string, yy: number): number => {
-    if (yy + 14 > BOTTOM) yy = np();
-    centeredSpaced(p, title.toUpperCase(), yy, 11, 2, INK);
-    reset(p);
-    return yy + 8;
-  };
-  const sectionRule = (yy: number): number => {
-    hLine(p, ML, yy, FULL, RULE[0], RULE[1], RULE[2], 0.4);
-    return yy + 11;
-  };
+function drawMosaic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
+  const RUST  = hex('#a8502e');
+  const INK   = hex('#3a352e');
+  const MUTED = hex('#6f6a5e');
+  const BODY  = hex('#4b463d');
+  const BG    = hex('#ece7dd');
+  const TRI_A = hex('#e1dbcd');
+  const TRI_B = hex('#d5cdbb');
 
-  // letterHeading() centers the label, which only reads well full-width,
-  // so unlike every other template's heading this one is left-aligned
-  // manually when it sits above a half-width column (see the two-column
-  // block near the bottom).
-  const leftHeading = (title: string, x: number, maxW: number, yy: number): number => {
-    if (yy + 14 > BOTTOM) yy = np();
-    p.setFont(F, 'bold'); p.setFontSize(11); tc(p, INK[0], INK[1], INK[2]);
-    p.text(title.toUpperCase().split('').join(' '), x, yy);
-    reset(p);
-    return yy + 8;
-  };
-
-  if ((pr.bio || '').trim()) {
-    y = letterHeading('Profile', y);
-    p.setFont(F, 'normal'); p.setFontSize(9.5); tc(p, BODY[0], BODY[1], BODY[2]);
-    y = wrapped(p, pr.bio.trim(), ML, y, FULL, BOTTOM, np, GXW, 4.6);
-    y += 8;
-    y = sectionRule(y);
-  }
-
-  if (exp.length) {
-    y = letterHeading('Work Experience', y);
-    for (const e of exp) {
-      if (y + 18 > BOTTOM) y = np();
-      if (e.role) { p.setFont(F, 'normal'); p.setFontSize(8.5); tc(p, MUTED[0], MUTED[1], MUTED[2]); p.text(e.role.toUpperCase(), ML, y); y += 5; }
-      if (e.school) { p.setFont(F, 'bold'); p.setFontSize(10.5); tc(p, INK[0], INK[1], INK[2]); y = wrapped(p, e.school, ML, y, FULL, BOTTOM, np, GXW); }
-      const ds = [e.from, e.to].filter(Boolean).join(' - ');
-      if (ds) { p.setFont(F, 'italic'); p.setFontSize(9); tc(p, MUTED[0], MUTED[1], MUTED[2]); p.text(ds, ML, y); y += 5.5; }
-      if (e.description) {
-        p.setFont(F, 'normal'); p.setFontSize(9); tc(p, BODY[0], BODY[1], BODY[2]);
-        for (const l of (e.description as string).split('\n').map((s: string) => s.trim()).filter(Boolean))
-          y = bulletLine(p, l, ML, y, FULL, INK, BOTTOM, np, GXW);
-      }
-      y += ITEM_GAP + 2;
+  const paintBg = (first: boolean) => {
+    fill(p, BG[0], BG[1], BG[2]); p.rect(0, 0, PW, PH, 'F'); reset(p);
+    if (first) {
+      mosaicCorner(p, PW, 0,  9, 4, TRI_A, TRI_B, 'tr');
+      mosaicCorner(p, 0, PH, 8, 3, TRI_A, TRI_B, 'bl');
     }
-    y += 2;
-    y = sectionRule(y);
-  }
+  };
+  paintBg(true);
 
-  // ── Two-column footer: Education (+ Certifications) | Skills (+ Languages) ──
-  const LEFT_W = (FULL - 14) / 2, GAP = 14;
+  const LEFT_W = 56, GAP = 10;
   const RX = ML + LEFT_W + GAP;
+  const RW = PW - MR - RX;
+  const GXWL = (): [number, number] => [ML, LEFT_W];
+  const GXWR = (): [number, number] => [RX, RW];
+
+  // ── Thin rust accent bar, top-left ───────────────────────────────────────
+  fill(p, RUST[0], RUST[1], RUST[2]); p.rect(ML - 7, MT - 2, 1.4, 11, 'F'); reset(p);
+
+  const rustLabel = (x: number, yy: number, title: string): number => {
+    p.setFont(F, 'bold'); p.setFontSize(9); tc(p, RUST[0], RUST[1], RUST[2]);
+    p.text(title.toUpperCase(), x, yy);
+    reset(p);
+    return yy + 5.5;
+  };
+
+  // ── Left sidebar: Mailing Address, Contact Info, Education, Skills ──────
   let pagesSoFar = 1;
   const gotoPage = (idx: number): number => {
-    if (idx > pagesSoFar) { p.addPage(); pagesSoFar = idx; reset(p); return MT + 10; }
+    if (idx > pagesSoFar) { p.addPage(); pagesSoFar = idx; paintBg(false); return MT + 10; }
     p.setPage(idx); reset(p);
     return MT + 10;
   };
   let lPage = 1; const npL = () => gotoPage(++lPage);
   let rPage = 1; const npR = () => gotoPage(++rPage);
-  const GXWL = (): [number, number] => [ML, LEFT_W];
-  const GXWR = (): [number, number] => [RX, LEFT_W];
 
-  let ly = y;
+  let ly = MT + 10;
+  if ((pr.address || '').trim()) {
+    ly = rustLabel(ML, ly, 'Mailing Address');
+    p.setFont(F, 'normal'); p.setFontSize(9); tc(p, BODY[0], BODY[1], BODY[2]);
+    ly = wrapped(p, pr.address.trim(), ML, ly, LEFT_W, BOTTOM, npL, GXWL);
+    ly += 6;
+  }
+  const contactVals = [pr.phone, pr.email, pr.portfolio || pr.website].filter(Boolean);
+  if (contactVals.length) {
+    ly = rustLabel(ML, ly, 'Contact Info');
+    p.setFont(F, 'normal'); p.setFontSize(9); tc(p, BODY[0], BODY[1], BODY[2]);
+    for (const v of contactVals) ly = wrapped(p, v, ML, ly, LEFT_W, BOTTOM, npL, GXWL, 5.2);
+    ly += 5;
+  }
   if (edu.length) {
-    ly = leftHeading('Education', ML, LEFT_W, ly);
+    ly = rustLabel(ML, ly, 'Education');
     for (const e of edu) {
-      if (ly + 12 > BOTTOM) ly = npL();
-      p.setFont(F, 'bold'); p.setFontSize(10); tc(p, INK[0], INK[1], INK[2]);
-      ly = wrapped(p, e.institution || '', ML, ly, LEFT_W, BOTTOM, npL, GXWL);
-      if (e.year) { p.setFont(F, 'normal'); p.setFontSize(9); tc(p, MUTED[0], MUTED[1], MUTED[2]); p.text(e.year, ML, ly); ly += 4.6; }
-      if (e.qualification) { p.setFont(F, 'normal'); p.setFontSize(9); tc(p, BODY[0], BODY[1], BODY[2]); ly = wrapped(p, e.qualification, ML, ly, LEFT_W, BOTTOM, npL, GXWL); }
+      if (ly + 16 > BOTTOM) ly = npL();
+      p.setFont(F, 'bold'); p.setFontSize(9.5); tc(p, INK[0], INK[1], INK[2]);
+      ly = wrapped(p, e.qualification || '', ML, ly, LEFT_W, BOTTOM, npL, GXWL);
+      if (e.year) { p.setFont(F, 'bold'); p.setFontSize(8); tc(p, MUTED[0], MUTED[1], MUTED[2]); ly = wrapped(p, e.year, ML, ly, LEFT_W, BOTTOM, npL, GXWL); ly += 0.5; }
+      if (e.institution) { p.setFont(F, 'normal'); p.setFontSize(8.5); ly = bulletLine(p, e.institution, ML, ly, LEFT_W, RUST, BOTTOM, npL, GXWL); }
       ly += ITEM_GAP + 2;
     }
     ly += 2;
   }
-  const certSection = (customs || []).find((s: any) => /certif/i.test(s.title || '') && s.content);
-  if (certSection) {
-    ly = leftHeading(certSection.title, ML, LEFT_W, ly);
-    p.setFont(F, 'normal'); p.setFontSize(9);
-    if (certSection.type === 'bullets') {
-      for (const l of (certSection.content as string).split('\n').map((s: string) => s.trim()).filter(Boolean))
-        ly = bulletLine(p, l, ML, ly, LEFT_W, INK, BOTTOM, npL, GXWL);
-    } else {
-      tc(p, BODY[0], BODY[1], BODY[2]);
-      ly = wrapped(p, certSection.content, ML, ly, LEFT_W, BOTTOM, npL, GXWL);
-    }
-  }
-
-  let ry = y;
   const allSkills = [...(sk.subjects || []), ...(sk.soft_skills || [])];
   if (allSkills.length) {
-    ry = leftHeading('Skills', RX, LEFT_W, ry);
+    ly = rustLabel(ML, ly, 'Skills');
     p.setFont(F, 'normal'); p.setFontSize(9);
-    for (const s of allSkills) ry = bulletLine(p, s, RX, ry, LEFT_W, INK, BOTTOM, npR, GXWR);
-    ry += 2;
+    for (const s of allSkills) ly = bulletLine(p, s, ML, ly, LEFT_W, RUST, BOTTOM, npL, GXWL);
+    ly += 4;
   }
   if (sk.languages?.length) {
-    ry = leftHeading('Languages', RX, LEFT_W, ry);
+    ly = rustLabel(ML, ly, 'Languages');
     p.setFont(F, 'normal'); p.setFontSize(9);
-    for (const s of sk.languages) ry = bulletLine(p, s, RX, ry, LEFT_W, INK, BOTTOM, npR, GXWR);
+    for (const s of sk.languages) ly = bulletLine(p, s, ML, ly, LEFT_W, RUST, BOTTOM, npL, GXWL);
   }
 
-  // Land on whichever page the two columns actually ended on. Both
-  // columns' y values are page-relative, and every page in this function
-  // starts at the same top margin, so ly/ry stay directly comparable
-  // across pages — gotoPage()'s return value is discarded on purpose.
-  gotoPage(Math.max(lPage, rPage, pagesSoFar));
-  y = Math.max(ly, ry) + 6;
+  // ── Right column: Name, job title, About me, Work Experience ────────────
+  let ry = MT + 4;
+  p.setFont(F, 'bold'); p.setFontSize(27); tc(p, RUST[0], RUST[1], RUST[2]);
+  ry = wrapped(p, owner, RX, ry + 8, RW, BOTTOM, npR, GXWR, 9);
+  reset(p);
+  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  if (jobTitle) {
+    p.setFont(F, 'normal'); p.setFontSize(12); tc(p, INK[0], INK[1], INK[2]);
+    ry = wrapped(p, jobTitle, RX, ry + 1, RW, BOTTOM, npR, GXWR);
+  }
+  ry += 8;
 
-  const remainingCustoms = (customs || []).filter((s: any) => s !== certSection);
-  if (remainingCustoms.length) {
-    y = sectionRule(y);
-    for (const sec of remainingCustoms) {
-      const hasContent = (sec.type === 'text' && !!(sec.content && sec.content.trim()))
-        || (sec.type === 'bullets' && !!(sec.content && (sec.content as string).split('\n').map((l: string) => l.trim()).filter(Boolean).length))
-        || (sec.type === 'table' && !!(sec.columns?.length && sec.rows?.length));
-      if (!sec.title || !hasContent) continue;
-      y = letterHeading(sec.title, y);
-      if (sec.type === 'text') {
-        p.setFont(F, 'normal'); p.setFontSize(9.5); tc(p, BODY[0], BODY[1], BODY[2]);
-        y = wrapped(p, sec.content, ML, y, FULL, BOTTOM, np, GXW, 4.6);
-      } else if (sec.type === 'bullets') {
-        p.setFont(F, 'normal'); p.setFontSize(9.5);
-        for (const l of (sec.content as string).split('\n').map((s: string) => s.trim()).filter(Boolean))
-          y = bulletLine(p, l, ML, y, FULL, INK, BOTTOM, np, GXW);
-      } else if (sec.type === 'table' && sec.columns?.length && sec.rows?.length) {
-        const cw = FULL / sec.columns.length;
-        fill(p, INK[0], INK[1], INK[2]); tc(p, 255, 255, 255);
-        p.rect(ML, y - 4, FULL, 6, 'F');
-        p.setFont(F, 'bold'); p.setFontSize(8);
-        sec.columns.forEach((col: string, ci: number) => p.text(col, ML + ci * cw + 1, y));
-        y += 6; p.setFont(F, 'normal'); p.setFontSize(8.5);
-        for (let ri = 0; ri < sec.rows.length; ri++) {
-          if (y + 6 > BOTTOM) y = np();
-          if (ri % 2 === 0) { fill(p, 249, 250, 251); p.rect(ML, y - 4, FULL, 6, 'F'); }
-          tc(p, 55, 65, 81);
-          sec.rows[ri].forEach((cell: string, ci: number) => p.text(String(cell || ''), ML + ci * cw + 1, y));
-          y += 6;
-        }
-        reset(p);
+  if ((pr.bio || '').trim()) {
+    ry = rustLabel(RX, ry, 'About me');
+    p.setFont(F, 'normal'); p.setFontSize(9.5); tc(p, BODY[0], BODY[1], BODY[2]);
+    ry = wrapped(p, pr.bio.trim(), RX, ry, RW, BOTTOM, npR, GXWR, 4.8);
+    ry += 7;
+  }
+
+  if (exp.length) {
+    ry = rustLabel(RX, ry, 'Work Experience');
+    for (const e of exp) {
+      if (ry + 18 > BOTTOM) ry = npR();
+      const ds = [e.from, e.to].filter(Boolean).join(' - ');
+      p.setFont(F, 'bold'); p.setFontSize(10.5); tc(p, INK[0], INK[1], INK[2]);
+      ry = textWithDate(p, e.school || '', ds, RX, ry, RW, BOTTOM, npR, GXWR, INK, 10.5, true, MUTED, 8.5);
+      if (e.role) { p.setFont(F, 'normal'); p.setFontSize(9); tc(p, MUTED[0], MUTED[1], MUTED[2]); ry = wrapped(p, e.role, RX, ry, RW, BOTTOM, npR, GXWR); }
+      if (e.description) {
+        p.setFont(F, 'normal'); p.setFontSize(9); tc(p, BODY[0], BODY[1], BODY[2]);
+        for (const l of (e.description as string).split('\n').map((s: string) => s.trim()).filter(Boolean))
+          ry = bulletLine(p, l, RX, ry, RW, RUST, BOTTOM, npR, GXWR);
       }
-      y += 6;
+      ry += ITEM_GAP + 3;
     }
+    ry += 2;
   }
 
-  refsPage(p, refs, INK, 'bar', np, BOTTOM, owner, wm);
+  // ── Achievements: a dedicated custom section (matched by title), laid
+  // out as a two-column grid of bold titles, matching the reference's
+  // "Your achievement" grid — every other custom section falls back to
+  // the standard rustLabel + content rendering used throughout. ──────────
+  const achSection = (customs || []).find((s: any) => /achiev/i.test(s.title || '') && s.content);
+  if (achSection) {
+    ry = rustLabel(RX, ry, achSection.title);
+    const items = (achSection.content as string).split('\n').map((s: string) => s.trim()).filter(Boolean);
+    const colW = (RW - 8) / 2;
+    for (let i = 0; i < items.length; i += 2) {
+      if (ry + 10 > BOTTOM) ry = npR();
+      const rowItems = [items[i], items[i + 1]].filter(Boolean);
+      let maxDrop = 0;
+      rowItems.forEach((item, ci) => {
+        const ix = RX + ci * (colW + 8);
+        p.setFont(F, 'bold'); p.setFontSize(9); tc(p, INK[0], INK[1], INK[2]);
+        const iy = wrapped(p, item, ix, ry, colW, BOTTOM, npR, undefined);
+        maxDrop = Math.max(maxDrop, iy - ry);
+      });
+      ry += maxDrop + 5;
+    }
+    ry += 2;
+  }
+
+  const remainingCustoms = (customs || []).filter((s: any) => s !== achSection);
+  for (const sec of remainingCustoms) {
+    const hasContent = (sec.type === 'text' && !!(sec.content && sec.content.trim()))
+      || (sec.type === 'bullets' && !!(sec.content && (sec.content as string).split('\n').map((l: string) => l.trim()).filter(Boolean).length))
+      || (sec.type === 'table' && !!(sec.columns?.length && sec.rows?.length));
+    if (!sec.title || !hasContent) continue;
+    if (ry + 14 > BOTTOM) ry = npR();
+    ry = rustLabel(RX, ry, sec.title);
+    if (sec.type === 'text') {
+      p.setFont(F, 'normal'); p.setFontSize(9); tc(p, BODY[0], BODY[1], BODY[2]);
+      ry = wrapped(p, sec.content, RX, ry, RW, BOTTOM, npR, GXWR);
+    } else if (sec.type === 'bullets') {
+      p.setFont(F, 'normal'); p.setFontSize(9);
+      for (const l of (sec.content as string).split('\n').map((s: string) => s.trim()).filter(Boolean))
+        ry = bulletLine(p, l, RX, ry, RW, RUST, BOTTOM, npR, GXWR);
+    } else if (sec.type === 'table' && sec.columns?.length && sec.rows?.length) {
+      const cw = RW / sec.columns.length;
+      fill(p, RUST[0], RUST[1], RUST[2]); tc(p, 255, 255, 255);
+      p.rect(RX, ry - 4, RW, 6, 'F');
+      p.setFont(F, 'bold'); p.setFontSize(8);
+      sec.columns.forEach((col: string, ci: number) => p.text(col, RX + ci * cw + 1, ry));
+      ry += 6; p.setFont(F, 'normal'); p.setFontSize(8.5);
+      for (let ri = 0; ri < sec.rows.length; ri++) {
+        if (ry + 6 > BOTTOM) ry = npR();
+        if (ri % 2 === 0) { fill(p, 243, 238, 229); p.rect(RX, ry - 4, RW, 6, 'F'); }
+        tc(p, 55, 65, 81);
+        sec.rows[ri].forEach((cell: string, ci: number) => p.text(String(cell || ''), RX + ci * cw + 1, ry));
+        ry += 6;
+      }
+      reset(p);
+    }
+    ry += 4;
+  }
+
+  gotoPage(Math.max(lPage, rPage, pagesSoFar));
+  refsPage(p, refs, RUST, 'bar', () => { p.addPage(); paintBg(false); return MT + 6; }, BOTTOM, owner, wm, BG, false);
 }

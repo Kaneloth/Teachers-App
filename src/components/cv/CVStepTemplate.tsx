@@ -75,7 +75,7 @@ const TEMPLATES = [
   { id: 'dossier',      name: 'Dossier',      description: 'Formal serif layout with a mixed-weight name, icon contact block, centered summary and a true two-column body split by a vertical rule. Classic and dignified.' },
   { id: 'noir',         name: 'Noir',         description: 'Editorial monochrome layout with a circular photo, bold serif name and headings, and work history written as prose instead of bullets. Minimal and design-forward.' },
   { id: 'portfolio',    name: 'Portfolio',    description: 'Bold wide-tracked name, a light slate contact bar, and section headings drawn as small tab labels. Clean and designer-friendly.' },
-  { id: 'letterpress',  name: 'Letterpress',  description: 'Centered letter-spaced masthead, an italic contact line, and plain bold-caps headings with thin rules between sections. Airy and minimalist.' },
+  { id: 'mosaic',       name: 'Mosaic',       description: 'Warm cream page with a rust display name, a narrow address/contact/education sidebar, and geometric triangle clusters tucked into two corners.' },
 ];
 
 const FREE_TEMPLATE = 'classic';
