@@ -141,7 +141,7 @@ export default function TemplatePreviewModal({ index, onClose, onNavigate }: Tem
 
             <div
               ref={frameRef}
-              className="relative bg-white shadow-xl mx-auto"
+              className="relative bg-white shadow-xl mx-auto overflow-hidden"
               style={{ aspectRatio: '210 / 297', width: '100%', maxWidth: '460px' }}
             >
               <div
