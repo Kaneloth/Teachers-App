@@ -513,6 +513,7 @@ shaded:'#374151', crimson:'#c0392b', sage:'#7fa37f',
     monogram:'#262626',
     frame:'#1e293b',
     ledger:'#18181b',
+    dossier:'#1f2937',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -701,6 +702,7 @@ export async function exportElementAsPDF(
     monogram:     ()=>drawMonogram(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     frame:        ()=>drawFrame(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     ledger:       ()=>drawLedger(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    dossier:      ()=>drawDossier(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -3674,4 +3676,189 @@ function drawLedger(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   }
 
   refsPage(p,refs,INK,'tag-underline',np,BOTTOM,owner,wm,undefined,false);
+}
+
+// ── Dossier Template ────────────────────────────────────────────────────
+// Formal serif layout: mixed-weight name (regular given name, bold
+// surname) with a right-aligned icon contact block, a thick dark divider
+// bar beneath the header, a centered "SUMMARY" block, then a two-column
+// body — a narrow left column (Education / Skills / Languages /
+// Certifications) and a wide right column (Professional Experience) —
+// separated by a full-height vertical rule. Distinct from Ledger (no
+// label column, no inline dates) and from Heritage (left-aligned header
+// with an icon contact block instead of a centered contact line, plain
+// white page instead of a tinted background, and a true two-column body
+// instead of a single centered column).
+function drawDossier(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
+  const INK   = hex('#1f2937');
+  const MUTED = hex('#6b7280');
+  const BODY  = hex('#374151');
+  const RULE  = hex('#9ca3af');
+  const BAR   = hex('#1f2937');
+
+  const LEFT_W = 58, GAP = 8;
+  const CX = ML + LEFT_W + GAP / 2;
+  const RX = ML + LEFT_W + GAP;
+  const RW = PW - MR - RX;
+
+  // ── Header: mixed-weight serif name + underline, job title below ────────
+  let y = MT + 6;
+  const parts = owner.trim().split(/\s+/).filter(Boolean);
+  const lastPart  = parts.length > 1 ? parts[parts.length - 1] : '';
+  const firstPart = parts.length > 1 ? parts.slice(0, -1).join(' ') : (parts[0] || owner);
+  p.setFont('times', 'normal'); p.setFontSize(23); tc(p, INK[0], INK[1], INK[2]);
+  const firstTxt = lastPart ? firstPart + ' ' : firstPart;
+  p.text(firstTxt, ML, y);
+  const fw = p.getTextWidth(firstTxt);
+  let nameW = fw;
+  if (lastPart) {
+    p.setFont('times', 'bold'); p.setFontSize(23);
+    p.text(lastPart, ML + fw, y);
+    nameW = fw + p.getTextWidth(lastPart);
+  }
+  hLine(p, ML, y + 2.5, nameW, INK[0], INK[1], INK[2], 0.4);
+  y += 8.5;
+
+  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  if (jobTitle) {
+    p.setFont('times', 'normal'); p.setFontSize(11.5); tc(p, MUTED[0], MUTED[1], MUTED[2]);
+    p.text(jobTitle, ML, y);
+  }
+
+  // ── Contact block, right-aligned, icon-in-circle at the right edge ──────
+  let cy = MT + 3;
+  const contactLines: [string, string][] = [
+    [ICON.phone, pr.phone], [ICON.envelope, pr.email], [ICON.mapMarker, pr.address],
+  ].filter(([, v]) => !!v) as any;
+  for (const [glyph, val] of contactLines) {
+    p.setFont('times', 'normal'); p.setFontSize(9.5); tc(p, BODY[0], BODY[1], BODY[2]);
+    const tw = p.getTextWidth(val);
+    p.text(val, PW - MR - 9 - tw, cy);
+    fill(p, INK[0], INK[1], INK[2]); p.circle(PW - MR - 3, cy - 1.3, 3, 'F');
+    drawIcon(p, glyph, PW - MR - 5.6, cy - 0.3, 6.5, [255, 255, 255]);
+    reset(p);
+    cy += 8;
+  }
+
+  // ── Thick dark divider bar under the header ──────────────────────────────
+  y = Math.max(y, cy) + 5;
+  fill(p, BAR[0], BAR[1], BAR[2]); p.rect(0, y, PW, 1.8, 'F'); reset(p);
+  y += 10;
+
+  // ── Centered "Summary" block ──────────────────────────────────────────────
+  const bioTxt = (pr.bio || '').trim();
+  if (bioTxt) {
+    p.setFont('times', 'bold'); p.setFontSize(13); tc(p, INK[0], INK[1], INK[2]);
+    const label = 'SUMMARY';
+    const lw = p.getTextWidth(label);
+    p.text(label, (PW - lw) / 2, y);
+    y += 3;
+    hLine(p, PW / 2 - 26, y, 52, RULE[0], RULE[1], RULE[2], 0.35);
+    y += 6.5;
+    p.setFont('times', 'normal'); p.setFontSize(9.5); tc(p, BODY[0], BODY[1], BODY[2]);
+    y = centeredWrapped(p, bioTxt, y, PW - ML - MR - 20, BOTTOM, () => { p.addPage(); reset(p); return MT + 6; }, 4.6);
+    y += 3;
+  }
+
+  // ── Two-column body, with a full-height vertical rule on every page ──────
+  const bodyTop = y;
+  let pagesSoFar = 1;
+  const gotoPage = (idx: number): number => {
+    if (idx > pagesSoFar) {
+      p.addPage(); pagesSoFar = idx; reset(p);
+      dc(p, RULE[0], RULE[1], RULE[2]); p.setLineWidth(0.3);
+      p.line(CX, MT + 6, CX, BOTTOM);
+      reset(p);
+      return MT + 6;
+    }
+    p.setPage(idx); reset(p);
+    return MT + 6;
+  };
+  dc(p, RULE[0], RULE[1], RULE[2]); p.setLineWidth(0.3);
+  p.line(CX, bodyTop, CX, BOTTOM);
+  reset(p);
+
+  let lPage = 1; const npL = () => gotoPage(++lPage);
+  let rPage = 1; const npR = () => gotoPage(++rPage);
+  const GXWL = (): [number, number] => [ML, LEFT_W];
+  const GXWR = (): [number, number] => [RX, RW];
+
+  const colHeading = (x: number, yy: number, maxW: number, title: string): number => {
+    p.setFont('times', 'bold'); p.setFontSize(10.5); tc(p, INK[0], INK[1], INK[2]);
+    p.text(title.toUpperCase(), x, yy);
+    yy += 2.5;
+    hLine(p, x, yy, maxW, RULE[0], RULE[1], RULE[2], 0.35);
+    return yy + 6;
+  };
+
+  // ── Left column: Education, Skills, Languages, Certifications ────────────
+  let ly = bodyTop;
+  if (edu.length) {
+    ly = colHeading(ML, ly, LEFT_W, 'Education');
+    for (const e of edu) {
+      if (ly + 12 > BOTTOM) ly = npL();
+      p.setFont('times', 'bold'); p.setFontSize(10); tc(p, INK[0], INK[1], INK[2]);
+      ly = wrapped(p, e.institution || '', ML, ly, LEFT_W, BOTTOM, npL, GXWL);
+      p.setFont('times', 'normal'); p.setFontSize(9); tc(p, BODY[0], BODY[1], BODY[2]);
+      if (e.qualification) ly = wrapped(p, e.qualification, ML, ly, LEFT_W, BOTTOM, npL, GXWL);
+      if (e.year) { p.setFont('times', 'italic'); p.setFontSize(8.5); tc(p, MUTED[0], MUTED[1], MUTED[2]); ly = wrapped(p, e.year, ML, ly, LEFT_W, BOTTOM, npL, GXWL); }
+      ly += ITEM_GAP + 2;
+    }
+    ly += 2;
+  }
+  const allSkills = [...(sk.subjects || []), ...(sk.soft_skills || [])];
+  if (allSkills.length) {
+    ly = colHeading(ML, ly, LEFT_W, 'Skills');
+    p.setFont('times', 'normal'); p.setFontSize(9);
+    for (const s of allSkills) ly = bulletLine(p, s, ML, ly, LEFT_W, INK, BOTTOM, npL, GXWL);
+    ly += 4;
+  }
+  if (sk.languages?.length) {
+    ly = colHeading(ML, ly, LEFT_W, 'Languages');
+    p.setFont('times', 'normal'); p.setFontSize(9);
+    for (const s of sk.languages) ly = bulletLine(p, s, ML, ly, LEFT_W, INK, BOTTOM, npL, GXWL);
+    ly += 4;
+  }
+  const certSection = (customs || []).find((s: any) => /certif/i.test(s.title || ''));
+  if (certSection && certSection.content) {
+    ly = colHeading(ML, ly, LEFT_W, certSection.title);
+    p.setFont('times', 'normal'); p.setFontSize(9);
+    if (certSection.type === 'bullets') {
+      for (const l of (certSection.content as string).split('\n').map((s: string) => s.trim()).filter(Boolean))
+        ly = bulletLine(p, l, ML, ly, LEFT_W, INK, BOTTOM, npL, GXWL);
+    } else {
+      tc(p, BODY[0], BODY[1], BODY[2]);
+      ly = wrapped(p, certSection.content, ML, ly, LEFT_W, BOTTOM, npL, GXWL);
+    }
+    ly += 4;
+  }
+
+  // ── Right column: Professional Experience ────────────────────────────────
+  let ry = bodyTop;
+  if (exp.length) {
+    ry = colHeading(RX, ry, RW, 'Professional Experience');
+    for (const e of exp) {
+      if (ry + 14 > BOTTOM) ry = npR();
+      p.setFont('times', 'bold'); p.setFontSize(10.5); tc(p, INK[0], INK[1], INK[2]);
+      ry = wrapped(p, e.role || '', RX, ry, RW, BOTTOM, npR, GXWR);
+      const ds = [e.school, [e.from, e.to].filter(Boolean).join(' - ')].filter(Boolean).join(' | ');
+      if (ds) { p.setFont('times', 'italic'); p.setFontSize(9); tc(p, MUTED[0], MUTED[1], MUTED[2]); ry = wrapped(p, ds, RX, ry, RW, BOTTOM, npR, GXWR); }
+      if (e.description) {
+        p.setFont('times', 'normal'); p.setFontSize(9);
+        for (const l of (e.description as string).split('\n').map((s: string) => s.trim()).filter(Boolean))
+          ry = bulletLine(p, l, RX, ry, RW, INK, BOTTOM, npR, GXWR);
+      }
+      ry += ITEM_GAP + 3;
+    }
+  }
+
+  // ── Remaining custom sections (other than the certificates one used above) ─
+  const otherCustoms = (customs || []).filter((s: any) => s !== certSection);
+  if (otherCustoms.length) {
+    ry = drawCustom(p, otherCustoms, INK, 'tag-underline', RX, ry, RW, BOTTOM, npR, GXWR, 'times');
+  }
+
+  // ── Land references after whichever column ran furthest ──────────────────
+  gotoPage(Math.max(lPage, rPage, pagesSoFar));
+  refsPage(p, refs, INK, 'tag-underline', () => { p.addPage(); reset(p); return MT; }, BOTTOM, owner, wm, undefined, false);
 }

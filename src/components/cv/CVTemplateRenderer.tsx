@@ -84,6 +84,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'monogram': "Arial, Helvetica, sans-serif",
     'frame': "Arial, Helvetica, sans-serif",
     'ledger': "Arial, Helvetica, sans-serif",
+    'dossier': "Georgia, 'Times New Roman', serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -121,6 +122,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'monogram'     ? <MonogramTemplate     {...T} /> :
     template === 'frame'        ? <FrameTemplate        {...T} /> :
     template === 'ledger'       ? <LedgerTemplate       {...T} /> :
+    template === 'dossier'      ? <DossierTemplate      {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -3565,6 +3567,184 @@ function LedgerTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
       {renderReferencesPage(data.references, LEDGER_INK, watermark, LEDGER_RULE, '28px 40px', hidden)}
+    </div>
+  );
+}
+
+/* ── Dossier Template ───────────────────────────────────────────────────── */
+// Formal serif layout: mixed-weight name (regular given name, bold surname)
+// underlined, with a right-aligned icon contact block, a thick dark divider
+// bar beneath the header, a centered "SUMMARY" block, then a true
+// two-column body — narrow left column (Education / Skills / Languages /
+// Certifications) and a wide right column (Professional Experience) —
+// separated by a full-height vertical rule.
+const DOSSIER_INK   = '#1f2937';
+const DOSSIER_MUTED = '#6b7280';
+const DOSSIER_BODY  = '#374151';
+const DOSSIER_RULE  = '#9ca3af';
+
+function DossierColHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: DOSSIER_INK, marginBottom: '4px', paddingBottom: '5px', borderBottom: `1px solid ${DOSSIER_RULE}` }}>
+      {children}
+    </div>
+  );
+}
+
+function DossierTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hidden }: any) {
+  const { personal, skills } = data;
+  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
+  const certSection = (data.custom_sections || []).find((s: any) => /certif/i.test(s.title || '') && s.content && !hidden?.has(`custom:${s.title}`));
+  const otherCustoms = (data.custom_sections || []).filter((s: any) => s !== certSection && s.title && !hidden?.has(`custom:${s.title}`));
+
+  const nameParts = (personal.full_name || 'Your Name').trim().split(/\s+/).filter(Boolean);
+  const lastPart = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+  const firstPart = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : (nameParts[0] || personal.full_name);
+
+  return (
+    <div style={{ ...wrapperStyle, fontFamily: "Georgia, 'Times New Roman', serif" }}>
+      <div
+        className="cv-content-page"
+        style={{
+          width: '794px',
+          minHeight: forExportMinHeight(wrapperStyle),
+          boxSizing: 'border-box',
+          position: 'relative',
+          background: '#fff',
+          padding: '38px 44px 0',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '27px', color: DOSSIER_INK, display: 'inline-block', borderBottom: `1.5px solid ${DOSSIER_INK}`, paddingBottom: '3px', wordBreak: 'break-word' }}>
+              {lastPart ? <>{firstPart} <span style={{ fontWeight: 700 }}>{lastPart}</span></> : firstPart}
+            </div>
+            {jobTitle && <div style={{ fontSize: '14px', color: DOSSIER_MUTED, marginTop: '7px' }}>{jobTitle}</div>}
+          </div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            {personal.phone   && <div style={{ fontSize: '11.5px', color: DOSSIER_BODY, marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>{personal.phone}{ICONS.phone}</div>}
+            {personal.email   && <div style={{ fontSize: '11.5px', color: DOSSIER_BODY, marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', wordBreak: 'break-word' }}>{personal.email}{ICONS.mail}</div>}
+            {personal.address && <div style={{ fontSize: '11.5px', color: DOSSIER_BODY, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', wordBreak: 'break-word' }}>{personal.address}{ICONS.mapPin}</div>}
+          </div>
+        </div>
+
+        <div style={{ height: '3px', background: DOSSIER_INK, margin: '20px -44px 22px' }} />
+
+        {personal.bio && (
+          <div style={{ textAlign: 'center', marginBottom: '26px', padding: '0 20px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '1.5px', color: DOSSIER_INK }}>SUMMARY</div>
+            <div style={{ width: '50px', height: '1px', background: DOSSIER_RULE, margin: '6px auto 12px' }} />
+            <p style={{ fontSize: '12.5px', color: DOSSIER_BODY, lineHeight: '1.7', margin: 0 }}>{personal.bio}</p>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'stretch', paddingBottom: '32px' }}>
+          <div style={{ width: '220px', minWidth: '220px', paddingRight: '24px', borderRight: `1px solid ${DOSSIER_RULE}` }}>
+            {validEdu.length > 0 && (
+              <div style={{ marginBottom: '22px' }}>
+                <DossierColHeading>Education</DossierColHeading>
+                {validEdu.map((e: any, i: number) => (
+                  <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '12px' : 0 }}>
+                    <div style={{ fontSize: '11.5px', fontWeight: 700, color: DOSSIER_INK, wordBreak: 'break-word' }}>{e.institution}</div>
+                    {e.qualification && <div style={{ fontSize: '11px', color: DOSSIER_BODY, marginTop: '1px', wordBreak: 'break-word' }}>{e.qualification}</div>}
+                    {e.year && <div style={{ fontSize: '10px', fontStyle: 'italic', color: DOSSIER_MUTED, marginTop: '1px' }}>{e.year}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {allSkills.length > 0 && (
+              <div style={{ marginBottom: '22px' }}>
+                <DossierColHeading>Skills</DossierColHeading>
+                {allSkills.map((s: string, i: number) => (
+                  <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '11px', color: DOSSIER_BODY, marginBottom: '5px' }}>
+                    <span style={{ color: DOSSIER_INK }}>•</span>{s}
+                  </div>
+                ))}
+              </div>
+            )}
+            {skills?.languages?.length > 0 && (
+              <div style={{ marginBottom: '22px' }}>
+                <DossierColHeading>Languages</DossierColHeading>
+                {skills.languages.map((s: string, i: number) => (
+                  <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '11px', color: DOSSIER_BODY, marginBottom: '5px' }}>
+                    <span style={{ color: DOSSIER_INK }}>•</span>{s}
+                  </div>
+                ))}
+              </div>
+            )}
+            {certSection && (
+              <div>
+                <DossierColHeading>{certSection.title}</DossierColHeading>
+                {certSection.type === 'bullets'
+                  ? (certSection.content as string).split('\n').map((l: string) => l.trim()).filter(Boolean).map((l: string, i: number) => (
+                      <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '11px', color: DOSSIER_BODY, marginBottom: '5px' }}>
+                        <span style={{ color: DOSSIER_INK }}>•</span>{l}
+                      </div>
+                    ))
+                  : <p style={{ fontSize: '11px', color: DOSSIER_BODY, lineHeight: '1.6', margin: 0 }}>{certSection.content}</p>}
+              </div>
+            )}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0, paddingLeft: '24px' }}>
+            {validExp.length > 0 && (
+              <div>
+                <DossierColHeading>Professional Experience</DossierColHeading>
+                {validExp.map((e: any, i: number) => (
+                  <div key={i} style={{ marginBottom: i < validExp.length - 1 ? '16px' : 0 }}>
+                    <div style={{ fontSize: '12.5px', fontWeight: 700, color: DOSSIER_INK, wordBreak: 'break-word' }}>{e.role}</div>
+                    {(e.school || e.from || e.to) && (
+                      <div style={{ fontSize: '11px', fontStyle: 'italic', color: DOSSIER_MUTED, marginTop: '1px', wordBreak: 'break-word' }}>
+                        {[e.school, [e.from, e.to].filter(Boolean).join(' - ')].filter(Boolean).join(' | ')}
+                      </div>
+                    )}
+                    {renderDescription(e.description, DOSSIER_INK, '11.5px')}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {otherCustoms.map((s: any, idx: number) => {
+              let content: React.ReactNode = null;
+              if (s.type === 'text') {
+                content = <p style={{ color: DOSSIER_BODY, margin: 0, fontSize: '11.5px', lineHeight: '1.6' }}>{s.content}</p>;
+              } else if (s.type === 'bullets') {
+                const lines = (s.content || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
+                content = (
+                  <div>
+                    {lines.map((line: string, i: number) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '2px' }}>
+                        <span style={{ color: DOSSIER_INK, marginTop: '2px', flexShrink: 0, fontSize: '11px' }}>•</span>
+                        <span style={{ fontSize: '11.5px', lineHeight: '1.5', color: DOSSIER_BODY }}>{line}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              } else if (s.type === 'table' && s.columns?.length && s.rows?.length) {
+                content = (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                    <thead>
+                      <tr>{s.columns.map((col: string, ci: number) => <th key={ci} style={{ background: DOSSIER_INK, color: '#fff', padding: '6px 10px', textAlign: 'left', fontWeight: 700, fontSize: '10px' }}>{col}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {s.rows.map((row: string[], ri: number) => (
+                        <tr key={ri} style={{ background: ri % 2 === 0 ? '#f9fafb' : '#fff' }}>
+                          {row.map((cell: string, ci: number) => <td key={ci} style={{ padding: '6px 10px', color: DOSSIER_BODY, borderBottom: '1px solid #e5e7eb', fontSize: '11px' }}>{cell}</td>)}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                );
+              }
+              return content ? <div key={idx} style={{ marginTop: '20px' }}><DossierColHeading>{s.title}</DossierColHeading>{content}</div> : null;
+            })}
+          </div>
+        </div>
+
+        {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
+      </div>
+      {renderReferencesPage(data.references, DOSSIER_INK, watermark, DOSSIER_RULE, '28px 40px', hidden)}
     </div>
   );
 }
