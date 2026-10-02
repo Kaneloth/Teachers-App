@@ -70,13 +70,16 @@ const A4_RATIO = 297 / 210;
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2.5;
 const ZOOM_STEP = 0.25;
+// 100% (the raw auto-fit size) crowds the page against the frame edges —
+// 75% reads better by default, with room to zoom in from there.
+const DEFAULT_ZOOM = 0.75;
 
 export default function TemplatePreviewModal({ index, onClose, onNavigate }: TemplatePreviewModalProps) {
   const navigate = useNavigate();
   const frameRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [baseScale, setBaseScale] = useState(0.4);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   // The *unscaled* height of the rendered CV, in px. A CV with references
   // (like the sample data) renders as two stacked A4 pages, not one — a
   // fixed single-page aspect-ratio box would clip the second page with no
@@ -91,7 +94,7 @@ export default function TemplatePreviewModal({ index, onClose, onNavigate }: Tem
   // number — resetting it when the template changes means switching
   // templates never leaves the next one stuck at a zoom level that made
   // sense for a differently-sized previous one.
-  useEffect(() => { setZoom(1); }, [template.id]);
+  useEffect(() => { setZoom(DEFAULT_ZOOM); }, [template.id]);
 
   useEffect(() => {
     const frameOuterEl = frameRef.current?.parentElement;
@@ -227,12 +230,12 @@ export default function TemplatePreviewModal({ index, onClose, onNavigate }: Tem
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
               <button
-                onClick={() => setZoom(1)}
+                onClick={() => setZoom(DEFAULT_ZOOM)}
                 className="px-1.5 h-7 rounded-full flex items-center justify-center text-[#1A1A2E] hover:bg-[#F3F4F6] text-[11px] font-semibold tabular-nums min-w-[2.75rem]"
-                aria-label="Reset zoom to fit"
+                aria-label="Reset zoom to default"
                 title="Reset zoom"
               >
-                {zoom === 1 ? <RotateCcw className="w-3.5 h-3.5 mx-auto" /> : `${Math.round(zoom * 100)}%`}
+                {zoom === DEFAULT_ZOOM ? <RotateCcw className="w-3.5 h-3.5 mx-auto" /> : `${Math.round(zoom * 100)}%`}
               </button>
               <button
                 onClick={() => setZoom(z => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))}
