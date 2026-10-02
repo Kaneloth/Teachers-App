@@ -85,6 +85,27 @@ function drawIcon(p: any, glyph: string, x: number, y: number, size: number, col
   p.setFont(F, 'normal'); // restore standard text font for whatever is drawn next
 }
 
+// Draws a filled circle with an icon glyph truly centered inside it —
+// both horizontally (via getTextWidth, since different glyphs in the icon
+// font have different advance widths, so a fixed x offset lands each one
+// in a slightly different spot) and vertically (via a fontSize-relative
+// baseline offset, since p.text() positions by baseline, not by glyph
+// center). Used for the small icon-in-circle contact badges (e.g. Dossier).
+function drawIconInCircle(p: any, glyph: string, cx: number, cy: number, r: number,
+                          bg: RGB, fg: RGB, size: number) {
+  fill(p, bg[0], bg[1], bg[2]); p.circle(cx, cy, r, 'F');
+  if (p.__iconFontRegistered) {
+    p.setFont('FAIcons', 'normal'); p.setFontSize(size);
+    const w = p.getTextWidth(glyph);
+    tc(p, fg[0], fg[1], fg[2]);
+    // Baseline sits ~35% of the em-size below true vertical center for most
+    // glyphs; fontSize is in pt while coordinates are in mm, hence the
+    // pt→mm conversion (×0.3528) folded into the 0.125 constant.
+    p.text(glyph, cx - w / 2, cy + size * 0.125);
+  }
+  p.setFont(F, 'normal');
+}
+
 // Draws "icon  text" inline, returning the x position right after the
 // text — so callers can chain multiple icon+text items left to right
 // (e.g. envelope+email, then phone-icon+number, with a separator
@@ -3733,9 +3754,8 @@ function drawDossier(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   for (const [glyph, val] of contactLines) {
     p.setFont('times', 'normal'); p.setFontSize(9.5); tc(p, BODY[0], BODY[1], BODY[2]);
     const tw = p.getTextWidth(val);
-    p.text(val, PW - MR - 9 - tw, cy);
-    fill(p, INK[0], INK[1], INK[2]); p.circle(PW - MR - 3, cy - 1.3, 3, 'F');
-    drawIcon(p, glyph, PW - MR - 5.6, cy - 0.3, 6.5, [255, 255, 255]);
+    p.text(val, PW - MR - 10 - tw, cy);
+    drawIconInCircle(p, glyph, PW - MR - 3.2, cy - 1, 3.2, INK, [255, 255, 255], 6);
     reset(p);
     cy += 8;
   }
@@ -3853,9 +3873,45 @@ function drawDossier(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   }
 
   // ── Remaining custom sections (other than the certificates one used above) ─
-  const otherCustoms = (customs || []).filter((s: any) => s !== certSection);
-  if (otherCustoms.length) {
-    ry = drawCustom(p, otherCustoms, INK, 'tag-underline', RX, ry, RW, BOTTOM, npR, GXWR, 'times');
+  // Rendered with the same plain serif colHeading as Education/Skills/
+  // Professional Experience (bold Times caps + underline, no icon) instead
+  // of drawCustom's own heading style — drawCustom draws its heading in
+  // Helvetica with an auto-resolved icon (e.g. a trophy before "Awards &
+  // Achievements"), which looked visibly different from every other
+  // section heading on the page.
+  const otherCustoms = (customs || []).filter((s: any) => {
+    if (s === certSection || !s.title) return false;
+    return (s.type === 'text' && !!(s.content && s.content.trim()))
+      || (s.type === 'bullets' && !!(s.content && (s.content as string).split('\n').map((l: string) => l.trim()).filter(Boolean).length))
+      || (s.type === 'table' && !!(s.columns?.length && s.rows?.length));
+  });
+  for (const sec of otherCustoms) {
+    if (ry + 14 > BOTTOM) ry = npR();
+    ry = colHeading(RX, ry, RW, sec.title);
+    if (sec.type === 'text') {
+      p.setFont('times', 'normal'); p.setFontSize(9); tc(p, BODY[0], BODY[1], BODY[2]);
+      ry = wrapped(p, sec.content, RX, ry, RW, BOTTOM, npR, GXWR);
+    } else if (sec.type === 'bullets') {
+      p.setFont('times', 'normal'); p.setFontSize(9);
+      for (const l of (sec.content as string).split('\n').map((s: string) => s.trim()).filter(Boolean))
+        ry = bulletLine(p, l, RX, ry, RW, INK, BOTTOM, npR, GXWR);
+    } else if (sec.type === 'table' && sec.columns?.length && sec.rows?.length) {
+      const cw = RW / sec.columns.length;
+      fill(p, INK[0], INK[1], INK[2]); tc(p, 255, 255, 255);
+      p.rect(RX, ry - 4, RW, 6, 'F');
+      p.setFont('times', 'bold'); p.setFontSize(8);
+      sec.columns.forEach((col: string, ci: number) => p.text(col, RX + ci * cw + 1, ry));
+      ry += 6; p.setFont('times', 'normal'); p.setFontSize(8.5);
+      for (let ri = 0; ri < sec.rows.length; ri++) {
+        if (ry + 6 > BOTTOM) ry = npR();
+        if (ri % 2 === 0) { fill(p, 249, 250, 251); p.rect(RX, ry - 4, RW, 6, 'F'); }
+        tc(p, 55, 65, 81);
+        sec.rows[ri].forEach((cell: string, ci: number) => p.text(String(cell || ''), RX + ci * cw + 1, ry));
+        ry += 6;
+      }
+      reset(p);
+    }
+    ry += 4;
   }
 
   // ── Land references after whichever column ran furthest ──────────────────
