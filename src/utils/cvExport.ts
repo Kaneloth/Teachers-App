@@ -4140,9 +4140,15 @@ function drawPortfolio(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custom
   const FULL = PW - ML - MR;
 
   // ── Name + job title ───────────────────────────────────────────────────
+  // Letter-spacing was previously faked by inserting hair-space (U+200A)
+  // characters between letters. jsPDF's standard "helvetica" font only
+  // supports WinAnsi/Latin-1 code points, so U+200A has no glyph in it —
+  // each one rendered as a fallback with an unpredictable (often huge)
+  // advance width, which is what stretched the name across the page.
+  // jsPDF's own charSpace text option adds real, consistent letter-spacing
+  // without depending on a glyph existing for the spacing character.
   p.setFont(F, 'bold'); p.setFontSize(23); tc(p, INK[0], INK[1], INK[2]);
-  const spacedName = owner.toUpperCase().split('').join('  ');
-  p.text(spacedName, ML, y);
+  p.text(owner.toUpperCase(), ML, y, { charSpace: 1.6 });
   y += 7;
   const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
   if (jobTitle) { p.setFont(F, 'normal'); p.setFontSize(12); tc(p, MUTED[0], MUTED[1], MUTED[2]); p.text(jobTitle, ML, y); y += 7; }
@@ -4265,6 +4271,44 @@ function drawPortfolio(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custom
     y = maxY + 4;
   }
 
-  y = drawCustom(p, customs, INK, 'bar', ML, y, FULL, BOTTOM, np, GXW);
+  // Custom sections (Training & Certifications, Awards & Achievements, etc.)
+  // use the same sectionTab() heading as every built-in section above,
+  // instead of drawCustom's own 'bar' heading style (a small color tick
+  // next to plain bold text) — that mismatch was exactly what made these
+  // sections look visually different from the rest of the CV.
+  const validCustoms = (customs || []).filter((s: any) => {
+    if (!s.title) return false;
+    return (s.type === 'text' && !!(s.content && s.content.trim()))
+      || (s.type === 'bullets' && !!(s.content && (s.content as string).split('\n').map((l: string) => l.trim()).filter(Boolean).length))
+      || (s.type === 'table' && !!(s.columns?.length && s.rows?.length));
+  });
+  for (const sec of validCustoms) {
+    y = sectionTab(sec.title, y);
+    if (sec.type === 'text') {
+      p.setFont(F, 'normal'); p.setFontSize(9.5); tc(p, BODY[0], BODY[1], BODY[2]);
+      y = wrapped(p, sec.content, ML, y, FULL, BOTTOM, np, GXW, 4.6);
+    } else if (sec.type === 'bullets') {
+      p.setFont(F, 'normal'); p.setFontSize(9.5);
+      for (const l of (sec.content as string).split('\n').map((s: string) => s.trim()).filter(Boolean))
+        y = bulletLine(p, l, ML, y, FULL, INK, BOTTOM, np, GXW);
+    } else if (sec.type === 'table' && sec.columns?.length && sec.rows?.length) {
+      const cw = FULL / sec.columns.length;
+      fill(p, INK[0], INK[1], INK[2]); tc(p, 255, 255, 255);
+      p.rect(ML, y - 4, FULL, 6, 'F');
+      p.setFont(F, 'bold'); p.setFontSize(8);
+      sec.columns.forEach((col: string, ci: number) => p.text(col, ML + ci * cw + 1, y));
+      y += 6; p.setFont(F, 'normal'); p.setFontSize(8.5);
+      for (let ri = 0; ri < sec.rows.length; ri++) {
+        if (y + 6 > BOTTOM) y = np();
+        if (ri % 2 === 0) { fill(p, 249, 250, 251); p.rect(ML, y - 4, FULL, 6, 'F'); }
+        tc(p, 55, 65, 81);
+        sec.rows[ri].forEach((cell: string, ci: number) => p.text(String(cell || ''), ML + ci * cw + 1, y));
+        y += 6;
+      }
+      reset(p);
+    }
+    y += 6;
+  }
+
   refsPage(p, refs, INK, 'bar', np, BOTTOM, owner, wm);
 }
