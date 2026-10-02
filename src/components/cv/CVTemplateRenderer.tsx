@@ -86,6 +86,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'ledger': "Arial, Helvetica, sans-serif",
     'dossier': "Georgia, 'Times New Roman', serif",
     'noir': "Arial, Helvetica, sans-serif",
+    'portfolio': "Arial, Helvetica, sans-serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -125,6 +126,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'ledger'       ? <LedgerTemplate       {...T} /> :
     template === 'dossier'      ? <DossierTemplate      {...T} /> :
     template === 'noir'         ? <NoirTemplate         {...T} /> :
+    template === 'portfolio'    ? <PortfolioTemplate    {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -3915,6 +3917,189 @@ function NoirTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hidde
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
       {renderReferencesPage(data.references, NOIR_INK, watermark, NOIR_RULE, '28px 40px', hidden)}
+    </div>
+  );
+}
+
+/* ── Portfolio Template ─────────────────────────────────────────────────── */
+// Single-column, designer-friendly layout: bold wide-tracked uppercase name,
+// a full-width light slate contact bar with icon-circle items separated by
+// dots, and section headings drawn as small filled "tab" labels with a
+// full-width rule running beneath — distinct from every other heading style
+// already in the app.
+const PORTFOLIO_INK   = '#1f2937';
+const PORTFOLIO_MUTED = '#6b7280';
+const PORTFOLIO_BODY  = '#374151';
+const PORTFOLIO_TAB   = '#cbd5e1';
+const PORTFOLIO_BAND  = '#eef2f7';
+
+function PortfolioTab({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: '14px' }}>
+      <span style={{ display: 'inline-block', background: PORTFOLIO_TAB, color: PORTFOLIO_INK, fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.3px', padding: '5px 10px' }}>
+        {children}
+      </span>
+      <div style={{ height: '1px', background: PORTFOLIO_TAB, marginTop: '6px' }} />
+    </div>
+  );
+}
+
+function PortfolioSkillGrid({ items }: { items: string[] }) {
+  const cols = 3;
+  const perCol = Math.ceil(items.length / cols);
+  const grid = Array.from({ length: cols }, (_, c) => items.slice(c * perCol, (c + 1) * perCol));
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, columnGap: '16px' }}>
+      {grid.map((colItems, ci) => (
+        <div key={ci}>
+          {colItems.map((s, i) => (
+            <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '11px', color: PORTFOLIO_BODY, marginBottom: '6px' }}>
+              <span style={{ color: PORTFOLIO_INK }}>•</span>{s}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PortfolioDateRow({ title, date }: { title: string; date?: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap' }}>
+      <div style={{ fontSize: '12px', fontWeight: 700, color: PORTFOLIO_INK, wordBreak: 'break-word' }}>{title}</div>
+      {date && <div style={{ fontSize: '10.5px', fontWeight: 700, color: PORTFOLIO_MUTED, whiteSpace: 'nowrap', textTransform: 'uppercase' }}>{date}</div>}
+    </div>
+  );
+}
+
+function PortfolioTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hidden }: any) {
+  const { personal, skills } = data;
+  const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
+  const otherCustoms = (data.custom_sections || []).filter((s: any) => s.title && !hidden?.has(`custom:${s.title}`));
+  const contactItems = [
+    [ICONS.phone, personal.phone], [ICONS.mapPin, personal.address], [ICONS.languages, personal.portfolio || personal.website], [ICONS.mail, personal.email],
+  ].filter(([, v]) => !!v);
+
+  return (
+    <div style={{ ...wrapperStyle, fontFamily: "Arial, Helvetica, sans-serif" }}>
+      <div
+        className="cv-content-page"
+        style={{
+          width: '794px',
+          minHeight: forExportMinHeight(wrapperStyle),
+          boxSizing: 'border-box',
+          position: 'relative',
+          background: '#fff',
+          padding: '40px 0 40px',
+        }}
+      >
+        <div style={{ padding: '0 44px' }}>
+          <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '3px', color: PORTFOLIO_INK, wordBreak: 'break-word' }}>{(personal.full_name || 'Your Name').toUpperCase()}</div>
+          {(personal.job_title || validExp[0]?.role) && <div style={{ fontSize: '13px', color: PORTFOLIO_MUTED, marginTop: '4px' }}>{personal.job_title || validExp[0]?.role}</div>}
+        </div>
+
+        {contactItems.length > 0 && (
+          <div style={{ background: PORTFOLIO_BAND, margin: '16px 0 22px', padding: '10px 44px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '8px', rowGap: '6px' }}>
+            {contactItems.map(([icon, v]: any, i: number) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: PORTFOLIO_INK, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', flexShrink: 0 }}>{icon}</span>
+                  <span style={{ fontSize: '10.5px', color: PORTFOLIO_BODY }}>{v}</span>
+                </div>
+                {i < contactItems.length - 1 && <span style={{ color: '#9ca3af' }}>•</span>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ padding: '0 44px' }}>
+          {personal.bio && (
+            <div style={{ marginBottom: '20px' }}>
+              <PortfolioTab>About Me</PortfolioTab>
+              <p style={{ fontSize: '11.5px', color: PORTFOLIO_BODY, lineHeight: '1.7', margin: 0 }}>{personal.bio}</p>
+            </div>
+          )}
+
+          {validEdu.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <PortfolioTab>Education</PortfolioTab>
+              {validEdu.map((e: any, i: number) => (
+                <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '10px' : 0 }}>
+                  <PortfolioDateRow title={e.institution} date={e.year} />
+                  {e.qualification && <div style={{ fontSize: '11px', color: PORTFOLIO_BODY, marginTop: '2px' }}>{e.qualification}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {allSkills.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <PortfolioTab>Skill</PortfolioTab>
+              <PortfolioSkillGrid items={allSkills} />
+            </div>
+          )}
+
+          {validExp.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <PortfolioTab>Work Experience</PortfolioTab>
+              {validExp.map((e: any, i: number) => (
+                <div key={i} style={{ marginBottom: i < validExp.length - 1 ? '14px' : 0 }}>
+                  <PortfolioDateRow title={[e.school, e.role].filter(Boolean).join(' - ')} date={[e.from, e.to].filter(Boolean).join('-').toUpperCase()} />
+                  {renderDescription(e.description, PORTFOLIO_INK, '11px')}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {skills?.languages?.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <PortfolioTab>Languages</PortfolioTab>
+              <PortfolioSkillGrid items={skills.languages} />
+            </div>
+          )}
+
+          {otherCustoms.map((s: any, idx: number) => {
+            let content: React.ReactNode = null;
+            if (s.type === 'text') {
+              content = (s.content && s.content.trim()) ? <p style={{ color: PORTFOLIO_BODY, margin: 0, fontSize: '11px', lineHeight: '1.6' }}>{s.content}</p> : null;
+            } else if (s.type === 'bullets') {
+              const lines = (s.content || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
+              content = lines.length ? (
+                <div>
+                  {lines.map((line: string, i: number) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '2px' }}>
+                      <span style={{ color: PORTFOLIO_INK, marginTop: '2px', flexShrink: 0, fontSize: '11px' }}>•</span>
+                      <span style={{ fontSize: '11px', lineHeight: '1.5', color: PORTFOLIO_BODY }}>{line}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null;
+            } else if (s.type === 'table') {
+              const cols = s.columns || []; const rows = s.rows || [];
+              if (cols.length && rows.length) {
+                content = (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                    <thead>
+                      <tr>{cols.map((col: string, ci: number) => <th key={ci} style={{ background: PORTFOLIO_INK, color: '#fff', padding: '6px 10px', textAlign: 'left', fontWeight: 700, fontSize: '10px' }}>{col}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((row: string[], ri: number) => (
+                        <tr key={ri} style={{ background: ri % 2 === 0 ? '#f9fafb' : '#fff' }}>
+                          {row.map((cell: string, ci: number) => <td key={ci} style={{ padding: '6px 10px', color: PORTFOLIO_BODY, borderBottom: '1px solid #e5e7eb', fontSize: '11px' }}>{cell}</td>)}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                );
+              }
+            }
+            return content ? <div key={idx} style={{ marginBottom: '20px' }}><PortfolioTab>{s.title}</PortfolioTab>{content}</div> : null;
+          })}
+        </div>
+
+        {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
+      </div>
+      {renderReferencesPage(data.references, PORTFOLIO_INK, watermark, PORTFOLIO_TAB, '28px 40px', hidden)}
     </div>
   );
 }

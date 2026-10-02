@@ -536,6 +536,7 @@ shaded:'#374151', crimson:'#c0392b', sage:'#7fa37f',
     ledger:'#18181b',
     dossier:'#1f2937',
     noir:'#111111',
+    portfolio:'#1f2937',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -726,6 +727,7 @@ export async function exportElementAsPDF(
     ledger:       ()=>drawLedger(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     dossier:      ()=>drawDossier(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     noir:         ()=>drawNoir(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    portfolio:    ()=>drawPortfolio(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -4085,7 +4087,7 @@ function drawNoir(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
       || (s.type === 'bullets' && !!(s.content && (s.content as string).split('\n').map((l: string) => l.trim()).filter(Boolean).length))
       || (s.type === 'table' && !!(s.columns?.length && s.rows?.length));
   });
-  for (const sec of validCustoms) {
+  for (const sec of validCustoms as any[]) {
     if (ry + 14 > BOTTOM) ry = npR();
     ry = colHeading(RX, ry, RW, sec.title);
     if (sec.type === 'text') {
@@ -4116,4 +4118,153 @@ function drawNoir(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
 
   gotoPage(Math.max(lPage, rPage, pagesSoFar));
   refsPage(p, refs, INK, 'tag-underline', () => { p.addPage(); reset(p); return MT; }, BOTTOM, owner, wm, undefined, false);
+}
+// ── Portfolio Template ──────────────────────────────────────────────────
+// Single-column, designer-friendly layout: bold wide-tracked uppercase
+// name, a full-width light slate contact bar with icon-circle items
+// separated by dots, and section headings drawn as small filled "tab"
+// labels with a full-width rule running beneath them — distinct from
+// every other heading style already in use (shaded fills the whole
+// width, tag-underline has no box, bar uses a small color tick).
+function drawPortfolio(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
+  const INK  = hex('#1f2937');
+  const MUTED = hex('#6b7280');
+  const BODY = hex('#374151');
+  const TAB  = hex('#cbd5e1');
+  const BAND = hex('#eef2f7');
+  const RULE = hex('#cbd5e1');
+
+  let y = MT + 8;
+  const np = () => { p.addPage(); reset(p); return MT + 8; };
+  const GXW = (): [number, number] => [ML, PW - ML - MR];
+  const FULL = PW - ML - MR;
+
+  // ── Name + job title ───────────────────────────────────────────────────
+  p.setFont(F, 'bold'); p.setFontSize(23); tc(p, INK[0], INK[1], INK[2]);
+  const spacedName = owner.toUpperCase().split('').join('  ');
+  p.text(spacedName, ML, y);
+  y += 7;
+  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  if (jobTitle) { p.setFont(F, 'normal'); p.setFontSize(12); tc(p, MUTED[0], MUTED[1], MUTED[2]); p.text(jobTitle, ML, y); y += 7; }
+  y += 3;
+
+  // ── Contact band — full-width light slate strip, icon-circle items ──────
+  const contactItems: [string, string][] = [
+    [ICON.phone, pr.phone], [ICON.mapMarker, pr.address], [ICON.globe, pr.portfolio || pr.website], [ICON.envelope, pr.email],
+  ].filter(([, v]) => !!v) as any;
+  if (contactItems.length) {
+    const bandH = 11;
+    fill(p, BAND[0], BAND[1], BAND[2]); p.rect(0, y, PW, bandH, 'F'); reset(p);
+    const midY = y + bandH / 2 + 1.5;
+    p.setFont(F, 'normal'); p.setFontSize(8.5);
+    const widths = contactItems.map(([, v]) => p.getTextWidth(v) + 7.5);
+    const sep = '    •    '; const sepW = p.getTextWidth(sep);
+    const totalW = widths.reduce((a, b) => a + b, 0) + sepW * (contactItems.length - 1);
+    let cx = Math.max(ML, (PW - totalW) / 2);
+    for (let i = 0; i < contactItems.length; i++) {
+      const [glyph, val] = contactItems[i];
+      drawIconInCircle(p, glyph, cx + 2.6, midY - 1, 2.6, INK, [255, 255, 255], 5.5);
+      p.setFont(F, 'normal'); p.setFontSize(8.5); tc(p, BODY[0], BODY[1], BODY[2]);
+      p.text(val, cx + 6.5, midY);
+      cx += widths[i];
+      if (i < contactItems.length - 1) { tc(p, 156, 163, 175); p.text(sep, cx, midY); cx += sepW; }
+    }
+    reset(p);
+    y += bandH + 10;
+  }
+
+  const sectionTab = (title: string, yy: number): number => {
+    if (yy + 14 > BOTTOM) { yy = np(); }
+    p.setFont(F, 'bold'); p.setFontSize(9.5);
+    const tw = p.getTextWidth(title.toUpperCase());
+    const boxW = tw + 9, boxH = 7.5;
+    fill(p, TAB[0], TAB[1], TAB[2]); p.rect(ML, yy - 5.3, boxW, boxH, 'F');
+    tc(p, INK[0], INK[1], INK[2]);
+    p.text(title.toUpperCase(), ML + 4.5, yy);
+    reset(p);
+    const ruleY = yy + 3.5;
+    hLine(p, ML, ruleY, FULL, RULE[0], RULE[1], RULE[2], 0.4);
+    return ruleY + 8;
+  };
+
+  const dateRow = (titleText: string, dateText: string, yy: number, titleSize = 10): number => {
+    p.setFont(F, 'bold'); p.setFontSize(titleSize);
+    const dw = dateText ? p.getTextWidth(dateText) : 0;
+    const effW = dateText ? Math.max(20, FULL - dw - 4) : FULL;
+    tc(p, INK[0], INK[1], INK[2]);
+    const startY = yy;
+    const newY = wrapped(p, titleText, ML, yy, effW, BOTTOM, np, GXW);
+    if (dateText) { p.setFont(F, 'bold'); p.setFontSize(9); tc(p, MUTED[0], MUTED[1], MUTED[2]); p.text(dateText, PW - MR - dw, startY); }
+    return newY;
+  };
+
+  if ((pr.bio || '').trim()) {
+    y = sectionTab('About Me', y);
+    p.setFont(F, 'normal'); p.setFontSize(9.5); tc(p, BODY[0], BODY[1], BODY[2]);
+    y = wrapped(p, pr.bio.trim(), ML, y, FULL, BOTTOM, np, GXW, 4.6);
+    y += 6;
+  }
+
+  if (edu.length) {
+    y = sectionTab('Education', y);
+    for (const e of edu) {
+      if (y + 10 > BOTTOM) y = np();
+      y = dateRow(e.institution || '', e.year || '', y);
+      if (e.qualification) { p.setFont(F, 'normal'); p.setFontSize(9); tc(p, BODY[0], BODY[1], BODY[2]); y = wrapped(p, e.qualification, ML, y, FULL, BOTTOM, np, GXW); }
+      y += ITEM_GAP + 2;
+    }
+    y += 2;
+  }
+
+  const allSkills = [...(sk.subjects || []), ...(sk.soft_skills || [])];
+  if (allSkills.length) {
+    y = sectionTab('Skill', y);
+    const cols = 3, perCol = Math.ceil(allSkills.length / cols), colW = FULL / cols;
+    const startY = y; let maxY = y;
+    for (let c = 0; c < cols; c++) {
+      let cy = startY;
+      const colItems = allSkills.slice(c * perCol, (c + 1) * perCol);
+      for (const item of colItems) {
+        p.setFont(F, 'normal'); p.setFontSize(9.5); tc(p, BODY[0], BODY[1], BODY[2]);
+        cy = bulletLine(p, item, ML + c * colW, cy, colW - 6, INK, BOTTOM, np, (): [number, number] => [ML + c * colW, colW - 6]);
+      }
+      if (cy > maxY) maxY = cy;
+    }
+    y = maxY + 4;
+  }
+
+  if (exp.length) {
+    y = sectionTab('Work Experience', y);
+    for (const e of exp) {
+      if (y + 16 > BOTTOM) y = np();
+      const dateLabel = [e.from, e.to].filter(Boolean).join('-');
+      const heading = [e.school, e.role].filter(Boolean).join(' - ');
+      y = dateRow(heading, dateLabel.toUpperCase(), y);
+      if (e.description) {
+        p.setFont(F, 'normal'); p.setFontSize(9); tc(p, BODY[0], BODY[1], BODY[2]);
+        for (const l of (e.description as string).split('\n').map((s: string) => s.trim()).filter(Boolean))
+          y = bulletLine(p, l, ML, y, FULL, INK, BOTTOM, np, GXW);
+      }
+      y += ITEM_GAP + 3;
+    }
+  }
+
+  if (sk.languages?.length) {
+    y = sectionTab('Languages', y);
+    const cols = 3, perCol = Math.ceil(sk.languages.length / cols), colW = FULL / cols;
+    const startY = y; let maxY = y;
+    for (let c = 0; c < cols; c++) {
+      let cy = startY;
+      const colItems = sk.languages.slice(c * perCol, (c + 1) * perCol);
+      for (const item of colItems) {
+        p.setFont(F, 'normal'); p.setFontSize(9.5); tc(p, BODY[0], BODY[1], BODY[2]);
+        cy = bulletLine(p, item, ML + c * colW, cy, colW - 6, INK, BOTTOM, np, (): [number, number] => [ML + c * colW, colW - 6]);
+      }
+      if (cy > maxY) maxY = cy;
+    }
+    y = maxY + 4;
+  }
+
+  y = drawCustom(p, customs, INK, 'bar', ML, y, FULL, BOTTOM, np, GXW);
+  refsPage(p, refs, INK, 'bar', np, BOTTOM, owner, wm);
 }
