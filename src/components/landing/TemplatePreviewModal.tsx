@@ -2,7 +2,7 @@ import { Component, useEffect, useRef, useState } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CVTemplateRenderer from '@/components/cv/CVTemplateRenderer';
 import { SAMPLE_DATA, PAGE_WIDTH_PX, TEMPLATES } from '@/components/cv/CVStepTemplate';
@@ -63,11 +63,20 @@ interface TemplatePreviewModalProps {
 // guess for a single-page CV before the real content height is measured.
 const A4_RATIO = 297 / 210;
 
+// Zoom multiplier applied on top of the auto-fit scale. Clamped so "Use
+// this template" and the arrows stay reachable (zoom never has to be
+// undone to find the CTA again) and so zooming out can't shrink the page
+// to the point of being illegible.
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 2.5;
+const ZOOM_STEP = 0.25;
+
 export default function TemplatePreviewModal({ index, onClose, onNavigate }: TemplatePreviewModalProps) {
   const navigate = useNavigate();
   const frameRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.4);
+  const [baseScale, setBaseScale] = useState(0.4);
+  const [zoom, setZoom] = useState(1);
   // The *unscaled* height of the rendered CV, in px. A CV with references
   // (like the sample data) renders as two stacked A4 pages, not one — a
   // fixed single-page aspect-ratio box would clip the second page with no
@@ -76,17 +85,24 @@ export default function TemplatePreviewModal({ index, onClose, onNavigate }: Tem
   // every page, however many there are.
   const [contentHeight, setContentHeight] = useState(PAGE_WIDTH_PX * A4_RATIO);
   const template = TEMPLATES[index];
+  const scale = baseScale * zoom;
+
+  // Zoom is relative to each template's own auto-fit size, not an absolute
+  // number — resetting it when the template changes means switching
+  // templates never leaves the next one stuck at a zoom level that made
+  // sense for a differently-sized previous one.
+  useEffect(() => { setZoom(1); }, [template.id]);
 
   useEffect(() => {
-    const frameEl = frameRef.current;
-    if (!frameEl) return;
+    const frameOuterEl = frameRef.current?.parentElement;
+    if (!frameOuterEl) return;
     const measureWidth = () => {
-      const width = frameEl.getBoundingClientRect().width;
-      if (width > 0) setScale(width / PAGE_WIDTH_PX);
+      const width = frameOuterEl.getBoundingClientRect().width;
+      if (width > 0) setBaseScale(width / PAGE_WIDTH_PX);
     };
     measureWidth();
     const roWidth = new ResizeObserver(measureWidth);
-    roWidth.observe(frameEl);
+    roWidth.observe(frameOuterEl);
     window.addEventListener('resize', measureWidth);
     return () => { roWidth.disconnect(); window.removeEventListener('resize', measureWidth); };
   }, []);
@@ -105,8 +121,13 @@ export default function TemplatePreviewModal({ index, onClose, onNavigate }: Tem
     measureHeight();
     const roHeight = new ResizeObserver(measureHeight);
     roHeight.observe(contentEl);
+    // Custom web fonts (several templates use non-system fonts) can finish
+    // loading after this first measurement and reflow the text, changing
+    // the real content height — re-measure once they're ready so the frame
+    // doesn't stay sized for the pre-font-load layout.
+    document.fonts?.ready?.then(measureHeight).catch(() => {});
     return () => roHeight.disconnect();
-  }, []);
+  }, [template.id]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -186,11 +207,43 @@ export default function TemplatePreviewModal({ index, onClose, onNavigate }: Tem
               <ChevronRight className="w-5 h-5" />
             </button>
 
-            <div className="h-full overflow-y-auto flex items-start justify-center px-4 sm:px-16 py-5">
+            {/* Zoom controls — also a non-scrolling layer so they stay put
+                while the page below scrolls or is zoomed past the
+                viewport's width/height. */}
+            <div className="absolute bottom-3 right-3 z-10 flex items-center gap-0.5 bg-white rounded-full shadow-md border border-[#E5E7EB] p-1">
+              <button
+                onClick={() => setZoom(z => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))}
+                disabled={zoom <= ZOOM_MIN}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-[#1A1A2E] hover:bg-[#F3F4F6] disabled:opacity-30 disabled:hover:bg-transparent"
+                aria-label="Zoom out"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setZoom(1)}
+                className="px-1.5 h-7 rounded-full flex items-center justify-center text-[#1A1A2E] hover:bg-[#F3F4F6] text-[11px] font-semibold tabular-nums min-w-[2.75rem]"
+                aria-label="Reset zoom to fit"
+                title="Reset zoom"
+              >
+                {zoom === 1 ? <RotateCcw className="w-3.5 h-3.5 mx-auto" /> : `${Math.round(zoom * 100)}%`}
+              </button>
+              <button
+                onClick={() => setZoom(z => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))}
+                disabled={zoom >= ZOOM_MAX}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-[#1A1A2E] hover:bg-[#F3F4F6] disabled:opacity-30 disabled:hover:bg-transparent"
+                aria-label="Zoom in"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Scrolls both axes: zooming in can push the page wider and
+                taller than this viewport, not just taller. */}
+            <div className="h-full overflow-auto flex items-start justify-center px-4 sm:px-16 py-5">
             <div
               ref={frameRef}
               className="relative bg-white shadow-xl mx-auto overflow-hidden shrink-0"
-              style={{ width: '100%', maxWidth: '460px', height: contentHeight * scale }}
+              style={{ width: PAGE_WIDTH_PX * scale, height: contentHeight * scale }}
             >
               <div
                 ref={contentRef}
