@@ -512,6 +512,7 @@ shaded:'#374151', crimson:'#c0392b', sage:'#7fa37f',
     terracotta:'#d35400',
     monogram:'#262626',
     frame:'#1e293b',
+    ledger:'#18181b',
   };
   return hex(map[tmpl] || '#1e2a3a');
 }
@@ -699,6 +700,7 @@ export async function exportElementAsPDF(
     terracotta:   ()=>drawTerracotta(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     monogram:     ()=>drawMonogram(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
     frame:        ()=>drawFrame(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
+    ledger:       ()=>drawLedger(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
   };
 
   (dispatch[tmpl] || dispatch['classic'])();
@@ -3497,5 +3499,179 @@ function drawFrame(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
   // an icon glyph sitting right beside the rule was making it read as a
   // thicker line than the icon-free headings elsewhere in this template.
   y = drawCustom(p,customs,INK,'tag-underline',ML,y,PW-ML-MR,BOTTOM,np,GXW,F,false);
+  refsPage(p,refs,INK,'tag-underline',np,BOTTOM,owner,wm,undefined,false);
+}
+
+// ── 18. LEDGER — Bold left-aligned name with the job title to the right,
+// a fixed left label column ("CONTACT" / "PROFESSIONAL EXPERIENCE" /
+// "EDUCATION" / ...) beside the content for every section, and a single
+// full-width rule below each section block (not per-entry). Dates are
+// folded directly into the entry heading ("Role | 2023–Present") rather
+// than living in their own column. Monochrome near-black palette. ──
+function drawLedger(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any[],wm:boolean,owner:string,isEdu:boolean=true,photoUrl:string|null=null) {
+  const INK:RGB  = hex('#18181b');
+  const MUTED:RGB = hex('#52525b');
+  const BODY:RGB  = hex('#374151');
+  const RULE:RGB  = hex('#9ca3af');
+
+  let y = MT + 10;
+  const np = () => { p.addPage(); reset(p); return MT + 10; };
+  const LABEL_W = 42, CX = ML+LABEL_W+6, CMW = PW-MR-CX;
+  const GXW = (): [number,number] => [CX,CMW];
+
+  // ── Header: bold name on the left, job title on the right, same baseline ──
+  const nameX0 = photoUrl ? ML+20 : ML;
+  if (photoUrl) { const D=16; p.addImage(photoUrl,'PNG',ML,y-D+3,D,D); }
+  p.setFont(F,'bold'); p.setFontSize(22); tc(p,INK[0],INK[1],INK[2]);
+  p.text(owner, nameX0, y);
+  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu?'Educator':'Professional')).trim();
+  if (jobTitle) {
+    p.setFont(F,'normal'); p.setFontSize(13); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+    const tw = p.getTextWidth(jobTitle);
+    p.text(jobTitle, PW-MR-tw, y-1);
+  }
+  reset(p);
+  y += 14;
+
+  // ── Shared section shape: bold uppercase label in the fixed-width left
+  // column, content in the right column via `draw()`, then ONE full-width
+  // rule below the whole block (not one per entry). ──
+  const ledgerSection = (label: string, draw: () => void) => {
+    if (y+14>BOTTOM) y = np();
+    p.setFont(F,'bold'); p.setFontSize(9); tc(p,INK[0],INK[1],INK[2]);
+    const ll = p.splitTextToSize(label.toUpperCase(), LABEL_W) as string[];
+    ll.forEach((l:string,i:number)=>p.text(l, ML, y+i*4.2));
+    draw();
+    y += 4;
+    hLine(p, ML, y, PW-ML-MR, RULE[0],RULE[1],RULE[2], 0.35);
+    y += 8;
+  };
+
+  // ── Contact: bold "Label: " + value, two per row ──
+  const contactPairs: [string,string][] = [
+    ['Phone', pr.phone], ['Address', pr.address], ['Email', pr.email], ['Portfolio', pr.portfolio||pr.website||''],
+  ].filter(([,v])=>!!v) as any;
+  if (contactPairs.length) {
+    ledgerSection('Contact', () => {
+      const colW = CMW/2;
+      for (let i=0; i<contactPairs.length; i+=2) {
+        if (y+6>BOTTOM) y = np();
+        const draw1 = (lx: number, l: string, v: string) => {
+          p.setFont(F,'bold'); p.setFontSize(9); tc(p,INK[0],INK[1],INK[2]);
+          p.text(`${l}: `, lx, y);
+          const lw = p.getTextWidth(`${l}: `);
+          p.setFont(F,'normal'); tc(p,BODY[0],BODY[1],BODY[2]);
+          const ls = p.splitTextToSize(v, colW-lw-4) as string[];
+          p.text(ls[0]||'', lx+lw, y);
+        };
+        draw1(CX, contactPairs[i][0], contactPairs[i][1]);
+        if (contactPairs[i+1]) draw1(CX+colW, contactPairs[i+1][0], contactPairs[i+1][1]);
+        y += 5;
+      }
+    });
+  }
+
+  // ── Professional Experience / Education: "Heading | Date" bold line,
+  // muted subtitle, then bullets — dates folded into the heading instead
+  // of a separate date column. ──
+  if (exp.length) {
+    ledgerSection('Professional Experience', () => {
+      for (const e of exp) {
+        if (y+14>BOTTOM) y = np();
+        const ds = [e.from,e.to].filter(Boolean).join('–');
+        const headingText = ds ? `${e.role||''} | ${ds}` : (e.role||'');
+        p.setFont(F,'bold'); p.setFontSize(10.5); tc(p,INK[0],INK[1],INK[2]);
+        y = wrapped(p, headingText, CX, y, CMW, BOTTOM, np, GXW);
+        if (e.school) {
+          p.setFont(F,'normal'); p.setFontSize(9); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+          y = wrapped(p, e.school, CX, y, CMW, BOTTOM, np, GXW);
+        }
+        if (e.description) {
+          p.setFont(F,'normal'); p.setFontSize(9); tc(p,BODY[0],BODY[1],BODY[2]);
+          for (const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))
+            y = bulletLine(p, l, CX, y, CMW, INK, BOTTOM, np, GXW);
+        }
+        y += ITEM_GAP+3;
+      }
+    });
+  }
+
+  if (edu.length) {
+    ledgerSection('Education', () => {
+      for (const e of edu) {
+        if (y+12>BOTTOM) y = np();
+        const headingText = e.year ? `${e.institution||''} | ${e.year}` : (e.institution||'');
+        p.setFont(F,'bold'); p.setFontSize(10.5); tc(p,INK[0],INK[1],INK[2]);
+        y = wrapped(p, headingText, CX, y, CMW, BOTTOM, np, GXW);
+        if (e.qualification) {
+          p.setFont(F,'normal'); p.setFontSize(9); tc(p,MUTED[0],MUTED[1],MUTED[2]);
+          y = wrapped(p, e.qualification, CX, y, CMW, BOTTOM, np, GXW);
+        }
+        y += ITEM_GAP+2;
+      }
+    });
+  }
+
+  // ── Skills / Languages — simple two-column bulleted lists ──
+  const drawTwoColBullets = (items: string[]) => {
+    const colW = CMW/2;
+    const half = Math.ceil(items.length/2);
+    const cols = [items.slice(0,half), items.slice(half)];
+    const startY = y;
+    let maxY = y;
+    cols.forEach((col, ci) => {
+      let cy = startY;
+      for (const item of col) {
+        if (cy+5>BOTTOM) { cy = np(); }
+        p.setFont(F,'normal'); p.setFontSize(9); tc(p,BODY[0],BODY[1],BODY[2]);
+        dot(p, CX+ci*colW+0.5, cy-0.2, INK);
+        const ls = p.splitTextToSize(item, colW-BULLET_INDENT) as string[];
+        ls.forEach((l:string,li:number)=>p.text(l, CX+ci*colW+BULLET_INDENT, cy+li*4));
+        cy += ls.length*4 + 2;
+      }
+      if (cy>maxY) maxY = cy;
+    });
+    y = maxY;
+  };
+
+  const allSkills = [...(sk.subjects||[]), ...(sk.soft_skills||[])];
+  if (allSkills.length) ledgerSection('Skills', () => drawTwoColBullets(allSkills));
+  if (sk.languages?.length) ledgerSection('Languages', () => drawTwoColBullets(sk.languages));
+
+  // ── Custom sections — kept in the same label-column shape as everything
+  // else in this template, rather than the generic drawCustom look. ──
+  for (const sec of customs||[]) {
+    const hasContent =
+      (sec.type === 'text'    && !!(sec.content && sec.content.trim())) ||
+      (sec.type === 'bullets' && !!(sec.content && (sec.content as string).split('\n').map((l:string)=>l.trim()).filter(Boolean).length)) ||
+      (sec.type === 'table'   && !!(sec.columns?.length && sec.rows?.length));
+    if (!sec.title || !hasContent) continue;
+    ledgerSection(sec.title, () => {
+      if (sec.type==='text') {
+        p.setFont(F,'normal'); p.setFontSize(9); tc(p,BODY[0],BODY[1],BODY[2]);
+        y = wrapped(p, sec.content, CX, y, CMW, BOTTOM, np, GXW);
+      } else if (sec.type==='bullets') {
+        p.setFont(F,'normal'); p.setFontSize(9); tc(p,BODY[0],BODY[1],BODY[2]);
+        for (const b of (sec.content as string).split('\n').map((l:string)=>l.trim()).filter(Boolean))
+          y = bulletLine(p, b, CX, y, CMW, INK, BOTTOM, np, GXW);
+      } else if (sec.type==='table' && sec.columns?.length && sec.rows?.length) {
+        const cw = CMW/sec.columns.length;
+        fill(p,INK[0],INK[1],INK[2]); tc(p,255,255,255);
+        p.rect(CX, y-4, CMW, 6, 'F');
+        p.setFont(F,'bold'); p.setFontSize(8);
+        sec.columns.forEach((col:string,ci:number)=>p.text(col, CX+ci*cw+1, y));
+        y+=6; p.setFont(F,'normal'); p.setFontSize(8.5);
+        for (let ri=0; ri<sec.rows.length; ri++) {
+          if (y+6>BOTTOM) y=np();
+          if (ri%2===0) { fill(p,249,250,251); p.rect(CX,y-4,CMW,6,'F'); }
+          tc(p,55,65,81);
+          sec.rows[ri].forEach((cell:string,ci:number)=>p.text(String(cell||''), CX+ci*cw+1, y));
+          y+=6;
+        }
+        reset(p);
+      }
+    });
+  }
+
   refsPage(p,refs,INK,'tag-underline',np,BOTTOM,owner,wm,undefined,false);
 }

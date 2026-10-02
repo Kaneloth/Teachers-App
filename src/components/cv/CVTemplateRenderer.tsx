@@ -83,6 +83,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     'terracotta': "Arial, Helvetica, sans-serif",
     'monogram': "Arial, Helvetica, sans-serif",
     'frame': "Arial, Helvetica, sans-serif",
+    'ledger': "Arial, Helvetica, sans-serif",
   };
   const templateFont = TEMPLATE_FONTS[template] || 'Arial, Helvetica, sans-serif';
 
@@ -119,6 +120,7 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     template === 'terracotta'   ? <TerracottaTemplate   {...T} /> :
     template === 'monogram'     ? <MonogramTemplate     {...T} /> :
     template === 'frame'        ? <FrameTemplate        {...T} /> :
+    template === 'ledger'       ? <LedgerTemplate       {...T} /> :
     <ClassicTemplate {...T} />;
 
   return <>{tmpl}</>;
@@ -3387,6 +3389,182 @@ function FrameTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
       {renderReferencesPage(data.references, FRAME_INK, watermark, FRAME_BORDER, '28px 40px', hidden)}
+    </div>
+  );
+}
+
+/* ── Ledger Template ────────────────────────────────────────────────────── */
+// Bold name on the left, job title on the right, same baseline. A fixed
+// left label column ("CONTACT" / "PROFESSIONAL EXPERIENCE" / ...) sits
+// beside the content for every section, with a single full-width rule
+// below each block (not per entry). Dates are folded straight into the
+// entry heading ("Role | 2023–Present") instead of living in their own
+// column. Monochrome near-black palette.
+const LEDGER_INK  = '#18181b';
+const LEDGER_MUTED = '#52525b';
+const LEDGER_BODY  = '#374151';
+const LEDGER_RULE  = '#9ca3af';
+const LEDGER_LABEL_W = 160;
+
+function LedgerSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+        <div style={{ width: `${LEDGER_LABEL_W}px`, minWidth: `${LEDGER_LABEL_W}px`, fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: LEDGER_INK, paddingTop: '2px' }}>
+          {label}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {children}
+        </div>
+      </div>
+      <div style={{ height: '1px', background: LEDGER_RULE, margin: '16px 0' }} />
+    </div>
+  );
+}
+
+function LedgerTwoColBullets({ items }: { items: string[] }) {
+  const half = Math.ceil(items.length / 2);
+  const cols = [items.slice(0, half), items.slice(half)];
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', columnGap: '24px' }}>
+      {cols.map((col, ci) => (
+        <div key={ci}>
+          {col.map((item, i) => (
+            <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '11.5px', color: LEDGER_BODY, marginBottom: '6px' }}>
+              <span style={{ color: LEDGER_INK }}>•</span>{item}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LedgerTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Skills', expLabel = 'Professional Experience', hidden }: any) {
+  const { personal, skills } = data;
+  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
+  const contactPairs: [string, string][] = [
+    ['Phone', personal.phone], ['Address', personal.address], ['Email', personal.email], ['Portfolio', personal.portfolio || personal.website],
+  ].filter(([, v]) => !!v) as any;
+
+  return (
+    <div style={{ ...wrapperStyle }}>
+      <div
+        className="cv-content-page"
+        style={{
+          width: '794px',
+          minHeight: forExportMinHeight(wrapperStyle),
+          boxSizing: 'border-box',
+          position: 'relative',
+          background: '#fff',
+          padding: '40px 44px',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '12px', marginBottom: '26px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+            {personal.photo_url && (
+              <img src={personal.photo_url} alt="" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+            )}
+            <div style={{ fontSize: '28px', fontWeight: 800, color: LEDGER_INK, wordBreak: 'break-word' }}>{personal.full_name || 'Your Name'}</div>
+          </div>
+          <div style={{ fontSize: '15px', color: LEDGER_MUTED, wordBreak: 'break-word' }}>{jobTitle}</div>
+        </div>
+
+        {contactPairs.length > 0 && (
+          <LedgerSection label="Contact">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', columnGap: '24px', rowGap: '6px' }}>
+              {contactPairs.map(([l, v], i) => (
+                <div key={i} style={{ fontSize: '12px', color: LEDGER_BODY, wordBreak: 'break-word' }}>
+                  <span style={{ fontWeight: 700, color: LEDGER_INK }}>{l}: </span>{v}
+                </div>
+              ))}
+            </div>
+          </LedgerSection>
+        )}
+
+        {validExp.length > 0 && (
+          <LedgerSection label={expLabel}>
+            {validExp.map((e: any, i: number) => (
+              <div key={i} style={{ marginBottom: i < validExp.length - 1 ? '18px' : 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: LEDGER_INK, wordBreak: 'break-word' }}>
+                  {e.role}{(e.from || e.to) ? ` | ${[e.from, e.to].filter(Boolean).join('–')}` : ''}
+                </div>
+                {e.school && <div style={{ fontSize: '12px', color: LEDGER_MUTED, marginTop: '2px', wordBreak: 'break-word' }}>{e.school}</div>}
+                {renderDescription(e.description, LEDGER_INK)}
+              </div>
+            ))}
+          </LedgerSection>
+        )}
+
+        {validEdu.length > 0 && (
+          <LedgerSection label="Education">
+            {validEdu.map((e: any, i: number) => (
+              <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '14px' : 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: LEDGER_INK, wordBreak: 'break-word' }}>
+                  {e.institution}{e.year ? ` | ${e.year}` : ''}
+                </div>
+                {e.qualification && <div style={{ fontSize: '12px', color: LEDGER_MUTED, marginTop: '2px', wordBreak: 'break-word' }}>{e.qualification}</div>}
+              </div>
+            ))}
+          </LedgerSection>
+        )}
+
+        {!hidden?.has('skills') && allSkills.length > 0 && (
+          <LedgerSection label={skillsLabel}>
+            <LedgerTwoColBullets items={allSkills} />
+          </LedgerSection>
+        )}
+
+        {skills?.languages?.length > 0 && (
+          <LedgerSection label="Languages">
+            <LedgerTwoColBullets items={skills.languages} />
+          </LedgerSection>
+        )}
+
+        {(data.custom_sections || []).filter((s: any) => s.title && !hidden?.has(`custom:${s.title}`)).map((s: any, idx: number) => {
+          let content: React.ReactNode = null;
+          if (s.type === 'text') {
+            content = (s.content && s.content.trim())
+              ? <p style={{ color: LEDGER_BODY, margin: 0, fontSize: '12px', lineHeight: '1.6' }}>{s.content}</p>
+              : null;
+          } else if (s.type === 'bullets') {
+            const lines = (s.content || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
+            content = lines.length ? (
+              <div>
+                {lines.map((line: string, i: number) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '2px' }}>
+                    <span style={{ color: LEDGER_INK, marginTop: '2px', flexShrink: 0, fontSize: '12px' }}>•</span>
+                    <span style={{ fontSize: '12px', lineHeight: '1.5', color: LEDGER_BODY }}>{line}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null;
+          } else if (s.type === 'table') {
+            const cols = s.columns || []; const rows = s.rows || [];
+            if (cols.length && rows.length) {
+              content = (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                  <thead>
+                    <tr>{cols.map((col: string, ci: number) => <th key={ci} style={{ background: LEDGER_INK, color: '#fff', padding: '6px 10px', textAlign: 'left', fontWeight: 700, fontSize: '10px' }}>{col}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row: string[], ri: number) => (
+                      <tr key={ri} style={{ background: ri % 2 === 0 ? '#f9fafb' : '#fff' }}>
+                        {row.map((cell: string, ci: number) => <td key={ci} style={{ padding: '6px 10px', color: LEDGER_BODY, borderBottom: '1px solid #e5e7eb', fontSize: '11px' }}>{cell}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              );
+            }
+          }
+          return content ? <LedgerSection key={idx} label={s.title}>{content}</LedgerSection> : null;
+        })}
+
+        {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
+      </div>
+      {renderReferencesPage(data.references, LEDGER_INK, watermark, LEDGER_RULE, '28px 40px', hidden)}
     </div>
   );
 }
