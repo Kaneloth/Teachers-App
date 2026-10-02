@@ -3722,7 +3722,23 @@ function drawDossier(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   const RX = ML + LEFT_W + GAP;
   const RW = PW - MR - RX;
 
-  // ── Header: mixed-weight serif name + underline, job title below ────────
+  // ── Header: light-gray shaded band behind the name/title/contact block ──
+  // (matches the reference — a subtly darker header panel sitting above the
+  // thick dark divider bar, rather than the header sharing the page's plain
+  // white background). Its height is computed analytically up front — both
+  // the name line and the contact lines are single, unwrapped lines at
+  // fixed offsets — so the shaded rect can be painted before any text is
+  // drawn on top of it.
+  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  const contactLines: [string, string][] = [
+    [ICON.phone, pr.phone], [ICON.envelope, pr.email], [ICON.mapMarker, pr.address],
+  ].filter(([, v]) => !!v) as any;
+  const nameBlockBottom    = MT + 6 + 8.5;                       // name line + (job title, if any) baseline
+  const contactBlockBottom = MT + 3 + contactLines.length * 8;   // last contact line's baseline
+  const HEADER_BOTTOM = Math.max(nameBlockBottom, contactBlockBottom) + 5;
+  fill(p, 243, 244, 246); p.rect(0, 0, PW, HEADER_BOTTOM, 'F'); reset(p);
+
+  // ── Mixed-weight serif name + underline, job title below ────────────────
   let y = MT + 6;
   const parts = owner.trim().split(/\s+/).filter(Boolean);
   const lastPart  = parts.length > 1 ? parts[parts.length - 1] : '';
@@ -3740,7 +3756,6 @@ function drawDossier(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   hLine(p, ML, y + 2.5, nameW, INK[0], INK[1], INK[2], 0.4);
   y += 8.5;
 
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
   if (jobTitle) {
     p.setFont('times', 'normal'); p.setFontSize(11.5); tc(p, MUTED[0], MUTED[1], MUTED[2]);
     p.text(jobTitle, ML, y);
@@ -3748,9 +3763,6 @@ function drawDossier(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 
   // ── Contact block, right-aligned, icon-in-circle at the right edge ──────
   let cy = MT + 3;
-  const contactLines: [string, string][] = [
-    [ICON.phone, pr.phone], [ICON.envelope, pr.email], [ICON.mapMarker, pr.address],
-  ].filter(([, v]) => !!v) as any;
   for (const [glyph, val] of contactLines) {
     p.setFont('times', 'normal'); p.setFontSize(9.5); tc(p, BODY[0], BODY[1], BODY[2]);
     const tw = p.getTextWidth(val);
@@ -3760,8 +3772,8 @@ function drawDossier(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
     cy += 8;
   }
 
-  // ── Thick dark divider bar under the header ──────────────────────────────
-  y = Math.max(y, cy) + 5;
+  // ── Thick dark divider bar under the shaded header ───────────────────────
+  y = HEADER_BOTTOM;
   fill(p, BAR[0], BAR[1], BAR[2]); p.rect(0, y, PW, 1.8, 'F'); reset(p);
   y += 10;
 

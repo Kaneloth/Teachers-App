@@ -3615,21 +3615,23 @@ function DossierTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hi
           padding: '38px 44px 0',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: '27px', color: DOSSIER_INK, display: 'inline-block', borderBottom: `1.5px solid ${DOSSIER_INK}`, paddingBottom: '3px', wordBreak: 'break-word' }}>
-              {lastPart ? <>{firstPart} <span style={{ fontWeight: 700 }}>{lastPart}</span></> : firstPart}
+        <div style={{ background: '#f3f4f6', margin: '-38px -44px 0', padding: '38px 44px 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '27px', color: DOSSIER_INK, display: 'inline-block', borderBottom: `1.5px solid ${DOSSIER_INK}`, paddingBottom: '3px', wordBreak: 'break-word' }}>
+                {lastPart ? <>{firstPart} <span style={{ fontWeight: 700 }}>{lastPart}</span></> : firstPart}
+              </div>
+              {jobTitle && <div style={{ fontSize: '14px', color: DOSSIER_MUTED, marginTop: '7px' }}>{jobTitle}</div>}
             </div>
-            {jobTitle && <div style={{ fontSize: '14px', color: DOSSIER_MUTED, marginTop: '7px' }}>{jobTitle}</div>}
-          </div>
-          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            {personal.phone   && <div style={{ fontSize: '11.5px', color: DOSSIER_BODY, marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>{personal.phone}{ICONS.phone}</div>}
-            {personal.email   && <div style={{ fontSize: '11.5px', color: DOSSIER_BODY, marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', wordBreak: 'break-word' }}>{personal.email}{ICONS.mail}</div>}
-            {personal.address && <div style={{ fontSize: '11.5px', color: DOSSIER_BODY, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', wordBreak: 'break-word' }}>{personal.address}{ICONS.mapPin}</div>}
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              {personal.phone   && <div style={{ fontSize: '11.5px', color: DOSSIER_BODY, marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>{personal.phone}{ICONS.phone}</div>}
+              {personal.email   && <div style={{ fontSize: '11.5px', color: DOSSIER_BODY, marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', wordBreak: 'break-word' }}>{personal.email}{ICONS.mail}</div>}
+              {personal.address && <div style={{ fontSize: '11.5px', color: DOSSIER_BODY, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', wordBreak: 'break-word' }}>{personal.address}{ICONS.mapPin}</div>}
+            </div>
           </div>
         </div>
 
-        <div style={{ height: '3px', background: DOSSIER_INK, margin: '20px -44px 22px' }} />
+        <div style={{ height: '3px', background: DOSSIER_INK, margin: '0 -44px 22px' }} />
 
         {personal.bio && (
           <div style={{ textAlign: 'center', marginBottom: '26px', padding: '0 20px' }}>
