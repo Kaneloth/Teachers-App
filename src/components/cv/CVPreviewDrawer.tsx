@@ -251,11 +251,6 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight, water
               {!loading && pages.length > 1 && (
                 <p className="text-xs text-muted-foreground text-center mt-3">This CV will print as {pages.length} pages</p>
               )}
-              {!loading && pages.length > 0 && (
-                <p className="text-[11px] text-muted-foreground text-center mt-2">
-                  The "PREVIEW" watermark above is just for browsing — it won't appear in your downloaded PDF.
-                </p>
-              )}
             </div>
           </div>
         </div>,
