@@ -203,7 +203,7 @@ export function LowCreditsPrompt({ onViewPackages, message }: { onViewPackages: 
 export function PurchaseModal({ onClose, pricing }: { onClose: () => void; pricing: Pricing }) {
   const { session } = useAuth();
   const [purchasing, setPurchasing] = useState<string | null>(null);
-  const { packages, cvCost, letterCost, guideCost, idVerifyCost, signupBonus } = pricing;
+  const { packages, cvCost, letterCost, signupBonus } = pricing;
 
   const handlePurchase = async (pkg: CreditPackage) => {
     if (!session?.access_token) { toast.error('Please sign in first.'); return; }
@@ -322,10 +322,10 @@ export function PurchaseModal({ onClose, pricing }: { onClose: () => void; prici
               <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
               CV download = {cvCost}cr · Cover letter = {letterCost}cr
             </p>
-            <p className="text-xs text-muted-foreground flex items-start gap-1.5">
-              <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-              Guide download = {guideCost}cr · ID verification = {idVerifyCost}cr
-            </p>
+            {/* Guide download / ID verification removed from this list —
+                both are educator-only features and are always free (0cr),
+                so showing them here next to real paid costs was confusing
+                for the general-user audience this modal actually serves. */}
           </div>
         </div>
       </div>

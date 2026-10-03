@@ -69,16 +69,32 @@ export default function ChatRoom() {
   const [unlocking, setUnlocking] = useState(false);
   const [showTestimonialPrompt, setShowTestimonialPrompt] = useState(false);
 
-  // Messaging is unlocked ONLY by a standalone R150 PayFast payment —
-  // not by credit balance, not by any credit-pack purchase threshold.
-  // The webhook for that payment (package_id 'chat_unlock') writes a
-  // credit_ledger row with type='messaging_unlock'; we just check for it.
+  // Messaging is unlocked ONLY by a standalone PayFast payment — not by
+  // credit balance, not by any credit-pack purchase threshold. The webhook
+  // for that payment (package_id 'chat_unlock') writes a credit_ledger row
+  // with type='messaging_unlock'; we just check for it.
   useEffect(() => {
     if (!user || isAdmin) { setHasChatAccess(true); return; }
     supabase.from('credit_ledger').select('id', { count: 'exact', head: true })
       .eq('user_id', user.id).eq('type', 'messaging_unlock')
       .then(({ count }) => setHasChatAccess((count ?? 0) > 0));
   }, [user, isAdmin]);
+
+  // The unlock price used to be hardcoded as "R150" directly in this
+  // file's JSX (three separate places) — any admin price change in
+  // Admin → Money → Pricing for the 'chat_unlock' package would silently
+  // NOT show up here, since nothing actually read that row. This reads
+  // the real, current price the same way the purchase modal elsewhere
+  // reads its packages (usePricing.ts excludes chat_unlock from its own
+  // list on purpose, since it's a standalone unlock rather than a credit
+  // top-up, so this fetches it directly). 150 is kept only as the initial
+  // render value so the modal doesn't show a blank price for a split
+  // second before this resolves.
+  const [unlockPrice, setUnlockPrice] = useState(150);
+  useEffect(() => {
+    supabase.from('credit_packages').select('price_zar').eq('id', 'chat_unlock').maybeSingle()
+      .then(({ data }) => { if (data?.price_zar != null) setUnlockPrice(Number(data.price_zar)); });
+  }, []);
   const [checkingBlock, setCheckingBlock] = useState(true);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -635,16 +651,16 @@ export default function ChatRoom() {
             <div className="text-center space-y-1.5">
               <h2 className="text-lg font-bold text-foreground">Unlock Messaging</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                A one-time payment of <strong>R150</strong> unlocks unlimited messaging with every
+                A one-time payment of <strong>R{unlockPrice}</strong> unlocks unlimited messaging with every
                 potential transfer partner — no credits, no per-conversation charges.
               </p>
             </div>
             <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 flex items-center justify-between">
               <span className="font-semibold text-foreground text-sm">Messaging Unlock</span>
-              <span className="font-bold text-primary text-lg">R150</span>
+              <span className="font-bold text-primary text-lg">R{unlockPrice}</span>
             </div>
             <Button onClick={handleUnlockMessaging} disabled={unlocking} className="w-full rounded-xl gap-2">
-              {unlocking ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Zap className="w-4 h-4" /> Unlock for R150</>}
+              {unlocking ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Zap className="w-4 h-4" /> Unlock for R{unlockPrice}</>}
             </Button>
             <button
               onClick={() => setShowChatUpsell(false)}
