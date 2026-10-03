@@ -369,18 +369,6 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
       )}
 
 
-      {/* Watermark notice for free users */}
-      {!hasPurchased && !isAdmin && (
-        <div className="flex items-start gap-2 bg-muted border border-border rounded-xl px-3 py-2.5">
-          <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-          <p className="text-xs text-muted-foreground">
-            Your CV will include a <strong>free watermark</strong> in the footer.{' '}
-            <button type="button" onClick={() => setShowPurchaseModal(true)} className="text-primary underline font-medium">Top up</button>{' '}
-            to remove it — watermark is removed automatically on any paid download.
-          </p>
-        </div>
-      )}
-
       {/* Insufficient credits warning — ambient banner, kept number-free
           on purpose (same treatment as CoverLettersPage.tsx); the full
           numbers appear in the dedicated modal below once the user
