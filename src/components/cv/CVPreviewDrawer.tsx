@@ -230,8 +230,21 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Pro
                       className="rounded-xl overflow-hidden border border-border bg-white shadow-sm mx-auto"
                       style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
                     >
-                      <div style={{ position: 'absolute', top: `${-slice.start}px`, left: 0 }}>
-                        <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
+                      {/* This inner wrapper is the real clip window —
+                          height = this slice's own (often < PAGE_HEIGHT)
+                          content span, not the full page height. Without
+                          it, a short slice (e.g. a smart break that landed
+                          well before the 1123px mark) left the OUTER box's
+                          fixed-height overflow:hidden as the only clip,
+                          which still revealed content all the way out to
+                          start+1123 — bleeding into whatever came next,
+                          which is exactly how References ended up
+                          rendered twice (once bled into the bottom of the
+                          previous page, once on its own page). */}
+                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: `${slice.end - slice.start}px`, overflow: 'hidden' }}>
+                        <div style={{ position: 'absolute', top: `${-slice.start}px`, left: 0 }}>
+                          <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
+                        </div>
                       </div>
                       {/* Safety net only now — covers the rare fallback case
                           (e.g. a single element taller than a full page)

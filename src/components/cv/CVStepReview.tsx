@@ -320,8 +320,20 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
                   className="rounded-xl overflow-hidden border border-border bg-white shadow-sm"
                   style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
                 >
-                  <div style={{ position: 'absolute', top: `${-slice.start}px`, left: 0 }}>
-                    <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
+                  {/* Real clip window — height is this slice's own content
+                      span (often shorter than PAGE_HEIGHT once a break
+                      lands early at a safe boundary), not the full page
+                      height. Without it the outer box's fixed-height
+                      overflow:hidden was the only clip, which still showed
+                      content out to start+1123 regardless of where this
+                      slice actually ended — bleeding into whatever came
+                      next, which is how References ended up rendered
+                      twice (once bled into the previous page, once again
+                      on its own page). */}
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: `${slice.end - slice.start}px`, overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: `${-slice.start}px`, left: 0 }}>
+                      <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
+                    </div>
                   </div>
                   {/*
                    * computeSmartPageBreaks (cvPagination.ts) snaps each break
