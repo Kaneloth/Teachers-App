@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Download, FileText, CheckCircle2, RefreshCw, Eye, List, Coins, AlertCircle } from 'lucide-react';
 import CVTemplateRenderer from './CVTemplateRenderer';
 import ATSScoreBadge from './ATSScoreBadge';
+import { PAGE_HEIGHT, computeSmartPageBreaks, type PageSlice } from './cvPagination';
 import { exportElementAsPDF } from '@/utils/cvExport';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -94,11 +95,7 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
   const [sent, setSent] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
-  // A4 at 794px wide (96dpi, same width the real export renders at) is
-  // ~1123px tall (297mm). Used below to slice the preview into visually
-  // distinct pages instead of one continuous scrolling blob.
-  const PAGE_HEIGHT = 1123;
-  const [pageCount, setPageCount] = useState(1);
+  const [slices, setSlices] = useState<PageSlice[]>([{ start: 0, end: PAGE_HEIGHT, isReferences: false }]);
 
   // Measures the actual available width for the preview and computes the
   // zoom level from that, instead of a fixed 0.45 — otherwise, widening the
@@ -159,13 +156,16 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
   // its own page breaks from jsPDF's point-based text measurement, which
   // doesn't exactly match the browser's CSS layout of the same content.
   // For genuinely identical break points, the export's line-wrapping math
-  // would need to be replicated here — this gets the page COUNT and
-  // roughly where each page ends right, which is what actually matters
-  // for "does my CV run to 2 pages or 3."
+  // would need to be replicated here. What computeSmartPageBreaks (see
+  // cvPagination.ts) DOES get exactly right: it never cuts through the
+  // middle of a line/bullet/heading (it snaps to the nearest safe leaf
+  // element instead of a blind pixel offset), and References always opens
+  // its own fresh final page, matching the real export's hard page-break
+  // rule for that section exactly.
   useEffect(() => {
     const el = exportRef.current;
     if (!el) return;
-    const measure = () => setPageCount(Math.max(1, Math.ceil(el.scrollHeight / PAGE_HEIGHT)));
+    const measure = () => setSlices(computeSmartPageBreaks(el));
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
@@ -309,35 +309,33 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
            * room to spare.
            */}
           <div style={{ zoom: previewZoom }} className="space-y-3">
-            {Array.from({ length: pageCount }).map((_, i) => (
+            {slices.map((slice, i) => (
               <div key={i}>
-                {pageCount > 1 && (
+                {slices.length > 1 && (
                   <p style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280', textAlign: 'center', margin: '0 0 6px' }}>
-                    Page {i + 1} of {pageCount}
+                    {slice.isReferences ? 'References' : `Page ${i + 1} of ${slices.length}`}
                   </p>
                 )}
                 <div
                   className="rounded-xl overflow-hidden border border-border bg-white shadow-sm"
                   style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
                 >
-                  <div style={{ position: 'absolute', top: `${-i * PAGE_HEIGHT}px`, left: 0 }}>
+                  <div style={{ position: 'absolute', top: `${-slice.start}px`, left: 0 }}>
                     <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
                   </div>
                   {/*
-                   * This slicing technique doesn't know where a real page
-                   * break should fall — unlike cvExport.ts, which checks
-                   * each line/bullet against the remaining space before
-                   * drawing it, this just crops at a fixed pixel height, so
-                   * a line of text can end up cut cleanly in half right at
-                   * the page boundary. That's a genuine approximation limit
-                   * (getting this pixel-perfect would mean re-implementing
-                   * cvExport.ts's own line-wrapping math in the browser),
-                   * not a bug we can fully fix here. The fade plus the
-                   * "Page N of Total" label above at least make it read as
-                   * "continues on the next page" rather than "content is
-                   * missing or the app is broken."
+                   * computeSmartPageBreaks (cvPagination.ts) snaps each break
+                   * to the nearest safe leaf-element boundary rather than a
+                   * blind pixel height, so a line of text is never shown cut
+                   * in half at the page edge — and References always starts
+                   * its own fresh final page here, exactly as it does in the
+                   * real export. This still isn't pixel-identical to the PDF
+                   * (cvExport.ts paginates from jsPDF's own point-based text
+                   * measurement, which a browser layout can't match exactly)
+                   * — the fade below is a safety net for the rare fallback
+                   * case where no safe break was found in range.
                    */}
-                  {i < pageCount - 1 && (
+                  {i < slices.length - 1 && slice.end - slice.start >= PAGE_HEIGHT - 2 && (
                     <div style={{
                       position: 'absolute', bottom: 0, left: 0, right: 0, height: '60px',
                       background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))',
@@ -348,9 +346,9 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
               </div>
             ))}
           </div>
-          {pageCount > 1 && (
+          {slices.length > 1 && (
             <p className="text-xs text-muted-foreground text-center">
-              This CV will print as {pageCount} pages — page breaks shown here are approximate; the actual download paginates more precisely
+              This CV will print as {slices.length} pages
             </p>
           )}
         </div>

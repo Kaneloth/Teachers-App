@@ -3,12 +3,7 @@ import { createPortal } from 'react-dom';
 import { ChevronUp, ChevronDown, Eye } from 'lucide-react';
 import CVTemplateRenderer from './CVTemplateRenderer';
 import ATSScoreBadge from './ATSScoreBadge';
-
-// Same A4-at-96dpi convention CVStepReview.tsx's pagination uses — 794px
-// wide, ~1123px tall per page. Kept in sync manually since these two
-// components don't share a constants file; if you ever change one, check
-// the other.
-const PAGE_HEIGHT = 1123;
+import { PAGE_HEIGHT, computeSmartPageBreaks, type PageSlice } from './cvPagination';
 
 // Same safety net as CVStepReview.tsx (see that file for the full
 // rationale) — AI-imported data can occasionally produce a structured
@@ -46,7 +41,7 @@ interface Props {
 
 export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Props) {
   const [open, setOpen] = useState(false);
-  const [pageCount, setPageCount] = useState(1);
+  const [slices, setSlices] = useState<PageSlice[]>([{ start: 0, end: PAGE_HEIGHT, isReferences: false }]);
   const measureRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLButtonElement>(null);
 
@@ -94,7 +89,7 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Pro
   useEffect(() => {
     const el = measureRef.current;
     if (!el) return;
-    const measure = () => setPageCount(Math.max(1, Math.ceil(el.scrollHeight / PAGE_HEIGHT)));
+    const measure = () => setSlices(computeSmartPageBreaks(el));
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
@@ -215,32 +210,34 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Pro
               <ATSScoreBadge data={safeData} />
             </div>
 
-            {/* Paginated preview — same slicing technique as CVStepReview.tsx:
-                render the full content once per page, each clipped to a
-                1123px window and shifted up to reveal that page's slice. */}
+            {/* Paginated preview — same smart-break technique as
+                CVStepReview.tsx (see cvPagination.ts): each page is still a
+                1123px window clipped from the full content, but the break
+                points snap to safe leaf-element boundaries instead of a
+                blind pixel cut, so a line is never shown sliced in half at
+                the page edge — and References always lands on its own
+                fresh final page, matching the real export exactly. */}
             <div className="flex-1 overflow-y-auto px-4 py-4">
               <div style={{ zoom: 0.4 }} className="space-y-3 mx-auto" >
-                {Array.from({ length: pageCount }).map((_, i) => (
+                {slices.map((slice, i) => (
                   <div key={i}>
-                    {pageCount > 1 && (
+                    {slices.length > 1 && (
                       <p style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280', textAlign: 'center', margin: '0 0 6px' }}>
-                        Page {i + 1} of {pageCount}
+                        {slice.isReferences ? 'References' : `Page ${i + 1} of ${slices.length}`}
                       </p>
                     )}
                     <div
                       className="rounded-xl overflow-hidden border border-border bg-white shadow-sm mx-auto"
                       style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
                     >
-                      <div style={{ position: 'absolute', top: `${-i * PAGE_HEIGHT}px`, left: 0 }}>
+                      <div style={{ position: 'absolute', top: `${-slice.start}px`, left: 0 }}>
                         <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
                       </div>
-                      {/* See CVStepReview.tsx for why this fade + label exist —
-                          this pixel-height slicing can cut a line of text
-                          right at the page boundary, unlike cvExport.ts's
-                          real line-aware pagination. This softens the cut
-                          visually and the label makes clear these are
-                          sequential pages, not separate/broken content. */}
-                      {i < pageCount - 1 && (
+                      {/* Safety net only now — covers the rare fallback case
+                          (e.g. a single element taller than a full page)
+                          where computeSmartPageBreaks couldn't find a safe
+                          break and had to fall back to a hard pixel cut. */}
+                      {i < slices.length - 1 && slice.end - slice.start >= PAGE_HEIGHT - 2 && (
                         <div style={{
                           position: 'absolute', bottom: 0, left: 0, right: 0, height: '60px',
                           background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))',
@@ -251,8 +248,8 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Pro
                   </div>
                 ))}
               </div>
-              {pageCount > 1 && (
-                <p className="text-xs text-muted-foreground text-center mt-3">This CV will print as {pageCount} pages — page breaks shown here are approximate</p>
+              {slices.length > 1 && (
+                <p className="text-xs text-muted-foreground text-center mt-3">This CV will print as {slices.length} pages</p>
               )}
             </div>
 
