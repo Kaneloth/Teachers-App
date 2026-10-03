@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Download, FileText, CheckCircle2, RefreshCw, Eye, List, Coins, AlertCircle, Loader2 } from 'lucide-react';
+import { Download, FileText, CheckCircle2, RefreshCw, Eye, List, Coins, Loader2 } from 'lucide-react';
 import ATSScoreBadge from './ATSScoreBadge';
 import { useCVPdfPreview } from './useCVPdfPreview';
 import { exportElementAsPDF } from '@/utils/cvExport';
@@ -56,17 +56,14 @@ interface Props { data: CVData; onChange?: (d: CVData) => void; onGenerated?: (u
 
 export default function CVStepReview({ data, onChange, onGenerated, isFree = false }: Props) {
   const { user } = useAuth();
-  const { balance, loading: creditsLoading, deduct, insufficientCredits, dismissInsufficientCredits } = useCredits();
+  const { deduct, insufficientCredits, dismissInsufficientCredits } = useCredits();
   const pricing = usePricing();
-  // Download cost is flat and independent of any AI actions spent earlier
-  // in the wizard — it used to discount cvCost by whatever the user had
-  // already spent on AI actions (import, AI summary, bullet improvement),
-  // so someone who'd spent 50 credits on AI actions was only charged 40
-  // more at download. That's gone: the download always checks for and
-  // charges the full cvCost. Matches deduct-credits.js's server-side
-  // logic, which had the same discount computation removed so the two
-  // can't disagree.
-  const { cvCost } = pricing;
+  // Download cost (cvCost) no longer needs reading out here — there's no
+  // more pre-emptive "balance < cvCost" check or ambient low-balance
+  // banner (see the Download button below). The server is still the one
+  // true source for the actual charge: deduct-credits.js charges the full
+  // admin-configured cv_usage cost every time, independent of any AI
+  // actions spent earlier in the wizard.
   const { gates, loading: gatesLoading } = useFeatureGates();
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
@@ -369,25 +366,17 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
       )}
 
 
-      {/* Insufficient credits warning — ambient banner, kept number-free
-          on purpose (same treatment as CoverLettersPage.tsx); the full
-          numbers appear in the dedicated modal below once the user
-          actually tries and hits the wall. */}
-      {!isAdmin && !creditsLoading && balance < cvCost && (
-        <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2.5">
-          <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Not enough credits</p>
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-              You don't have enough credits to generate a CV yet.
-            </p>
-          </div>
-        </div>
-      )}
-
+      {/* No ambient "not enough credits" banner anymore — the button stays
+          live and clickable regardless of balance. A short-balance user
+          clicks Download like anyone else; handleGenerate's deduct() call
+          fails server-side (402), the hook sets insufficientCredits, and
+          the InsufficientCreditsModal below appears with its own "Top Up
+          Credits" button straight into PurchaseModal — one clear moment
+          with a direct next step, instead of a passive warning the user
+          has to notice and act on themselves before they even try. */}
       <Button
         onClick={pdfUrl ? handleRedownload : handleGenerate}
-        disabled={sending || (!isAdmin && !pdfUrl && !creditsLoading && balance < cvCost)}
+        disabled={sending}
         className="w-full h-12 rounded-xl text-sm font-semibold gap-2"
       >
         <Download className="w-4 h-4 shrink-0" />
