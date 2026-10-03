@@ -303,7 +303,14 @@ function richInline(p: any, segs: RichSeg[], x: number, y: number, maxW: number,
 }
 
 // ── Section heading styles ─────────────────────────────────────────────────────
-type HeadingStyle = 'bar' | 'underline' | 'shaded' | 'italic-underline' | 'tag-underline' | 'dot-prefix' | 'center-lines' | 'double-line';
+// 'panel-band' is handled as a special case inside drawCustom()/refsPage()
+// rather than here in sectionHeading() — it needs to paint a full
+// PAGE-WIDTH band (0 to PW), not the [x, maxW] content column every other
+// style works within, so it calls the PanelTemplate's own panelBand()
+// helper directly instead of going through this function's shared
+// x/maxW-based layout. It's still listed in this union so drawPanel()'s
+// calls type-check and so the branch points here are easy to find.
+type HeadingStyle = 'bar' | 'underline' | 'shaded' | 'italic-underline' | 'tag-underline' | 'dot-prefix' | 'center-lines' | 'double-line' | 'panel-band';
 
 function sectionHeading(p: any, title: string, x: number, y: number, maxW: number,
                         accent: RGB, style: HeadingStyle,
@@ -419,7 +426,12 @@ function refsPage(p: any, refs: any[], accent: RGB, headStyle: HeadingStyle,
   }
   let y = (bg || topStrip) ? MT+5 : MT;
   const np = ()=>{ p.addPage(); reset(p); if (bg) { fill(p,bg[0],bg[1],bg[2]); p.rect(0,0,PW,PH,'F'); reset(p); } return MT; };
-  y = sectionHeading(p,'References',ML,y,PW-ML-MR,accent,headStyle,bottom,np,undefined,ICON.user);
+  if (headStyle === 'panel-band') {
+    if (y + 20 > bottom) y = np();
+    y = panelBand(p, 'References', y);
+  } else {
+    y = sectionHeading(p,'References',ML,y,PW-ML-MR,accent,headStyle,bottom,np,undefined,ICON.user);
+  }
   y += 2;
   const half = (PW-ML-MR-8)/2;
   for (let i=0; i<validRefs.length; i+=2) {
@@ -480,7 +492,21 @@ function drawCustom(p: any, sections: any[], accent: RGB, headStyle: HeadingStyl
     // every subsequent call within this same function, not just within
     // a single nested helper call.
     const trackedGetXW = getXW ? (): [number, number] => { const r = getXW(); x = r[0]; maxW = r[1]; return r; } : undefined;
-    y = sectionHeading(p, sec.title, x, y, maxW, accent, headStyle, bottom, newPage, trackedGetXW, sectionIcon);
+    if (headStyle === 'panel-band') {
+      // PanelTemplate's own full-page-width, centered band — see panelBand()
+      // below drawPanel(). Bypasses sectionHeading() entirely rather than
+      // adding a page-width special case there, since every other style
+      // genuinely works within the [x, maxW] content column and panelBand()
+      // deliberately paints edge to edge (0 to PW) to match "About Me /
+      // Education / Work Experience / Key Skills" on the same template.
+      // Bullet/text/table content below is still drawn at [x, maxW] as
+      // normal, so only the heading becomes a full-width band — bullets
+      // stay left-aligned under it, not centered.
+      if (y + 20 > bottom) { y = newPage(); if (trackedGetXW) trackedGetXW(); }
+      y = panelBand(p, sec.title, y);
+    } else {
+      y = sectionHeading(p, sec.title, x, y, maxW, accent, headStyle, bottom, newPage, trackedGetXW, sectionIcon);
+    }
     p.setFont(font,'normal'); p.setFontSize(9); tc(p,55,65,81);
     if (sec.type==='text' && sec.content) {
       y = wrapped(p, sec.content, x, y, maxW, bottom, newPage, trackedGetXW);
@@ -3039,8 +3065,8 @@ function drawPanel(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
     }
     y += 6;
   }
-  y = drawCustom(p,customs,accent,'bar',ML,y,PW-ML-MR,BOTTOM,np);
-  refsPage(p,refs,accent,'bar',np,BOTTOM,owner,wm,undefined,false);
+  y = drawCustom(p,customs,accent,'panel-band',ML,y,PW-ML-MR,BOTTOM,np);
+  refsPage(p,refs,accent,'panel-band',np,BOTTOM,owner,wm,undefined,false);
 }
 
 // ── Terracotta — two-tone name header + boxed contact card, orange accents ─────
