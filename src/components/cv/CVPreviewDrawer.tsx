@@ -4,6 +4,7 @@ import { ChevronUp, ChevronDown, Eye, Loader2 } from 'lucide-react';
 import CVTemplateRenderer from './CVTemplateRenderer';
 import ATSScoreBadge from './ATSScoreBadge';
 import { useCVPdfPreview } from './useCVPdfPreview';
+import CVPreviewPageGuard from './CVPreviewPageGuard';
 
 // Same safety net as CVStepReview.tsx (see that file for the full
 // rationale) — AI-imported data can occasionally produce a structured
@@ -234,7 +235,7 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight, water
                         {page.isReferences ? 'References' : `Page ${i + 1} of ${pages.length}`}
                       </p>
                     )}
-                    <img
+                    <CVPreviewPageGuard
                       src={page.dataUrl}
                       alt={page.isReferences ? 'References page' : `Page ${i + 1}`}
                       className="w-full rounded-xl overflow-hidden border border-border bg-white shadow-sm block"
@@ -249,6 +250,11 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight, water
               )}
               {!loading && pages.length > 1 && (
                 <p className="text-xs text-muted-foreground text-center mt-3">This CV will print as {pages.length} pages</p>
+              )}
+              {!loading && pages.length > 0 && (
+                <p className="text-[11px] text-muted-foreground text-center mt-2">
+                  The "PREVIEW" watermark above is just for browsing — it won't appear in your downloaded PDF.
+                </p>
               )}
             </div>
           </div>

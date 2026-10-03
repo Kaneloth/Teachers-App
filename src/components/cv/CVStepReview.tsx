@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Download, FileText, CheckCircle2, RefreshCw, Eye, List, Coins, Loader2 } from 'lucide-react';
 import ATSScoreBadge from './ATSScoreBadge';
 import { useCVPdfPreview } from './useCVPdfPreview';
+import CVPreviewPageGuard from './CVPreviewPageGuard';
 import { exportElementAsPDF } from '@/utils/cvExport';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -288,7 +289,7 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
                     {page.isReferences ? 'References' : `Page ${i + 1} of ${pages.length}`}
                   </p>
                 )}
-                <img
+                <CVPreviewPageGuard
                   src={page.dataUrl}
                   alt={page.isReferences ? 'References page' : `Page ${i + 1}`}
                   className="w-full rounded-xl overflow-hidden border border-border bg-white shadow-sm block"
@@ -304,6 +305,11 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
           {!previewLoading && pages.length > 1 && (
             <p className="text-xs text-muted-foreground text-center">
               This CV will print as {pages.length} pages
+            </p>
+          )}
+          {!previewLoading && pages.length > 0 && (
+            <p className="text-[11px] text-muted-foreground text-center">
+              The "PREVIEW" watermark above is just for browsing — it won't appear in your downloaded PDF.
             </p>
           )}
         </div>
