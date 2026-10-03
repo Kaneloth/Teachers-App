@@ -71,8 +71,9 @@ const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2.5;
 const ZOOM_STEP = 0.25;
 // 100% (the raw auto-fit size) crowds the page against the frame edges —
-// 75% reads better by default, with room to zoom in from there.
-const DEFAULT_ZOOM = 0.75;
+// 95% backs off just enough to breathe, while staying close to the real
+// auto-fit size so the page still reads as "full size", not shrunk down.
+const DEFAULT_ZOOM = 0.95;
 
 export default function TemplatePreviewModal({ index, onClose, onNavigate }: TemplatePreviewModalProps) {
   const navigate = useNavigate();
@@ -218,9 +219,13 @@ export default function TemplatePreviewModal({ index, onClose, onNavigate }: Tem
             </button>
 
             {/* Zoom controls — a non-scrolling layer so they stay put while
-                the page below scrolls or is zoomed past the viewport. Top
-                corner (not bottom) so they're never near the CTA footer. */}
-            <div className="absolute top-3 right-3 z-10 flex items-center gap-0.5 bg-white rounded-full shadow-md border border-[#E5E7EB] p-1">
+                the page below scrolls or is zoomed past the viewport.
+                Bottom-right corner of the frame area (not top) — the top
+                corner sat directly over the template's own header/contact
+                row and hid it behind the controls; bottom-right clears
+                that, and the CTA footer below is its own separate bar so
+                there's no overlap with it either. */}
+            <div className="absolute bottom-3 right-3 z-10 flex items-center gap-0.5 bg-white rounded-full shadow-md border border-[#E5E7EB] p-1">
               <button
                 onClick={() => setZoom(z => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))}
                 disabled={zoom <= ZOOM_MIN}
