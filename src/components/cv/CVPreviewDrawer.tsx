@@ -87,6 +87,27 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight, water
     return () => ro.disconnect();
   }, []);
 
+  // Measure the real sticky app header the same way — see AppLayout.tsx's
+  // <div className="sticky top-0 z-40 ..."><AppHeader /></div>. The
+  // expanded panel below is deliberately kept BELOW this header (never
+  // covering or dimming it) rather than using inset-0 like a normal
+  // bottom-sheet would: with the header always eating a fixed chunk of
+  // the viewport, the panel's available height can never reach "the
+  // entire screen", so a single screenshot can never capture a whole CV
+  // page top-to-bottom even on a long CV — there's always a cropped edge
+  // and the header visible above it, both signalling "this is a partial
+  // preview, not the real thing".
+  const [headerHeight, setHeaderHeight] = useState(56); // reasonable fallback until measured
+  useEffect(() => {
+    const header = document.querySelector('.sticky.top-0.z-40') as HTMLElement | null;
+    if (!header) return;
+    const measure = () => setHeaderHeight(header.getBoundingClientRect().height);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(header);
+    return () => ro.disconnect();
+  }, []);
+
   const safeData = {
     ...data,
     skills: {
@@ -186,7 +207,14 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight, water
       {/* ── Expanded panel — portaled to <body> to escape the framer-motion
              transform ancestors in CVBuilderPage.tsx ── */}
       {open && createPortal(
-        <div className="fixed inset-0 z-[60] flex flex-col justify-end">
+        <div
+          className="fixed left-0 right-0 bottom-0 z-[60] flex flex-col justify-end"
+          style={{ top: `${headerHeight}px` }}
+        >
+          {/* Backdrop only covers the area below the header — the header
+              itself is never dimmed or hidden behind it (see headerHeight
+              above for why that matters for how much of a page can ever
+              be on screen at once). */}
           <div
             className="absolute inset-0 bg-black/40"
             onClick={() => setOpen(false)}
@@ -195,7 +223,10 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight, water
             ref={panelRef}
             className="relative bg-muted rounded-t-3xl overflow-hidden flex flex-col"
             style={{
-              height: '90vh',
+              // 90% of the space already left over after the header —
+              // not 90vh of the full screen — so the header's height
+              // compounds with this margin rather than being eaten by it.
+              height: '90%',
               transform: `translateY(${dragY}px)`,
               transition: dragRef.current.active ? 'none' : 'transform 0.2s ease-out',
             }}
