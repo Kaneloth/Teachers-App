@@ -23,8 +23,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // each caller already sets (see CVBuilderPage.tsx, CVStepPersonal.tsx,
 // CVStepExperience.tsx, CVStepExtras.tsx for cvbuild_* prefixes, and
 // CoverLettersPage.tsx for ai_letter_*/letter_* prefixes). It's a pure
-// display fix — it does NOT change which ref_ids count toward the cv_usage
-// discount below (that still requires the 'cvbuild_' prefix specifically).
+// display fix — purely cosmetic, with no effect on cost (the cv_usage
+// download cost is flat, see below).
 // Falls back to the generic COST_LABELS[type] whenever ref_id doesn't match
 // anything recognized, so nothing here can produce a blank description.
 function describeAction(type, ref_id) {
@@ -180,68 +180,21 @@ export const handler = async (event) => {
     }
   }
 
-  // ── CV download discount: reward prior AI actions on THIS CV ─────────────
-  // If the person already spent letter_usage credits on AI actions while
-  // building this specific CV (import, AI summary, bullet improvement,
-  // section suggestions), that spend counts toward the cv_usage cost
-  // instead of stacking on top of it — cost is max(0, cvCost - priorSpend),
-  // so heavy AI users can never be charged more than the standard price,
-  // and if their AI spend already exceeds it, the download itself is free
-  // (not negative — no refund, just zero additional charge).
-  //
-  // This is computed ENTIRELY server-side from the ledger — the request
-  // body carries no discount amount at all, since trusting a client-
-  // supplied "charge me less" number would let anyone open dev tools and
-  // request a free CV. ref_id prefix 'cvbuild_' identifies AI actions that
-  // happened specifically inside the CV Builder wizard (see CVBuilderPage
-  // .tsx, CVStepPersonal.tsx, CVStepExperience.tsx, CVStepExtras.tsx) —
-  // this deliberately excludes letter_usage spent on the separate Cover
-  // Letters feature, which isn't part of building this CV.
-  //
-  // The cutoff is this user's most recent PRIOR cv_usage charge (if any):
-  // AI actions are only "unclaimed" discount credit once, for the very
-  // next CV download — once that download happens, the cutoff moves
-  // forward, so the same AI spend can't be reused as a discount on a
-  // future, unrelated CV.
-  let cost = COSTS[type];
-  let discountApplied = 0;
-
-  if (type === 'cv_usage') {
-    const { data: lastCvUsage } = await supabase
-      .from('credit_ledger')
-      .select('created_at')
-      .eq('user_id', user.id)
-      .eq('type', 'cv_usage')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const cutoff = lastCvUsage?.created_at || '1970-01-01T00:00:00Z';
-
-    const { data: aiSpendRows, error: aiSpendErr } = await supabase
-      .from('credit_ledger')
-      .select('amount')
-      .eq('user_id', user.id)
-      .eq('type', 'letter_usage')
-      .gt('created_at', cutoff)
-      .like('ref_id', 'cvbuild_%');
-
-    if (aiSpendErr) {
-      // Fail closed on the discount specifically — if we can't verify
-      // prior AI spend, charge full price rather than risk an unverified
-      // discount. This never blocks the download itself, only how much
-      // of a discount it can claim.
-      console.error('[deduct-credits] Failed to compute CV discount, charging full price:', aiSpendErr);
-    } else {
-      const priorAiSpend = (aiSpendRows || []).reduce((sum, r) => sum + Math.abs(r.amount), 0);
-      discountApplied = Math.min(priorAiSpend, COSTS[type]);
-      cost = Math.max(0, COSTS[type] - discountApplied);
-    }
-  }
+  // ── CV download cost ───────────────────────────────────────────────────
+  // Flat and fully independent of any AI actions spent earlier on this CV.
+  // This used to discount cv_usage by whatever letter_usage had already
+  // been spent on THIS CV's AI actions (import, AI summary, bullet
+  // improvement, section suggestions) — cost was max(0, cvCost -
+  // priorAiSpend), so a user who'd spent 50 credits on AI actions was only
+  // charged 40 more at download, and a user who spent 90+ on AI actions
+  // got the download for free. That discount is gone: the download now
+  // always checks for, and charges, the full admin-configured cv_usage
+  // cost (COSTS['cv_usage']), no ledger lookback at all. AI actions and
+  // the CV download are two fully independent credit charges.
+  const cost = COSTS[type];
 
   const actionLabel = describeAction(type, ref_id) || COST_LABELS[type] || type;
-  const description = discountApplied > 0
-    ? `${actionLabel} (${cost} credits — ${discountApplied} credit discount from prior AI actions on this CV)`
-    : `${actionLabel} (${cost} credits)`;
+  const description = `${actionLabel} (${cost} credits)`;
 
   const { data: newBalance, error: deductErr } = await supabase.rpc('deduct_credits', {
     p_user_id:     user.id,

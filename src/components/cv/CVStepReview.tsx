@@ -52,22 +52,21 @@ interface CVData {
   hidden_sections?: string[];
 }
 
-interface Props { data: CVData; onChange?: (d: CVData) => void; onGenerated?: (url: string) => void; isFree?: boolean; aiCreditsSpent?: number }
+interface Props { data: CVData; onChange?: (d: CVData) => void; onGenerated?: (url: string) => void; isFree?: boolean }
 
-export default function CVStepReview({ data, onChange, onGenerated, isFree = false, aiCreditsSpent = 0 }: Props) {
+export default function CVStepReview({ data, onChange, onGenerated, isFree = false }: Props) {
   const { user } = useAuth();
   const { balance, loading: creditsLoading, deduct, insufficientCredits, dismissInsufficientCredits } = useCredits();
   const pricing = usePricing();
+  // Download cost is flat and independent of any AI actions spent earlier
+  // in the wizard — it used to discount cvCost by whatever the user had
+  // already spent on AI actions (import, AI summary, bullet improvement),
+  // so someone who'd spent 50 credits on AI actions was only charged 40
+  // more at download. That's gone: the download always checks for and
+  // charges the full cvCost. Matches deduct-credits.js's server-side
+  // logic, which had the same discount computation removed so the two
+  // can't disagree.
   const { cvCost } = pricing;
-  // Same figure computed inside handleGenerate — defined here too since the
-  // render below needs it for the warning banner and disabled-button check,
-  // which run before handleGenerate is ever called.
-  // Matches deduct-credits.js's own independent server-side computation
-  // (see that file) — this is an ESTIMATE for display purposes only, not
-  // the actual charge boundary. The server recomputes this itself from
-  // the ledger and is the true source of truth; this just keeps the UI
-  // from promising something different from what will actually happen.
-  const cvRemainingCost = Math.max(0, cvCost - aiCreditsSpent);
   const { gates, loading: gatesLoading } = useFeatureGates();
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
@@ -386,7 +385,7 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
           on purpose (same treatment as CoverLettersPage.tsx); the full
           numbers appear in the dedicated modal below once the user
           actually tries and hits the wall. */}
-      {!isAdmin && !creditsLoading && balance < cvRemainingCost && (
+      {!isAdmin && !creditsLoading && balance < cvCost && (
         <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2.5">
           <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
@@ -400,7 +399,7 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
 
       <Button
         onClick={pdfUrl ? handleRedownload : handleGenerate}
-        disabled={sending || (!isAdmin && !pdfUrl && !creditsLoading && balance < cvRemainingCost)}
+        disabled={sending || (!isAdmin && !pdfUrl && !creditsLoading && balance < cvCost)}
         className="w-full h-12 rounded-xl text-sm font-semibold gap-2"
       >
         <Download className="w-4 h-4 shrink-0" />

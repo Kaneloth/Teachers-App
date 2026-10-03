@@ -680,7 +680,14 @@ export default function CVBuilderPage() {
               {step === 4 && <CVStepExtras data={data.custom_sections} onChange={custom_sections => setData(d => ({ ...d, custom_sections }))} fullCvData={{ personal: { bio: data.personal.bio }, education: data.education, experience: data.experience, skills: data.skills }} onAiUsed={(amt: number) => setAiCreditsSpent(prev => prev + amt)} isEducator={isEducator} />}
               {step === 5 && <CVStepReferences data={data.references} onChange={references => setData(d => ({ ...d, references }))} />}
               {step === 6 && <CVStepTemplate selected={data.template} onChange={template => setData(d => ({ ...d, template }))} isFree={isFree} isEducator={isEducator} />}
-              {step === 7 && <CVStepReview data={data} onChange={setData} onGenerated={handleCVGenerated} isFree={isFree} aiCreditsSpent={aiCreditsSpent} />}
+              {/* aiCreditsSpent is no longer passed here — CVStepReview's
+                  download cost is now flat and independent of AI actions
+                  spent earlier in the wizard (that discount was removed,
+                  see CVStepReview.tsx and deduct-credits.js). The
+                  aiCreditsSpent tracking state above is now effectively
+                  unused dead weight; harmless to leave, safe to remove if
+                  you want this fully cleaned up later. */}
+              {step === 7 && <CVStepReview data={data} onChange={setData} onGenerated={handleCVGenerated} isFree={isFree} />}
             </motion.div>
           </AnimatePresence>
         </div>
