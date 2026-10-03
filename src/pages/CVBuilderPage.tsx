@@ -414,7 +414,13 @@ export default function CVBuilderPage() {
   const lastCVPdfUrl              = freshMeta.last_cv_pdf_url as string | undefined;
   const lastCVGeneratedAt         = freshMeta.last_cv_generated_at as string | undefined;
   const isAdmin = !!(user?.user_metadata?.is_admin);
+  // Same watermark logic CVStepReview.tsx uses for the real download —
+  // duplicated here (rather than imported) because it's a one-line
+  // boolean combining state this component already has in scope, and
+  // computed below once hasPurchased/gates have come back from Supabase.
+  const watermarkGateActive = !gatesLoading && gates.cv_watermark !== false;
   const [hasPurchased,      setHasPurchased]      = useState(false);
+  const shouldWatermark = watermarkGateActive && !hasPurchased && !isAdmin;
   const [templatesUnlocked, setTemplatesUnlocked] = useState(false);
   const [isEducator,         setIsEducator]         = useState(false);
   // True once hasPurchased/templatesUnlocked have come back from Supabase, so
@@ -715,7 +721,7 @@ export default function CVBuilderPage() {
         </div>
       </motion.div>
       {!isDesktop && step < STEPS.length - 1 && (
-        <CVPreviewDrawer data={data} ownerName={data.personal.full_name} onHandleHeight={setDrawerHandleHeight} />
+        <CVPreviewDrawer data={data} ownerName={data.personal.full_name} onHandleHeight={setDrawerHandleHeight} watermark={shouldWatermark} />
       )}
         </div>
         {/* Desktop split-screen: static, always-visible preview — replaces

@@ -1,12 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Download, FileText, CheckCircle2, RefreshCw, Eye, List, Coins, AlertCircle } from 'lucide-react';
-import CVTemplateRenderer from './CVTemplateRenderer';
+import { Download, FileText, CheckCircle2, RefreshCw, Eye, List, Coins, AlertCircle, Loader2 } from 'lucide-react';
 import ATSScoreBadge from './ATSScoreBadge';
-import { PAGE_HEIGHT, computeSmartPageBreaks, type PageSlice } from './cvPagination';
+import { useCVPdfPreview } from './useCVPdfPreview';
 import { exportElementAsPDF } from '@/utils/cvExport';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -94,26 +93,6 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const exportRef = useRef<HTMLDivElement>(null);
-  const [slices, setSlices] = useState<PageSlice[]>([{ start: 0, end: PAGE_HEIGHT, isReferences: false }]);
-
-  // Measures the actual available width for the preview and computes the
-  // zoom level from that, instead of a fixed 0.45 — otherwise, widening the
-  // page around this component (e.g. the desktop split-screen work) does
-  // nothing, since a hardcoded zoom never grows to use the extra space it
-  // was just given. Capped at 1 so the CV never renders LARGER than true
-  // print size just because a very wide screen happens to have the room.
-  const previewAreaRef = useRef<HTMLDivElement>(null);
-  const [previewZoom, setPreviewZoom] = useState(0.45);
-  useEffect(() => {
-    const el = previewAreaRef.current;
-    if (!el) return;
-    const measure = () => setPreviewZoom(Math.min(1, Math.max(0.3, el.clientWidth / 794)));
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   // Existing stored PDF — re-download this for free without generating a new one
   const existingPdfUrl = (user?.user_metadata?.last_cv_pdf_url as string | undefined) ?? null;
@@ -146,31 +125,26 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
     },
   };
 
-  // Watches the hidden full-size export render (same node the real PDF
-  // export captures) so the visible preview below can show the same
-  // number of pages, with breaks in roughly the same places, as the
-  // actual download — rather than one endless scrolling blob with no
-  // indication of where page 1 ends and page 2 begins.
-  //
-  // This is a close approximation, not pixel-perfect: cvExport.ts computes
-  // its own page breaks from jsPDF's point-based text measurement, which
-  // doesn't exactly match the browser's CSS layout of the same content.
-  // For genuinely identical break points, the export's line-wrapping math
-  // would need to be replicated here. What computeSmartPageBreaks (see
-  // cvPagination.ts) DOES get exactly right: it never cuts through the
-  // middle of a line/bullet/heading (it snaps to the nearest safe leaf
-  // element instead of a blind pixel offset), and References always opens
-  // its own fresh final page, matching the real export's hard page-break
-  // rule for that section exactly.
-  useEffect(() => {
-    const el = exportRef.current;
-    if (!el) return;
-    const measure = () => setSlices(computeSmartPageBreaks(el));
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [safeData]);
+  // Renders the real, downloadable PDF (exportElementAsPDF — the exact
+  // same code path the Download button below calls) and rasterizes its
+  // actual pages, instead of approximating page breaks from this
+  // component's own CSS layout the way the old cvPagination.ts-based
+  // version did. That approximation could snap breaks to safe line
+  // boundaries, but it still couldn't match cvExport.ts's own, completely
+  // independent jsPDF-based layout — confirmed by a CV that downloaded as
+  // 2 pages but previewed as 3, with different content split between
+  // them. This way the preview literally IS the download, just rasterized
+  // to images here instead of saved to disk. Only generates while the
+  // Preview tab is actually showing (`enabled: view === 'preview'`) so
+  // switching to Summary doesn't keep regenerating a PDF nobody's looking
+  // at. Passes the exact same `shouldWatermark` flag handleGenerate below
+  // passes to the real export, so the preview shows (or doesn't show) the
+  // watermark the actual download will carry right now.
+  const { pages, loading: previewLoading, error: previewError } = useCVPdfPreview(
+    { ...safeData, watermark: shouldWatermark },
+    view === 'preview',
+    1.5,
+  );
 
   const fileName = `CV_${(personal.full_name || 'Educator').replace(/\s+/g, '_')}.pdf`;
 
@@ -200,8 +174,6 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
   };
 
   const handleGenerate = async () => {
-    if (!exportRef.current) return;
-
     // ── Credit check ─────────────────────────────────────────────────────
     // Server-side deduct-credits.js reads the real admin-configured cost
     // from credit_costs directly — nothing to compute here anymore, the
@@ -211,7 +183,11 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
 
     setSending(true);
     try {
-      const pdfBlob = await exportElementAsPDF(exportRef.current, fileName, { ...safeData, watermark: shouldWatermark });
+      // exportElementAsPDF's first argument is unused by the function
+      // (confirmed from its source — everything it draws comes from the
+      // cvData argument), so there's no need for a hidden full-size DOM
+      // render just to have something to pass here.
+      const pdfBlob = await exportElementAsPDF(document.body, fileName, { ...safeData, watermark: shouldWatermark });
 
       // ── 1. Trigger immediate device download ─────────────────────────────
       const blobUrl = URL.createObjectURL(pdfBlob);
@@ -290,77 +266,48 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
       </div>
 
       {view === 'preview' ? (
-        <div className="space-y-3" ref={previewAreaRef}>
+        <div className="space-y-3">
           <ATSScoreBadge data={safeData} />
           {/*
-           * Each "page" below is a 794×1123px window (A4 at the same 96dpi
-           * scale the real export renders at) showing one vertical slice of
-           * the SAME continuously-flowing CV content — the classic
-           * print-preview trick: render the full content once per page,
-           * absolutely positioned and shifted up by that page's height, so
-           * only the relevant slice is visible through the clipped window.
-           * The zoom level is measured from this wrapper's own available
-           * width rather than a fixed fraction, so it correctly grows to
-           * fill whatever space this step actually has — otherwise, on a
-           * wide desktop layout, the CV stays pinned at mobile-thumbnail
-           * size no matter how much room is sitting empty next to it.
-           * Capped at 1 (true print size) so it never renders LARGER than
-           * an actual printed page just because a very wide screen has
-           * room to spare.
+           * Each image below is one ACTUAL page of the real generated PDF
+           * (same exportElementAsPDF code path the Download button calls),
+           * rasterized by useCVPdfPreview — not a DOM approximation of it.
+           * That guarantees the page count and content distribution shown
+           * here match what downloading right now will actually produce.
            */}
-          <div style={{ zoom: previewZoom }} className="space-y-3">
-            {slices.map((slice, i) => (
+          {pages.length === 0 && previewLoading && (
+            <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <p className="text-xs">Rendering preview…</p>
+            </div>
+          )}
+          {previewError && pages.length === 0 && (
+            <p className="text-xs text-destructive text-center py-16">{previewError}</p>
+          )}
+          <div className="space-y-3 mx-auto" style={{ maxWidth: '480px' }}>
+            {pages.map((page, i) => (
               <div key={i}>
-                {slices.length > 1 && (
+                {pages.length > 1 && (
                   <p style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280', textAlign: 'center', margin: '0 0 6px' }}>
-                    {slice.isReferences ? 'References' : `Page ${i + 1} of ${slices.length}`}
+                    {page.isReferences ? 'References' : `Page ${i + 1} of ${pages.length}`}
                   </p>
                 )}
-                <div
-                  className="rounded-xl overflow-hidden border border-border bg-white shadow-sm"
-                  style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
-                >
-                  {/* Real clip window — height is this slice's own content
-                      span (often shorter than PAGE_HEIGHT once a break
-                      lands early at a safe boundary), not the full page
-                      height. Without it the outer box's fixed-height
-                      overflow:hidden was the only clip, which still showed
-                      content out to start+1123 regardless of where this
-                      slice actually ended — bleeding into whatever came
-                      next, which is how References ended up rendered
-                      twice (once bled into the previous page, once again
-                      on its own page). */}
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: `${slice.end - slice.start}px`, overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', top: `${-slice.start}px`, left: 0 }}>
-                      <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
-                    </div>
-                  </div>
-                  {/*
-                   * computeSmartPageBreaks (cvPagination.ts) snaps each break
-                   * to the nearest safe leaf-element boundary rather than a
-                   * blind pixel height, so a line of text is never shown cut
-                   * in half at the page edge — and References always starts
-                   * its own fresh final page here, exactly as it does in the
-                   * real export. This still isn't pixel-identical to the PDF
-                   * (cvExport.ts paginates from jsPDF's own point-based text
-                   * measurement, which a browser layout can't match exactly)
-                   * — the fade below is a safety net for the rare fallback
-                   * case where no safe break was found in range.
-                   */}
-                  {i < slices.length - 1 && slice.end - slice.start >= PAGE_HEIGHT - 2 && (
-                    <div style={{
-                      position: 'absolute', bottom: 0, left: 0, right: 0, height: '60px',
-                      background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))',
-                      pointerEvents: 'none',
-                    }} />
-                  )}
-                </div>
+                <img
+                  src={page.dataUrl}
+                  alt={page.isReferences ? 'References page' : `Page ${i + 1}`}
+                  className="w-full rounded-xl overflow-hidden border border-border bg-white shadow-sm block"
+                />
               </div>
             ))}
           </div>
-          {slices.length > 1 && (
+          {previewLoading && pages.length > 0 && (
+            <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1.5">
+              <Loader2 className="w-3 h-3 animate-spin" /> Updating preview…
+            </p>
+          )}
+          {!previewLoading && pages.length > 1 && (
             <p className="text-xs text-muted-foreground text-center">
-              This CV will print as {slices.length} pages
+              This CV will print as {pages.length} pages
             </p>
           )}
         </div>
@@ -421,14 +368,6 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
           ))}
         </div>
       )}
-
-      {/* Hidden full-size render used by exportElementAsPDF — added cv-export-root class */}
-      <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '794px' }}>
-        <div ref={exportRef} className="cv-export-root">
-          <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
-        </div>
-      </div>
-
 
 
       {/* Watermark notice for free users */}

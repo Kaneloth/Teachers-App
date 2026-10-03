@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronUp, ChevronDown, Eye } from 'lucide-react';
+import { ChevronUp, ChevronDown, Eye, Loader2 } from 'lucide-react';
 import CVTemplateRenderer from './CVTemplateRenderer';
 import ATSScoreBadge from './ATSScoreBadge';
-import { PAGE_HEIGHT, computeSmartPageBreaks, type PageSlice } from './cvPagination';
+import { useCVPdfPreview } from './useCVPdfPreview';
 
 // Same safety net as CVStepReview.tsx (see that file for the full
 // rationale) — AI-imported data can occasionally produce a structured
@@ -37,12 +37,16 @@ interface Props {
    *  very bottom of a step (Save & Exit, Reset CV) scrolls up underneath
    *  this fixed-position handle and gets visually covered by it. */
   onHandleHeight?: (px: number) => void;
+  /** Whether the real download will carry the free-tier watermark — pass
+   *  the same value CVStepReview.tsx computes (hasPurchased/isAdmin/the
+   *  cv_watermark feature gate) so this preview matches what downloading
+   *  right now would actually produce. Defaults to false (no watermark)
+   *  if the parent doesn't have that gating result handy. */
+  watermark?: boolean;
 }
 
-export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Props) {
+export default function CVPreviewDrawer({ data, ownerName, onHandleHeight, watermark = false }: Props) {
   const [open, setOpen] = useState(false);
-  const [slices, setSlices] = useState<PageSlice[]>([{ start: 0, end: PAGE_HEIGHT, isReferences: false }]);
-  const measureRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLButtonElement>(null);
 
   // Report the handle's real height to the parent whenever it changes
@@ -83,18 +87,16 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Pro
     },
   };
 
-  // Re-measure whenever the CV data changes (new bullet, new section, etc.)
-  // or the panel opens (closed panels aren't laid out by the browser, so a
-  // measurement taken while closed can be stale/zero).
-  useEffect(() => {
-    const el = measureRef.current;
-    if (!el) return;
-    const measure = () => setSlices(computeSmartPageBreaks(el));
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [data, open]);
+  // Renders the real, downloadable PDF (same exportElementAsPDF code path
+  // as the actual download button) and rasterizes its actual pages —
+  // instead of approximating pagination from this component's own DOM/CSS
+  // layout, which cvExport.ts's independent jsPDF-based layout doesn't
+  // reliably agree with (confirmed: a CV that downloads as 2 pages was
+  // previewing as 3, with different content on each). See
+  // useCVPdfPreview.ts for the full rationale. Only runs while the panel
+  // is open (`enabled: open`) — no point spending a real PDF generation on
+  // every keystroke while the user hasn't even opened this to look.
+  const { pages, loading, error } = useCVPdfPreview({ ...safeData, watermark }, open, 1.5);
 
   // ── Drag-to-close on the expanded panel's handle ──────────────────────────
   // Deliberately does NOT handle drag-to-OPEN — tapping the collapsed bar
@@ -133,12 +135,6 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Pro
     return () => { document.body.style.overflow = prevOverflow; };
   }, [open]);
 
-  const previewNode = (
-    <div ref={measureRef} style={{ width: '794px' }}>
-      <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
-    </div>
-  );
-
   return (
     <>
       {/* ── Collapsed handle — portaled to <body> for the same reason as the
@@ -157,6 +153,11 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Pro
           className="fixed left-0 right-0 z-[55] bg-card border-t border-border shadow-[0_-2px_12px_rgba(0,0,0,0.06)] flex items-center gap-3 px-4 py-2.5"
           style={{ bottom: `${navHeight}px` }}
         >
+          {/* This small thumbnail is just a glance indicator, not the
+              accurate paginated preview — it stays a cheap live
+              CVTemplateRenderer render rather than a generated-PDF
+              rasterization, since generating a real PDF for a 36px-wide
+              thumbnail on every keystroke would be wasted work. */}
           <div className="w-9 h-11 rounded-md overflow-hidden border border-border bg-white shrink-0 relative">
             <div style={{ zoom: 36 / 794, pointerEvents: 'none' }}>
               <CVTemplateRenderer data={safeData} cvType={safeData.cvType} />
@@ -210,67 +211,45 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight }: Pro
               <ATSScoreBadge data={safeData} />
             </div>
 
-            {/* Paginated preview — same smart-break technique as
-                CVStepReview.tsx (see cvPagination.ts): each page is still a
-                1123px window clipped from the full content, but the break
-                points snap to safe leaf-element boundaries instead of a
-                blind pixel cut, so a line is never shown sliced in half at
-                the page edge — and References always lands on its own
-                fresh final page, matching the real export exactly. */}
+            {/* Real downloaded-PDF pages, rasterized — see useCVPdfPreview.ts.
+                pages.length === 0 && loading: first generation for this
+                open, nothing to show yet. pages.length > 0 && loading: a
+                newer edit is being re-rendered — keep showing the last
+                good pages rather than blanking out, with a small spinner. */}
             <div className="flex-1 overflow-y-auto px-4 py-4">
-              <div style={{ zoom: 0.4 }} className="space-y-3 mx-auto" >
-                {slices.map((slice, i) => (
+              {pages.length === 0 && loading && (
+                <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <p className="text-xs">Rendering preview…</p>
+                </div>
+              )}
+              {error && pages.length === 0 && (
+                <p className="text-xs text-destructive text-center py-16">{error}</p>
+              )}
+              <div className="space-y-3 mx-auto" style={{ maxWidth: '380px' }}>
+                {pages.map((page, i) => (
                   <div key={i}>
-                    {slices.length > 1 && (
+                    {pages.length > 1 && (
                       <p style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280', textAlign: 'center', margin: '0 0 6px' }}>
-                        {slice.isReferences ? 'References' : `Page ${i + 1} of ${slices.length}`}
+                        {page.isReferences ? 'References' : `Page ${i + 1} of ${pages.length}`}
                       </p>
                     )}
-                    <div
-                      className="rounded-xl overflow-hidden border border-border bg-white shadow-sm mx-auto"
-                      style={{ width: '794px', height: `${PAGE_HEIGHT}px`, position: 'relative' }}
-                    >
-                      {/* This inner wrapper is the real clip window —
-                          height = this slice's own (often < PAGE_HEIGHT)
-                          content span, not the full page height. Without
-                          it, a short slice (e.g. a smart break that landed
-                          well before the 1123px mark) left the OUTER box's
-                          fixed-height overflow:hidden as the only clip,
-                          which still revealed content all the way out to
-                          start+1123 — bleeding into whatever came next,
-                          which is exactly how References ended up
-                          rendered twice (once bled into the bottom of the
-                          previous page, once on its own page). */}
-                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: `${slice.end - slice.start}px`, overflow: 'hidden' }}>
-                        <div style={{ position: 'absolute', top: `${-slice.start}px`, left: 0 }}>
-                          <CVTemplateRenderer data={safeData} forExport cvType={safeData.cvType} />
-                        </div>
-                      </div>
-                      {/* Safety net only now — covers the rare fallback case
-                          (e.g. a single element taller than a full page)
-                          where computeSmartPageBreaks couldn't find a safe
-                          break and had to fall back to a hard pixel cut. */}
-                      {i < slices.length - 1 && slice.end - slice.start >= PAGE_HEIGHT - 2 && (
-                        <div style={{
-                          position: 'absolute', bottom: 0, left: 0, right: 0, height: '60px',
-                          background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))',
-                          pointerEvents: 'none',
-                        }} />
-                      )}
-                    </div>
+                    <img
+                      src={page.dataUrl}
+                      alt={page.isReferences ? 'References page' : `Page ${i + 1}`}
+                      className="w-full rounded-xl overflow-hidden border border-border bg-white shadow-sm block"
+                    />
                   </div>
                 ))}
               </div>
-              {slices.length > 1 && (
-                <p className="text-xs text-muted-foreground text-center mt-3">This CV will print as {slices.length} pages</p>
+              {loading && pages.length > 0 && (
+                <p className="text-xs text-muted-foreground text-center mt-3 flex items-center justify-center gap-1.5">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Updating preview…
+                </p>
               )}
-            </div>
-
-            {/* Hidden full-size render used only to measure real page count —
-                the visible preview above is zoomed down, which reports a
-                shrunken scrollHeight if measured directly. */}
-            <div style={{ position: 'absolute', top: 0, left: '-9999px', visibility: 'hidden' }}>
-              {previewNode}
+              {!loading && pages.length > 1 && (
+                <p className="text-xs text-muted-foreground text-center mt-3">This CV will print as {pages.length} pages</p>
+              )}
             </div>
           </div>
         </div>,
