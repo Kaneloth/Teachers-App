@@ -421,6 +421,11 @@ export default function CVBuilderPage() {
   const watermarkGateActive = !gatesLoading && gates.cv_watermark !== false;
   const [hasPurchased,      setHasPurchased]      = useState(false);
   const shouldWatermark = watermarkGateActive && !hasPurchased && !isAdmin;
+  // Deliberately NOT gated by cv_watermark — see CVStepReview.tsx's
+  // previewResolutionRestricted for the full rationale. Protects against a
+  // full-resolution screenshot/save of the free preview independent of
+  // whatever the admin has the download watermark set to.
+  const previewResolutionRestricted = !hasPurchased && !isAdmin;
   const [templatesUnlocked, setTemplatesUnlocked] = useState(false);
   const [isEducator,         setIsEducator]         = useState(false);
   // True once hasPurchased/templatesUnlocked have come back from Supabase, so
@@ -728,7 +733,7 @@ export default function CVBuilderPage() {
         </div>
       </motion.div>
       {!isDesktop && step < STEPS.length - 1 && (
-        <CVPreviewDrawer data={data} ownerName={data.personal.full_name} onHandleHeight={setDrawerHandleHeight} watermark={shouldWatermark} />
+        <CVPreviewDrawer data={data} ownerName={data.personal.full_name} onHandleHeight={setDrawerHandleHeight} watermark={shouldWatermark} lowRes={previewResolutionRestricted} />
       )}
         </div>
         {/* Desktop split-screen: static, always-visible preview — replaces

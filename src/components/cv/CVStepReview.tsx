@@ -87,6 +87,13 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
   // cv_watermark gate: when OFF, watermark disabled for everyone
   const watermarkGateActive = !gatesLoading && gates.cv_watermark !== false;
   const shouldWatermark = watermarkGateActive && !hasPurchased && !isAdmin;
+  // Deliberately NOT gated by cv_watermark — this is a separate, always-on
+  // protection against someone grabbing a full-resolution copy of the CV
+  // straight from the free preview (e.g. a mobile screenshot of the whole
+  // page). Whether the admin wants a visible watermark on paid downloads
+  // is a different decision from whether an unpaid preview should render
+  // at full fidelity, so this stays independent of that gate.
+  const previewResolutionRestricted = !hasPurchased && !isAdmin;
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -137,10 +144,16 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
   // at. Passes the exact same `shouldWatermark` flag handleGenerate below
   // passes to the real export, so the preview shows (or doesn't show) the
   // watermark the actual download will carry right now.
+  // Low-res (0.75) for anyone who hasn't paid and isn't an admin — still
+  // perfectly legible at normal on-screen viewing size, but a screenshot
+  // or saved copy of it is visibly soft/pixelated if blown up or printed,
+  // rather than a crisp, directly reusable copy of the finished CV.
+  // Purchasers/admins get the sharper 1.5 since there's no leak risk once
+  // they can already download the real thing.
   const { pages, loading: previewLoading, error: previewError } = useCVPdfPreview(
     { ...safeData, watermark: shouldWatermark },
     view === 'preview',
-    1.5,
+    previewResolutionRestricted ? 0.75 : 1.5,
   );
 
   const fileName = `CV_${(personal.full_name || 'Educator').replace(/\s+/g, '_')}.pdf`;

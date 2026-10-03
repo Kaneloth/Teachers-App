@@ -44,9 +44,16 @@ interface Props {
    *  right now would actually produce. Defaults to false (no watermark)
    *  if the parent doesn't have that gating result handy. */
   watermark?: boolean;
+  /** Pass `!hasPurchased && !isAdmin` (same signal CVStepReview.tsx uses
+   *  for previewResolutionRestricted) so an unpaid user's preview renders
+   *  at a reduced resolution — still legible on-screen, but a screenshot
+   *  or saved copy of it is visibly soft if blown up or printed, instead
+   *  of a crisp, directly reusable copy of the finished CV. Defaults to
+   *  true (the safer choice) if the parent doesn't pass this. */
+  lowRes?: boolean;
 }
 
-export default function CVPreviewDrawer({ data, ownerName, onHandleHeight, watermark = false }: Props) {
+export default function CVPreviewDrawer({ data, ownerName, onHandleHeight, watermark = false, lowRes = true }: Props) {
   const [open, setOpen] = useState(false);
   const handleRef = useRef<HTMLButtonElement>(null);
 
@@ -97,7 +104,7 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight, water
   // useCVPdfPreview.ts for the full rationale. Only runs while the panel
   // is open (`enabled: open`) — no point spending a real PDF generation on
   // every keystroke while the user hasn't even opened this to look.
-  const { pages, loading, error } = useCVPdfPreview({ ...safeData, watermark }, open, 1.5);
+  const { pages, loading, error } = useCVPdfPreview({ ...safeData, watermark }, open, lowRes ? 0.75 : 1.5);
 
   // ── Drag-to-close on the expanded panel's handle ──────────────────────────
   // Deliberately does NOT handle drag-to-OPEN — tapping the collapsed bar
