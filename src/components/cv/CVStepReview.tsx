@@ -320,6 +320,11 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
               This CV will print as {pages.length} pages
             </p>
           )}
+          {!previewLoading && pages.length > 0 && (
+            <p className="text-[11px] text-muted-foreground text-center">
+              The "PREVIEW" watermark above is just for browsing — it won't appear in your downloaded PDF.
+            </p>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
