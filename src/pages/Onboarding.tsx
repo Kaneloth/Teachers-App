@@ -11,6 +11,7 @@ import { Loader2, ChevronRight, ChevronLeft, GraduationCap, User, X, MapPin, Che
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { geocodeLocation } from '@/lib/geocode';
+import { getDeviceFingerprint } from '@/lib/deviceFingerprint';
 
 const PROVINCES = ['Gauteng','KwaZulu-Natal','Western Cape','Eastern Cape','Mpumalanga','Limpopo','North West','Free State','Northern Cape'];
 const PHASES = ['Foundation','Intermediate','Senior','FET'];
@@ -171,15 +172,26 @@ export default function Onboarding() {
   // Grant signup credits — called once per user after role is chosen.
   // Keeping this here (not in a webhook/trigger) ensures credits are only
   // granted to users who have actually completed onboarding and chosen a role.
-  const grantSignupCredits = async (userId: string, email: string) => {
+  // `phone` is optional here — handleSkip calls this before any phone has
+  // necessarily been collected in THIS flow, so it falls back to whatever
+  // was captured at Register.tsx's signup step (user_metadata.phone).
+  // grant-signup-credits.js already has a phone-fingerprint layer
+  // (phone_fingerprints table) — it just never received a phone to check,
+  // since no call site here was passing one. Wiring it up gives a second,
+  // independent anti-abuse signal alongside the device fingerprint and IP
+  // rate limit, for the common case of someone re-signing-up with the
+  // same phone number under a different email/device.
+  const grantSignupCredits = async (userId: string, email: string, phone?: string) => {
     try {
+      const device_fingerprint = await getDeviceFingerprint();
       await fetch('/.netlify/functions/grant-signup-credits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId,
           email,
-          device_fingerprint: navigator.userAgent + screen.width + screen.height,
+          phone: phone || undefined,
+          device_fingerprint,
         }),
       });
     } catch {
@@ -235,7 +247,7 @@ export default function Onboarding() {
     // key fields (town, subjects, etc.) are still empty, which matters for
     // search/matching.
     // Grant signup credits now that role is confirmed
-    grantSignupCredits(user.id, user.email ?? '').catch(() => {});
+    grantSignupCredits(user.id, user.email ?? '', user.user_metadata?.phone).catch(() => {});
 
     toast('Add a few details to your profile to get better matches.');
     navigate('/profile');
@@ -403,7 +415,7 @@ export default function Onboarding() {
       }
 
       // Grant signup credits now that role is confirmed
-      grantSignupCredits(user?.id ?? '', user?.email ?? '').catch(() => {});
+      grantSignupCredits(user?.id ?? '', user?.email ?? '', genForm.phone).catch(() => {});
 
       toast.success('Profile created! Welcome to Crosssa!');
       toast('Tip: add a profile photo and bio to help others recognize you.');
@@ -473,7 +485,7 @@ export default function Onboarding() {
       }
 
       // Grant signup credits now that role is confirmed
-      grantSignupCredits(user?.id ?? '', user?.email ?? '').catch(() => {});
+      grantSignupCredits(user?.id ?? '', user?.email ?? '', form.phone).catch(() => {});
 
       toast.success('Profile created! Welcome to Crosssa!');
       toast('Add your current town to improve your search results and matches.');
