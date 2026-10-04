@@ -223,10 +223,15 @@ export default function CVPreviewDrawer({ data, ownerName, onHandleHeight, water
             ref={panelRef}
             className="relative bg-muted rounded-t-3xl overflow-hidden flex flex-col"
             style={{
-              // 90% of the space already left over after the header —
-              // not 90vh of the full screen — so the header's height
+              // 97% of the space already left over after the header —
+              // not 97vh of the full screen — so the header's height
               // compounds with this margin rather than being eaten by it.
-              height: '90%',
+              // Pushed up from 90% → 97% to close most of the gap between
+              // the header and the sheet, while the small remainder still
+              // keeps the backdrop (and therefore the header above it)
+              // visibly reachable rather than the sheet butting flush
+              // against the header's bottom edge.
+              height: '97%',
               transform: `translateY(${dragY}px)`,
               transition: dragRef.current.active ? 'none' : 'transform 0.2s ease-out',
             }}

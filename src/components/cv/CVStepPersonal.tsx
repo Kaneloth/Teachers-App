@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import AutoGrowTextarea from '@/components/AutoGrowTextarea';
 import { Textarea } from '@/components/ui/textarea';
 import { useEffect, useState, useRef } from 'react';
-import { Lock, Camera, X, Loader2, ImageIcon, Sparkles } from 'lucide-react';
+import { Lock, Camera, X, Loader2, ImageIcon, Sparkles, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -49,27 +49,56 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
   const fileRef   = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  const [refreshingProfile, setRefreshingProfile] = useState(false);
+
+  // Pulls the live profile and syncs it into full_name/email/phone — the
+  // three LOCKED fields below, which are read-only in this UI and meant
+  // to always mirror the Profile page. This always overwrites them
+  // (rather than the old "only fill in if empty" behaviour), because
+  // that's what fixed a real bug: a user who saved a CV with an empty
+  // phone, then later added a phone number on their Profile page, never
+  // saw it appear here. The old effect ran once on mount and even then
+  // only when full_name+email were BOTH still empty — so a CV draft that
+  // already had a name/email but just a missing phone stayed stuck
+  // forever, with the only fix being to re-upload (and re-pay credits
+  // for) the whole CV.
+  //
+  // Address and bio are different — they're editable by the user right
+  // here on this step — so those stay "fill in only if empty"; syncing
+  // them unconditionally would silently overwrite something the user
+  // typed themselves.
+  const syncFromProfile = async (manual = false) => {
     if (!user) return;
-    if (data.full_name && data.email) return;
-    // email is now selected here and preferred over the auth sign-in
-    // email below — a user's profile email can differ from the address
-    // they originally signed up/logged in with, and the CV should reflect
-    // whatever they've set on their Profile page, same as every other
-    // locked field here (full_name, phone).
-    supabase.from('educators').select('full_name, email, phone, bio, town, current_province')
-      .eq('user_id', user.id).maybeSingle()
-      .then(({ data: profile }) => {
-        const location = [profile?.town, profile?.current_province].filter(Boolean).join(', ');
-        onChange({
-          ...data,
-          full_name: data.full_name || profile?.full_name || user.user_metadata?.full_name || '',
-          email:     data.email     || profile?.email      || user.email || '',
-          phone:     data.phone     || profile?.phone || user.user_metadata?.phone || '',
-          address:   data.address   || location || '',
-          bio:       data.bio       || profile?.bio || '',
-        });
+    if (manual) setRefreshingProfile(true);
+    try {
+      const { data: profile } = await supabase
+        .from('educators')
+        .select('full_name, email, phone, bio, town, current_province')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const location = [profile?.town, profile?.current_province].filter(Boolean).join(', ');
+      onChange({
+        ...data,
+        full_name: profile?.full_name || user.user_metadata?.full_name || '',
+        // email is preferred over the auth sign-in email below — a
+        // user's profile email can differ from the address they
+        // originally signed up/logged in with, and the CV should
+        // reflect whatever they've set on their Profile page.
+        email:   profile?.email || user.email || '',
+        phone:   profile?.phone || user.user_metadata?.phone || '',
+        address: data.address || location || '',
+        bio:     data.bio     || profile?.bio || '',
       });
+      if (manual) toast.success('Updated from your profile.');
+    } catch {
+      if (manual) toast.error('Could not refresh from profile — please try again.');
+    } finally {
+      if (manual) setRefreshingProfile(false);
+    }
+  };
+
+  useEffect(() => {
+    syncFromProfile(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -166,10 +195,22 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
   return (
     <>
     <div className="bg-card rounded-2xl border border-border p-4 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h2 className="font-semibold text-foreground">Personal Information</h2>
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-lg">
-          <Lock className="w-3 h-3" /> Locked to profile
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => syncFromProfile(true)}
+            disabled={refreshingProfile}
+            title="Pull your latest name, email and phone from your Profile page"
+            className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50"
+          >
+            {refreshingProfile ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+            Refresh
+          </button>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-lg">
+            <Lock className="w-3 h-3" /> Locked to profile
+          </div>
         </div>
       </div>
 
@@ -243,7 +284,7 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
       </div>
 
       <p className="text-xs text-muted-foreground bg-muted rounded-xl px-3 py-2">
-        To update your name, email or phone, go to your <strong>Profile page</strong>.
+        To update your name, email or phone, go to your <strong>Profile page</strong>, then tap <strong>Refresh</strong> above — no need to re-upload your CV.
       </p>
     </div>
     {insufficientCredits && (

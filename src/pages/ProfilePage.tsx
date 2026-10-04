@@ -496,6 +496,14 @@ export default function ProfilePage() {
   const [phoneConfirm, setPhoneConfirm] = useState('');
   const savedPhoneRef = useRef('');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  // ── 2-saves-per-30-days window ──────────────────────────────────────────
+  // Replaces the old "once every 30 days" rule. saveWindowStart marks when
+  // the current 30-day window began; savesInWindow counts saves used in it
+  // (0, 1, or 2). A save is allowed while savesInWindow < 2, OR once 30
+  // days have passed since saveWindowStart, at which point a fresh window
+  // starts (2 new saves become available).
+  const [saveWindowStart, setSaveWindowStart] = useState<Date | null>(null);
+  const [savesInWindow,   setSavesInWindow]   = useState(0);
   const [togglingActive, setTogglingActive] = useState(false);
   const [subjectToAdd, setSubjectToAdd] = useState('');
   // Selecting "Other" from the subjects list used to add the literal
@@ -612,6 +620,19 @@ export default function ProfilePage() {
       const meta = freshUser?.user?.user_metadata ?? {};
       if (meta.user_code) setUserCode(meta.user_code);
       if (meta.profile_last_saved) setLastSaved(new Date(meta.profile_last_saved));
+      // Falls back gracefully for accounts that saved before this 2-per-
+      // window feature existed (no window fields yet, only the old
+      // profile_last_saved): treat their existing last save as the start
+      // of a window with 1 save already used, so they get exactly one
+      // more save before the 30-day clock they were already on finishes —
+      // not an unfair reset, and not 2 fresh saves granted immediately.
+      if (meta.profile_save_window_start) {
+        setSaveWindowStart(new Date(meta.profile_save_window_start));
+        setSavesInWindow(meta.profile_saves_in_window ?? 0);
+      } else if (meta.profile_last_saved) {
+        setSaveWindowStart(new Date(meta.profile_last_saved));
+        setSavesInWindow(1);
+      }
     };
     fetchMeta();
   }, [isOwnProfile, user]);
@@ -853,15 +874,18 @@ export default function ProfilePage() {
     }
   };
 
-  const daysSinceSave = lastSaved
-    ? Math.floor((Date.now() - lastSaved.getTime()) / (1000 * 60 * 60 * 24))
+  const SAVES_PER_WINDOW = 2;
+  const daysSinceWindowStart = saveWindowStart
+    ? Math.floor((Date.now() - saveWindowStart.getTime()) / (1000 * 60 * 60 * 24))
     : null;
+  const windowExpired = daysSinceWindowStart === null || daysSinceWindowStart >= 30;
   // The 30-day cooldown only applies while the profile_edit_lock gate is
   // active (enabled === true). Admins already bypass via isAdmin, and
   // useFeatureGates also resolves every gate to false for admins, so this
   // stays correct even if the isAdmin check above were ever removed.
-  const canSave = isAdmin || !gates.profile_edit_lock || daysSinceSave === null || daysSinceSave >= 30;
-  const daysLeft = canSave ? 0 : 30 - daysSinceSave!;
+  const canSave = isAdmin || !gates.profile_edit_lock || windowExpired || savesInWindow < SAVES_PER_WINDOW;
+  const daysLeft = canSave ? 0 : 30 - daysSinceWindowStart!;
+  const savesLeftThisWindow = windowExpired ? SAVES_PER_WINDOW : Math.max(0, SAVES_PER_WINDOW - savesInWindow);
 
   const handleSave = () => {
     if (!user || !profile) return;
@@ -886,7 +910,7 @@ export default function ProfilePage() {
       }
     }
     if (!canSave) {
-      toast.error(`Profiles can only be updated once every 30 days. ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining.`);
+      toast.error(`Profiles can only be updated ${SAVES_PER_WINDOW} times every 30 days. ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining.`);
       return;
     }
     setShowConfirmDialog(true);
@@ -967,8 +991,18 @@ export default function ProfilePage() {
       }
 
       const now = new Date();
-      await supabase.auth.updateUser({ data: { profile_last_saved: now.toISOString() } });
+      // Start a fresh window (1 save used) once the previous one has
+      // expired; otherwise just increment the count within it.
+      const nextWindowStart = windowExpired ? now : (saveWindowStart ?? now);
+      const nextSavesInWindow = windowExpired ? 1 : savesInWindow + 1;
+      await supabase.auth.updateUser({ data: {
+        profile_last_saved: now.toISOString(),
+        profile_save_window_start: nextWindowStart.toISOString(),
+        profile_saves_in_window: nextSavesInWindow,
+      } });
       setLastSaved(now);
+      setSaveWindowStart(nextWindowStart);
+      setSavesInWindow(nextSavesInWindow);
       savedPhoneRef.current = profile.phone ?? '';
       setPhoneConfirm('');
       toast.success('Profile saved!');
@@ -1411,10 +1445,14 @@ export default function ProfilePage() {
           >
             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5" /> Save Profile</>}
           </Button>
-          {!canSave && (
+          {!canSave ? (
             <p className="text-xs text-center text-muted-foreground">
-              Profile updates are limited to once every 30 days.{' '}
+              Profile updates are limited to {SAVES_PER_WINDOW} times every 30 days.{' '}
               <span className="font-medium text-foreground">{daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining.</span>
+            </p>
+          ) : (!isAdmin && gates.profile_edit_lock && !windowExpired && savesLeftThisWindow < SAVES_PER_WINDOW) && (
+            <p className="text-xs text-center text-muted-foreground">
+              {savesLeftThisWindow} save{savesLeftThisWindow !== 1 ? 's' : ''} remaining in this 30-day window.
             </p>
           )}
         </div>
@@ -1425,7 +1463,9 @@ export default function ProfilePage() {
               <AlertDialogTitle>Double-check your details</AlertDialogTitle>
               <AlertDialogDescription>
                 Please make sure all your information is correct before saving.
-                You will only be able to update your profile again in 30 days.
+                {savesLeftThisWindow <= 1
+                  ? ' This is your last update available for the next 30 days.'
+                  : ` You'll have ${savesLeftThisWindow - 1} more update available in this 30-day window after this one.`}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
