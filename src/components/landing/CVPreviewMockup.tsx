@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 const LINES = [
   'Experienced Sales Coordinator with 4 years...',
@@ -26,23 +26,22 @@ export default function CVPreviewMockup() {
       <div className="bg-white rounded-xl border border-[#E5E7EB] p-3 sm:p-4">
         <p className="text-[9px] font-semibold text-[#6B7280] uppercase tracking-wide mb-2">About Me</p>
         <div className="rounded-lg border border-[#0066FF]/40 bg-[#0066FF]/5 p-2 min-h-[70px]">
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={i}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="text-[10px] text-[#1A1A2E] leading-relaxed"
-            >
-              {LINES[i]}
-              <motion.span
-                animate={{ opacity: [1, 0] }}
-                transition={{ duration: 0.6, repeat: Infinity, repeatType: 'reverse' }}
-                className="inline-block w-[2px] h-3 bg-[#0066FF] ml-0.5 align-middle"
-              />
-            </motion.p>
-          </AnimatePresence>
+          {/* Text updates in place rather than unmounting/remounting on each
+              line change — each LINES[i] is just a longer continuation of
+              the last, so there's nothing to cross-fade between. The
+              previous AnimatePresence mode="wait" fully faded the text out
+              to nothing before fading the next line in, which read as an
+              unintended "blink" every 2.2s rather than a smooth typing
+              effect. The cursor is still the only thing that blinks, same
+              as a real text caret. */}
+          <p className="text-[10px] text-[#1A1A2E] leading-relaxed">
+            {LINES[i]}
+            <motion.span
+              animate={{ opacity: [1, 0] }}
+              transition={{ duration: 0.6, repeat: Infinity, repeatType: 'reverse' }}
+              className="inline-block w-[2px] h-3 bg-[#0066FF] ml-0.5 align-middle"
+            />
+          </p>
         </div>
         <div className="mt-3 space-y-1.5">
           <div className="h-2 w-2/3 bg-[#E5E7EB] rounded-full" />
@@ -55,18 +54,11 @@ export default function CVPreviewMockup() {
         <div className="h-2 w-1/3 bg-[#0A2463] rounded-full mb-2" />
         <div className="h-1.5 w-1/4 bg-[#E5E7EB] rounded-full mb-3" />
         <p className="text-[8px] font-semibold text-[#0066FF] uppercase tracking-wide mb-1">About Me</p>
-        <AnimatePresence mode="wait">
-          <motion.p
-            key={i}
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="text-[9px] text-[#374151] leading-relaxed mb-3"
-          >
-            {LINES[i]}
-          </motion.p>
-        </AnimatePresence>
+        {/* `layout` animates the height change smoothly as the text grows,
+            without any unmount/remount fade — same fix as the form side. */}
+        <motion.p layout transition={{ duration: 0.3 }} className="text-[9px] text-[#374151] leading-relaxed mb-3">
+          {LINES[i]}
+        </motion.p>
         <div className="space-y-1.5">
           <div className="h-1.5 w-full bg-[#F3F4F6] rounded-full" />
           <div className="h-1.5 w-5/6 bg-[#F3F4F6] rounded-full" />
