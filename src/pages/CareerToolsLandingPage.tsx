@@ -12,6 +12,33 @@ import CVPreviewMockup from '@/components/landing/CVPreviewMockup';
 import TemplateGalleryGrid from '@/components/landing/TemplateGalleryGrid';
 
 /**
+ * Static, non-animated stand-in for the hero visual — same look as
+ * CVPreviewMockup's "About Me" card, but already filled in rather than
+ * cycling through text lengths. The hero and the "Watch Your CV Update as
+ * You Type" section used to both render the live, auto-cycling
+ * CVPreviewMockup, which showed the exact same animated demo twice on one
+ * page. The dedicated section further down is where that demo belongs (it
+ * has the explanatory heading); the hero just needs a CV-shaped visual.
+ */
+function StaticCVPreviewCard() {
+  return (
+    <div className="bg-white rounded-xl border border-[#E5E7EB] p-3 sm:p-4 shadow-sm">
+      <div className="h-2 w-1/3 bg-[#0A2463] rounded-full mb-2" />
+      <div className="h-1.5 w-1/4 bg-[#E5E7EB] rounded-full mb-3" />
+      <p className="text-[8px] font-semibold text-[#0066FF] uppercase tracking-wide mb-1">About Me</p>
+      <p className="text-[9px] text-[#374151] leading-relaxed mb-3">
+        Experienced Sales Coordinator with 4+ years in retail management, team leadership, and client relations.
+      </p>
+      <div className="space-y-1.5">
+        <div className="h-1.5 w-full bg-[#F3F4F6] rounded-full" />
+        <div className="h-1.5 w-5/6 bg-[#F3F4F6] rounded-full" />
+        <div className="h-1.5 w-2/3 bg-[#F3F4F6] rounded-full" />
+      </div>
+    </div>
+  );
+}
+
+/**
  * Public, pre-sign-up showcase for the CV builder, cover letters and job
  * search. Section 4 (Template Gallery) is the piece the person explicitly
  * asked for: a browsable grid where clicking a template opens a full A4
@@ -58,7 +85,7 @@ export default function CareerToolsLandingPage() {
             </motion.div>
           </div>
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl border border-[#E5E7EB] p-4 shadow-sm">
-            <CVPreviewMockup />
+            <StaticCVPreviewCard />
           </motion.div>
         </div>
       </section>
