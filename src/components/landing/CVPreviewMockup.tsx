@@ -36,11 +36,10 @@ export default function CVPreviewMockup() {
               as a real text caret. */}
           <p className="text-[10px] text-[#1A1A2E] leading-relaxed">
             {LINES[i]}
-            <motion.span
-              animate={{ opacity: [1, 0] }}
-              transition={{ duration: 0.6, repeat: Infinity, repeatType: 'reverse' }}
-              className="inline-block w-[2px] h-3 bg-[#0066FF] ml-0.5 align-middle"
-            />
+            {/* Static caret, not animated — an infinitely-blinking cursor
+                run for the whole time this section is on screen read as
+                the page "blinking" at people, not as a typing effect. */}
+            <span className="inline-block w-[2px] h-3 bg-[#0066FF] ml-0.5 align-middle" />
           </p>
         </div>
         <div className="mt-3 space-y-1.5">
