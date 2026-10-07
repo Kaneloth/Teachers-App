@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Coins, ScrollText, GraduationCap,
   ShieldCheck, Star, SlidersHorizontal, Wrench, Menu, X, ArrowLeft, User, Tag, Bot,
-  Wallet, ArrowUpDown,
+  Wallet, ArrowUpDown, Ticket,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +30,7 @@ const NAV_SECTIONS = [
       { path: '/admin/pricing',          icon: Tag,         label: 'Pricing' },
       { path: '/admin/transactions',     icon: Wallet,      label: 'Transactions' },
       { path: '/admin/credits-movement', icon: ArrowUpDown, label: 'Credits Movement' },
+      { path: '/admin/referral-codes',   icon: Ticket,      label: 'Referral Codes' },
     ],
   },
   {

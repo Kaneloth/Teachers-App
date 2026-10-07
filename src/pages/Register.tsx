@@ -16,6 +16,7 @@ export default function Register() {
   const [fullName, setFullName] = useState('');
   const [email,    setEmail]    = useState('');
   const [phone,    setPhone]    = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [password,        setPassword]        = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPw,          setShowPw]          = useState(false);
@@ -93,10 +94,19 @@ export default function Register() {
       return;
     }
     setLoading(true);
+    stashReferralCode();
+    const trimmedReferral = referralCode.trim().toUpperCase();
     const { error } = await supabase.auth.signUp({
       email, password,
       options: {
-        data: { full_name: fullName, phone, subscription_plan: 'free' },
+        data: {
+          full_name: fullName, phone, subscription_plan: 'free',
+          // Secondary copy of the referral code — Onboarding.tsx actually
+          // reads it from localStorage (see stashReferralCode above), since
+          // that path also covers Google sign-in. Kept here too as a
+          // harmless backup in case localStorage was cleared mid-flow.
+          ...(trimmedReferral ? { referral_code: trimmedReferral } : {}),
+        },
       },
     });
     if (error) {
@@ -166,7 +176,21 @@ export default function Register() {
     setContactSending(false);
   };
 
+  // signInWithOAuth can't carry custom signup data the way email/password
+  // signUp can — Google creates the account on the redirect-back, with no
+  // chance for us to attach a referral code to it. Stashing it in
+  // localStorage lets Onboarding.tsx pick it up right after, regardless of
+  // which signup path the user took (see redeemStoredReferralCode there).
+  const stashReferralCode = () => {
+    try {
+      const code = referralCode.trim().toUpperCase();
+      if (code) localStorage.setItem('crosssa_referral_code', code);
+      else localStorage.removeItem('crosssa_referral_code');
+    } catch { /* ignore — e.g. storage disabled */ }
+  };
+
   const handleGoogle = async () => {
+    stashReferralCode();
     setGoogleLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -353,6 +377,17 @@ export default function Register() {
         <div className="space-y-1.5">
           <Label htmlFor="phone">Phone Number</Label>
           <Input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="081 234 5678" className="rounded-xl" inputMode="tel" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="referralCode">Have a referral code? (optional)</Label>
+          <Input
+            id="referralCode"
+            value={referralCode}
+            onChange={e => setReferralCode(e.target.value.toUpperCase())}
+            placeholder="CR-TM26-X4K"
+            className="rounded-xl font-mono"
+            autoCapitalize="characters"
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="password">Password</Label>

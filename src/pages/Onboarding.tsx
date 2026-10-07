@@ -200,6 +200,38 @@ export default function Onboarding() {
     }
   };
 
+  // Referral code — optional, captured at Register.tsx and stashed in
+  // localStorage rather than user_metadata, since Google OAuth signups
+  // can't carry custom signUp data (see Register.tsx's stashReferralCode).
+  // Redeemed once, right alongside the signup credit grant above, via a
+  // fully separate Netlify function (redeem-referral-code.js) — it grants
+  // ONLY the +90 referral bonus and never touches the standard signup
+  // bonus's own fraud checks above. Any failure (expired, already used,
+  // not found) is just a toast; it never blocks onboarding, since the
+  // user's normal signup bonus already went through regardless.
+  const redeemStoredReferralCode = async (userId: string) => {
+    let code: string | null = null;
+    try { code = localStorage.getItem('crosssa_referral_code'); } catch { /* ignore */ }
+    if (!code) return;
+    try { localStorage.removeItem('crosssa_referral_code'); } catch { /* ignore */ }
+
+    try {
+      const res = await fetch('/.netlify/functions/redeem-referral-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, code }),
+      });
+      const data = await res.json().catch(() => ({} as { redeemed?: boolean; credits?: number; error?: string }));
+      if (res.ok && data.redeemed) {
+        toast.success(`Referral code applied — +${data.credits ?? 90} bonus credits!`);
+      } else if (data.error) {
+        toast.warning(data.error);
+      }
+    } catch {
+      console.warn('[onboarding] referral code redemption failed silently');
+    }
+  };
+
   const handleSkip = async () => {
     if (!user || !profileType) { navigate('/home'); return; }
 
@@ -248,6 +280,7 @@ export default function Onboarding() {
     // search/matching.
     // Grant signup credits now that role is confirmed
     grantSignupCredits(user.id, user.email ?? '', user.user_metadata?.phone).catch(() => {});
+    redeemStoredReferralCode(user.id).catch(() => {});
 
     toast('Add a few details to your profile to get better matches.');
     navigate('/profile');
@@ -416,6 +449,7 @@ export default function Onboarding() {
 
       // Grant signup credits now that role is confirmed
       grantSignupCredits(user?.id ?? '', user?.email ?? '', genForm.phone).catch(() => {});
+      redeemStoredReferralCode(user?.id ?? '').catch(() => {});
 
       toast.success('Profile created! Welcome to Crosssa!');
       toast('Tip: add a profile photo and bio to help others recognize you.');
@@ -486,6 +520,7 @@ export default function Onboarding() {
 
       // Grant signup credits now that role is confirmed
       grantSignupCredits(user?.id ?? '', user?.email ?? '', form.phone).catch(() => {});
+      redeemStoredReferralCode(user?.id ?? '').catch(() => {});
 
       toast.success('Profile created! Welcome to Crosssa!');
       toast('Add your current town to improve your search results and matches.');

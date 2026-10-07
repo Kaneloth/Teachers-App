@@ -52,6 +52,7 @@ import AdminTools from '@/pages/admin/AdminTools';
 import AdminTransactions from '@/pages/admin/AdminTransactions';
 import AdminBotSignups from '@/pages/admin/AdminBotSignups';
 import AdminCreditsMovement from '@/pages/admin/AdminCreditsMovement';
+import AdminReferralCodes from '@/pages/admin/AdminReferralCodes';
 
 const queryClient = new QueryClient();
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -192,6 +193,7 @@ export default function App() {
                     <Route path="/admin/transactions" element={<AdminTransactions />} />
                     <Route path="/admin/credits-movement" element={<AdminCreditsMovement />} />
                     <Route path="/admin/bot-signups"  element={<AdminBotSignups />} />
+                    <Route path="/admin/referral-codes" element={<AdminReferralCodes />} />
                   </Route>
                 </Route>
               </Route>
