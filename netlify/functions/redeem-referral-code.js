@@ -20,7 +20,7 @@
  * POST body: { user_id, code }
  *
  * Response is always 200 for ordinary validation outcomes (invalid,
- * expired, already used, etc.) — those are normal results of a user typing
+ * already used, etc.) — those are normal results of a user typing
  * a code wrong, not server errors, and the body's `error` string is meant
  * to be shown directly as a toast. Only a genuine failure (bad JSON,
  * missing fields, rate limit, DB/RPC error) uses a non-200 status.
@@ -118,20 +118,11 @@ export const handler = async (event) => {
     return { statusCode: 200, body: JSON.stringify({ redeemed: false, reason: 'already_used', error: 'This referral code has already been used.' }) };
   }
 
-  // Self-heal: treat an active code past its expiry as expired even if the
-  // status column hasn't been flipped yet by the housekeeping sweep.
-  const isExpired = ref.status === 'expired' || (ref.expires_at && new Date(ref.expires_at) < new Date());
-  if (isExpired) {
-    if (ref.status !== 'expired') {
-      await supabase.from('referral_codes').update({ status: 'expired', updated_at: new Date().toISOString() }).eq('id', ref.id);
-    }
-    return { statusCode: 200, body: JSON.stringify({ redeemed: false, reason: 'expired', error: 'This referral code has expired.' }) };
-  }
-
-  // ref.status === 'active', not expired, user hasn't redeemed before —
-  // claim it. The UPDATE is scoped to status='active' so two concurrent
-  // requests for the same code can't both succeed: the loser's UPDATE
-  // affects 0 rows and falls through to the already_used response below.
+  // ref.status === 'active' — no time limit on an unused code, so there's
+  // nothing further to check here. Claim it. The UPDATE is scoped to
+  // status='active' so two concurrent requests for the same code can't
+  // both succeed: the loser's UPDATE affects 0 rows and falls through to
+  // the already_used response below.
   const nowIso = new Date().toISOString();
   const { data: claimed, error: claimErr } = await supabase
     .from('referral_codes')

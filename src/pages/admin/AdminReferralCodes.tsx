@@ -17,8 +17,7 @@ interface ReferralCodeRow {
   recipient_initials: string;
   year: number;
   credits: number;
-  status: 'inactive' | 'active' | 'redeemed' | 'expired' | 'revoked';
-  expires_at: string | null;
+  status: 'inactive' | 'active' | 'redeemed' | 'revoked';
   redeemed_by: string | null;
   redeemed_at: string | null;
   created_at: string;
@@ -28,7 +27,6 @@ const STATUS_LABELS: Record<ReferralCodeRow['status'], string> = {
   inactive: 'Inactive',
   active:   'Active',
   redeemed: 'Redeemed',
-  expired:  'Expired',
   revoked:  'Revoked',
 };
 
@@ -36,7 +34,6 @@ const STATUS_STYLES: Record<ReferralCodeRow['status'], string> = {
   inactive: 'bg-muted text-muted-foreground border-border',
   active:   'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800',
   redeemed: 'bg-primary/10 text-primary border-primary/20',
-  expired:  'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800',
   revoked:  'bg-destructive/10 text-destructive border-destructive/20',
 };
 
@@ -234,7 +231,7 @@ export default function AdminReferralCodes() {
         <h1 className="text-xl font-bold text-foreground">Referral Codes</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           Issue codes that grant a new learner +90 bonus credits (on top of the normal signup bonus) when
-          entered at signup. Each code is single-use and expires 30 days after activation.
+          entered at signup. Each code is single-use and stays valid indefinitely until someone redeems it.
         </p>
       </div>
 
@@ -251,7 +248,7 @@ export default function AdminReferralCodes() {
           <div className="border-2 border-dashed border-border rounded-2xl p-4 space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs">Recipient Name</Label>
+                    <Label className="text-xs">Recipient Name</Label>
                 <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Thabo Mokoena" className="rounded-xl" />
               </div>
               <div>
@@ -267,7 +264,7 @@ export default function AdminReferralCodes() {
             </div>
             <label className="flex items-center gap-2 text-sm text-foreground">
               <input type="checkbox" checked={newActivate} onChange={e => setNewActivate(e.target.checked)} className="rounded" />
-              Activate immediately (starts the 30-day expiry now)
+              Activate immediately (usable right away, rather than waiting to be switched on)
             </label>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowAddForm(false)} className="flex-1 rounded-xl">Cancel</Button>
@@ -332,7 +329,6 @@ export default function AdminReferralCodes() {
             <SelectItem value="inactive">Inactive</SelectItem>
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="redeemed">Redeemed</SelectItem>
-            <SelectItem value="expired">Expired</SelectItem>
             <SelectItem value="revoked">Revoked</SelectItem>
           </SelectContent>
         </Select>
@@ -371,13 +367,12 @@ export default function AdminReferralCodes() {
               </div>
               <p className="text-xs text-muted-foreground truncate">
                 {row.recipient_name} · {row.credits} credits
-                {row.status === 'active' && row.expires_at && ` · expires ${new Date(row.expires_at).toLocaleDateString()}`}
                 {row.status === 'redeemed' && row.redeemed_at && ` · redeemed ${new Date(row.redeemed_at).toLocaleDateString()}`}
               </p>
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
-              {(row.status === 'inactive' || row.status === 'expired') && (
+              {row.status === 'inactive' && (
                 <button
                   onClick={() => doAction('activate', row)}
                   disabled={busyId === row.id}

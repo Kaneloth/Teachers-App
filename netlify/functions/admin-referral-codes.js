@@ -33,7 +33,6 @@ import { requireAdmin } from './lib/requireAdmin.js';
 import { logAdminAction } from './lib/auditLog.js';
 
 const DEFAULT_CREDITS = 90;
-const EXPIRY_DAYS     = 30;
 const MAX_BULK_ROWS   = 500;
 
 // Excludes O/0, I/1, L — characters easily confused with one another (or
@@ -53,12 +52,6 @@ function makeCode(initials, year) {
   return `CR-${init}${yy}-${randomSuffix(3)}`;
 }
 
-function expiryFromNow() {
-  const d = new Date();
-  d.setDate(d.getDate() + EXPIRY_DAYS);
-  return d.toISOString();
-}
-
 // Tries up to 5 random suffixes before giving up, in case of a code
 // collision (23505 = unique_violation) — vanishingly unlikely at the
 // brief's scale (cohorts of up to 500), but cheap to guard against.
@@ -73,7 +66,6 @@ async function insertWithUniqueCode(supabase, { recipient_name, recipient_initia
       year,
       credits,
       status: activate ? 'active' : 'inactive',
-      expires_at: activate ? expiryFromNow() : null,
       created_by,
     }).select().maybeSingle();
 
@@ -165,21 +157,21 @@ export const handler = async (event) => {
     return { statusCode: 200, body: JSON.stringify({ success: true, created, skipped }) };
   }
 
-  // ── Activate (inactive/expired → active, resets the 30-day clock) ───────
+  // ── Activate (inactive → active; no time limit once active) ─────────────
   if (action === 'activate') {
     const id = body.id;
     if (!id) return { statusCode: 400, body: JSON.stringify({ error: 'id required' }) };
 
     const { data, error } = await supabase
       .from('referral_codes')
-      .update({ status: 'active', expires_at: expiryFromNow(), updated_at: new Date().toISOString() })
+      .update({ status: 'active', updated_at: new Date().toISOString() })
       .eq('id', id)
-      .in('status', ['inactive', 'expired'])
+      .eq('status', 'inactive')
       .select()
       .maybeSingle();
 
     if (error) return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
-    if (!data) return { statusCode: 400, body: JSON.stringify({ error: 'Only inactive or expired codes can be activated.' }) };
+    if (!data) return { statusCode: 400, body: JSON.stringify({ error: 'Only inactive codes can be activated.' }) };
 
     await logAdminAction(supabase, { admin: auth.user, action: 'referral_code_activated', details: { id, code: data.code } });
     return { statusCode: 200, body: JSON.stringify({ success: true, referral_code: data }) };
@@ -192,7 +184,7 @@ export const handler = async (event) => {
 
     const { data, error } = await supabase
       .from('referral_codes')
-      .update({ status: 'inactive', expires_at: null, updated_at: new Date().toISOString() })
+      .update({ status: 'inactive', updated_at: new Date().toISOString() })
       .eq('id', id)
       .eq('status', 'active')
       .select()
