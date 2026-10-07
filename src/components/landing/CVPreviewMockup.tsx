@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
 
 const LINES = [
   'Experienced Sales Coordinator with 4 years...',
@@ -12,6 +11,13 @@ const LINES = [
  * Career Tools page's Live Preview Demo section. Cycles a bio line through
  * a few lengths so the right-hand preview visibly grows in sync, without
  * needing a real video/GIF asset.
+ *
+ * Both text boxes below are a FIXED height (sized for LINES[2], the
+ * longest line) rather than growing with the content. Letting them resize
+ * on each cycle — even smoothly, even with no opacity animation at all —
+ * made the whole card visibly jump every 2.2s, which read as "blinking"
+ * just as much as an actual fade did. With a fixed frame, only the text
+ * inside it changes; nothing else on the page moves.
  */
 export default function CVPreviewMockup() {
   const [i, setI] = useState(0);
@@ -25,15 +31,7 @@ export default function CVPreviewMockup() {
       {/* Form side */}
       <div className="bg-white rounded-xl border border-[#E5E7EB] p-3 sm:p-4">
         <p className="text-[9px] font-semibold text-[#6B7280] uppercase tracking-wide mb-2">About Me</p>
-        <div className="rounded-lg border border-[#0066FF]/40 bg-[#0066FF]/5 p-2 min-h-[70px]">
-          {/* Text updates in place rather than unmounting/remounting on each
-              line change — each LINES[i] is just a longer continuation of
-              the last, so there's nothing to cross-fade between. The
-              previous AnimatePresence mode="wait" fully faded the text out
-              to nothing before fading the next line in, which read as an
-              unintended "blink" every 2.2s rather than a smooth typing
-              effect. The cursor is still the only thing that blinks, same
-              as a real text caret. */}
+        <div className="rounded-lg border border-[#0066FF]/40 bg-[#0066FF]/5 p-2 h-[92px] overflow-hidden">
           <p className="text-[10px] text-[#1A1A2E] leading-relaxed">
             {LINES[i]}
             {/* Static caret, not animated — an infinitely-blinking cursor
@@ -53,11 +51,11 @@ export default function CVPreviewMockup() {
         <div className="h-2 w-1/3 bg-[#0A2463] rounded-full mb-2" />
         <div className="h-1.5 w-1/4 bg-[#E5E7EB] rounded-full mb-3" />
         <p className="text-[8px] font-semibold text-[#0066FF] uppercase tracking-wide mb-1">About Me</p>
-        {/* `layout` animates the height change smoothly as the text grows,
-            without any unmount/remount fade — same fix as the form side. */}
-        <motion.p layout transition={{ duration: 0.3 }} className="text-[9px] text-[#374151] leading-relaxed mb-3">
-          {LINES[i]}
-        </motion.p>
+        <div className="h-[80px] overflow-hidden mb-3">
+          <p className="text-[9px] text-[#374151] leading-relaxed">
+            {LINES[i]}
+          </p>
+        </div>
         <div className="space-y-1.5">
           <div className="h-1.5 w-full bg-[#F3F4F6] rounded-full" />
           <div className="h-1.5 w-5/6 bg-[#F3F4F6] rounded-full" />
