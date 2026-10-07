@@ -2701,7 +2701,12 @@ function drawAzure(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
 
   const headerY = MT + 8;
   const photoSize = 27;
-  const textX = photoUrl ? ML+photoSize+8 : ML;
+  // Always reserve the same space for the circle, whether it holds a real
+  // photo or the initials placeholder below — the placeholder is drawn
+  // unconditionally in the `else` branch, so text that ignored it (the
+  // previous `photoUrl ? ... : ML` ternary) would start at the circle's
+  // own X position and render straight through it when no photo was set.
+  const textX = ML+photoSize+8;
   if (photoUrl) {
     fill(p,255,255,255); p.circle(ML+photoSize/2, headerY+photoSize/2, photoSize/2+1.2, 'F');
     p.addImage(photoUrl,'PNG', ML, headerY, photoSize, photoSize);
@@ -2985,7 +2990,11 @@ function drawPanel(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
   const accent = PANEL_INK;
 
   const photoSize = 28, headerY = MT+2;
-  const textX = photoUrl ? ML+photoSize+8 : ML;
+  // Always reserve space for the circle — see the identical fix/comment in
+  // drawAzure above. The `else` branch here draws a placeholder circle
+  // with initials unconditionally, so text can never start at ML without
+  // overlapping it.
+  const textX = ML+photoSize+8;
   if (photoUrl) {
     p.addImage(photoUrl,'PNG', ML, headerY, photoSize, photoSize);
   } else {
