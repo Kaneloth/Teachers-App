@@ -328,6 +328,24 @@ export default function Register() {
         <p className="text-sm text-muted-foreground mt-1">Join 1,200+ South African educators</p>
       </div>
 
+      {/* Referral code — deliberately placed above BOTH signup options
+          (Google and email), not inside the email-only form below. Google
+          sign-in redirects away the instant it's clicked, so a field placed
+          after it (inside the form) would never be seen by anyone using
+          Google — stashReferralCode() is called from both handleGoogle and
+          handleRegister and reads this same field either way. */}
+      <div className="space-y-1.5">
+        <Label htmlFor="referralCode">Have a referral code? (optional)</Label>
+        <Input
+          id="referralCode"
+          value={referralCode}
+          onChange={e => setReferralCode(e.target.value.toUpperCase())}
+          placeholder="CR-TM26-X4K"
+          className="rounded-xl font-mono"
+          autoCapitalize="characters"
+        />
+      </div>
+
       <Button variant="outline" onClick={handleGoogle} disabled={googleLoading} className="w-full h-11 rounded-xl gap-3">
         {googleLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
           <svg viewBox="0 0 24 24" className="w-4 h-4">
@@ -377,17 +395,6 @@ export default function Register() {
         <div className="space-y-1.5">
           <Label htmlFor="phone">Phone Number</Label>
           <Input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="081 234 5678" className="rounded-xl" inputMode="tel" />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="referralCode">Have a referral code? (optional)</Label>
-          <Input
-            id="referralCode"
-            value={referralCode}
-            onChange={e => setReferralCode(e.target.value.toUpperCase())}
-            placeholder="CR-TM26-X4K"
-            className="rounded-xl font-mono"
-            autoCapitalize="characters"
-          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="password">Password</Label>
