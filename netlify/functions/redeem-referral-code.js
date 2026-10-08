@@ -163,6 +163,7 @@ export const handler = async (event) => {
 
   const { error: redemptionErr } = await supabase.from('referral_redemptions').insert({
     code_id: ref.id,
+    code: ref.code, // snapshot — survives the code row being deleted later
     user_id,
     credits_granted: credits,
   });

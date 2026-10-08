@@ -25,7 +25,8 @@
  *   { action: 'activate',   id }
  *   { action: 'deactivate', id }
  *   { action: 'revoke',     id }
- *   { action: 'delete',     id }
+ *   { action: 'delete',     id }            // any status, incl. redeemed
+ *   { action: 'bulk_delete', ids: [...] }   // any status, max 500
  *   { action: 'export', status? }   // omitted/'active' → active only; 'all' → everything
  */
 
@@ -217,22 +218,44 @@ export const handler = async (event) => {
     return { statusCode: 200, body: JSON.stringify({ success: true, referral_code: data }) };
   }
 
-  // ── Delete (only codes never redeemed — keeps redemption history intact) ─
+  // ── Delete (any status, including redeemed) ──────────────────────────────
+  // Deleting a redeemed code is safe: referral_redemptions.code_id is
+  // `on delete set null` (see migration_referral_codes_allow_delete_redeemed
+  // .sql), so the redemption row — and its unique user_id, the guard against
+  // double-redeeming — survives, with a `code` text snapshot for history.
   if (action === 'delete') {
     const id = body.id;
     if (!id) return { statusCode: 400, body: JSON.stringify({ error: 'id required' }) };
 
     const { data: row } = await supabase.from('referral_codes').select('status, code').eq('id', id).maybeSingle();
     if (!row) return { statusCode: 404, body: JSON.stringify({ error: 'Code not found' }) };
-    if (row.status === 'redeemed') {
-      return { statusCode: 400, body: JSON.stringify({ error: "Redeemed codes can't be deleted — they're part of the redemption history." }) };
-    }
 
     const { error } = await supabase.from('referral_codes').delete().eq('id', id);
     if (error) return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
 
-    await logAdminAction(supabase, { admin: auth.user, action: 'referral_code_deleted', details: { id, code: row.code } });
+    await logAdminAction(supabase, { admin: auth.user, action: 'referral_code_deleted', details: { id, code: row.code, status: row.status } });
     return { statusCode: 200, body: JSON.stringify({ success: true }) };
+  }
+
+  // ── Bulk delete ─────────────────────────────────────────────────────────
+  if (action === 'bulk_delete') {
+    const ids = Array.isArray(body.ids) ? body.ids.filter(x => typeof x === 'string' && x) : [];
+    if (ids.length === 0)           return { statusCode: 400, body: JSON.stringify({ error: 'No codes selected' }) };
+    if (ids.length > MAX_BULK_ROWS) return { statusCode: 400, body: JSON.stringify({ error: `Max ${MAX_BULK_ROWS} codes per delete` }) };
+
+    const { data: deleted, error } = await supabase
+      .from('referral_codes')
+      .delete()
+      .in('id', ids)
+      .select('id, code, status');
+    if (error) return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+
+    await logAdminAction(supabase, {
+      admin: auth.user,
+      action: 'referral_codes_bulk_deleted',
+      details: { count: deleted?.length || 0, codes: (deleted || []).map(d => d.code) },
+    });
+    return { statusCode: 200, body: JSON.stringify({ success: true, deleted_ids: (deleted || []).map(d => d.id) }) };
   }
 
   // ── Export (for the "Learner Name,Token" CSV download) ──────────────────

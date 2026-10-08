@@ -89,6 +89,10 @@ export default function AdminReferralCodes() {
 
   const [exporting, setExporting] = useState(false);
 
+  // Bulk selection (ids of rows ticked in the list)
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   const call = async (body: Record<string, unknown>) => {
     const res = await fetch('/.netlify/functions/admin-referral-codes', {
       method: 'POST',
@@ -124,6 +128,60 @@ export default function AdminReferralCodes() {
       return true;
     });
   }, [codes, statusFilter, search]);
+
+  // Only ever act on rows still visible under the current filter/search, so a
+  // "select all" followed by a filter change can't delete rows you can't see.
+  const visibleSelectedIds = useMemo(
+    () => filtered.filter(c => selected.has(c.id)).map(c => c.id),
+    [filtered, selected],
+  );
+  const allVisibleSelected = filtered.length > 0 && visibleSelectedIds.length === filtered.length;
+
+  const toggleOne = (id: string) =>
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const toggleAllVisible = () =>
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (allVisibleSelected) filtered.forEach(c => next.delete(c.id));
+      else filtered.forEach(c => next.add(c.id));
+      return next;
+    });
+
+  const bulkDelete = async () => {
+    const ids = visibleSelectedIds;
+    if (ids.length === 0) return;
+    const redeemedCount = codes.filter(c => ids.includes(c.id) && c.status === 'redeemed').length;
+    const msg =
+      `Permanently delete ${ids.length} code${ids.length === 1 ? '' : 's'}? This cannot be undone.` +
+      (redeemedCount ? `\n\n${redeemedCount} of them ${redeemedCount === 1 ? 'is' : 'are'} already redeemed. The learners keep their credits and still can't redeem a second code — only the code entries are removed.` : '');
+    if (!confirm(msg)) return;
+
+    setBulkDeleting(true);
+    try {
+      // Server caps each request at 500 ids — chunk so bigger selections work.
+      const deletedIds = new Set<string>();
+      for (let i = 0; i < ids.length; i += 500) {
+        const data = await call({ action: 'bulk_delete', ids: ids.slice(i, i + 500) });
+        (data.deleted_ids || []).forEach((id: string) => deletedIds.add(id));
+      }
+      setCodes(prev => prev.filter(c => !deletedIds.has(c.id)));
+      setSelected(prev => {
+        const next = new Set(prev);
+        deletedIds.forEach(id => next.delete(id));
+        return next;
+      });
+      toast.success(`${deletedIds.size} code(s) deleted`);
+    } catch (e: any) {
+      toast.error(e.message || 'Bulk delete failed');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
 
   const createCode = async () => {
     if (!newName.trim() || !newInitials.trim()) { toast.error('Name and initials are required'); return; }
@@ -173,12 +231,18 @@ export default function AdminReferralCodes() {
   };
 
   const doAction = async (action: 'activate' | 'deactivate' | 'revoke' | 'delete', row: ReferralCodeRow) => {
-    if (action === 'delete' && !confirm(`Permanently delete code ${row.code}? This cannot be undone.`)) return;
+    if (action === 'delete') {
+      const extra = row.status === 'redeemed'
+        ? "\n\nThis code is already redeemed. The learner keeps their credits and still can't redeem a second code — only the code entry is removed."
+        : '';
+      if (!confirm(`Permanently delete code ${row.code}? This cannot be undone.${extra}`)) return;
+    }
     setBusyId(row.id);
     try {
       const data = await call({ action, id: row.id });
       if (action === 'delete') {
         setCodes(prev => prev.filter(c => c.id !== row.id));
+        setSelected(prev => { const next = new Set(prev); next.delete(row.id); return next; });
       } else {
         setCodes(prev => prev.map(c => (c.id === row.id ? data.referral_code : c)));
       }
@@ -341,6 +405,31 @@ export default function AdminReferralCodes() {
         </Button>
       </div>
 
+      {/* ── Bulk selection bar ── */}
+      {filtered.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 px-1">
+          <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+            <input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} className="rounded" />
+            Select all {filtered.length} shown
+          </label>
+          {visibleSelectedIds.length > 0 && (
+            <>
+              <span className="text-xs text-muted-foreground">{visibleSelectedIds.length} selected</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={bulkDelete}
+                disabled={bulkDeleting}
+                className="rounded-xl gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+              >
+                {bulkDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                Delete selected
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* ── Code list ── */}
       <div className="space-y-2">
         {filtered.length === 0 && (
@@ -351,6 +440,13 @@ export default function AdminReferralCodes() {
 
         {filtered.map(row => (
           <div key={row.id} className="bg-card rounded-2xl border border-border p-4 flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={selected.has(row.id)}
+              onChange={() => toggleOne(row.id)}
+              aria-label={`Select ${row.code}`}
+              className="rounded shrink-0"
+            />
             <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
               <Ticket className="w-4 h-4 text-primary" />
             </div>
@@ -402,16 +498,14 @@ export default function AdminReferralCodes() {
                   <Ban className="w-4 h-4" />
                 </button>
               )}
-              {row.status !== 'redeemed' && (
-                <button
-                  onClick={() => doAction('delete', row)}
-                  disabled={busyId === row.id}
-                  title="Delete"
-                  className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  {busyId === row.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                </button>
-              )}
+              <button
+                onClick={() => doAction('delete', row)}
+                disabled={busyId === row.id}
+                title="Delete"
+                className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
+              >
+                {busyId === row.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              </button>
             </div>
           </div>
         ))}
