@@ -824,7 +824,7 @@ function drawClassic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
       if(e.description)for(const l of (e.description as string).split('\n').map((s:string)=>s.trim()).filter(Boolean))y=bulletLine(p,l,ML,y,PW-MR-ML,accent,BOTTOM,np,()=>[ML,PW-MR-ML]);
       y+=ITEM_GAP+1;}}
   if(sk.subjects?.length||sk.soft_skills?.length||sk.languages?.length){y=sectionHeading(p,'Skills & Languages',ML,y,PW-ML-MR,accent,'bar',BOTTOM,np,GXW,ICON.cogs);
-    for(const [lbl,items] of [['Subjects',sk.subjects||[]],['Skills',sk.soft_skills||[]],['Languages',sk.languages||[]]] as [string,string[]][]){if(!items.length)continue;
+    for(const [lbl,items] of [[isEdu?'Subjects':'Key Skills',sk.subjects||[]],[isEdu?'Skills':'Professional Skills',sk.soft_skills||[]],['Languages',sk.languages||[]]] as [string,string[]][]){if(!items.length)continue;
       p.setFont(F,'bold');p.setFontSize(9);tc(p,55,65,81);p.text(`${lbl}:`,ML,y);const lw=p.getTextWidth(`${lbl}:`)+2;p.setFont(F,'normal');tc(p,55,65,81);y=wrapped(p,items.join('  ·  '),ML+lw,y,PW-ML-MR-lw,BOTTOM,np,()=>[ML,PW-ML-MR]);y+=ITEM_GAP;}}
   y=drawCustom(p,customs,accent,'bar',ML,y,PW-ML-MR,BOTTOM,np,GXW);
   refsPage(p,refs,accent,'bar',np,BOTTOM,owner,wm);
@@ -886,8 +886,8 @@ function drawModern(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   // Subjects and Skills — moved here from the sidebar.
   if(sk.subjects?.length||sk.soft_skills?.length){
     const [sx2,sw2]=onFirstPage?[cx,cmw]:[mainCX,mainCMW];
-    y=sectionHeading(p,'Subjects & Skills',sx2,y,sw2,accent,'bar',BOTTOM,np,GXW,ICON.cogs);
-    for(const [lbl,items] of [['Subjects',sk.subjects||[]],['Skills',sk.soft_skills||[]]] as [string,string[]][]){if(!items.length)continue;
+    y=sectionHeading(p,(isEdu?'Subjects & Skills':'Skills'),sx2,y,sw2,accent,'bar',BOTTOM,np,GXW,ICON.cogs);
+    for(const [lbl,items] of [[isEdu?'Subjects':'Key Skills',sk.subjects||[]],[isEdu?'Skills':'Professional Skills',sk.soft_skills||[]]] as [string,string[]][]){if(!items.length)continue;
       const [ex,ew]=onFirstPage?[cx,cmw]:[mainCX,mainCMW];
       p.setFont(F,'bold');p.setFontSize(9);tc(p,55,65,81);p.text(`${lbl}:`,ex,y);const lw=p.getTextWidth(`${lbl}:`)+2;p.setFont(F,'normal');tc(p,55,65,81);y=wrapped(p,items.join('  ·  '),ex+lw,y,ew-lw,BOTTOM,np,()=>onFirstPage?[cx+lw,cmw-lw]:[mainCX+lw,mainCMW-lw]);y+=ITEM_GAP;}
   }
@@ -917,7 +917,7 @@ function drawProfessional(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],cus
   if(edu.length){y2=sectionHeading(p,'Education',c2,y2,cw,accent,'underline',BOTTOM,np);
     for(const e of edu){if(y2+12>BOTTOM)y2=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.qualification||'',c2,y2);y2+=LINE_H;
       p.setFont(F,'normal');p.setFontSize(8.5);tc(p,...LIGHT);p.text(e.institution||'',c2,y2);if(e.year){tc(p,107,114,128);p.text(e.year,c2+cw-p.getTextWidth(e.year),y2);}y2+=LINE_H+ITEM_GAP;}}
-  for(const [lbl,items] of [['Subjects',sk.subjects||[]],['Skills',sk.soft_skills||[]],['Languages',sk.languages||[]]] as [string,string[]][]){if(!items.length)continue;
+  for(const [lbl,items] of [[isEdu?'Subjects':'Key Skills',sk.subjects||[]],[isEdu?'Skills':'Professional Skills',sk.soft_skills||[]],['Languages',sk.languages||[]]] as [string,string[]][]){if(!items.length)continue;
     y2=sectionHeading(p,lbl,c2,y2,cw,accent,'underline',BOTTOM,np);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
     for(const it of items){if(y2+LINE_H>BOTTOM)y2=np();y2=bulletLine(p,it,c2,y2,cw,accent,BOTTOM,np);}y2+=ITEM_GAP;}
   refsPage(p,refs,accent,'underline',np,BOTTOM,owner,wm);
@@ -956,7 +956,7 @@ function drawMinimal(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
       p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);y=wrapped(p,e.qualification||'',CX,y,CMW,BOTTOM,np,GXW);
       p.setFont(F,'normal');p.setFontSize(9);tc(p,107,114,128);y=wrapped(p,e.institution||'',CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP;}}
   if(sk.subjects?.length||sk.soft_skills?.length||sk.languages?.length){hLine(p,ML,y,PW-ML-MR,ar,ag,ab,0.4);y+=6;p.setFont(F,'bold');p.setFontSize(8);tc(p,156,163,175);p.text('SKILLS',DX,y);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
-    if(sk.subjects?.length){y=wrapped(p,'Subjects: '+sk.subjects.join('  ·  '),CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP;}
+    if(sk.subjects?.length){y=wrapped(p,(isEdu?'Subjects':'Key Skills')+': '+sk.subjects.join('  ·  '),CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP;}
     if(sk.soft_skills?.length){y=wrapped(p,'Skills: '+sk.soft_skills.join('  ·  '),CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP;}
     if(sk.languages?.length){y=wrapped(p,'Languages: '+sk.languages.join('  ·  '),CX,y,CMW,BOTTOM,np,GXW);y+=ITEM_GAP;}}
   y=drawCustom(p,customs,accent,'bar',CX,y,CMW,BOTTOM,np,GXW);
@@ -1026,8 +1026,8 @@ function drawSidebar(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   // content area like a normal section.
   if(sk.subjects?.length||sk.soft_skills?.length){
     const [sx2,sw2]=onFirstPage?[cx,cmw]:[mainCX,mainCMW];
-    y=sectionHeading(p,'Subjects & Skills',sx2,y,sw2,BLUE,'bar',BOTTOM,np,GXW,ICON.cogs);
-    for(const [lbl,items] of [['Subjects',sk.subjects||[]],['Skills',sk.soft_skills||[]]] as [string,string[]][]){if(!items.length)continue;
+    y=sectionHeading(p,(isEdu?'Subjects & Skills':'Skills'),sx2,y,sw2,BLUE,'bar',BOTTOM,np,GXW,ICON.cogs);
+    for(const [lbl,items] of [[isEdu?'Subjects':'Key Skills',sk.subjects||[]],[isEdu?'Skills':'Professional Skills',sk.soft_skills||[]]] as [string,string[]][]){if(!items.length)continue;
       const [ex,ew]=onFirstPage?[cx,cmw]:[mainCX,mainCMW];
       p.setFont(F,'bold');p.setFontSize(9);tc(p,55,65,81);p.text(`${lbl}:`,ex,y);const lw=p.getTextWidth(`${lbl}:`)+2;p.setFont(F,'normal');tc(p,55,65,81);y=wrapped(p,items.join('  ·  '),ex+lw,y,ew-lw,BOTTOM,np,()=>onFirstPage?[cx+lw,cmw-lw]:[mainCX+lw,mainCMW-lw]);y+=ITEM_GAP;}
   }
@@ -1156,7 +1156,7 @@ function drawExecutive(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custom
   y1=drawCustom(p,customs,accent,'underline',c1,y1,cw,BOTTOM,np);
   if(edu.length){y2=sectionHeading(p,'Education',c2,y2,cw,accent,'underline',BOTTOM,np);
     for(const e of edu){if(y2+12>BOTTOM)y2=np();p.setFont(F,'bold');p.setFontSize(10);tc(p,17,24,39);p.text(e.qualification||'',c2,y2);y2+=LINE_H;p.setFont(F,'normal');p.setFontSize(8.5);tc(p,107,114,128);p.text([e.institution,e.year].filter(Boolean).join('  ·  '),c2,y2);y2+=LINE_H+ITEM_GAP;}}
-  for(const [lbl,items] of [['Subjects',sk.subjects||[]],['Skills',sk.soft_skills||[]],['Languages',sk.languages||[]]] as [string,string[]][]){if(!items.length)continue;
+  for(const [lbl,items] of [[isEdu?'Subjects':'Key Skills',sk.subjects||[]],[isEdu?'Skills':'Professional Skills',sk.soft_skills||[]],['Languages',sk.languages||[]]] as [string,string[]][]){if(!items.length)continue;
     y2=sectionHeading(p,lbl,c2,y2,cw,accent,'underline',BOTTOM,np);p.setFont(F,'normal');p.setFontSize(9);tc(p,55,65,81);
     for(const it of items){if(y2+LINE_H>BOTTOM)y2=np();y2=bulletLine(p,it,c2,y2,cw,accent,BOTTOM,np);}y2+=ITEM_GAP;}
   refsPage(p,refs,accent,'underline',np,BOTTOM,owner,wm);
@@ -1176,7 +1176,7 @@ function drawCorporate(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custom
   if(pr.phone){p.text(pr.phone,sx,sy);sy+=5;}
   if(pr.address){const ls=p.splitTextToSize(pr.address,smw) as string[];ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=3.5;});sy+=1;}
   sy+=3;
-  if(sk.subjects?.length){sy=sidebarLabel(p,'Subjects',sx,sy,smw,[255,255,255],[80,100,140]);p.setFont(F,'normal');p.setFontSize(7);tc(p,190,210,240);for(const s of sk.subjects){const ls=p.splitTextToSize(`– ${s}`,smw) as string[];ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=3.5;});}sy+=3;}
+  if(sk.subjects?.length){sy=sidebarLabel(p,isEdu?'Subjects':'Key Skills',sx,sy,smw,[255,255,255],[80,100,140]);p.setFont(F,'normal');p.setFontSize(7);tc(p,190,210,240);for(const s of sk.subjects){const ls=p.splitTextToSize(`– ${s}`,smw) as string[];ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=3.5;});}sy+=3;}
   if(sk.soft_skills?.length){sy=sidebarLabel(p,'Skills',sx,sy,smw,[255,255,255],[80,100,140]);p.setFont(F,'normal');p.setFontSize(7);tc(p,190,210,240);for(const s of sk.soft_skills){const ls=p.splitTextToSize(`– ${s}`,smw) as string[];ls.forEach((l:string)=>{p.text(l,sx,sy);sy+=3.5;});}sy+=3;}
   if(sk.languages?.length){sy=sidebarLabel(p,'Languages',sx,sy,smw,[255,255,255],[80,100,140]);p.setFont(F,'normal');p.setFontSize(7);tc(p,190,210,240);for(const l of sk.languages){p.text(`– ${l}`,sx,sy);sy+=3.5;}}
   reset(p);let y=MT+8;p.setFont(F,'bold');p.setFontSize(16);tc(p,ar,ag,ab);p.text(owner.toUpperCase(),cx,y);y+=6;

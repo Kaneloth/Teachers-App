@@ -396,8 +396,13 @@ function BulletList({ items }: { items: string[] }) {
 }
 
 /* ── Classic Template ────────────────────────────────────────────────────── */
-function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', hidden }: any) {
+function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', isEducatorCV = true, hidden }: any) {
   const { personal, skills } = data;
+  // "Subjects" only means something for educators. For everyone else the same
+  // field holds Key Skills (see the note where isEducatorCV is computed).
+  const skillsSectionTitle = isEducatorCV ? 'Skills & Subjects' : 'Skills';
+  const subjectsSubLabel    = isEducatorCV ? 'Subjects' : 'Key Skills';
+  const softSkillsSubLabel  = isEducatorCV ? 'Skills'   : 'Professional Skills';
   return (
     <div style={{ ...wrapperStyle }}>
       {/* PAGE 1 */}
@@ -442,18 +447,18 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
               </div>
             ))}
           </Section>}
-          {!hidden?.has('skills') && (skills?.subjects?.length || skills?.soft_skills?.length) && <Section title="Skills & Subjects" color="#1e2a3a" icon={ICONS.award}>
-            {skills.subjects?.length && <div><div style={{ fontWeight: '700', fontSize: '12px', color: '#374151', marginBottom: '4px' }}>Subjects</div><BulletList items={skills.subjects} /></div>}
-            {skills.soft_skills?.length && <div style={{ marginTop: '12px' }}><div style={{ fontWeight: '700', fontSize: '12px', color: '#374151', marginBottom: '4px' }}>Skills</div><BulletList items={skills.soft_skills} /></div>}
+          {!hidden?.has('skills') && !!(skills?.subjects?.length || skills?.soft_skills?.length) && <Section title={skillsSectionTitle} color="#1e2a3a" icon={ICONS.award}>
+            {!!skills.subjects?.length && <div><div style={{ fontWeight: '700', fontSize: '12px', color: '#374151', marginBottom: '4px' }}>{subjectsSubLabel}</div><BulletList items={skills.subjects} /></div>}
+            {!!skills.soft_skills?.length && <div style={{ marginTop: '12px' }}><div style={{ fontWeight: '700', fontSize: '12px', color: '#374151', marginBottom: '4px' }}>{softSkillsSubLabel}</div><BulletList items={skills.soft_skills} /></div>}
           </Section>}
-          {!hidden?.has('skills') && skills?.languages?.length && <Section title="Languages" color="#1e2a3a" icon={ICONS.languages}>
+          {!hidden?.has('skills') && !!skills?.languages?.length && <Section title="Languages" color="#1e2a3a" icon={ICONS.languages}>
             <BulletList items={skills.languages} />
           </Section>}
           {renderCustomSections(data.custom_sections, '#1e2a3a', undefined, hidden)}
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, '#1e2a3a', watermark, undefined, '28px 36px', hidden)}
+      {renderReferencesPage(data.references, '#1e2a3a', watermark, undefined, '28px 36px', hidden, wrapperStyle)}
     </div>
   );
 }
@@ -487,8 +492,8 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
               {personal.address && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mapPin} {personal.address}</div>}
               {personal.id_number && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.user} ID: {personal.id_number}</div>}
             </SidebarSection>
-            {skills?.subjects?.length && <SidebarSection title={subjectsLabel}><BulletList items={skills.subjects} /></SidebarSection>}
-            {skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
+            {!!skills?.subjects?.length && <SidebarSection title={subjectsLabel}><BulletList items={skills.subjects} /></SidebarSection>}
+            {!!skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
           </div>
           <div style={{ flex: 1, padding: '28px 24px' }}>
             {personal.bio && <Section title="About Me" color="#0d9488"><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
@@ -509,7 +514,7 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
                 </div>
               ))}
             </Section>}
-            {skills?.soft_skills?.length && <Section title="Professional Skills" color="#0d9488" icon={ICONS.award}>
+            {!!skills?.soft_skills?.length && <Section title="Professional Skills" color="#0d9488" icon={ICONS.award}>
               <BulletList items={skills.soft_skills} />
             </Section>}
             {renderCustomSections(data.custom_sections, '#0d9488')}
@@ -517,7 +522,7 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, '#0d9488', watermark, undefined, '28px 24px')}
+      {renderReferencesPage(data.references, '#0d9488', watermark, undefined, '28px 24px', undefined, wrapperStyle)}
     </div>
   );
 }
@@ -575,13 +580,13 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp, watermar
                   </div>
                 ))}
               </Section>}
-              {skills?.subjects?.length && <Section title={skillsLabel} color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.bookOpen}>
+              {!!skills?.subjects?.length && <Section title={skillsLabel} color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.bookOpen}>
                 <BulletList items={skills.subjects} />
               </Section>}
-              {skills?.soft_skills?.length && <Section title="Skills" color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.award}>
+              {!!skills?.soft_skills?.length && <Section title="Skills" color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.award}>
                 <BulletList items={skills.soft_skills} />
               </Section>}
-              {skills?.languages?.length && <Section title="Languages" color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.languages}>
+              {!!skills?.languages?.length && <Section title="Languages" color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.languages}>
                 <BulletList items={skills.languages} />
               </Section>}
             </div>
@@ -590,7 +595,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp, watermar
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, '#1e4d2b', watermark, '#2d7a47', '28px 40px')}
+      {renderReferencesPage(data.references, '#1e4d2b', watermark, '#2d7a47', '28px 40px', undefined, wrapperStyle)}
     </div>
   );
 }
@@ -644,16 +649,16 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
               </div>
             ))}
           </MinimalSection>}
-          {!hidden?.has('skills') && (skills?.subjects?.length || skills?.soft_skills?.length || skills?.languages?.length) && <MinimalSection title="Skills & Languages">
-            {skills.subjects?.length && <div><strong>{subjectsLabel}: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.subjects.join(' · ')}</span></div>}
-            {skills.soft_skills?.length && <div><strong>Skills: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.soft_skills.join(' · ')}</span></div>}
-            {skills.languages?.length && <div><strong>Languages: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.languages.join(' · ')}</span></div>}
+          {!hidden?.has('skills') && !!(skills?.subjects?.length || skills?.soft_skills?.length || skills?.languages?.length) && <MinimalSection title="Skills & Languages">
+            {!!skills.subjects?.length && <div><strong>{subjectsLabel}: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.subjects.join(' · ')}</span></div>}
+            {!!skills.soft_skills?.length && <div><strong>Skills: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.soft_skills.join(' · ')}</span></div>}
+            {!!skills.languages?.length && <div><strong>Languages: </strong><span style={{ color: '#4b5563', fontSize: '12px' }}>{skills.languages.join(' · ')}</span></div>}
           </MinimalSection>}
           {renderCustomSections(data.custom_sections, '#111827', undefined, hidden)}
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, '#111827', watermark, undefined, '40px 44px', hidden)}
+      {renderReferencesPage(data.references, '#111827', watermark, undefined, '40px 44px', hidden, wrapperStyle)}
     </div>
   );
 }
@@ -687,9 +692,9 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
               {personal.address && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mapPin} {personal.address}</div>}
               {personal.id_number && <div>{ICONS.user} ID: {personal.id_number}</div>}
             </SidebarSection>
-            {skills?.subjects?.length && <SidebarSection title={subjectsLabel}><BulletList items={skills.subjects} /></SidebarSection>}
-            {skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
-            {skills?.soft_skills?.length && <SidebarSection title="Skills"><BulletList items={skills.soft_skills} /></SidebarSection>}
+            {!!skills?.subjects?.length && <SidebarSection title={subjectsLabel}><BulletList items={skills.subjects} /></SidebarSection>}
+            {!!skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
+            {!!skills?.soft_skills?.length && <SidebarSection title="Skills"><BulletList items={skills.soft_skills} /></SidebarSection>}
           </div>
           <div style={{ flex: 1, padding: '28px 24px' }}>
             {personal.bio && <Section title="About Me" color={sideColor}><p style={{ color: '#374151', margin: 0 }}>{personal.bio}</p></Section>}
@@ -716,7 +721,7 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, sideColor, watermark, undefined, '28px 24px')}
+      {renderReferencesPage(data.references, sideColor, watermark, undefined, '28px 24px', undefined, wrapperStyle)}
     </div>
   );
 }
@@ -820,7 +825,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, accent, watermark, undefined, '24px 32px', hidden)}
+      {renderReferencesPage(data.references, accent, watermark, undefined, '24px 32px', hidden, wrapperStyle)}
     </div>
   );
 }
@@ -883,13 +888,13 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, watermark, 
                   </div>
                 ))}
               </Section>}
-              {skills?.subjects?.length && <Section title={subjectsLabel} color={accent} icon={ICONS.bookOpen}>
+              {!!skills?.subjects?.length && <Section title={subjectsLabel} color={accent} icon={ICONS.bookOpen}>
                 <BulletList items={skills.subjects} />
               </Section>}
-              {skills?.soft_skills?.length && <Section title="Skills" color={accent} icon={ICONS.award}>
+              {!!skills?.soft_skills?.length && <Section title="Skills" color={accent} icon={ICONS.award}>
                 <BulletList items={skills.soft_skills} />
               </Section>}
-              {skills?.languages?.length && <Section title="Languages" color={accent} icon={ICONS.languages}>
+              {!!skills?.languages?.length && <Section title="Languages" color={accent} icon={ICONS.languages}>
                 <BulletList items={skills.languages} />
               </Section>}
             </div>
@@ -897,7 +902,7 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, watermark, 
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, accent, watermark, undefined, '28px 44px')}
+      {renderReferencesPage(data.references, accent, watermark, undefined, '28px 44px', undefined, wrapperStyle)}
     </div>
   );
 }
@@ -929,9 +934,9 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp, watermark, 
               {personal.address && <div style={{ marginBottom: '6px', fontSize: '11px' }}>{ICONS.mapPin} {personal.address}</div>}
               {personal.id_number && <div>{ICONS.user} ID: {personal.id_number}</div>}
             </SidebarSection>
-            {skills?.subjects?.length && <SidebarSection title={subjectsLabel}><BulletList items={skills.subjects} /></SidebarSection>}
-            {skills?.soft_skills?.length && <SidebarSection title="Skills"><BulletList items={skills.soft_skills} /></SidebarSection>}
-            {skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
+            {!!skills?.subjects?.length && <SidebarSection title={subjectsLabel}><BulletList items={skills.subjects} /></SidebarSection>}
+            {!!skills?.soft_skills?.length && <SidebarSection title="Skills"><BulletList items={skills.soft_skills} /></SidebarSection>}
+            {!!skills?.languages?.length && <SidebarSection title="Languages"><BulletList items={skills.languages} /></SidebarSection>}
           </div>
           <div style={{ flex: 1, padding: '32px 28px' }}>
             <div style={{ borderBottom: `3px solid ${navy}`, paddingBottom: '10px', marginBottom: '22px' }}>
@@ -962,7 +967,7 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp, watermark, 
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, navy, watermark, undefined, '32px 28px')}
+      {renderReferencesPage(data.references, navy, watermark, undefined, '32px 28px', undefined, wrapperStyle)}
     </div>
   );
 }
@@ -1033,7 +1038,7 @@ function StylishTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
           </div>
           {/* Right sidebar — skills */}
           <div style={{ width: '200px', flexShrink: 0, padding: '24px 20px', borderLeft: '1px solid #f3f4f6', background: '#fafafa' }}>
-            {(skills?.soft_skills?.length || skills?.subjects?.length) && (
+            {!!(skills?.soft_skills?.length || skills?.subjects?.length) && (
               <div style={{ marginBottom: '20px' }}>
                 <div style={{ fontSize: '13px', fontWeight: '700', color: accent, marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Skills</div>
                 {[...(skills.subjects || []), ...(skills.soft_skills || [])].map((s: string, i: number) => (
@@ -1044,7 +1049,7 @@ function StylishTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
                 ))}
               </div>
             )}
-            {skills?.languages?.length && (
+            {!!skills?.languages?.length && (
               <div>
                 <div style={{ fontSize: '13px', fontWeight: '700', color: accent, marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Languages</div>
                 {skills.languages.map((l: string, i: number) => <div key={i} style={{ fontSize: '11px', color: '#374151', marginBottom: '4px' }}>{l}</div>)}
@@ -1054,7 +1059,7 @@ function StylishTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, accent, watermark)}
+      {renderReferencesPage(data.references, accent, watermark, undefined, undefined, undefined, wrapperStyle)}
     </div>
   );
 }
@@ -1073,7 +1078,7 @@ function BoxedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
             {personal.phone && <><div style={{ fontSize: '9px', fontWeight: '700', color: '#374151', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '3px' }}>PHONE</div><div style={{ fontSize: '11px', color: '#4b5563', marginBottom: '10px' }}>{personal.phone}</div></>}
             {personal.email && <><div style={{ fontSize: '9px', fontWeight: '700', color: '#374151', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '3px' }}>EMAIL</div><div style={{ fontSize: '11px', color: '#4b5563', marginBottom: '10px', wordBreak: 'break-all' }}>{personal.email}</div></>}
           </div>
-          {(skills?.soft_skills?.length || skills?.subjects?.length) && (
+          {!!(skills?.soft_skills?.length || skills?.subjects?.length) && (
             <div style={{ marginBottom: '24px' }}>
               <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#374151', borderBottom: '1.5px solid #374151', paddingBottom: '6px', marginBottom: '12px' }}>SKILLS</div>
               {[...(skills.subjects || []), ...(skills.soft_skills || [])].map((s: string, i: number) => (
@@ -1084,7 +1089,7 @@ function BoxedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
               ))}
             </div>
           )}
-          {skills?.languages?.length && (
+          {!!skills?.languages?.length && (
             <div>
               <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#374151', borderBottom: '1.5px solid #374151', paddingBottom: '6px', marginBottom: '12px' }}>LANGUAGES</div>
               {skills.languages.map((l: string, i: number) => (
@@ -1133,7 +1138,7 @@ function BoxedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, '#374151', watermark)}
+      {renderReferencesPage(data.references, '#374151', watermark, undefined, undefined, undefined, wrapperStyle)}
     </div>
   );
 }
@@ -1197,7 +1202,7 @@ function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark
             ))}
           </div>
         )}
-        {!hidden?.has('skills') && (skills?.soft_skills?.length || skills?.subjects?.length || skills?.languages?.length) && (
+        {!hidden?.has('skills') && !!(skills?.soft_skills?.length || skills?.subjects?.length || skills?.languages?.length) && (
           <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
             <div style={{ width: '110px', flexShrink: 0, fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#374151', fontFamily: "Georgia, 'Times New Roman', serif" }}>SKILLS</div>
             <div style={{ flex: 1, borderLeft: '1px solid #e5e7eb', paddingLeft: '16px' }}>
@@ -1216,7 +1221,7 @@ function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark
         {renderCustomSections(data.custom_sections, '#374151', undefined, hidden)}
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, '#374151', watermark, undefined, undefined, hidden)}
+      {renderReferencesPage(data.references, '#374151', watermark, undefined, undefined, hidden, wrapperStyle)}
     </div>
   );
 }
@@ -1272,7 +1277,7 @@ function NavyTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
             {personal.phone && <div style={{ fontSize: '11px', color: '#d1d5db', marginBottom: '4px' }}>{personal.phone}</div>}
             {personal.email && <div style={{ fontSize: '10px', color: '#d1d5db', wordBreak: 'break-all' }}>{personal.email}</div>}
           </div>
-          {(skills?.soft_skills?.length || skills?.subjects?.length) && (
+          {!!(skills?.soft_skills?.length || skills?.subjects?.length) && (
             <div style={{ marginBottom: '20px' }}>
               <div style={{ fontSize: '9px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: 'rgba(255,255,255,0.5)', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '6px', marginBottom: '10px' }}>Skills</div>
               {[...(skills.subjects || []), ...(skills.soft_skills || [])].map((s: string, i: number) => (
@@ -1283,7 +1288,7 @@ function NavyTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
               ))}
             </div>
           )}
-          {skills?.languages?.length && (
+          {!!skills?.languages?.length && (
             <div>
               <div style={{ fontSize: '9px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: 'rgba(255,255,255,0.5)', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '6px', marginBottom: '10px' }}>Languages</div>
               {skills.languages.map((l: string, i: number) => (
@@ -1297,7 +1302,7 @@ function NavyTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, navy, watermark)}
+      {renderReferencesPage(data.references, navy, watermark, undefined, undefined, undefined, wrapperStyle)}
     </div>
   );
 }
@@ -1316,7 +1321,7 @@ function TimelineTemplate({ data, wrapperStyle, validEdu, validExp, watermark, s
             {personal.phone && <div style={{ fontSize: '11px', color: '#4b5563', marginBottom: '4px' }}>{personal.phone}</div>}
             {personal.email && <div style={{ fontSize: '10px', color: '#4b5563', wordBreak: 'break-all', marginBottom: '4px' }}>{personal.email}</div>}
           </div>
-          {(skills?.soft_skills?.length || skills?.subjects?.length) && (
+          {!!(skills?.soft_skills?.length || skills?.subjects?.length) && (
             <div style={{ marginBottom: '20px' }}>
               <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151', marginBottom: '8px' }}>• SKILLS •</div>
               {[...(skills.subjects || []), ...(skills.soft_skills || [])].map((s: string, i: number) => (
@@ -1327,7 +1332,7 @@ function TimelineTemplate({ data, wrapperStyle, validEdu, validExp, watermark, s
               ))}
             </div>
           )}
-          {skills?.languages?.length && (
+          {!!skills?.languages?.length && (
             <div>
               <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#374151', marginBottom: '8px' }}>• LANGUAGES •</div>
               {skills.languages.map((l: string, i: number) => (
@@ -1394,7 +1399,7 @@ function TimelineTemplate({ data, wrapperStyle, validEdu, validExp, watermark, s
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, '#374151', watermark)}
+      {renderReferencesPage(data.references, '#374151', watermark, undefined, undefined, undefined, wrapperStyle)}
     </div>
   );
 }
@@ -1497,7 +1502,7 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, '#374151', watermark, undefined, undefined, hidden)}
+      {renderReferencesPage(data.references, '#374151', watermark, undefined, undefined, hidden, wrapperStyle)}
     </div>
   );
 }
@@ -1526,7 +1531,7 @@ function TealTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
         <div style={{ display: 'flex' }}>
           {/* Left sidebar */}
           <div style={{ width: '200px', flexShrink: 0, padding: '24px 18px', borderRight: '1px solid #f1f5f9' }}>
-            {(skills?.soft_skills?.length || skills?.subjects?.length) && (
+            {!!(skills?.soft_skills?.length || skills?.subjects?.length) && (
               <div style={{ marginBottom: '20px' }}>
                 <div style={{ fontSize: '12px', fontWeight: '700', color: '#374151', marginBottom: '10px', borderBottom: `2px solid ${teal}`, paddingBottom: '4px' }}>Skills</div>
                 {[...(skills.subjects || []), ...(skills.soft_skills || [])].map((s: string, i: number) => (
@@ -1537,7 +1542,7 @@ function TealTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
                 ))}
               </div>
             )}
-            {skills?.languages?.length && (
+            {!!skills?.languages?.length && (
               <div>
                 <div style={{ fontSize: '12px', fontWeight: '700', color: '#374151', marginBottom: '10px', borderBottom: `2px solid ${teal}`, paddingBottom: '4px' }}>Languages</div>
                 {skills.languages.map((l: string, i: number) => (
@@ -1580,7 +1585,7 @@ function TealTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, teal, watermark)}
+      {renderReferencesPage(data.references, teal, watermark, undefined, undefined, undefined, wrapperStyle)}
     </div>
   );
 }
@@ -1645,7 +1650,7 @@ function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, crimson, watermark, undefined, undefined, hidden)}
+      {renderReferencesPage(data.references, crimson, watermark, undefined, undefined, hidden, wrapperStyle)}
     </div>
   );
 }
@@ -1731,7 +1736,7 @@ function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
         </div>
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, sage, watermark, undefined, undefined, hidden)}
+      {renderReferencesPage(data.references, sage, watermark, undefined, undefined, hidden, wrapperStyle)}
     </div>
   );
 }
@@ -1889,7 +1894,7 @@ function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ex
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, ELEGANT_INK, watermark, ELEGANT_LINE, undefined, hidden)}
+      {renderReferencesPage(data.references, ELEGANT_INK, watermark, ELEGANT_LINE, undefined, hidden, wrapperStyle)}
     </div>
   );
 }
@@ -2063,7 +2068,7 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, HERITAGE_INK, watermark, HERITAGE_RULE, undefined, hidden)}
+      {renderReferencesPage(data.references, HERITAGE_INK, watermark, HERITAGE_RULE, undefined, hidden, wrapperStyle)}
     </div>
   );
 }
@@ -2291,7 +2296,7 @@ function PlayfulTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      <div style={{ background: PL_BG }}>{renderReferencesPage(data.references, PL_INK, watermark)}</div>
+      <div style={{ background: PL_BG }}>{renderReferencesPage(data.references, PL_INK, watermark, undefined, undefined, undefined, wrapperStyle)}</div>
     </div>
   );
 }
@@ -2448,7 +2453,7 @@ function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      <div style={{ background: PL_BG }}>{renderReferencesPage(data.references, PL_INK, watermark, undefined, undefined, hidden)}</div>
+      <div style={{ background: PL_BG }}>{renderReferencesPage(data.references, PL_INK, watermark, undefined, undefined, hidden, wrapperStyle)}</div>
     </div>
   );
 }
@@ -2603,7 +2608,7 @@ function SkylineTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, accent, watermark, undefined, undefined, hidden)}
+      {renderReferencesPage(data.references, accent, watermark, undefined, undefined, hidden, wrapperStyle)}
     </div>
   );
 }
@@ -2714,7 +2719,7 @@ function AzureTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, accent, watermark, undefined, '28px 40px', hidden)}
+      {renderReferencesPage(data.references, accent, watermark, undefined, '28px 40px', hidden, wrapperStyle)}
     </div>
   );
 }
@@ -2855,7 +2860,7 @@ function DoveTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, '#1f2937', watermark, '#d1d5db', '28px 40px', hidden)}
+      {renderReferencesPage(data.references, '#1f2937', watermark, '#d1d5db', '28px 40px', hidden, wrapperStyle)}
     </div>
   );
 }
@@ -2994,7 +2999,7 @@ function PanelTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, PANEL_INK, watermark, '#e5e7eb', '28px 40px', hidden)}
+      {renderReferencesPage(data.references, PANEL_INK, watermark, '#e5e7eb', '28px 40px', hidden, wrapperStyle)}
     </div>
   );
 }
@@ -3117,7 +3122,7 @@ function TerracottaTemplate({ data, wrapperStyle, validEdu, validExp, watermark,
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, accent, watermark, accent, '28px 40px', hidden)}
+      {renderReferencesPage(data.references, accent, watermark, accent, '28px 40px', hidden, wrapperStyle)}
     </div>
   );
 }
@@ -3260,7 +3265,7 @@ function MonogramTemplate({ data, wrapperStyle, validEdu, validExp, watermark, s
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, MONOGRAM_INK, watermark, '#d1d5db', '28px 40px', hidden)}
+      {renderReferencesPage(data.references, MONOGRAM_INK, watermark, '#d1d5db', '28px 40px', hidden, wrapperStyle)}
     </div>
   );
 }
@@ -3406,7 +3411,7 @@ function FrameTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, FRAME_INK, watermark, FRAME_BORDER, '28px 40px', hidden)}
+      {renderReferencesPage(data.references, FRAME_INK, watermark, FRAME_BORDER, '28px 40px', hidden, wrapperStyle)}
     </div>
   );
 }
@@ -3582,7 +3587,7 @@ function LedgerTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, LEDGER_INK, watermark, LEDGER_RULE, '28px 40px', hidden)}
+      {renderReferencesPage(data.references, LEDGER_INK, watermark, LEDGER_RULE, '28px 40px', hidden, wrapperStyle)}
     </div>
   );
 }
@@ -3762,7 +3767,7 @@ function DossierTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hi
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, DOSSIER_INK, watermark, DOSSIER_RULE, '28px 40px', hidden)}
+      {renderReferencesPage(data.references, DOSSIER_INK, watermark, DOSSIER_RULE, '28px 40px', hidden, wrapperStyle)}
     </div>
   );
 }
@@ -3928,7 +3933,7 @@ function NoirTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hidde
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, NOIR_INK, watermark, NOIR_RULE, '28px 40px', hidden)}
+      {renderReferencesPage(data.references, NOIR_INK, watermark, NOIR_RULE, '28px 40px', hidden, wrapperStyle)}
     </div>
   );
 }
@@ -4111,7 +4116,7 @@ function PortfolioTemplate({ data, wrapperStyle, validEdu, validExp, watermark, 
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, PORTFOLIO_INK, watermark, PORTFOLIO_TAB, '28px 40px', hidden)}
+      {renderReferencesPage(data.references, PORTFOLIO_INK, watermark, PORTFOLIO_TAB, '28px 40px', hidden, wrapperStyle)}
     </div>
   );
 }
@@ -4345,7 +4350,7 @@ function MosaicTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hid
 
         {watermark && !data.references?.filter((r: any) => r.name).length && <WatermarkBar />}
       </div>
-      {renderReferencesPage(data.references, MOSAIC_RUST, watermark, '#d8d2c4', '28px 40px', hidden)}
+      {renderReferencesPage(data.references, MOSAIC_RUST, watermark, '#d8d2c4', '28px 40px', hidden, wrapperStyle)}
     </div>
   );
 }
