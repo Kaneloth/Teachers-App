@@ -886,7 +886,7 @@ function drawModern(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   // Subjects and Skills — moved here from the sidebar.
   if(sk.subjects?.length||sk.soft_skills?.length){
     const [sx2,sw2]=onFirstPage?[cx,cmw]:[mainCX,mainCMW];
-    y=sectionHeading(p,(isEdu?'Subjects & Skills':'Skills'),sx2,y,sw2,accent,'bar',BOTTOM,np,GXW,ICON.cogs);
+    y=sectionHeading(p,(isEdu&&sk.subjects?.length?'Subjects & Skills':'Skills'),sx2,y,sw2,accent,'bar',BOTTOM,np,GXW,ICON.cogs);
     for(const [lbl,items] of [[isEdu?'Subjects':'Key Skills',sk.subjects||[]],[isEdu?'Skills':'Professional Skills',sk.soft_skills||[]]] as [string,string[]][]){if(!items.length)continue;
       const [ex,ew]=onFirstPage?[cx,cmw]:[mainCX,mainCMW];
       p.setFont(F,'bold');p.setFontSize(9);tc(p,55,65,81);p.text(`${lbl}:`,ex,y);const lw=p.getTextWidth(`${lbl}:`)+2;p.setFont(F,'normal');tc(p,55,65,81);y=wrapped(p,items.join('  ·  '),ex+lw,y,ew-lw,BOTTOM,np,()=>onFirstPage?[cx+lw,cmw-lw]:[mainCX+lw,mainCMW-lw]);y+=ITEM_GAP;}
@@ -1026,7 +1026,7 @@ function drawSidebar(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   // content area like a normal section.
   if(sk.subjects?.length||sk.soft_skills?.length){
     const [sx2,sw2]=onFirstPage?[cx,cmw]:[mainCX,mainCMW];
-    y=sectionHeading(p,(isEdu?'Subjects & Skills':'Skills'),sx2,y,sw2,BLUE,'bar',BOTTOM,np,GXW,ICON.cogs);
+    y=sectionHeading(p,(isEdu&&sk.subjects?.length?'Subjects & Skills':'Skills'),sx2,y,sw2,BLUE,'bar',BOTTOM,np,GXW,ICON.cogs);
     for(const [lbl,items] of [[isEdu?'Subjects':'Key Skills',sk.subjects||[]],[isEdu?'Skills':'Professional Skills',sk.soft_skills||[]]] as [string,string[]][]){if(!items.length)continue;
       const [ex,ew]=onFirstPage?[cx,cmw]:[mainCX,mainCMW];
       p.setFont(F,'bold');p.setFontSize(9);tc(p,55,65,81);p.text(`${lbl}:`,ex,y);const lw=p.getTextWidth(`${lbl}:`)+2;p.setFont(F,'normal');tc(p,55,65,81);y=wrapped(p,items.join('  ·  '),ex+lw,y,ew-lw,BOTTOM,np,()=>onFirstPage?[cx+lw,cmw-lw]:[mainCX+lw,mainCMW-lw]);y+=ITEM_GAP;}

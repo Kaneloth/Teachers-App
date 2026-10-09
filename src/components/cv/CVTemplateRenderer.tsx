@@ -398,9 +398,12 @@ function BulletList({ items }: { items: string[] }) {
 /* ── Classic Template ────────────────────────────────────────────────────── */
 function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', subjectsLabel = 'Key Skills', expLabel = 'Work Experience', isEducatorCV = true, hidden }: any) {
   const { personal, skills } = data;
-  // "Subjects" only means something for educators. For everyone else the same
-  // field holds Key Skills (see the note where isEducatorCV is computed).
-  const skillsSectionTitle = isEducatorCV ? 'Skills & Subjects' : 'Skills';
+  // "Subjects" only means something for educators who actually entered some.
+  // For everyone else the same field holds Key Skills (see the note where
+  // isEducatorCV is computed), and an educator with no subjects shouldn't see
+  // an empty-sounding "Skills & Subjects" heading either.
+  const showSubjectsWording = isEducatorCV && !!skills?.subjects?.length;
+  const skillsSectionTitle = showSubjectsWording ? 'Skills & Subjects' : 'Skills';
   const subjectsSubLabel    = isEducatorCV ? 'Subjects' : 'Key Skills';
   const softSkillsSubLabel  = isEducatorCV ? 'Skills'   : 'Professional Skills';
   return (
