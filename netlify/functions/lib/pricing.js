@@ -21,6 +21,7 @@
  * Supabase client per function invocation.
  */
 
+const REFERRAL_BONUS_FALLBACK = 90;  // only used if the app_settings row is ever missing
 const SIGNUP_BONUS_FALLBACK = 240; // matches the value that was hardcoded before this table existed, in case the row is ever missing
 
 /** All packages, active-only by default (what the purchase modal should show). */
@@ -68,4 +69,17 @@ export async function getSignupBonus(supabase) {
   const v = data?.value;
   const n = typeof v === 'number' ? v : Number(v);
   return Number.isFinite(n) ? n : SIGNUP_BONUS_FALLBACK;
+}
+
+/**
+ * Credits granted for redeeming a referral code (on top of the signup
+ * bonus). Admin-controlled via app_settings.referral_bonus_credits —
+ * Admin → Money → Pricing.
+ */
+export async function getReferralBonus(supabase) {
+  const { data, error } = await supabase.from('app_settings').select('value').eq('key', 'referral_bonus_credits').maybeSingle();
+  if (error) throw new Error(`[pricing] getReferralBonus failed: ${error.message}`);
+  const v = data?.value;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : REFERRAL_BONUS_FALLBACK;
 }

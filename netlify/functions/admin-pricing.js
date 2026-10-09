@@ -18,6 +18,7 @@
  *   { action: 'delete_package', id }
  *   { action: 'update_cost',    action_type, patch: { cost?, label? } }
  *   { action: 'update_signup_bonus', value: number }
+ *   { action: 'update_referral_bonus', value: number }
  *
  * `id` is never editable on an existing package — it's a stable code-level
  * identifier other functions look up by (payfast-initiate.js,
@@ -59,14 +60,19 @@ export const handler = async (event) => {
 
   // ── List everything the admin page needs in one call ──────────────────────
   if (action === 'list') {
-    const [pkgRes, costRes, settingRes] = await Promise.all([
+    const [pkgRes, costRes, settingRes, referralRes] = await Promise.all([
       supabase.from('credit_packages').select('*').order('sort_order', { ascending: true }),
       supabase.from('credit_costs').select('*').order('action_type', { ascending: true }),
       supabase.from('app_settings').select('value').eq('key', 'signup_bonus_credits').maybeSingle(),
+      supabase.from('app_settings').select('value').eq('key', 'referral_bonus_credits').maybeSingle(),
     ]);
     if (pkgRes.error)  return { statusCode: 500, body: JSON.stringify({ error: pkgRes.error.message }) };
     if (costRes.error) return { statusCode: 500, body: JSON.stringify({ error: costRes.error.message }) };
     if (settingRes.error) return { statusCode: 500, body: JSON.stringify({ error: settingRes.error.message }) };
+
+    if (referralRes.error) return { statusCode: 500, body: JSON.stringify({ error: referralRes.error.message }) };
+    const rawReferral = referralRes.data?.value;
+    const referral_bonus = Number.isFinite(Number(rawReferral)) && rawReferral != null ? Number(rawReferral) : 90;
 
     const rawBonus = settingRes.data?.value;
     const signup_bonus = Number.isFinite(Number(rawBonus)) ? Number(rawBonus) : 240;
@@ -77,6 +83,7 @@ export const handler = async (event) => {
         packages: pkgRes.data || [],
         costs:    costRes.data || [],
         signup_bonus,
+        referral_bonus,
       }),
     };
   }
@@ -162,7 +169,23 @@ export const handler = async (event) => {
     const actionType = body.action_type;
     if (!actionType) return { statusCode: 400, body: JSON.stringify({ error: 'action_type required' }) };
     if (!KNOWN_ACTION_TYPES.has(actionType)) {
-      return { statusCode: 400, body: JSON.stringify({ error: `Unknown action_type "${actionType}" — costs can only be set for action types deduct-credits.js actually charges for.` }) };
+      // ── Update the referral code bonus ───────────────────────────────────────────
+  if (action === 'update_referral_bonus') {
+    const value = body.value;
+    if (!Number.isFinite(value) || value < 0) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'value must be a non-negative number' }) };
+    }
+    const { error } = await supabase.from('app_settings').upsert(
+      { key: 'referral_bonus_credits', value, updated_at: new Date().toISOString() },
+      { onConflict: 'key' }
+    );
+    if (error) return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+
+    await logAdminAction(supabase, { admin: auth.user, action: 'pricing_referral_bonus_updated', details: { value } });
+    return { statusCode: 200, body: JSON.stringify({ success: true, referral_bonus: value }) };
+  }
+
+  return { statusCode: 400, body: JSON.stringify({ error: `Unknown action_type "${actionType}" — costs can only be set for action types deduct-credits.js actually charges for.` }) };
     }
 
     const patch = body.patch || {};

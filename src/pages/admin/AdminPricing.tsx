@@ -32,6 +32,8 @@ export default function AdminPricing() {
   const [costs, setCosts]       = useState<CreditCostRow[]>([]);
   const [signupBonus, setSignupBonus] = useState('');
   const [savingSignup, setSavingSignup] = useState(false);
+  const [referralBonus, setReferralBonus] = useState('');
+  const [savingReferral, setSavingReferral] = useState(false);
   const [savingPkg, setSavingPkg]   = useState<string | null>(null);
   const [savingCost, setSavingCost] = useState<string | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
@@ -54,6 +56,7 @@ export default function AdminPricing() {
       setPackages((data.packages || []).map((p: any) => ({ ...p, credits: Number(p.credits), price_zar: Number(p.price_zar) })));
       setCosts(data.costs || []);
       setSignupBonus(String(data.signup_bonus ?? ''));
+      setReferralBonus(String(data.referral_bonus ?? ''));
     } catch (e: any) {
       toast.error(e.message || 'Failed to load pricing');
     } finally {
@@ -139,6 +142,20 @@ export default function AdminPricing() {
     }
   };
 
+  const saveReferralBonus = async () => {
+    const value = parseInt(referralBonus, 10);
+    if (!Number.isFinite(value) || value < 0) { toast.error('Enter a non-negative number'); return; }
+    setSavingReferral(true);
+    try {
+      await call({ action: 'update_referral_bonus', value });
+      toast.success('Referral bonus saved');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save referral bonus');
+    } finally {
+      setSavingReferral(false);
+    }
+  };
+
   // ── New package form state ──────────────────────────────────────────────
   const [newPkg, setNewPkg] = useState({ id: '', label: '', credits: '', price_zar: '', note: '' });
   const createPackage = async () => {
@@ -200,6 +217,26 @@ export default function AdminPricing() {
           />
           <Button onClick={saveSignupBonus} disabled={savingSignup} className="rounded-xl gap-1.5">
             {savingSignup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Referral code bonus ── */}
+      <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
+        <Label className="text-sm font-semibold">Referral Code Bonus</Label>
+        <p className="text-xs text-muted-foreground -mt-1">
+          Extra credits a new user receives when they redeem a referral code (on top of the signup bonus).
+          Applies to every code redeemed from now on, including codes already issued.
+        </p>
+        <div className="flex gap-2">
+          <Input
+            value={referralBonus}
+            onChange={e => setReferralBonus(e.target.value.replace(/\D/g, ''))}
+            inputMode="numeric"
+            className="rounded-xl w-32"
+          />
+          <Button onClick={saveReferralBonus} disabled={savingReferral} className="rounded-xl gap-1.5">
+            {savingReferral ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save
           </Button>
         </div>
       </div>

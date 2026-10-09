@@ -13,6 +13,10 @@
  * yet, so requireAdmin would always reject them) — this file only covers
  * the admin side of issuing/managing codes.
  *
+ * The credit amount is NOT set per code or hardcoded — it's the admin-
+ * controlled app_settings.referral_bonus_credits (Admin → Pricing), read
+ * live when a code is redeemed. rows' `credits` is a display snapshot.
+ *
  * Deploy path: netlify/functions/admin-referral-codes.js
  * Requires:    netlify/functions/lib/requireAdmin.js
  *              netlify/functions/lib/auditLog.js
@@ -20,7 +24,7 @@
  *
  * POST body — one of:
  *   { action: 'list', status?: string, search?: string }
- *   { action: 'create', recipient_name, recipient_initials, credits?, activate? }
+ *   { action: 'create', recipient_name, recipient_initials, activate? }
  *   { action: 'bulk_upload', rows: [{ name, initials }], activate? }
  *   { action: 'activate',   id }
  *   { action: 'deactivate', id }
@@ -32,8 +36,8 @@
 
 import { requireAdmin } from './lib/requireAdmin.js';
 import { logAdminAction } from './lib/auditLog.js';
+import { getReferralBonus } from './lib/pricing.js';
 
-const DEFAULT_CREDITS = 90;
 const MAX_BULK_ROWS   = 500;
 
 // Excludes O/0, I/1, L — characters easily confused with one another (or
@@ -103,7 +107,9 @@ export const handler = async (event) => {
     }
     const { data, error } = await query.limit(1000);
     if (error) return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
-    return { statusCode: 200, body: JSON.stringify({ codes: data || [] }) };
+    let referral_bonus = null;
+    try { referral_bonus = await getReferralBonus(supabase); } catch { /* UI just omits the figure */ }
+    return { statusCode: 200, body: JSON.stringify({ codes: data || [], referral_bonus }) };
   }
 
   // ── Create a single code ─────────────────────────────────────────────
@@ -113,7 +119,7 @@ export const handler = async (event) => {
     if (!recipient_name)     return { statusCode: 400, body: JSON.stringify({ error: 'recipient_name is required' }) };
     if (!recipient_initials) return { statusCode: 400, body: JSON.stringify({ error: 'recipient_initials is required' }) };
 
-    const credits = Number.isFinite(body.credits) && body.credits > 0 ? body.credits : DEFAULT_CREDITS;
+    const credits = await getReferralBonus(supabase);
     const activate = body.activate !== false; // default: active immediately
 
     const { data: inserted, error } = await insertWithUniqueCode(supabase, {
@@ -135,6 +141,7 @@ export const handler = async (event) => {
     if (rows.length > MAX_BULK_ROWS) return { statusCode: 400, body: JSON.stringify({ error: `Max ${MAX_BULK_ROWS} rows per upload` }) };
 
     const activate = body.activate !== false;
+    const bonus = await getReferralBonus(supabase);
     const created = [];
     const skipped = [];
 
@@ -147,7 +154,7 @@ export const handler = async (event) => {
       }
 
       const { data: inserted, error } = await insertWithUniqueCode(supabase, {
-        recipient_name, recipient_initials, credits: DEFAULT_CREDITS, activate, created_by: auth.user.id, year,
+        recipient_name, recipient_initials, credits: bonus, activate, created_by: auth.user.id, year,
       });
 
       if (inserted) created.push(inserted);

@@ -7,8 +7,9 @@
  * requireAdmin.js would always reject them here; this function is
  * deliberately separate from admin-referral-codes.js for that reason.
  *
- * This grants ONLY the +90 referral bonus. The standard 90-credit signup
- * bonus (with its own IP/device/phone/email fraud guards) is untouched —
+ * This grants ONLY the referral bonus (admin-controlled, app_settings
+ * .referral_bonus_credits — read live at redemption time). The standard
+ * signup bonus (with its own IP/device/phone/email fraud guards) is untouched —
  * grant-signup-credits.js still fires unconditionally regardless of
  * whether a referral code was entered. The two are intentionally
  * independent grants, logged as separate credit_ledger rows
@@ -27,6 +28,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { getReferralBonus } from './lib/pricing.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
@@ -123,10 +125,19 @@ export const handler = async (event) => {
   // status='active' so two concurrent requests for the same code can't
   // both succeed: the loser's UPDATE affects 0 rows and falls through to
   // the already_used response below.
+  // Amount is admin-controlled and read live; fetched BEFORE claiming so a
+  // settings read failure can't leave a code claimed but unpaid.
+  let credits;
+  try { credits = await getReferralBonus(supabase); }
+  catch (e) {
+    console.error('[redeem-referral-code] getReferralBonus failed:', e);
+    return { statusCode: 500, body: JSON.stringify({ error: 'Could not look up the referral bonus — please try again.' }) };
+  }
+
   const nowIso = new Date().toISOString();
   const { data: claimed, error: claimErr } = await supabase
     .from('referral_codes')
-    .update({ status: 'redeemed', redeemed_by: user_id, redeemed_at: nowIso, updated_at: nowIso })
+    .update({ status: 'redeemed', redeemed_by: user_id, redeemed_at: nowIso, updated_at: nowIso, credits })
     .eq('id', ref.id)
     .eq('status', 'active')
     .select()
@@ -139,8 +150,6 @@ export const handler = async (event) => {
   if (!claimed) {
     return { statusCode: 200, body: JSON.stringify({ redeemed: false, reason: 'already_used', error: 'This referral code has already been used.' }) };
   }
-
-  const credits = Number(ref.credits) || 90;
 
   const { error: creditErr } = await supabase.rpc('add_credits', {
     p_user_id:     user_id,

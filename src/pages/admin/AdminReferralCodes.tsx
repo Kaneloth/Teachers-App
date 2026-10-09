@@ -70,6 +70,7 @@ export default function AdminReferralCodes() {
   const { session } = useAuth();
   const [loading, setLoading]   = useState(true);
   const [codes, setCodes]       = useState<ReferralCodeRow[]>([]);
+  const [referralBonus, setReferralBonus] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [search, setSearch]     = useState('');
   const [busyId, setBusyId]     = useState<string | null>(null);
@@ -109,6 +110,7 @@ export default function AdminReferralCodes() {
     try {
       const data = await call({ action: 'list' });
       setCodes(data.codes || []);
+      setReferralBonus(typeof data.referral_bonus === 'number' ? data.referral_bonus : null);
     } catch (e: any) {
       toast.error(e.message || 'Failed to load referral codes');
     } finally {
@@ -294,8 +296,8 @@ export default function AdminReferralCodes() {
       <div>
         <h1 className="text-xl font-bold text-foreground">Referral Codes</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Issue codes that grant a new learner +90 bonus credits (on top of the normal signup bonus) when
-          entered at signup. Each code is single-use and stays valid indefinitely until someone redeems it.
+          Issue codes that grant a new learner {referralBonus ?? '…'} bonus credits (on top of the normal signup bonus) when
+          entered at signup. The amount is set under Admin → Pricing. Each code is single-use and stays valid indefinitely until someone redeems it.
         </p>
       </div>
 
@@ -462,7 +464,7 @@ export default function AdminReferralCodes() {
                 </span>
               </div>
               <p className="text-xs text-muted-foreground truncate">
-                {row.recipient_name} · {row.credits} credits
+                {row.recipient_name} · {row.status === 'redeemed' ? row.credits : (referralBonus ?? row.credits)} credits
                 {row.status === 'redeemed' && row.redeemed_at && ` · redeemed ${new Date(row.redeemed_at).toLocaleDateString()}`}
               </p>
             </div>
