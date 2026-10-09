@@ -169,23 +169,7 @@ export const handler = async (event) => {
     const actionType = body.action_type;
     if (!actionType) return { statusCode: 400, body: JSON.stringify({ error: 'action_type required' }) };
     if (!KNOWN_ACTION_TYPES.has(actionType)) {
-      // ── Update the referral code bonus ───────────────────────────────────────────
-  if (action === 'update_referral_bonus') {
-    const value = body.value;
-    if (!Number.isFinite(value) || value < 0) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'value must be a non-negative number' }) };
-    }
-    const { error } = await supabase.from('app_settings').upsert(
-      { key: 'referral_bonus_credits', value, updated_at: new Date().toISOString() },
-      { onConflict: 'key' }
-    );
-    if (error) return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
-
-    await logAdminAction(supabase, { admin: auth.user, action: 'pricing_referral_bonus_updated', details: { value } });
-    return { statusCode: 200, body: JSON.stringify({ success: true, referral_bonus: value }) };
-  }
-
-  return { statusCode: 400, body: JSON.stringify({ error: `Unknown action_type "${actionType}" — costs can only be set for action types deduct-credits.js actually charges for.` }) };
+      return { statusCode: 400, body: JSON.stringify({ error: `Unknown action_type "${actionType}" — costs can only be set for action types deduct-credits.js actually charges for.` }) };
     }
 
     const patch = body.patch || {};
@@ -225,6 +209,22 @@ export const handler = async (event) => {
 
     await logAdminAction(supabase, { admin: auth.user, action: 'pricing_signup_bonus_updated', details: { value } });
     return { statusCode: 200, body: JSON.stringify({ success: true, signup_bonus: value }) };
+  }
+
+  // ── Update the referral code bonus ───────────────────────────────────────────
+  if (action === 'update_referral_bonus') {
+    const value = body.value;
+    if (!Number.isFinite(value) || value < 0) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'value must be a non-negative number' }) };
+    }
+    const { error } = await supabase.from('app_settings').upsert(
+      { key: 'referral_bonus_credits', value, updated_at: new Date().toISOString() },
+      { onConflict: 'key' }
+    );
+    if (error) return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+
+    await logAdminAction(supabase, { admin: auth.user, action: 'pricing_referral_bonus_updated', details: { value } });
+    return { statusCode: 200, body: JSON.stringify({ success: true, referral_bonus: value }) };
   }
 
   return { statusCode: 400, body: JSON.stringify({ error: `Unknown action "${action}"` }) };
