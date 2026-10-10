@@ -400,12 +400,15 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
           with a direct next step, instead of a passive warning the user
           has to notice and act on themselves before they even try. */}
       {downloadLocked && (
-        <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-900/20 px-3 py-2.5 text-xs text-amber-900 dark:text-amber-200">
+        <button
+          type="button"
+          onClick={onGoToSummary}
+          disabled={!onGoToSummary}
+          className="w-full flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-900/20 px-3 py-2.5 text-left text-xs text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+        >
           <span className="flex-1">Add a Professional Summary first — it's the first thing employers read.</span>
-          {onGoToSummary && (
-            <button type="button" onClick={onGoToSummary} className="font-semibold underline underline-offset-2 shrink-0">Add it now</button>
-          )}
-        </div>
+          {onGoToSummary && <span className="font-semibold underline underline-offset-2 shrink-0">Add it now</span>}
+        </button>
       )}
       <Button
         onClick={pdfUrl ? handleRedownload : handleGenerate}

@@ -259,7 +259,7 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
       </div>
 
       {/* Professional Summary */}
-      <div className={`space-y-1.5 rounded-2xl transition-colors ${summaryEmpty ? 'border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/10 p-3' : ''}`}>
+      <div id="cv-summary-section" className={`space-y-1.5 rounded-2xl transition-colors ${summaryEmpty ? 'border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/10 p-3' : ''}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Label className="text-sm font-medium">Professional Summary</Label>
@@ -277,7 +277,7 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
               : <><Sparkles className="w-3 h-3" /> Generate with AI</>}
           </button>
         </div>
-        <Textarea value={data.bio} onChange={e => set('bio', e.target.value)}
+        <Textarea id="cv-summary-field" value={data.bio} onChange={e => set('bio', e.target.value)}
           placeholder="A brief overview of your professional background, experience, and career goals..."
           rows={4} className="rounded-xl" />
         {summaryEmpty ? (

@@ -631,6 +631,25 @@ export default function CVBuilderPage() {
   // editor, the "1 action needed" chip, and the locked Download button.
   const summaryEmpty = !(data.personal.bio || '').trim();
 
+  // Jump straight to the Professional Summary field: switch to the Personal
+  // step if needed, then scroll the field into view and focus it. The step
+  // content swaps in after a short exit animation, so poll briefly for the
+  // field rather than assuming it already exists.
+  const goToSummary = () => {
+    setStep(0);
+    let tries = 0;
+    const attempt = () => {
+      const field = document.getElementById('cv-summary-field') as HTMLTextAreaElement | null;
+      if (field) {
+        document.getElementById('cv-summary-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        field.focus({ preventScroll: true });
+        return;
+      }
+      if (++tries < 20) setTimeout(attempt, 50);
+    };
+    setTimeout(attempt, 50);
+  };
+
   // The ID / Passport number field was removed from the builder. Drafts and
   // saved CVs created before that can still carry a value, which the
   // templates would keep printing with no way left to clear it — so scrub it
@@ -694,7 +713,7 @@ export default function CVBuilderPage() {
           <div className="px-4 pb-3">
             <button
               type="button"
-              onClick={() => setStep(0)}
+              onClick={goToSummary}
               className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700 px-3 py-1 text-xs font-semibold hover:bg-amber-200 transition-colors"
             >
               <AlertTriangle className="w-3 h-3" /> 1 action needed · Add your Professional Summary
@@ -724,7 +743,7 @@ export default function CVBuilderPage() {
                   aiCreditsSpent tracking state above is now effectively
                   unused dead weight; harmless to leave, safe to remove if
                   you want this fully cleaned up later. */}
-              {step === 7 && <CVStepReview data={data} onChange={setData} onGenerated={handleCVGenerated} isFree={isFree} onGoToSummary={() => setStep(0)} />}
+              {step === 7 && <CVStepReview data={data} onChange={setData} onGenerated={handleCVGenerated} isFree={isFree} onGoToSummary={goToSummary} />}
             </motion.div>
           </AnimatePresence>
         </div>
