@@ -71,6 +71,19 @@ export const handler = async (event) => {
 
   const { type, ref_id } = body;
 
+  // A CV download requires a Professional Summary. The client reports
+  // has_summary; an explicit `false` is refused here BEFORE any credit is
+  // touched. (The server never sees the CV's contents — the PDF is built in
+  // the browser — so this can't catch a client that simply omits or lies
+  // about the flag. It stops the normal UI path and any code path that
+  // forgets to enforce the lock.)
+  if (type === 'cv_usage' && body.has_summary === false) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'summary_required', message: 'Add a Professional Summary before downloading your CV.' }),
+    };
+  }
+
   // Admins bypass all credit gates — log for audit but don't deduct.
   //
   // SECURITY: verified against educators.is_admin (a real DB column,

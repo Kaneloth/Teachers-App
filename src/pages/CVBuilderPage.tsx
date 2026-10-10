@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Loader2, RotateCcw, Coins, Briefcase, Camera } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, FileText, Save, Clock, Upload, Loader2, RotateCcw, Coins, Briefcase, Camera, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
@@ -26,6 +26,7 @@ import CVPreviewDrawer from '@/components/cv/CVPreviewDrawer';
 import { usePricing, PurchaseModal } from '@/components/credits/CreditBalance';
 import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
 import CVStaticPreviewPanel from '@/components/cv/CVStaticPreviewPanel';
+import CVSummaryPrompt from '@/components/cv/CVSummaryPrompt';
 import TestimonialPromptModal from '@/components/TestimonialPromptModal';
 // Kept for backward compatibility with saved drafts / last CV data
 export type CVType = 'educator' | 'general';
@@ -514,6 +515,10 @@ export default function CVBuilderPage() {
   const [draftSavedAt,     setDraftSavedAt]     = useState<string | null>(initialState.draft?.savedAt ?? null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [aiCreditsSpent,   setAiCreditsSpent]   = useState(0);
+  // Post-upload "complete your Professional Summary" prompt. Plain component
+  // state on purpose: set only by a successful import, so it never reappears
+  // on refresh or when returning to the page.
+  const [showSummaryPrompt, setShowSummaryPrompt] = useState(false);
   useEffect(() => {
     const savedAt = new Date().toISOString();
     try {
@@ -607,13 +612,32 @@ export default function CVBuilderPage() {
     }
   };
   const handleAIDataExtracted = (newData: CVData) => {
-    setData(prev => ({ ...newData, personal: prev.personal, cvType: prev.cvType }));
+    // Keep the account's personal details, but don't throw away a summary the
+    // import itself found (previously it was always discarded).
+    const mergedBio = (data.personal.bio || '').trim() || (newData.personal?.bio || '').trim();
+    setData(prev => ({
+      ...newData,
+      personal: { ...prev.personal, bio: (prev.personal.bio || '').trim() ? prev.personal.bio : (newData.personal?.bio || '') },
+      cvType: prev.cvType,
+    }));
+    setShowSummaryPrompt(!mergedBio);
     setStep(0);
     setShowBuilder(true);
     const savedAt = new Date().toISOString();
     setDraftSavedAt(savedAt);
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: data.cvType, data: { ...newData, personal: data.personal, cvType: data.cvType }, step: 0, savedAt })); } catch {}
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: data.cvType, data: { ...newData, personal: { ...data.personal, bio: mergedBio || data.personal.bio }, cvType: data.cvType }, step: 0, savedAt })); } catch {}
   };
+  // The Professional Summary drives the persistent nudges: amber field in the
+  // editor, the "1 action needed" chip, and the locked Download button.
+  const summaryEmpty = !(data.personal.bio || '').trim();
+
+  // The ID / Passport number field was removed from the builder. Drafts and
+  // saved CVs created before that can still carry a value, which the
+  // templates would keep printing with no way left to clear it — so scrub it
+  // wherever the data came from.
+  useEffect(() => {
+    if (data.personal.id_number) setData(d => ({ ...d, personal: { ...d.personal, id_number: '' } }));
+  }, [data.personal.id_number]);
   if (!showBuilder && lastCVData) {
     return (
       <div className="max-w-2xl mx-auto">
@@ -666,6 +690,17 @@ export default function CVBuilderPage() {
         <div className="px-4 pb-2">
           <StepStepper steps={STEPS} current={step} onSelect={setStep} />
         </div>
+        {summaryEmpty && (
+          <div className="px-4 pb-3">
+            <button
+              type="button"
+              onClick={() => setStep(0)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700 px-3 py-1 text-xs font-semibold hover:bg-amber-200 transition-colors"
+            >
+              <AlertTriangle className="w-3 h-3" /> 1 action needed · Add your Professional Summary
+            </button>
+          </div>
+        )}
         {draftSavedAt && (
           <p className="flex items-center gap-1 px-4 pb-3 text-xs text-muted-foreground">
             <Clock className="w-3 h-3 shrink-0" />
@@ -689,7 +724,7 @@ export default function CVBuilderPage() {
                   aiCreditsSpent tracking state above is now effectively
                   unused dead weight; harmless to leave, safe to remove if
                   you want this fully cleaned up later. */}
-              {step === 7 && <CVStepReview data={data} onChange={setData} onGenerated={handleCVGenerated} isFree={isFree} />}
+              {step === 7 && <CVStepReview data={data} onChange={setData} onGenerated={handleCVGenerated} isFree={isFree} onGoToSummary={() => setStep(0)} />}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -746,6 +781,21 @@ export default function CVBuilderPage() {
       </div>
       {showTestimonialPrompt && (
         <TestimonialPromptModal source="cv_download_prompt" onClose={() => setShowTestimonialPrompt(false)} />
+      )}
+      {showSummaryPrompt && (
+        <CVSummaryPrompt
+          cvData={data}
+          jobDescription={data.job_description}
+          deduct={deduct}
+          onAiUsed={(amt: number) => setAiCreditsSpent(prev => prev + amt)}
+          aiCost={pricing.letterCost}
+          onAccept={summary => {
+            setData(d => ({ ...d, personal: { ...d.personal, bio: summary } }));
+            setShowSummaryPrompt(false);
+            toast.success('Professional summary added!');
+          }}
+          onSkip={() => setShowSummaryPrompt(false)}
+        />
       )}
       {insufficientCredits && (
         <InsufficientCreditsModal

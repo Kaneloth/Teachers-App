@@ -32,7 +32,7 @@ export interface InsufficientCreditsInfo {
 export interface CreditState {
   balance:  number;
   loading:  boolean;
-  deduct:   (type: 'cv_usage' | 'letter_usage', refId?: string) => Promise<boolean>;
+  deduct:   (type: 'cv_usage' | 'letter_usage', refId?: string, meta?: { has_summary?: boolean }) => Promise<boolean>;
   refetch:  () => Promise<void>;
   // Set instead of firing a toast whenever deduct() fails due to
   // insufficient balance — render <InsufficientCreditsModal> based on
@@ -96,6 +96,7 @@ export function useCredits(): CreditState {
   const deduct = useCallback(async (
     type: 'cv_usage' | 'letter_usage',
     refId?: string,
+    meta?: { has_summary?: boolean },
   ): Promise<boolean> => {
     // Admins bypass the credit system entirely — no deduction, no balance
     // check. We still log a zero-cost ledger entry (fire-and-forget, never
@@ -130,7 +131,7 @@ export function useCredits(): CreditState {
           'Content-Type':  'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ type, ref_id: refId }),
+        body: JSON.stringify({ type, ref_id: refId, ...(meta ?? {}) }),
       });
 
       const data = await res.json();
@@ -158,7 +159,7 @@ export function useCredits(): CreditState {
 
       if (!res.ok) {
         setBalance(prev => prev + cost);
-        toast.error('Something went wrong. Please try again.');
+        toast.error(data?.error === 'summary_required' ? (data.message || 'Add a Professional Summary before downloading.') : 'Something went wrong. Please try again.');
         return false;
       }
 

@@ -53,9 +53,9 @@ interface CVData {
   hidden_sections?: string[];
 }
 
-interface Props { data: CVData; onChange?: (d: CVData) => void; onGenerated?: (url: string) => void; isFree?: boolean }
+interface Props { data: CVData; onChange?: (d: CVData) => void; onGenerated?: (url: string) => void; isFree?: boolean; onGoToSummary?: () => void }
 
-export default function CVStepReview({ data, onChange, onGenerated, isFree = false }: Props) {
+export default function CVStepReview({ data, onChange, onGenerated, isFree = false, onGoToSummary }: Props) {
   const { user } = useAuth();
   const { deduct, insufficientCredits, dismissInsufficientCredits } = useCredits();
   const pricing = usePricing();
@@ -158,6 +158,11 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
 
   const fileName = `CV_${(personal.full_name || 'Educator').replace(/\s+/g, '_')}.pdf`;
 
+  // A new download is locked until the CV has a Professional Summary.
+  // Re-downloading an already-generated PDF (pdfUrl) is free and unaffected.
+  const summaryMissing = !(personal.bio || '').trim();
+  const downloadLocked = summaryMissing && !pdfUrl;
+
   // Re-download the already-stored PDF — FREE, no credit deduction
   const handleRedownload = async () => {
     const url = pdfUrl;
@@ -188,7 +193,8 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
     // Server-side deduct-credits.js reads the real admin-configured cost
     // from credit_costs directly — nothing to compute here anymore, the
     // hook surfaces insufficientCredits automatically on failure.
-    const ok = await deduct('cv_usage', fileName);
+    if (summaryMissing) { toast.error('Add a Professional Summary first.'); return; }
+    const ok = await deduct('cv_usage', fileName, { has_summary: !summaryMissing });
     if (!ok) return; // insufficientCredits is now set automatically by the hook if that was the cause
 
     setSending(true);
@@ -393,9 +399,18 @@ export default function CVStepReview({ data, onChange, onGenerated, isFree = fal
           Credits" button straight into PurchaseModal — one clear moment
           with a direct next step, instead of a passive warning the user
           has to notice and act on themselves before they even try. */}
+      {downloadLocked && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-900/20 px-3 py-2.5 text-xs text-amber-900 dark:text-amber-200">
+          <span className="flex-1">Add a Professional Summary first — it's the first thing employers read.</span>
+          {onGoToSummary && (
+            <button type="button" onClick={onGoToSummary} className="font-semibold underline underline-offset-2 shrink-0">Add it now</button>
+          )}
+        </div>
+      )}
       <Button
         onClick={pdfUrl ? handleRedownload : handleGenerate}
-        disabled={sending}
+        disabled={sending || downloadLocked}
+        title={downloadLocked ? 'Add a Professional Summary first' : undefined}
         className="w-full h-12 rounded-xl text-sm font-semibold gap-2"
       >
         <Download className="w-4 h-4 shrink-0" />

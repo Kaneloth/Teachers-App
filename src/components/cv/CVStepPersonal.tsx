@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import AutoGrowTextarea from '@/components/AutoGrowTextarea';
 import { Textarea } from '@/components/ui/textarea';
 import { useEffect, useState, useRef } from 'react';
-import { Lock, Camera, X, Loader2, ImageIcon, Sparkles, RefreshCw } from 'lucide-react';
+import { Lock, Camera, X, Loader2, ImageIcon, Sparkles, RefreshCw, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -103,6 +103,7 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
   }, [user]);
 
   const set = (field: keyof PersonalData, value: string) => onChange({ ...data, [field]: value });
+  const summaryEmpty = !(data.bio || '').trim();
 
   const generateSummary = async () => {
     const aiRef = `cvbuild_summary_${Date.now()}`;
@@ -257,18 +258,17 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
           placeholder="e.g. Cape Town, Western Cape" />
       </div>
 
-      {/* ID / Passport */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">ID / Passport Number <span className="text-muted-foreground font-normal">(optional)</span></Label>
-        <Input value={data.id_number ?? ''} onChange={e => set('id_number', e.target.value)}
-          placeholder="Leave blank to omit from your CV" className="rounded-xl" />
-        <p className="text-xs text-muted-foreground">Only include this if you want it printed on your CV.</p>
-      </div>
-
       {/* Professional Summary */}
-      <div className="space-y-1.5">
+      <div className={`space-y-1.5 rounded-2xl transition-colors ${summaryEmpty ? 'border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/10 p-3' : ''}`}>
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">Professional Summary</Label>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">Professional Summary</Label>
+            {summaryEmpty && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide bg-amber-200 text-amber-900 rounded-full px-2 py-0.5">
+                <AlertTriangle className="w-2.5 h-2.5" /> Empty
+              </span>
+            )}
+          </div>
           <button type="button" onClick={generateSummary}
             disabled={generatingSummary || (!isAdmin && !creditsLoading && balance < 20)}
             className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50">
@@ -280,7 +280,22 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
         <Textarea value={data.bio} onChange={e => set('bio', e.target.value)}
           placeholder="A brief overview of your professional background, experience, and career goals..."
           rows={4} className="rounded-xl" />
-        <p className="text-xs text-muted-foreground">Tap "Generate with AI" for a suggested summary, then edit to personalise it.</p>
+        {summaryEmpty ? (
+          <div className="space-y-2">
+            <p className="text-xs text-amber-900 dark:text-amber-200">
+              <strong>This section is empty.</strong> A professional summary is the first thing employers read — a strong one helps you stand out straight away.
+            </p>
+            <button type="button" onClick={generateSummary}
+              disabled={generatingSummary || (!isAdmin && !creditsLoading && balance < 20)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#FF6B35] hover:bg-[#e55a2b] text-white text-xs font-semibold px-3 py-2 transition-colors disabled:opacity-50">
+              {generatingSummary
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating…</>
+                : <><Sparkles className="w-3.5 h-3.5" /> Generate with AI</>}
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">Tap "Generate with AI" for a suggested summary, then edit to personalise it.</p>
+        )}
       </div>
 
       <p className="text-xs text-muted-foreground bg-muted rounded-xl px-3 py-2">
