@@ -21,6 +21,10 @@
  * All numbers come from usePricing (admin-controlled credit_costs).
  */
 
+import { useEffect, useRef } from 'react';
+import { toast } from 'sonner';
+import { usePricing } from './usePricing';
+
 export const CREDITS_CHANGED_EVENT = 'crosssa:credits-changed';
 const KEY_HEADS_UP = 'crosssa_credit_warn_headsup';
 const KEY_STOP     = 'crosssa_credit_warn_stop';
