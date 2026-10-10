@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
 import CreditBalance, { usePricing, PurchaseModal } from '@/components/credits/CreditBalance';
+import CreditChip from '@/components/credits/CreditChip';
+import { useCreditWarnings } from '@/hooks/useCreditWarnings';
 import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
 import { supabase } from '@/lib/supabase';
 
@@ -231,6 +233,7 @@ export default function CoverLettersPage() {
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [isEducator,   setIsEducator]   = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
+  useCreditWarnings({ hasPurchased });
 
   useEffect(() => {
     if (!user) return;
@@ -424,10 +427,7 @@ export default function CoverLettersPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-bold text-foreground">Cover Letters</h1>
           {!isEducator || hasPurchased ? <CreditBalance /> : (
-            <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold">
-              <Coins className="w-3 h-3" />
-              {creditsLoading ? '…' : balance}
-            </div>
+            <CreditChip balance={balance} loading={creditsLoading} />
           )}
         </div>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -510,7 +510,7 @@ export default function CoverLettersPage() {
             >
               {aiGenerating
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating tailored letter…</>
-                : <><Sparkles className="w-4 h-4" /> Generate with AI </>
+                : <><Sparkles className="w-4 h-4" /> Generate with AI · {letterCost} credit{letterCost === 1 ? '' : 's'}</>
               }
             </button>
           </div>
@@ -554,7 +554,7 @@ export default function CoverLettersPage() {
               ? <><Loader2 className="w-5 h-5 animate-spin" /> Generating…</>
               : aiUsed
                 ? <><Download className="w-5 h-5" /> Download as Word (.docx) · Free</>
-                : <><Download className="w-5 h-5" /> Download as Word (.docx)</>
+                : <><Download className="w-5 h-5" /> Download as Word (.docx) · {letterCost} credit{letterCost === 1 ? '' : 's'}</>
             }
           </Button>
 

@@ -71,6 +71,20 @@ export function useCredits(): CreditState {
 
   useEffect(() => { fetchBalance(); }, [fetchBalance]);
 
+  // Several components on a page each call useCredits() and so each hold their
+  // OWN balance state (the header chip, the CV step components, ...). Without
+  // this, a deduction made inside a step component never reached the header.
+  // Every successful deduct() broadcasts the confirmed balance; every instance
+  // listens and adopts it.
+  useEffect(() => {
+    const onChanged = (e: Event) => {
+      const b = (e as CustomEvent<{ balance: number }>).detail?.balance;
+      if (typeof b === 'number' && Number.isFinite(b)) setBalance(b);
+    };
+    window.addEventListener('crosssa:credits-changed', onChanged);
+    return () => window.removeEventListener('crosssa:credits-changed', onChanged);
+  }, []);
+
   const dismissInsufficientCredits = useCallback(() => setInsufficientCredits(null), []);
 
   /**
@@ -150,6 +164,8 @@ export function useCredits(): CreditState {
 
       // Confirm with server balance
       setBalance(data.new_balance);
+      // Tell every other useCredits() instance + the warning hook.
+      window.dispatchEvent(new CustomEvent('crosssa:credits-changed', { detail: { balance: data.new_balance, type } }));
       return true;
 
     } catch (err) {

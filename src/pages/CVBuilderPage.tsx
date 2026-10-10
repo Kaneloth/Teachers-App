@@ -7,6 +7,8 @@ import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
 import { useFeatureGates } from '@/hooks/useFeatureGates';
 import CreditBalance from '@/components/credits/CreditBalance';
+import CreditChip from '@/components/credits/CreditChip';
+import { useCreditWarnings } from '@/hooks/useCreditWarnings';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import CVStepPersonal from '@/components/cv/CVStepPersonal';
@@ -420,6 +422,7 @@ export default function CVBuilderPage() {
   // computed below once hasPurchased/gates have come back from Supabase.
   const watermarkGateActive = !gatesLoading && gates.cv_watermark !== false;
   const [hasPurchased,      setHasPurchased]      = useState(false);
+  useCreditWarnings({ hasPurchased });
   const shouldWatermark = watermarkGateActive && !hasPurchased && !isAdmin;
   // Deliberately NOT gated by cv_watermark — see CVStepReview.tsx's
   // previewResolutionRestricted for the full rationale. Protects against a
@@ -622,10 +625,7 @@ export default function CVBuilderPage() {
           <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
           <div className="ml-auto">
             {!isEducator || hasPurchased ? <CreditBalance /> : (
-              <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold">
-                <Coins className="w-3 h-3" />
-                {creditsLoading ? '…' : balance}
-              </div>
+              <CreditChip balance={balance} loading={creditsLoading} />
             )}
           </div>
         </div>
@@ -654,10 +654,7 @@ export default function CVBuilderPage() {
         <h1 className="text-lg font-bold text-foreground">CV Builder</h1>
         <div className="ml-auto">
           {!isEducator || hasPurchased ? <CreditBalance /> : (
-            <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold">
-              <Coins className="w-3 h-3" />
-              {creditsLoading ? '…' : balance}
-            </div>
+            <CreditChip balance={balance} loading={creditsLoading} />
           )}
         </div>
       </div>
