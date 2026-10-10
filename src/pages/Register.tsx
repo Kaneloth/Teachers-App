@@ -325,7 +325,6 @@ export default function Register() {
     <div className="space-y-6">
       <div className="text-center">
         <h1 className="text-2xl font-bold text-foreground">Create your account</h1>
-        <p className="text-sm text-muted-foreground mt-1">Join 1,200+ South African educators</p>
       </div>
 
       {/* Referral code — deliberately placed above BOTH signup options
