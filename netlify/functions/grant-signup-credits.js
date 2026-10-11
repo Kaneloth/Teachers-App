@@ -73,9 +73,18 @@ export const handler = async (event) => {
     return { statusCode: 200, body: JSON.stringify({ granted: 0, reason: 'already_granted' }) };
   }
 
+  // ── Layers 1–3 below are READ-ONLY checks. Fingerprints are only recorded
+  // as "credit granted" further down, once EVERY layer has passed. They used
+  // to be written the moment their own layer passed, so a signup denied by a
+  // LATER layer (device, IP) still left its phone/device marked
+  // credit_granted = true with no credits ever given — permanently burning
+  // that phone number / device for the person's next legitimate attempt.
+  let cleanPhone = null;
+  let cleanDevice = null;
+
   // Layer 1: Phone fingerprint
   if (phone && phone.trim() !== '') {
-    const cleanPhone = phone.replace(/\s+/g, '').replace(/[^+\d]/g, '');
+    cleanPhone = phone.replace(/\s+/g, '').replace(/[^+\d]/g, '');
     const { data: phoneFp } = await supabase
       .from('phone_fingerprints')
       .select('credit_granted')
@@ -86,8 +95,6 @@ export const handler = async (event) => {
       await recordNoGrant(user_id, ip, 'phone_fingerprint');
       return { statusCode: 200, body: JSON.stringify({ granted: 0, reason: 'phone_known' }) };
     }
-    await supabase.from('phone_fingerprints')
-      .upsert({ phone: cleanPhone, user_id, credit_granted: true }, { onConflict: 'phone' });
   }
 
   // Layer 2: Device fingerprint
@@ -102,8 +109,7 @@ export const handler = async (event) => {
       await recordNoGrant(user_id, ip, 'device_fingerprint');
       return { statusCode: 200, body: JSON.stringify({ granted: 0, reason: 'device_known' }) };
     }
-    await supabase.from('device_fingerprints')
-      .upsert({ fingerprint: device_fingerprint, user_id, credit_granted: true }, { onConflict: 'fingerprint' });
+    cleanDevice = device_fingerprint;
   }
 
   // Layer 3: IP rate limit
@@ -125,8 +131,17 @@ export const handler = async (event) => {
     }
   }
 
-  // All checks passed — record email grant BEFORE crediting
-  // (so re-registrations with same email are blocked even if credit grant fails)
+  // All checks passed — record the phone / device / email grants BEFORE
+  // crediting (so re-registrations with the same identity are blocked even if
+  // the credit grant itself fails).
+  if (cleanPhone) {
+    await supabase.from('phone_fingerprints')
+      .upsert({ phone: cleanPhone, user_id, credit_granted: true }, { onConflict: 'phone' });
+  }
+  if (cleanDevice) {
+    await supabase.from('device_fingerprints')
+      .upsert({ fingerprint: cleanDevice, user_id, credit_granted: true }, { onConflict: 'fingerprint' });
+  }
   if (email && email.trim() !== '') {
     await supabase.from('email_grants').upsert(
       { email: email.toLowerCase().trim(), user_id, granted_at: new Date().toISOString() },
