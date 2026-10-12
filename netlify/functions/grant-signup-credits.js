@@ -19,6 +19,15 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const IP_WINDOW_DAYS = 30;
 const IP_MAX_GRANTS  = 2;
 
+// Device fingerprints are NOT unique per device: FingerprintJS's open-source
+// visitorId is built from canvas/GPU/font/screen signals, so different people
+// with the same phone model (e.g. a classroom of learners on the same cheap
+// Android handset) get IDENTICAL fingerprints, and the UA+screen fallback is
+// even weaker. Enforcing it blocked genuine first-time signups. Keep it as a
+// soft signal (logged, not blocking) unless this is deliberately switched on.
+// The phone number, email and IP layers still apply.
+const DEVICE_ENFORCE = false;
+
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
@@ -106,10 +115,15 @@ export const handler = async (event) => {
       .maybeSingle();
 
     if (devFp?.credit_granted) {
-      await recordNoGrant(user_id, ip, 'device_fingerprint');
-      return { statusCode: 200, body: JSON.stringify({ granted: 0, reason: 'device_known' }) };
+      if (DEVICE_ENFORCE) {
+        await recordNoGrant(user_id, ip, 'device_fingerprint');
+        return { statusCode: 200, body: JSON.stringify({ granted: 0, reason: 'device_known' }) };
+      }
+      // Soft mode: note the match, keep the ORIGINAL owner of the row, and carry on.
+      console.warn('[grant-signup-credits] device fingerprint already seen (not blocking):', user_id);
+    } else {
+      cleanDevice = device_fingerprint;
     }
-    cleanDevice = device_fingerprint;
   }
 
   // Layer 3: IP rate limit
