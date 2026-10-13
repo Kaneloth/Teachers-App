@@ -74,6 +74,8 @@ function EditUserModal({ user, onClose, onSaved, onBalanceChanged }: { user: Adm
   const [gatesLoading,      setGatesLoading]      = useState(true);
   const [creditBalance,     setCreditBalance]     = useState(user.credit_balance);
   const [adjustingCredits,  setAdjustingCredits]  = useState(false);
+  const [adjustAmount,      setAdjustAmount]      = useState('');
+  const [adjustReason,      setAdjustReason]      = useState('');
 
   // Full credit picture (totals, per-type breakdown, recent ledger) so admins
   // don't have to look the user up again in Credits & Payments.
@@ -146,6 +148,14 @@ function EditUserModal({ user, onClose, onSaved, onBalanceChanged }: { user: Adm
   };
 
   const adjustCredits = async (sign: 1 | -1) => {
+    const amount = Number(adjustAmount);
+    if (!adjustAmount.trim() || !Number.isInteger(amount) || amount <= 0) {
+      toast.error('Enter a whole number of credits greater than 0');
+      return;
+    }
+    const reason = adjustReason.trim();
+    if (sign < 0 && amount > creditBalance &&
+        !window.confirm(`Remove ${amount} credits? This is more than the current balance (${creditBalance}).`)) return;
     setAdjustingCredits(true);
     try {
       const res = await fetch('/.netlify/functions/admin-adjust-credits', {
@@ -154,8 +164,8 @@ function EditUserModal({ user, onClose, onSaved, onBalanceChanged }: { user: Adm
         body: JSON.stringify({
           action: 'adjust',
           target_user_id: user.id,
-          amount: 10 * sign,
-          description: 'Quick adjustment from Users panel',
+          amount: amount * sign,
+          description: reason || 'Adjustment from Users panel',
         }),
       });
       const result = await res.json();
@@ -163,7 +173,9 @@ function EditUserModal({ user, onClose, onSaved, onBalanceChanged }: { user: Adm
       setCreditBalance(result.new_balance);
       onBalanceChanged(user.id, result.new_balance);
       loadCreditInfo(ledgerLimit);
-      toast.success(`${sign > 0 ? 'Added' : 'Removed'} 10 credits`);
+      setAdjustAmount('');
+      setAdjustReason('');
+      toast.success(`${sign > 0 ? 'Added' : 'Removed'} ${amount} credits`);
     } catch (e: any) {
       toast.error(e.message || 'Failed to adjust credits');
     } finally {
@@ -259,28 +271,47 @@ function EditUserModal({ user, onClose, onSaved, onBalanceChanged }: { user: Adm
             </div>
             <div className="bg-muted rounded-xl px-3 py-2">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Credit Balance</p>
-              <div className="flex items-center justify-between gap-1 mt-0.5">
-                <p className="text-sm font-semibold text-foreground flex items-center gap-1">
-                  <Coins className="w-3.5 h-3.5 text-primary" /> {creditBalance}
-                </p>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => adjustCredits(-1)}
-                    disabled={adjustingCredits}
-                    className="w-6 h-6 rounded-full border border-border flex items-center justify-center hover:border-destructive hover:text-destructive transition-colors disabled:opacity-50"
-                  >
-                    <Minus className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => adjustCredits(1)}
-                    disabled={adjustingCredits}
-                    className="w-6 h-6 rounded-full border border-border flex items-center justify-center hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-1">±10 per tap · applies immediately</p>
+              <p className="text-sm font-semibold text-foreground flex items-center gap-1 mt-0.5">
+                <Coins className="w-3.5 h-3.5 text-primary" /> {creditBalance}
+              </p>
+            </div>
+          </div>
+
+          {/* Manual adjustment */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Adjust Credits</Label>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step={1}
+                placeholder="Amount"
+                value={adjustAmount}
+                onChange={e => setAdjustAmount(e.target.value)}
+                className="w-24 shrink-0"
+              />
+              <Input
+                placeholder="Reason (optional)"
+                value={adjustReason}
+                onChange={e => setAdjustReason(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => adjustCredits(-1)}
+                disabled={adjustingCredits}
+                className="flex items-center justify-center gap-1.5 py-2 rounded-xl border border-border text-sm font-semibold hover:border-destructive hover:text-destructive transition-colors disabled:opacity-50"
+              >
+                <Minus className="w-3.5 h-3.5" /> Remove
+              </button>
+              <button
+                onClick={() => adjustCredits(1)}
+                disabled={adjustingCredits}
+                className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add
+              </button>
             </div>
           </div>
 
