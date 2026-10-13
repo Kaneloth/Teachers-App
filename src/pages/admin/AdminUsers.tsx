@@ -50,6 +50,17 @@ interface AdminUser {
   is_hidden?: boolean;
 }
 
+interface CreditInfo {
+  balance: number;
+  total_in: number;
+  total_out: number;
+  total_rows: number;
+  by_type: { type: string; count: number; net: number }[];
+  transactions: { id: string; created_at: string; type: string; amount: number; description: string | null }[];
+}
+
+const typeLabel = (t: string) => t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
 /* ── Edit user modal ─────────────────────────────────────────── */
 
 function EditUserModal({ user, onClose, onSaved, onBalanceChanged }: { user: AdminUser; onClose: () => void; onSaved: (u: AdminUser) => void; onBalanceChanged: (userId: string, newBalance: number) => void }) {
@@ -63,6 +74,35 @@ function EditUserModal({ user, onClose, onSaved, onBalanceChanged }: { user: Adm
   const [gatesLoading,      setGatesLoading]      = useState(true);
   const [creditBalance,     setCreditBalance]     = useState(user.credit_balance);
   const [adjustingCredits,  setAdjustingCredits]  = useState(false);
+
+  // Full credit picture (totals, per-type breakdown, recent ledger) so admins
+  // don't have to look the user up again in Credits & Payments.
+  const [creditInfo,        setCreditInfo]        = useState<CreditInfo | null>(null);
+  const [creditInfoLoading, setCreditInfoLoading] = useState(true);
+  const [creditInfoError,   setCreditInfoError]   = useState<string | null>(null);
+  const [ledgerLimit,       setLedgerLimit]       = useState(15);
+
+  const loadCreditInfo = useCallback(async (limit: number) => {
+    try {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      if (!s?.access_token) throw new Error('Not signed in');
+      const res = await fetch('/.netlify/functions/admin-user-credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.access_token}` },
+        body: JSON.stringify({ user_id: user.id, limit }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || 'Failed to load credit info');
+      setCreditInfo(result);
+      setCreditInfoError(null);
+    } catch (e: any) {
+      setCreditInfoError(e.message || 'Failed to load credit info');
+    } finally {
+      setCreditInfoLoading(false);
+    }
+  }, [user.id]);
+
+  useEffect(() => { loadCreditInfo(ledgerLimit); }, [loadCreditInfo, ledgerLimit]);
 
   // Load existing per-user gate overrides for this user via Netlify function
   useEffect(() => {
@@ -122,6 +162,7 @@ function EditUserModal({ user, onClose, onSaved, onBalanceChanged }: { user: Adm
       if (!res.ok || !result.success) throw new Error(result.error || 'Adjustment failed');
       setCreditBalance(result.new_balance);
       onBalanceChanged(user.id, result.new_balance);
+      loadCreditInfo(ledgerLimit);
       toast.success(`${sign > 0 ? 'Added' : 'Removed'} 10 credits`);
     } catch (e: any) {
       toast.error(e.message || 'Failed to adjust credits');
@@ -241,6 +282,73 @@ function EditUserModal({ user, onClose, onSaved, onBalanceChanged }: { user: Adm
               </div>
               <p className="text-[10px] text-muted-foreground mt-1">±10 per tap · applies immediately</p>
             </div>
+          </div>
+
+          {/* Credits overview */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Credits</Label>
+            {creditInfoLoading ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading credit history…
+              </div>
+            ) : creditInfoError ? (
+              <p className="text-xs text-destructive">{creditInfoError}</p>
+            ) : creditInfo && (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-muted rounded-xl px-3 py-2">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Received</p>
+                    <p className="text-sm font-semibold text-primary">+{creditInfo.total_in}</p>
+                  </div>
+                  <div className="bg-muted rounded-xl px-3 py-2">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Used</p>
+                    <p className="text-sm font-semibold text-foreground">−{creditInfo.total_out}</p>
+                  </div>
+                </div>
+
+                {creditInfo.by_type.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {creditInfo.by_type.map(t => (
+                      <span key={t.type} className="text-[11px] bg-muted text-muted-foreground rounded-full px-2 py-0.5">
+                        {typeLabel(t.type)} ×{t.count}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {creditInfo.transactions.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No credit transactions yet.</p>
+                ) : (
+                  <div className="rounded-xl border border-border divide-y divide-border">
+                    {creditInfo.transactions.map(tx => (
+                      <div key={tx.id} className="flex items-start justify-between gap-3 px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-foreground">{typeLabel(tx.type)}</p>
+                          {tx.description && (
+                            <p className="text-[11px] text-muted-foreground break-words">{tx.description}</p>
+                          )}
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {new Date(tx.created_at).toLocaleString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        <span className={`text-sm font-semibold shrink-0 ${tx.amount > 0 ? 'text-primary' : tx.amount < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          {tx.amount > 0 ? `+${tx.amount}` : tx.amount}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {creditInfo.total_rows > creditInfo.transactions.length && (
+                  <button
+                    onClick={() => setLedgerLimit(l => Math.min(l + 50, 200))}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    Show more ({creditInfo.total_rows - creditInfo.transactions.length} older)
+                  </button>
+                )}
+              </>
+            )}
           </div>
 
           {/* Account status */}
