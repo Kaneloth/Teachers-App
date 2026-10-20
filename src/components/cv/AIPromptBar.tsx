@@ -12,7 +12,7 @@ const MAX_TEXT = 6000;       // must match REFINE_MAX_TEXT in enhance-cv.mjs
 
 interface Props {
   /** Which prompt/rules the backend should use. */
-  section: 'summary' | 'experience' | 'cover_letter';
+  section: 'summary' | 'experience' | 'cover_letter' | 'job_title';
   /** One-tap instructions shown as chips. */
   chips: string[];
   /** The field's current text (for experience: bullets joined with \n). */
@@ -24,6 +24,8 @@ interface Props {
   school?: string;
   isEducator?: boolean;
   jobTitle?: string;
+  /** Extra background for the model (e.g. the job's bullet points when rewriting its title). */
+  context?: string;
   defaultOpen?: boolean;
 }
 
@@ -35,7 +37,7 @@ interface Props {
  * rate-limited client-side to one run per COOLDOWN_MS.
  */
 export default function AIPromptBar({
-  section, chips, text, onApply, onAiUsed, role, school, isEducator, jobTitle, defaultOpen = false,
+  section, chips, text, onApply, onAiUsed, role, school, isEducator, jobTitle, context, defaultOpen = false,
 }: Props) {
   const { user } = useAuth();
   const isAdmin = !!(user?.user_metadata?.is_admin);
@@ -64,7 +66,7 @@ export default function AIPromptBar({
   const run = async (rawInstruction: string) => {
     const instr = rawInstruction.trim().slice(0, MAX_INSTRUCTION);
     if (busy) return;
-    if (!hasText) { toast.error('Write something here first (or use Generate with AI), then ask the AI to adjust it.'); return; }
+    if (!hasText) { toast.error(section === 'job_title' ? 'Type your job title (or what you did) first, then ask the AI to adjust it.' : 'Write something here first (or use Generate with AI), then ask the AI to adjust it.'); return; }
     if (!instr) { toast.error('Type what you want changed, or tap one of the suggestions.'); return; }
     if (text.length > MAX_TEXT) { toast.error('This text is too long to update in one go — shorten it first.'); return; }
 
@@ -91,7 +93,7 @@ export default function AIPromptBar({
               section,
               text,
               instruction: instr,
-              role, school, isEducator, jobTitle,
+              role, school, isEducator, jobTitle, context,
             }),
           });
           const result = await res.json();

@@ -19,6 +19,20 @@ interface Props {
   isEducator?: boolean;
 }
 
+
+// Heuristic: does this "job title" read like an activity/description rather
+// than a position? Drives a gentle nudge only — it never changes the text.
+const TITLE_NOUNS = /\b(manager|officer|clerk|assistant|intern|consultant|coordinator|administrator|supervisor|director|specialist|analyst|technician|engineer|developer|representative|agent|cashier|teacher|educator|tutor|lecturer|nurse|driver|operator|receptionist|secretary|accountant|bookkeeper|designer|architect|assessor|facilitator|promoter|merchandiser|attendant|waiter|waitress|barista|cleaner|guard|handyman|mechanic|electrician|plumber|carpenter|helper|trainee|learner|apprentice|volunteer|student)\b/i;
+function looksLikeDescription(role: string): boolean {
+  const r = (role || '').trim();
+  if (!r) return false;
+  const words = r.split(/\s+/);
+  if (words.length > 6) return true;
+  if (TITLE_NOUNS.test(r)) return false;
+  if (/\b(practice|practical|experience|internship|volunteering|working|work|duties|job|placement|attachment|shadowing|training)\b/i.test(r)) return true;
+  return words.length <= 2 && /ing$/i.test(words[0]);
+}
+
 interface Suggestion { bulletIndex: number; original: string; suggested: string }
 
 export default function CVStepExperience({ data, onChange, onAiUsed, isEducator = true }: Props) {
@@ -221,6 +235,24 @@ export default function CVStepExperience({ data, onChange, onAiUsed, isEducator 
             <Field label="Job Title / Role">
               <AutoGrowTextarea value={entry.role} onChange={v => set(i, 'role', v)}
                 placeholder="e.g. Software Developer, Accountant, Mathematics Educator" />
+              {looksLikeDescription(entry.role) && (
+                <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
+                  This reads like a description, not a job title. Your CV shows this under your name, so a title like "Educator" or "Sales Assistant" works better — tap "Make it a proper job title" below.
+                </p>
+              )}
+              {entry.role.trim() && (
+                <AIPromptBar
+                  section="job_title"
+                  chips={['Make it a proper job title', 'More professional', 'Make it shorter']}
+                  text={entry.role}
+                  onApply={t => set(i, 'role', t)}
+                  role={entry.role}
+                  school={entry.school}
+                  isEducator={isEducator}
+                  context={entry.description}
+                  defaultOpen={looksLikeDescription(entry.role)}
+                />
+              )}
             </Field>
 
             <div className="grid grid-cols-2 gap-3">

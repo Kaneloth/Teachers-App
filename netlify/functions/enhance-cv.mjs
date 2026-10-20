@@ -675,10 +675,11 @@ function normaliseParsed(data) {
 const REFINE_MAX_TEXT = 6000;
 const REFINE_MAX_INSTRUCTION = 200;
 
-function buildRefinePrompt({ text, instruction, section, role, school, isEducator, jobTitle }) {
+function buildRefinePrompt({ text, instruction, section, role, school, isEducator, jobTitle, context }) {
   const sectionRules = {
     summary: `This is the PROFESSIONAL SUMMARY of a South African CV: a short paragraph in the first person implied (no "I"), 2–5 sentences unless the instruction asks for a different length. Plain paragraph only — no bullet points, no headings.`,
     experience: `This is the list of RESPONSIBILITIES / ACHIEVEMENTS for one job on a South African CV${role ? ` (role: "${role}"${school ? ` at "${school}"` : ''})` : ''}. Return ONE point per line, each line a short past-tense statement without "I". Do NOT add bullet symbols, numbers or dashes — the CV adds the bullets itself. Keep the number of lines sensible (usually 3–7) unless the instruction asks otherwise.`,
+    job_title: `This is a JOB TITLE: the short name of the position a person holds or held (e.g. "Educator", "Sales Assistant", "Admin Clerk", "Software Developer"), shown on a South African CV under the person's name and on each job entry${school ? ` (employer: "${school}")` : ''}. Output a job title ONLY: a short noun phrase (1–5 words, Title Case) naming the PERSON'S position — never a description of an activity, programme or task. If the text describes an activity or programme instead of a position (e.g. "Teaching Practice" → "Educator", "Working at the till" → "Cashier", "Helping customers" → "Customer Service Assistant", "Doing admin" → "Administrative Assistant"), convert it to the position someone doing that work holds. Do NOT add seniority the text doesn't support (no "Senior", "Head", "Manager" unless already there), do NOT include the employer, dates, commas, brackets or a full stop. If it is already a proper job title, keep it unless the instruction says otherwise. Return a single line.${context ? `\nBACKGROUND about what the person did in this role (use only to choose the right title; do not copy it): ${context}` : ''}`,
     cover_letter: `This is a COVER LETTER for a South African job application${role ? ` (position: "${role}"${school ? ` at "${school}"` : ''})` : ''}. Keep it as a complete letter in the SAME structure it already has: keep the greeting line, the paragraphs separated by blank lines, the closing ("Yours sincerely/faithfully") and the signature name exactly as written. Keep any placeholders in [square brackets] unchanged. Plain text only — no markdown, no bullet symbols, no headings.`,
   }[section] || 'This is a short piece of CV text. Return plain text only.';
 
@@ -734,12 +735,12 @@ export const handler = async (event) => {
 
       // ── Mode 7: Instruction-based rewrite of one text field ─────────────
       // Called with: { action: 'refine_text', text, instruction,
-      //                section: 'summary' | 'experience' | 'cover_letter', role?, school?,
+      //                section: 'summary' | 'experience' | 'cover_letter' | 'job_title', context?, role?, school?,
       //                isEducator?, jobTitle? }
       if (body.action === 'refine_text') {
         const text = String(body.text || '').trim();
         const instruction = String(body.instruction || '').trim();
-        const section = ['experience', 'cover_letter'].includes(body.section) ? body.section : 'summary';
+        const section = ['experience', 'cover_letter', 'job_title'].includes(body.section) ? body.section : 'summary';
         if (!text) {
           return { statusCode: 400, body: JSON.stringify({ error: 'There is no text to update yet — write or generate something first.' }) };
         }
@@ -757,12 +758,17 @@ export const handler = async (event) => {
           school: String(body.school || '').slice(0, 120),
           isEducator: !!body.isEducator,
           jobTitle: String(body.jobTitle || '').slice(0, 120),
+          context: String(body.context || '').replace(/\s+/g, ' ').trim().slice(0, 600),
         });
         let out = (await callGroq(prompt, false)).trim();
         // Strip wrapper quotes / stray bullet symbols the model sometimes adds
         out = out.replace(/^["“”]+|["“”]+$/g, '').trim();
         if (section === 'experience') {
           out = out.split('\n').map(l => l.replace(/^\s*(?:[-•*–]|\d+[.)])\s+/, '').trimEnd()).filter(l => l.trim()).join('\n');
+        }
+        if (section === 'job_title') {
+          // One clean line: first line only, no trailing punctuation, sane length.
+          out = out.split('\n')[0].replace(/[.;:,\s]+$/g, '').replace(/^["'“”]+|["'“”]+$/g, '').trim().slice(0, 80);
         }
         if (!out) throw new Error('Empty response from AI');
         return { statusCode: 200, body: JSON.stringify({ success: true, text: out }) };
