@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
 import { usePricing, PurchaseModal } from '@/components/credits/CreditBalance';
 import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
+import AIPromptBar from '@/components/cv/AIPromptBar';
 
 function publicStorageUrl(bucket: string, path: string): string {
   const base = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, '');
@@ -280,6 +281,17 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
         <Textarea id="cv-summary-field" value={data.bio} onChange={e => set('bio', e.target.value)}
           placeholder="A brief overview of your professional background, experience, and career goals..."
           rows={4} className="rounded-xl" />
+        {!summaryEmpty && (
+          <AIPromptBar
+            section="summary"
+            chips={['Make it longer', 'Make it shorter', 'More professional', 'Focus on my skills']}
+            text={data.bio}
+            onApply={t => set('bio', t)}
+            onAiUsed={onAiUsed}
+            isEducator={fullCvData?.skills?.subjects ? fullCvData.skills.subjects.length > 0 : undefined}
+            defaultOpen
+          />
+        )}
         {summaryEmpty ? (
           <div className="space-y-2">
             <p className="text-xs text-amber-900 dark:text-amber-200">

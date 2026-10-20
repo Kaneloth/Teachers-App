@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
 import { usePricing, PurchaseModal } from '@/components/credits/CreditBalance';
 import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
+import AIPromptBar from '@/components/cv/AIPromptBar';
 
 interface ExpEntry { school: string; role: string; from: string; to: string; description: string }
 interface Props {
@@ -273,6 +274,21 @@ export default function CVStepExperience({ data, onChange, onAiUsed, isEducator 
               <p className="text-xs text-muted-foreground">
                 Only wrote one or two points? Tap "Suggest points" for other duties typical of this role — you decide which ones actually apply.
               </p>
+              {bullets.some(b => b.trim()) && (
+                <AIPromptBar
+                  section="experience"
+                  chips={['Make it more impactful', 'Focus on leadership', 'Make it shorter', 'More professional']}
+                  text={bullets.filter(b => b.trim()).join('\n')}
+                  onApply={t => {
+                    setBullets(i, t.split('\n'));
+                    setSuggestions(prev => ({ ...prev, [i]: undefined }));
+                  }}
+                  onAiUsed={onAiUsed}
+                  role={entry.role}
+                  school={entry.school}
+                  isEducator={isEducator}
+                />
+              )}
             </div>
 
             {/* ── AI: suggested NEW points (not yet on the CV) ── */}

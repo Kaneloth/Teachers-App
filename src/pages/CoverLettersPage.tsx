@@ -13,6 +13,7 @@ import CreditChip from '@/components/credits/CreditChip';
 import { useCreditWarnings } from '@/hooks/useCreditWarnings';
 import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
 import { supabase } from '@/lib/supabase';
+import AIPromptBar from '@/components/cv/AIPromptBar';
 
 /* ── Template definitions ────────────────────────────────────── */
 interface Template {
@@ -532,6 +533,17 @@ export default function CoverLettersPage() {
             <p className="text-xs text-muted-foreground">
               Edit freely — this is exactly what will be saved into the Word document.
             </p>
+            {body.trim() && (
+              <AIPromptBar
+                section="cover_letter"
+                chips={['More enthusiastic', 'More professional', 'Make it shorter', 'Make it longer']}
+                text={body}
+                onApply={setBody}
+                role={position}
+                school={org}
+                isEducator={isEducator}
+              />
+            )}
           </div>
 
           {/* Low credit warning */}
