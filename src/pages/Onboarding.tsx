@@ -101,6 +101,14 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false);
   const [profileType, setProfileType] = useState<ProfileType | null>(null);
 
+  // "How did you hear about us?" — shown once, after the profile is saved,
+  // right before leaving onboarding. `heardAboutDest` is where to go when it's
+  // answered/skipped. `finishingRef` stops the "already onboarded → /home"
+  // redirect below from firing the moment onboarding_completed is saved and
+  // stealing the screen before this question has been shown.
+  const [heardAboutDest, setHeardAboutDest] = useState<string | null>(null);
+  const finishingRef = useRef(false);
+
   // If this user has explicitly completed onboarding before, skip straight
   // to /home. We deliberately do NOT check `user_code` here — a database
   // trigger (handle_new_user) sets user_code automatically for every new
@@ -109,7 +117,7 @@ export default function Onboarding() {
   // is only ever set by this component, once the user has actually chosen
   // a role and either finished or skipped the detail form.
   useEffect(() => {
-    if (user?.user_metadata?.onboarding_completed === true) {
+    if (user?.user_metadata?.onboarding_completed === true && !finishingRef.current) {
       navigate('/home', { replace: true });
     }
   }, [user, navigate]);
@@ -234,6 +242,7 @@ export default function Onboarding() {
 
   const handleSkip = async () => {
     if (!user || !profileType) { navigate('/home'); return; }
+    finishingRef.current = true;
 
     // Ensure a minimal educators row exists recording the chosen profile_type
     const { data: existing } = await supabase
@@ -283,7 +292,7 @@ export default function Onboarding() {
     redeemStoredReferralCode(user.id).catch(() => {});
 
     toast('Add a few details to your profile to get better matches.');
-    navigate('/profile');
+    setHeardAboutDest('/profile');
   };
 
   const toggleSubject  = (s: string) => set('subjects',            form.subjects.includes(s)            ? form.subjects.filter(x => x !== s)            : [...form.subjects, s]);
@@ -423,6 +432,7 @@ export default function Onboarding() {
   /* ── Finish for general users ──────────────────────────────── */
   const handleFinishGeneral = async () => {
     setLoading(true);
+    finishingRef.current = true;
     try {
       const { error } = await supabase.from('educators').insert([{
         user_id:             user?.id,
@@ -453,8 +463,9 @@ export default function Onboarding() {
 
       toast.success('Profile created! Welcome to Crosssa!');
       toast('Tip: add a profile photo and bio to help others recognize you.');
-      navigate('/profile');
+      setHeardAboutDest('/profile');
     } catch (e: unknown) {
+      finishingRef.current = false;
       toast.error((e as Error).message || 'Failed to create profile');
     } finally {
       setLoading(false);
@@ -469,6 +480,7 @@ export default function Onboarding() {
       return;
     }
     setLoading(true);
+    finishingRef.current = true;
     try {
       const { error } = await supabase.from('educators').insert([{
         ...form,
@@ -524,13 +536,19 @@ export default function Onboarding() {
 
       toast.success('Profile created! Welcome to Crosssa!');
       toast('Add your current town to improve your search results and matches.');
-      navigate('/profile');
+      setHeardAboutDest('/profile');
     } catch (e: unknown) {
+      finishingRef.current = false;
       toast.error((e as Error).message || 'Failed to create profile');
     } finally {
       setLoading(false);
     }
   };
+
+  /* ── "How did you hear about us?" — last screen of onboarding ── */
+  if (heardAboutDest) {
+    return <HeardAboutScreen userId={user?.id ?? ''} onDone={() => navigate(heardAboutDest)} />;
+  }
 
   /* ── Type selector screen ──────────────────────────────────── */
   if (!profileType) {
@@ -927,6 +945,105 @@ export default function Onboarding() {
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Finish Setup'}
             </Button>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── "How did you hear about us?" ────────────────────────────────
+   Single optional multiple-choice question shown after the profile is saved.
+   Multiple choice (not free text) so the data is clean; skippable so it never
+   blocks anyone. Stored in public.signup_sources (see
+   migration_signup_sources.sql); a skip is stored as source='skipped' so the
+   admin view can show the response rate. Every failure is swallowed — this
+   must never get in the way of a new user getting into the app. */
+const HEARD_ABOUT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'friend',       label: 'A friend or colleague told me' },
+  { value: 'school_event', label: 'My school / a workshop or event' },
+  { value: 'facebook',     label: 'Facebook' },
+  { value: 'whatsapp',     label: 'WhatsApp' },
+  { value: 'tiktok',       label: 'TikTok' },
+  { value: 'instagram',    label: 'Instagram' },
+  { value: 'google',       label: 'Google search' },
+  { value: 'other',        label: 'Other' },
+];
+
+function HeardAboutScreen({ userId, onDone }: { userId: string; onDone: () => void }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const [other, setOther]       = useState('');
+  const [saving, setSaving]     = useState(false);
+
+  const save = async (source: string, sourceOther?: string) => {
+    setSaving(true);
+    try {
+      if (userId) {
+        await supabase.from('signup_sources').insert({
+          user_id: userId,
+          source,
+          source_other: sourceOther?.trim().slice(0, 100) || null,
+        });
+      }
+    } catch {
+      /* never block onboarding on analytics */
+    } finally {
+      onDone();
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/5 flex items-center justify-center px-4 py-8">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-foreground">One last thing</h1>
+          <p className="text-sm text-muted-foreground mt-1">How did you hear about Crosssa?</p>
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border p-4 space-y-2">
+          {HEARD_ABOUT_OPTIONS.map(o => (
+            <button
+              key={o.value}
+              type="button"
+              disabled={saving}
+              onClick={() => setSelected(o.value)}
+              className={`w-full flex items-center justify-between rounded-xl border-2 px-4 py-3 text-left text-sm font-medium transition-all disabled:opacity-60 ${
+                selected === o.value
+                  ? 'border-primary bg-primary/5 text-foreground'
+                  : 'border-border text-foreground hover:border-primary/50'
+              }`}
+            >
+              {o.label}
+              {selected === o.value && <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />}
+            </button>
+          ))}
+
+          {selected === 'other' && (
+            <Input
+              value={other}
+              maxLength={100}
+              onChange={e => setOther(e.target.value)}
+              placeholder="Where did you hear about us? (optional)"
+              className="rounded-xl"
+            />
+          )}
+        </div>
+
+        <div className="flex gap-3 mt-4">
+          <Button
+            variant="outline"
+            disabled={saving}
+            onClick={() => save('skipped')}
+            className="flex-1 rounded-xl"
+          >
+            Skip
+          </Button>
+          <Button
+            disabled={saving || !selected}
+            onClick={() => selected && save(selected, selected === 'other' ? other : undefined)}
+            className="flex-1 rounded-xl font-semibold"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Continue'}
+          </Button>
         </div>
       </div>
     </div>
