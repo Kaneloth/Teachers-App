@@ -20,6 +20,7 @@ const NAV_SECTIONS = [
       { path: '/admin/users',        icon: Users,         label: 'Users' },
       { path: '/admin/educators',    icon: GraduationCap, label: 'Educators' },
       { path: '/admin/general-users', icon: User,         label: 'General Users' },
+	  { path: '/admin/acquisition', icon: Megaphone, label: 'Sign-up Sources' },
       { path: '/admin/id-verification', icon: ShieldCheck, label: 'ID Verification' },
     ],
   },
