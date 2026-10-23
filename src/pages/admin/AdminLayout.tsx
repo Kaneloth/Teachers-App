@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Coins, ScrollText, GraduationCap,
   ShieldCheck, Star, SlidersHorizontal, Wrench, Menu, X, ArrowLeft, User, Tag, Bot,
-  Wallet, ArrowUpDown, Ticket,
+  Wallet, ArrowUpDown, Ticket, Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -20,7 +20,7 @@ const NAV_SECTIONS = [
       { path: '/admin/users',        icon: Users,         label: 'Users' },
       { path: '/admin/educators',    icon: GraduationCap, label: 'Educators' },
       { path: '/admin/general-users', icon: User,         label: 'General Users' },
-	  { path: '/admin/acquisition', icon: Megaphone, label: 'Sign-up Sources' },
+      { path: '/admin/acquisition', icon: Megaphone,   label: 'Sign-up Sources' },
       { path: '/admin/id-verification', icon: ShieldCheck, label: 'ID Verification' },
     ],
   },
