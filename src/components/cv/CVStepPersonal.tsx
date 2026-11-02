@@ -25,6 +25,8 @@ interface PersonalData {
   bio: string;
   photo_url?: string;
   id_number?: string;
+  job_title?: string;
+  show_job_title?: boolean;
 }
 
 interface Props {
@@ -103,7 +105,7 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const set = (field: keyof PersonalData, value: string) => onChange({ ...data, [field]: value });
+  const set = (field: keyof PersonalData, value: string | boolean) => onChange({ ...data, [field]: value });
   const summaryEmpty = !(data.bio || '').trim();
 
   const generateSummary = async () => {
@@ -257,6 +259,26 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
         <Label className="text-sm font-medium">Location</Label>
         <AutoGrowTextarea value={data.address} onChange={v => set('address', v)}
           placeholder="e.g. Cape Town, Western Cape" />
+      </div>
+
+      {/* Job title (optional) */}
+      <div className="space-y-2 rounded-xl border border-border p-3">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" className="mt-0.5 w-4 h-4 accent-primary"
+            checked={data.show_job_title !== false}
+            onChange={e => set('show_job_title', e.target.checked)} />
+          <span>
+            <span className="text-sm font-medium text-foreground block">Show a job title under my name</span>
+            <span className="text-xs text-muted-foreground">Turn off if you're not currently employed or don't have a fitting title.</span>
+          </span>
+        </label>
+        {data.show_job_title !== false && (
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Job title <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <Input value={data.job_title ?? ''} onChange={e => set('job_title', e.target.value)}
+              placeholder="Leave blank to use your most recent role, or e.g. Recent Graduate" className="rounded-xl" />
+          </div>
+        )}
       </div>
 
       {/* Professional Summary */}

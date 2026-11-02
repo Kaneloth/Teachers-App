@@ -675,6 +675,14 @@ async function loadCircularPhotoDataUrl(url: string, sizePx = 240): Promise<stri
   }
 }
 
+// Header job title shown under the name. Hidden when the user turned the
+// "show job title" option off; otherwise a custom title wins over the most
+// recent role, then the template's own fallback.
+function headerTitle(pr: any, exp: any[], fallback = ''): string {
+  if (pr?.show_job_title === false) return '';
+  return String(pr?.job_title || exp?.[0]?.role || fallback || '').trim();
+}
+
 export async function exportElementAsPDF(
   _container: HTMLElement,
   filename: string,
@@ -1046,7 +1054,7 @@ function drawBold(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(18);
   p.text(owner.toUpperCase(), textX, 12);
   // Job title below name
-  const jobTitle = (pr.job_title || exp[0]?.role || 'Professional').trim();
+  const jobTitle = (headerTitle(pr, exp, 'Professional')).trim();
   p.setFont(F,'normal'); p.setFontSize(9); tc(p,255,180,210);
   p.text(jobTitle, textX, 18);
   // Divider + contact
@@ -1475,7 +1483,7 @@ function drawShaded(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   tc(p,17,24,39);p.setFont(F,'bold');p.setFontSize(16);const nw=p.getTextWidth(owner.toUpperCase());p.text(owner.toUpperCase(),(PW-nw)/2,MT+8);
   // Job title sits directly under the name (was previously the location —
   // location now lives in the contact row below, alongside phone/email).
-  const shadedJobTitle=(pr.job_title||exp[0]?.role||'').trim();
+  const shadedJobTitle=(headerTitle(pr, exp, '')).trim();
   if(shadedJobTitle){p.setFont(F,'normal');p.setFontSize(8);tc(p,107,114,128);const jw=p.getTextWidth(shadedJobTitle);p.text(shadedJobTitle,(PW-jw)/2,MT+13);}
   hLine(p,ML,MT+16,PW-ML-MR,229,231,235,0.4);
   {
@@ -1585,7 +1593,7 @@ function drawCrimson(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   if (photoUrl) { const PHOTO=14; p.addImage(photoUrl,'PNG',(PW-PHOTO)/2,4,PHOTO,PHOTO); }
   tc(p,255,255,255); p.setFont(F,'bold'); p.setFontSize(18);
   { const nw=p.getTextWidth(owner); p.text(owner, (PW-nw)/2, 11+offset); }
-  const jobTitle = (pr.job_title || exp[0]?.role || 'Professional').trim();
+  const jobTitle = (headerTitle(pr, exp, 'Professional')).trim();
   p.setFont(F,'normal'); p.setFontSize(9); tc(p,255,180,160);
   { const jw=p.getTextWidth(jobTitle); p.text(jobTitle, (PW-jw)/2, 18+offset); }
   hLine(p,0,22+offset,PW,255,255,255,0.25);
@@ -1709,7 +1717,7 @@ function drawSage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   tc(p,26,46,26); p.setFont(F,'bold'); p.setFontSize(16);
   p.text(owner, ML+2, nameY);
 
-  const jobTitle = (pr.job_title || exp[0]?.role || 'Professional').trim();
+  const jobTitle = (headerTitle(pr, exp, 'Professional')).trim();
   const jobTitleY = nameY + HEADER_JOBTITLE_H;
   p.setFont(F,'normal'); p.setFontSize(9.5); tc(p,75,108,75);
   p.text(jobTitle, ML+2, jobTitleY);
@@ -1848,7 +1856,7 @@ function drawElegant(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
 
   // Subtitle = user's chosen job title, falling back to most recent role
   // (users can type "Role A / Role B")
-  const subtitle = (pr.job_title || exp[0]?.role || '').toUpperCase();
+  const subtitle = (headerTitle(pr, exp, '')).toUpperCase();
   if (subtitle) {
     p.setFont('times','normal'); p.setFontSize(9); tc(p,MUTED[0],MUTED[1],MUTED[2]);
     tw = p.getTextWidth(subtitle);
@@ -2054,7 +2062,7 @@ function drawHeritage(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
   p.text(owner, (PW-tw)/2, y);
   y += 7;
 
-  const subtitle = pr.job_title || exp[0]?.role || '';
+  const subtitle = headerTitle(pr, exp, '');
   if (subtitle) {
     p.setFont('times','normal'); p.setFontSize(10); tc(p,MUTED[0],MUTED[1],MUTED[2]);
     tw = p.getTextWidth(subtitle);
@@ -2593,7 +2601,7 @@ function drawSkyline(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   tc(p,ar,ag,ab); p.setFont(F,'bold'); p.setFontSize(12);
   { const nw=p.getTextWidth(owner); p.text(owner, sx+smw/2-Math.min(nw,smw)/2, sy); }
   sy += 5;
-  const jobTitle = (pr.job_title || exp[0]?.role || 'Professional').trim();
+  const jobTitle = (headerTitle(pr, exp, 'Professional')).trim();
   tc(p,107,114,128); p.setFont(F,'normal'); p.setFontSize(8);
   { const jw=p.getTextWidth(jobTitle); p.text(jobTitle, sx+smw/2-Math.min(jw,smw)/2, sy); }
   sy += 10;
@@ -2718,7 +2726,7 @@ function drawAzure(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
   }
   tc(p,DARK[0],DARK[1],DARK[2]); p.setFont(F,'normal'); p.setFontSize(19);
   p.text(owner.toUpperCase(), textX, headerY+9);
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu?'Educator':'Professional')).trim();
+  const jobTitle = (headerTitle(pr, exp, (isEdu?'Educator':'Professional'))).trim();
   p.setFont(F,'normal'); p.setFontSize(9.5); tc(p,107,114,128);
   p.text(jobTitle, textX, headerY+16);
 
@@ -2867,7 +2875,7 @@ function drawDove(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   tc(p,DARK[0],DARK[1],DARK[2]); p.setFont(F,'bold'); p.setFontSize(19);
   p.text(owner.toUpperCase(), textX, bannerCenterY-3);
   p.setFont(F,'bold'); p.setFontSize(10.5); tc(p,ar,ag,ab);
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu?'Educator':'Professional')).trim();
+  const jobTitle = (headerTitle(pr, exp, (isEdu?'Educator':'Professional'))).trim();
   p.text(jobTitle, textX, bannerCenterY+8);
 
   // ── Sidebar content ──
@@ -3004,7 +3012,7 @@ function drawPanel(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
   }
   tc(p,PANEL_INK[0],PANEL_INK[1],PANEL_INK[2]); p.setFont(F,'bold'); p.setFontSize(18);
   p.text(owner, textX, headerY+10);
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu?'Educator':'Professional')).trim();
+  const jobTitle = (headerTitle(pr, exp, (isEdu?'Educator':'Professional'))).trim();
   p.setFont(F,'normal'); p.setFontSize(10); tc(p,75,85,99);
   p.text(jobTitle, textX, headerY+17);
   fill(p,PANEL_INK[0],PANEL_INK[1],PANEL_INK[2]); p.rect(textX, headerY+21, 12, 0.6, 'F');
@@ -3098,7 +3106,7 @@ function drawTerracotta(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custo
   const nameParts = owner.trim().split(' ');
   const firstName = nameParts.length>1 ? nameParts.slice(0,-1).join(' ') : nameParts[0];
   const lastName  = nameParts.length>1 ? nameParts[nameParts.length-1] : '';
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu?'Educator':'Professional')).trim();
+  const jobTitle = (headerTitle(pr, exp, (isEdu?'Educator':'Professional'))).trim();
 
   // ── Contact card (measure its height first so the header-bottom rule
   // can sit below whichever is taller, the card or the name block) ──
@@ -3257,7 +3265,7 @@ function drawMonogram(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs
   }
   reset(p);
 
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu?'Educator':'Professional')).trim();
+  const jobTitle = (headerTitle(pr, exp, (isEdu?'Educator':'Professional'))).trim();
   const nameX = SB+12;
   tc(p,INK[0],INK[1],INK[2]); p.setFont(F,'bold'); p.setFontSize(22);
   const nameLines = p.splitTextToSize(owner, PW-MR-nameX) as string[];
@@ -3414,7 +3422,7 @@ function drawFrame(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:an
   p.text(nameUp, (PW-tw)/2, y);
   y += 9;
 
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu?'Educator':'Professional')).trim();
+  const jobTitle = (headerTitle(pr, exp, (isEdu?'Educator':'Professional'))).trim();
   if (jobTitle) {
     const jt = jobTitle.toUpperCase();
     p.setFont(F,'normal'); p.setFontSize(11); tc(p,MUTED[0],MUTED[1],MUTED[2]);
@@ -3588,7 +3596,7 @@ function drawLedger(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   if (photoUrl) { const D=16; p.addImage(photoUrl,'PNG',ML,y-D+3,D,D); }
   p.setFont(F,'bold'); p.setFontSize(22); tc(p,INK[0],INK[1],INK[2]);
   p.text(owner, nameX0, y);
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu?'Educator':'Professional')).trim();
+  const jobTitle = (headerTitle(pr, exp, (isEdu?'Educator':'Professional'))).trim();
   if (jobTitle) {
     p.setFont(F,'normal'); p.setFontSize(13); tc(p,MUTED[0],MUTED[1],MUTED[2]);
     const tw = p.getTextWidth(jobTitle);
@@ -3770,7 +3778,7 @@ function drawDossier(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:
   // the name line and the contact lines are single, unwrapped lines at
   // fixed offsets — so the shaded rect can be painted before any text is
   // drawn on top of it.
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  const jobTitle = (headerTitle(pr, exp, (isEdu ? 'Educator' : 'Professional'))).trim();
   const contactLines: [string, string][] = [
     [ICON.phone, pr.phone], [ICON.envelope, pr.email], [ICON.mapMarker, pr.address],
   ].filter(([, v]) => !!v) as any;
@@ -4064,7 +4072,7 @@ function drawNoir(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:any
   let ry = bodyTop;
   p.setFont('times', 'bold'); p.setFontSize(25); tc(p, INK[0], INK[1], INK[2]);
   ry = wrapped(p, owner, RX, ry, RW, BOTTOM, npR, GXWR, 9);
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  const jobTitle = (headerTitle(pr, exp, (isEdu ? 'Educator' : 'Professional'))).trim();
   if (jobTitle) {
     p.setFont(F, 'normal'); p.setFontSize(12); tc(p, MUTED[0], MUTED[1], MUTED[2]);
     p.text(jobTitle, RX, ry);
@@ -4187,7 +4195,7 @@ function drawPortfolio(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],custom
   p.setFont(F, 'bold'); p.setFontSize(23); tc(p, INK[0], INK[1], INK[2]);
   p.text(owner.toUpperCase(), ML, y, { charSpace: 1.6 });
   y += 7;
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  const jobTitle = (headerTitle(pr, exp, (isEdu ? 'Educator' : 'Professional'))).trim();
   if (jobTitle) { p.setFont(F, 'normal'); p.setFontSize(12); tc(p, MUTED[0], MUTED[1], MUTED[2]); p.text(jobTitle, ML, y); y += 7; }
   y += 3;
 
@@ -4478,7 +4486,7 @@ function drawMosaic(p:any,pr:any,edu:any[],exp:any[],sk:any,refs:any[],customs:a
   p.setFont(F, 'bold'); p.setFontSize(27); tc(p, RUST[0], RUST[1], RUST[2]);
   ry = wrapped(p, owner, RX, ry + 8, RW, BOTTOM, npR, GXWR, 9);
   reset(p);
-  const jobTitle = (pr.job_title || exp[0]?.role || (isEdu ? 'Educator' : 'Professional')).trim();
+  const jobTitle = (headerTitle(pr, exp, (isEdu ? 'Educator' : 'Professional'))).trim();
   if (jobTitle) {
     p.setFont(F, 'normal'); p.setFontSize(12); tc(p, INK[0], INK[1], INK[2]);
     ry = wrapped(p, jobTitle, RX, ry + 1, RW, BOTTOM, npR, GXWR);

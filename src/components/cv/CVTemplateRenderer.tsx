@@ -18,7 +18,7 @@ interface RefEntry {
 }
 
 interface CVData {
-  personal: { full_name?: string; email?: string; phone?: string; address?: string; bio?: string; photo_url?: string; id_number?: string; job_title?: string };
+  personal: { full_name?: string; email?: string; phone?: string; address?: string; bio?: string; photo_url?: string; id_number?: string; job_title?: string; show_job_title?: boolean };
   education: { institution: string; qualification: string; year: string }[];
   experience: { school: string; role: string; from: string; to: string; description: string }[];
   skills: { subjects?: string[]; soft_skills?: string[]; languages?: string[] };
@@ -135,6 +135,13 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
 }
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
+
+// Header job title; hidden when the user switched "show job title" off.
+function headerTitle(personal: any, validExp: any[], fallback = ''): string {
+  if (personal?.show_job_title === false) return '';
+  return String(personal?.job_title || validExp?.[0]?.role || fallback || '').trim();
+}
+
 function renderDescription(desc: string | undefined, color: string, fontSize = '12px'): React.ReactNode {
   if (!desc) return null;
   const lines = desc.split('\n').map(l => l.trim()).filter(Boolean);
@@ -781,7 +788,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
           {personal.photo_url && <img src={personal.photo_url} alt="Profile" style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', flexShrink: 0 }} />}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: '20px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase' }}>{personal.full_name || 'Your Name'}</div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.75)', marginTop: '4px' }}>{personal.job_title || validExp[0]?.role || 'Professional'}</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.75)', marginTop: '4px' }}>{headerTitle(personal, validExp, 'Professional')}</div>
           </div>
         </div>
         <div style={{ background: accent, padding: '0 32px 16px' }}>
@@ -1416,8 +1423,8 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
         {/* Header */}
         <div style={{ textAlign: 'center', padding: '28px 44px 16px' }}>
           <div style={{ fontSize: '22px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '3px', color: '#111827' }}>{personal.full_name || 'YOUR NAME'}</div>
-          {(personal.job_title || validExp[0]?.role) && (
-            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>{personal.job_title || validExp[0]?.role}</div>
+          {headerTitle(personal, validExp) && (
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>{headerTitle(personal, validExp)}</div>
           )}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '18px', fontSize: '11px', color: '#4b5563', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb', paddingBottom: '8px', flexWrap: 'wrap' }}>
             {personal.address && <span>{ICONS.mapPin} {personal.address}</span>}
@@ -1610,7 +1617,7 @@ function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
         <div style={{ background: crimson, padding: '18px 32px 14px', textAlign: 'center' }}>
           {personal.photo_url && <img src={personal.photo_url} alt="" style={{ width: '52px', height: '52px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', margin: '0 auto 10px', display: 'block' }} />}
           <div style={{ fontSize: '20px', fontWeight: '800', color: '#fff' }}>{personal.full_name || 'Your Name'}</div>
-          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.8)', marginTop: '3px' }}>{personal.job_title || validExp[0]?.role || 'Professional'}</div>
+          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.8)', marginTop: '3px' }}>{headerTitle(personal, validExp, 'Professional')}</div>
         </div>
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.4)' }} />
         {/* Contact strip — centered, icon-based, matches drawCrimson */}
@@ -1671,7 +1678,7 @@ function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '24px', fontWeight: '700', color: '#1a2e1a' }}>{personal.full_name || 'Your Name'}</div>
-              <div style={{ fontSize: '13px', color: '#4b6c4b', marginTop: '2px' }}>{personal.job_title || validExp[0]?.role || 'Professional'}</div>
+              <div style={{ fontSize: '13px', color: '#4b6c4b', marginTop: '2px' }}>{headerTitle(personal, validExp, 'Professional')}</div>
             </div>
             <div style={{ textAlign: 'right', fontSize: '11px', color: '#374151', maxWidth: '260px' }}>
               {personal.email && <div style={{ wordBreak: 'break-word' }}>{ICONS.mail} {personal.email}</div>}
@@ -1771,7 +1778,7 @@ function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ex
   // Subtitle uses the user's chosen job title if set, otherwise falls back
   // to the most recent role — users can type multiple roles separated by
   // "/" (e.g. "ICT Coordinator / Educator").
-  const subtitle = personal.job_title || validExp[0]?.role || '';
+  const subtitle = headerTitle(personal, validExp) || '';
   const contactParts = [
     personal.address,
     personal.phone,
@@ -1933,7 +1940,7 @@ function HeritageHeading({ title }: { title: string }) {
 
 function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, expLabel = 'Work Experience', hidden }: any) {
   const { personal, skills } = data;
-  const subtitle = personal.job_title || validExp[0]?.role || '';
+  const subtitle = headerTitle(personal, validExp) || '';
   const contactParts = [
     personal.address,
     personal.email,
@@ -2546,7 +2553,7 @@ function SkylineTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
               </div>
             )}
             <div style={{ fontSize: '21px', fontWeight: 800, color: accent, marginTop: '16px', lineHeight: '1.2', wordBreak: 'break-word' }}>{personal.full_name || 'Your Name'}</div>
-            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '3px' }}>{personal.job_title || validExp[0]?.role || 'Professional'}</div>
+            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '3px' }}>{headerTitle(personal, validExp, 'Professional')}</div>
           </div>
           <div style={{ position: 'relative', zIndex: 1, padding: '26px 20px 28px' }}>
             {(personal.phone || personal.email || personal.address) && (
@@ -2626,7 +2633,7 @@ function AzureTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
   const accent = '#2f6fad';
   const banner = '#bfe0f5';
   const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
-  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const jobTitle = headerTitle(personal, validExp, 'Professional').trim();
 
   return (
     <div style={{ ...wrapperStyle }}>
@@ -2801,7 +2808,7 @@ function DoveTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
               edge — anchored instead to clear the photo on the right. */}
           <div style={{ position: 'absolute', left: `${PHOTO_L + PHOTO_D + 24}px`, top: `${BANNER_TOP}px`, height: `${BANNER_H}px`, right: '30px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <div style={{ fontSize: '30px', fontWeight: 800, letterSpacing: '1px', color: '#1f2937', wordBreak: 'break-word' }}>{(personal.full_name || 'Your Name').toUpperCase()}</div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: accent, marginTop: '8px' }}>{personal.job_title || validExp[0]?.role || 'Professional'}</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: accent, marginTop: '8px' }}>{headerTitle(personal, validExp, 'Professional')}</div>
           </div>
         </div>
 
@@ -2897,7 +2904,7 @@ function PanelRow({ when, heading, subheading, description }: { when?: string; h
 function PanelTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', expLabel = 'Work Experience', hidden }: any) {
   const { personal, skills } = data;
   const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
-  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const jobTitle = headerTitle(personal, validExp, 'Professional').trim();
 
   return (
     <div style={{ ...wrapperStyle }}>
@@ -3028,7 +3035,7 @@ function TerracottaSkillCol({ label, items, accent }: { label: string; items: st
 function TerracottaTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', expLabel = 'Work Experience', hidden }: any) {
   const { personal, skills } = data;
   const accent = TERRACOTTA_ACCENT;
-  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const jobTitle = headerTitle(personal, validExp, 'Professional').trim();
   const nameParts = (personal.full_name || 'Your Name').trim().split(' ');
   const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
   const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
@@ -3166,7 +3173,7 @@ function MonogramDividerBar() {
 
 function MonogramTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Key Skills', expLabel = 'Work Experience', hidden }: any) {
   const { personal, skills } = data;
-  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const jobTitle = headerTitle(personal, validExp, 'Professional').trim();
   const initials = (personal.full_name || 'Your Name').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
   const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
 
@@ -3328,7 +3335,7 @@ function FrameBulletGrid({ items, cols }: { items: string[]; cols: number }) {
 
 function FrameTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Skills', expLabel = 'Experience', hidden }: any) {
   const { personal, skills } = data;
-  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const jobTitle = headerTitle(personal, validExp, 'Professional').trim();
   const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
   const languages: string[] = skills?.languages || [];
 
@@ -3468,7 +3475,7 @@ function LedgerTwoColBullets({ items }: { items: string[] }) {
 
 function LedgerTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skillsLabel = 'Skills', expLabel = 'Professional Experience', hidden }: any) {
   const { personal, skills } = data;
-  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const jobTitle = headerTitle(personal, validExp, 'Professional').trim();
   const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
   const contactPairs: [string, string][] = [
     ['Phone', personal.phone], ['Address', personal.address], ['Email', personal.email], ['Portfolio', personal.portfolio || personal.website],
@@ -3617,7 +3624,7 @@ function DossierColHeading({ children }: { children: React.ReactNode }) {
 
 function DossierTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hidden }: any) {
   const { personal, skills } = data;
-  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const jobTitle = headerTitle(personal, validExp, 'Professional').trim();
   const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
   const certSection = (data.custom_sections || []).find((s: any) => /certif/i.test(s.title || '') && s.content && !hidden?.has(`custom:${s.title}`));
   const otherCustoms = (data.custom_sections || []).filter((s: any) => s !== certSection && s.title && !hidden?.has(`custom:${s.title}`));
@@ -3793,7 +3800,7 @@ function NoirHeading({ children }: { children: React.ReactNode }) {
 
 function NoirTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hidden }: any) {
   const { personal, skills } = data;
-  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const jobTitle = headerTitle(personal, validExp, 'Professional').trim();
   const otherCustoms = (data.custom_sections || []).filter((s: any) => s.title && !hidden?.has(`custom:${s.title}`));
 
   return (
@@ -4015,7 +4022,7 @@ function PortfolioTemplate({ data, wrapperStyle, validEdu, validExp, watermark, 
       >
         <div style={{ padding: '0 44px' }}>
           <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '3px', color: PORTFOLIO_INK, wordBreak: 'break-word' }}>{(personal.full_name || 'Your Name').toUpperCase()}</div>
-          {(personal.job_title || validExp[0]?.role) && <div style={{ fontSize: '13px', color: PORTFOLIO_MUTED, marginTop: '4px' }}>{personal.job_title || validExp[0]?.role}</div>}
+          {headerTitle(personal, validExp) && <div style={{ fontSize: '13px', color: PORTFOLIO_MUTED, marginTop: '4px' }}>{headerTitle(personal, validExp)}</div>}
         </div>
 
         {contactItems.length > 0 && (
@@ -4192,7 +4199,7 @@ function MosaicLabel({ children }: { children: React.ReactNode }) {
 
 function MosaicTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hidden }: any) {
   const { personal, skills } = data;
-  const jobTitle = (personal.job_title || validExp[0]?.role || 'Professional').trim();
+  const jobTitle = headerTitle(personal, validExp, 'Professional').trim();
   const allSkills = [...(skills?.subjects || []), ...(skills?.soft_skills || [])];
   const achSection = (data.custom_sections || []).find((s: any) => /achiev/i.test(s.title || '') && s.content && !hidden?.has(`custom:${s.title}`));
   const remainingCustoms = (data.custom_sections || []).filter((s: any) => s !== achSection && s.title && !hidden?.has(`custom:${s.title}`));
