@@ -97,9 +97,9 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
 
   // Major subjects (e.g. a matric's Mathematics, Physical Sciences) show as a
   // line directly beneath their qualification.
-  const validEdu = (data.education || []).filter(e => e.institution).flatMap(e => {
+  const validEdu: any[] = (data.education || []).filter(e => e.institution).flatMap((e): any[] => {
     const s = String(e.subjects || '').trim();
-    return s ? [e, { institution: '', qualification: 'Major subjects: ' + s, year: '' }] : [e];
+    return s ? [e, { institution: '', qualification: 'Major subjects: ' + s, year: '', __sub: true }] : [e];
   });
   const validExp = (data.experience || []).filter(e => e.school);
   // For general users, 'subjects' holds Key Skills — don't label them as educator subjects
@@ -140,6 +140,12 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
 }
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
+
+// Subjects line under a qualification: small, muted, regular weight.
+function renderQual(e: any): any {
+  if (!e.__sub) return e.qualification;
+  return <span style={{ display: 'block', fontWeight: 400, fontSize: '11px', color: '#6b7280', textTransform: 'none', fontStyle: 'normal', letterSpacing: 'normal', marginTop: '-2px' }}>{e.qualification}</span>;
+}
 
 // Header job title; hidden when the user switched "show job title" off.
 function headerTitle(personal: any, validExp: any[], fallback = ''): string {
@@ -448,7 +454,7 @@ function ClassicTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
           {validEdu.length > 0 && <Section title="Education" color="#1e2a3a" icon={ICONS.graduation}>
             {validEdu.map((e: any, i: number) => (
               <div key={i} style={{ marginBottom: '12px' }}>
-                <div style={{ fontWeight: '600', color: '#111827', wordBreak: 'break-word' }}>{e.qualification}</div>
+                <div style={{ fontWeight: '600', color: '#111827', wordBreak: 'break-word' }}>{renderQual(e)}</div>
                 <div style={{ color: '#6b7280', fontSize: '12px', wordBreak: 'break-word' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
               </div>
             ))}
@@ -524,7 +530,7 @@ function ModernTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
             {validEdu.length > 0 && <Section title="Education" color="#0d9488" icon={ICONS.graduation}>
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '12px' }}>
-                  <div style={{ fontWeight: '600', color: '#111827' }}>{e.qualification}</div>
+                  <div style={{ fontWeight: '600', color: '#111827' }}>{renderQual(e)}</div>
                   <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
                 </div>
               ))}
@@ -589,7 +595,7 @@ function ProfessionalTemplate({ data, wrapperStyle, validEdu, validExp, watermar
               {validEdu.length > 0 && <Section title="Education" color="#1e4d2b" borderColor="#2d7a47" icon={ICONS.graduation}>
                 {validEdu.map((e: any, i: number) => (
                   <div key={i} style={{ marginBottom: '12px' }}>
-                    <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.qualification}</div>
+                    <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{renderQual(e)}</div>
                     <div style={{ color: '#2d7a47', fontSize: '12px' }}>{e.institution}</div>
                     {e.year && <div style={{ color: '#6b7280', fontSize: '11px' }}>{e.year}</div>}
                   </div>
@@ -658,7 +664,7 @@ function MinimalTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
               <div key={i} style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
                 <div style={{ width: '90px', flexShrink: 0, fontSize: '11px', color: '#9ca3af', paddingTop: '2px' }}>{e.year || ''}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: '600', color: '#111827', fontSize: '13px', wordBreak: 'break-word' }}>{e.qualification}</div>
+                  <div style={{ fontWeight: '600', color: '#111827', fontSize: '13px', wordBreak: 'break-word' }}>{renderQual(e)}</div>
                   <div style={{ color: '#6b7280', fontSize: '12px', wordBreak: 'break-word' }}>{e.institution}</div>
                 </div>
               </div>
@@ -726,7 +732,7 @@ function SidebarTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
             {validEdu.length > 0 && <Section title="Education" color={sideColor} icon={ICONS.graduation}>
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '12px' }}>
-                  <div style={{ fontWeight: '600', color: '#111827' }}>{e.qualification}</div>
+                  <div style={{ fontWeight: '600', color: '#111827' }}>{renderQual(e)}</div>
                   <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
                 </div>
               ))}
@@ -826,7 +832,7 @@ function BoldTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
           {validEdu.length > 0 && <TagUnderlineSection title="Education" color={accent} icon={ICONS.graduation}>
             {validEdu.map((e: any, i: number) => (
               <div key={i} style={{ marginBottom: '10px' }}>
-                <div style={{ fontWeight: '600', color: '#111827', fontSize: '12.5px', wordBreak: 'break-word' }}>{e.qualification}</div>
+                <div style={{ fontWeight: '600', color: '#111827', fontSize: '12.5px', wordBreak: 'break-word' }}>{renderQual(e)}</div>
                 <div style={{ color: '#6b7280', fontSize: '11px', wordBreak: 'break-word' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
               </div>
             ))}
@@ -898,7 +904,7 @@ function ExecutiveTemplate({ data, wrapperStyle, validEdu, validExp, watermark, 
               {validEdu.length > 0 && <Section title="Education" color={accent} icon={ICONS.graduation} titleStyle={{ fontStyle: "italic", letterSpacing: "1px" }}>
                 {validEdu.map((e: any, i: number) => (
                   <div key={i} style={{ marginBottom: '12px' }}>
-                    <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{e.qualification}</div>
+                    <div style={{ fontWeight: '700', color: '#111827', fontSize: '13px' }}>{renderQual(e)}</div>
                     <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
                   </div>
                 ))}
@@ -972,7 +978,7 @@ function CorporateTemplate({ data, wrapperStyle, validEdu, validExp, watermark, 
             {validEdu.length > 0 && <Section title="Education" color={navy} icon={ICONS.graduation}>
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '12px' }}>
-                  <div style={{ fontWeight: '600', color: '#111827' }}>{e.qualification}</div>
+                  <div style={{ fontWeight: '600', color: '#111827' }}>{renderQual(e)}</div>
                   <div style={{ color: '#6b7280', fontSize: '12px' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
                 </div>
               ))}
@@ -1042,7 +1048,7 @@ function StylishTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
                   <div key={i} style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
                     <div style={{ width: '100px', flexShrink: 0, fontSize: '10px', color: accent }}>{e.year}</div>
                     <div style={{ flex: 1, borderLeft: `2px solid #f3f4f6`, paddingLeft: '14px' }}>
-                      <div style={{ fontWeight: '600', fontSize: '12px', color: '#111827' }}>{e.qualification}</div>
+                      <div style={{ fontWeight: '600', fontSize: '12px', color: '#111827' }}>{renderQual(e)}</div>
                       <div style={{ fontSize: '11px', color: '#6b7280' }}>{e.institution}</div>
                     </div>
                   </div>
@@ -1143,7 +1149,7 @@ function BoxedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
               <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', borderBottom: '1px solid #374151', paddingBottom: '4px', marginBottom: '12px', color: '#374151' }}>EDUCATION</div>
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '12px' }}>
-                  <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{e.qualification}</div>
+                  <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{renderQual(e)}</div>
                   <div style={{ fontSize: '11px', color: '#6b7280' }}>{e.institution}{e.year ? ` · ${e.year}` : ''}</div>
                 </div>
               ))}
@@ -1210,7 +1216,7 @@ function TraditionalTemplate({ data, wrapperStyle, validEdu, validExp, watermark
               <div key={i} style={{ display: 'flex', gap: '20px', marginBottom: '14px' }}>
                 <div style={{ width: '110px', flexShrink: 0, fontSize: '10px', color: '#6b7280' }}>{e.year}</div>
                 <div style={{ flex: 1, minWidth: 0, borderLeft: '1px solid #e5e7eb', paddingLeft: '16px' }}>
-                  <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827', wordBreak: 'break-word' }}>{e.qualification}</div>
+                  <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827', wordBreak: 'break-word' }}>{renderQual(e)}</div>
                   <div style={{ fontSize: '11px', color: '#6b7280', wordBreak: 'break-word' }}>{e.institution}</div>
                 </div>
               </div>
@@ -1276,7 +1282,7 @@ function NavyTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
               <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', marginBottom: '12px' }}>Education</div>
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '14px' }}>
-                  <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{e.qualification}</div>
+                  <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{renderQual(e)}</div>
                   <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: '#9ca3af', margin: '2px 0' }}>{[e.institution, e.year].filter(Boolean).join(' · ')}</div>
                 </div>
               ))}
@@ -1403,7 +1409,7 @@ function TimelineTemplate({ data, wrapperStyle, validEdu, validExp, watermark, s
                 <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
                   <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#d1d5db', flexShrink: 0, marginTop: '3px' }} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{e.qualification}</div>
+                    <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{renderQual(e)}</div>
                     <div style={{ fontSize: '10px', color: '#9ca3af', margin: '2px 0' }}>{[e.institution, e.year].filter(Boolean).join(' · ')}</div>
                   </div>
                 </div>
@@ -1481,7 +1487,7 @@ function ShadedTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
                   }}>{i + 1}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', columnGap: '10px' }}>
-                      <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827', wordBreak: 'break-word' }}>{e.qualification}</div>
+                      <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827', wordBreak: 'break-word' }}>{renderQual(e)}</div>
                       <div style={{ fontSize: '10px', color: '#9ca3af', whiteSpace: 'nowrap' }}>{e.year}</div>
                     </div>
                     <div style={{ fontSize: '11px', color: '#6b7280', fontStyle: 'italic', wordBreak: 'break-word' }}>{e.institution}</div>
@@ -1589,7 +1595,7 @@ function TealTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
                 <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', marginBottom: '12px' }}>Education</div>
                 {validEdu.map((e: any, i: number) => (
                   <div key={i} style={{ marginBottom: '12px' }}>
-                    <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{e.qualification}</div>
+                    <div style={{ fontWeight: '700', fontSize: '13px', color: '#111827' }}>{renderQual(e)}</div>
                     <div style={{ fontSize: '11px', color: '#6b7280' }}>{[e.institution, e.year].filter(Boolean).join(' · ')}</div>
                   </div>
                 ))}
@@ -1651,7 +1657,7 @@ function CrimsonTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
           {validEdu.length > 0 && <TagUnderlineSection title="Education" color={crimson} icon={ICONS.graduation}>
             {validEdu.map((e: any, i: number) => (
               <div key={i} style={{ marginBottom: '10px' }}>
-                <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#111827', wordBreak: 'break-word' }}>{e.qualification}</div>
+                <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#111827', wordBreak: 'break-word' }}>{renderQual(e)}</div>
                 <div style={{ fontSize: '11px', color: '#6b7280', wordBreak: 'break-word' }}>{[e.institution, e.year].filter(Boolean).join(' · ')}</div>
               </div>
             ))}
@@ -1718,7 +1724,7 @@ function SageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
               <div style={{ fontSize: '18px', fontWeight: '700', color: sage, marginBottom: '12px' }}>Education</div>
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '12px' }}>
-                  <div style={{ fontSize: '13px', color: sage, wordBreak: 'break-word' }}>{e.qualification}</div>
+                  <div style={{ fontSize: '13px', color: sage, wordBreak: 'break-word' }}>{renderQual(e)}</div>
                   <div style={{ fontSize: '11px', color: '#6b7280', wordBreak: 'break-word' }}>{[e.institution, e.year].filter(Boolean).join(' · ')}</div>
                 </div>
               ))}
@@ -1872,7 +1878,7 @@ function ElegantTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ex
             <ElegantHeading title="Education" />
             {validEdu.map((e: any, i: number) => (
               <div key={i} style={{ textAlign: 'center', fontSize: '12px', marginBottom: '8px', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', columnGap: '6px', rowGap: '2px' }}>
-                <span style={{ fontWeight: 700, color: ELEGANT_INK, wordBreak: 'break-word' }}>{e.qualification}</span>
+                <span style={{ fontWeight: 700, color: ELEGANT_INK, wordBreak: 'break-word' }}>{renderQual(e)}</span>
                 {e.institution && <><span style={{ color: ELEGANT_LINE }}>|</span><span style={{ color: ELEGANT_MUTED, wordBreak: 'break-word' }}>{e.institution}</span></>}
                 {e.year && <><span style={{ color: ELEGANT_LINE }}>|</span><span style={{ color: ELEGANT_MUTED }}>{e.year}</span></>}
               </div>
@@ -2041,7 +2047,7 @@ function HeritageTemplate({ data, wrapperStyle, validEdu, validExp, watermark, e
             {validEdu.map((e: any, i: number) => (
               <div key={i} style={{ marginBottom: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', color: HERITAGE_INK, wordBreak: 'break-word' }}>{e.qualification}</span>
+                  <span style={{ fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', color: HERITAGE_INK, wordBreak: 'break-word' }}>{renderQual(e)}</span>
                   {e.year && <span style={{ fontWeight: 700, fontSize: '11px', color: HERITAGE_INK, whiteSpace: 'nowrap' }}>{e.year}</span>}
                 </div>
                 {e.institution && <div style={{ fontSize: '11px', color: HERITAGE_MUTED, marginTop: '2px', wordBreak: 'break-word' }}>{e.institution}</div>}
@@ -2253,7 +2259,7 @@ function PlayfulTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
                     {validEdu.map((e: any, i: number) => (
                       <div key={i} style={{ marginBottom: '16px' }}>
                         <div style={{ fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px', color: PL_INK }}>
-                          {e.qualification}
+                          {renderQual(e)}
                         </div>
                         {(e.institution || e.year) && (
                           <div style={{ fontSize: '10.5px', textTransform: 'uppercase', color: PL_MUTED, letterSpacing: '0.3px', marginBottom: '2px' }}>
@@ -2419,7 +2425,7 @@ function CasualTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: '16px' }}>
                   <div style={{ fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.5px', color: PL_INK, wordBreak: 'break-word' }}>
-                    {e.qualification}
+                    {renderQual(e)}
                   </div>
                   {(e.institution || e.year) && (
                     <div style={{ fontSize: '10.5px', textTransform: 'uppercase', color: PL_MUTED, letterSpacing: '0.3px', marginBottom: '2px' }}>
@@ -2596,7 +2602,7 @@ function SkylineTemplate({ data, wrapperStyle, validEdu, validExp, watermark, sk
               {validEdu.map((e: any, i: number) => (
                 <SkylineTimelineItem key={i} accent={accent}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', columnGap: '10px' }}>
-                    <div style={{ fontWeight: 700, color: '#111827', fontSize: '13px', wordBreak: 'break-word' }}>{e.qualification}</div>
+                    <div style={{ fontWeight: 700, color: '#111827', fontSize: '13px', wordBreak: 'break-word' }}>{renderQual(e)}</div>
                     {e.year && <div style={{ fontSize: '11px', color: '#9ca3af', whiteSpace: 'nowrap' }}>{e.year}</div>}
                   </div>
                   <div style={{ fontSize: '12px', color: accent, fontStyle: 'italic', wordBreak: 'break-word' }}>{e.institution}</div>
@@ -2694,7 +2700,7 @@ function AzureTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
                 {validEdu.map((e: any, i: number) => (
                   <div key={i} style={{ marginBottom: '14px' }}>
                     {e.year && <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#374151' }}>{e.year}</div>}
-                    <div style={{ fontWeight: 700, color: '#111827', fontSize: '12px', wordBreak: 'break-word' }}>{e.qualification}</div>
+                    <div style={{ fontWeight: 700, color: '#111827', fontSize: '12px', wordBreak: 'break-word' }}>{renderQual(e)}</div>
                     <div style={{ fontSize: '11px', color: '#6b7280', wordBreak: 'break-word' }}>{e.institution}</div>
                   </div>
                 ))}
@@ -2835,7 +2841,7 @@ function DoveTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skill
                 <DoveSidebarLabel title="Education">
                   {validEdu.map((e: any, i: number) => (
                     <div key={i} style={{ marginBottom: '14px' }}>
-                      <div style={{ fontSize: '12px', color: '#1f2937', wordBreak: 'break-word' }}>{e.qualification}</div>
+                      <div style={{ fontSize: '12px', color: '#1f2937', wordBreak: 'break-word' }}>{renderQual(e)}</div>
                       <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', wordBreak: 'break-word' }}>{e.institution}</div>
                       {e.year && <div style={{ fontSize: '11px', color: '#4b5563', marginTop: '2px' }}>{e.year}</div>}
                     </div>
@@ -2960,7 +2966,7 @@ function PanelTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
             <PanelBand title="Education" />
             <div style={{ padding: '18px 40px 4px' }}>
               {validEdu.map((e: any, i: number) => (
-                <PanelRow key={i} when={e.year} heading={e.institution} subheading={e.qualification} description={undefined} />
+                <PanelRow key={i} when={e.year} heading={e.institution} subheading={renderQual(e)} description={undefined} />
               ))}
             </div>
           </>
@@ -3115,7 +3121,7 @@ function TerracottaTemplate({ data, wrapperStyle, validEdu, validExp, watermark,
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '14px' : 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                    <span style={{ fontWeight: 700, fontSize: '12.5px', color: TERRACOTTA_INK, wordBreak: 'break-word' }}>{e.qualification}</span>
+                    <span style={{ fontWeight: 700, fontSize: '12.5px', color: TERRACOTTA_INK, wordBreak: 'break-word' }}>{renderQual(e)}</span>
                     {e.year && <span style={{ fontSize: '11px', color: accent, fontWeight: 600, whiteSpace: 'nowrap' }}>{e.year}</span>}
                   </div>
                   <div style={{ fontSize: '11.5px', color: '#4b5563', marginTop: '2px', wordBreak: 'break-word' }}>{e.institution}</div>
@@ -3245,7 +3251,7 @@ function MonogramTemplate({ data, wrapperStyle, validEdu, validExp, watermark, s
                   <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '14px' : 0 }}>
                     <div style={{ fontSize: '11.5px', fontWeight: 700, color: MONOGRAM_INK, textTransform: 'uppercase', wordBreak: 'break-word' }}>{e.institution}</div>
                     {e.year && <div style={{ fontSize: '11px', fontWeight: 700, color: MONOGRAM_INK, marginTop: '2px' }}>{e.year}</div>}
-                    <div style={{ fontSize: '11.5px', color: '#4b5563', marginTop: '2px', wordBreak: 'break-word' }}>{e.qualification}</div>
+                    <div style={{ fontSize: '11.5px', color: '#4b5563', marginTop: '2px', wordBreak: 'break-word' }}>{renderQual(e)}</div>
                   </div>
                 ))}
               </MonogramLabel>
@@ -3390,7 +3396,7 @@ function FrameTemplate({ data, wrapperStyle, validEdu, validExp, watermark, skil
           {validEdu.length > 0 && (
             <TagUnderlineSection title="Education" color={FRAME_INK}>
               {validEdu.map((e: any, i: number) => (
-                <FrameDateRow key={i} dateText={e.year} sub={e.institution} heading={e.qualification} />
+                <FrameDateRow key={i} dateText={e.year} sub={e.institution} heading={renderQual(e)} />
               ))}
             </TagUnderlineSection>
           )}
@@ -3542,7 +3548,7 @@ function LedgerTemplate({ data, wrapperStyle, validEdu, validExp, watermark, ski
                 <div style={{ fontSize: '13px', fontWeight: 700, color: LEDGER_INK, wordBreak: 'break-word' }}>
                   {e.institution}{e.year ? ` | ${e.year}` : ''}
                 </div>
-                {e.qualification && <div style={{ fontSize: '12px', color: LEDGER_MUTED, marginTop: '2px', wordBreak: 'break-word' }}>{e.qualification}</div>}
+                {e.qualification && <div style={{ fontSize: '12px', color: LEDGER_MUTED, marginTop: '2px', wordBreak: 'break-word' }}>{renderQual(e)}</div>}
               </div>
             ))}
           </LedgerSection>
@@ -3685,7 +3691,7 @@ function DossierTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hi
                 {validEdu.map((e: any, i: number) => (
                   <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '12px' : 0 }}>
                     <div style={{ fontSize: '11.5px', fontWeight: 700, color: DOSSIER_INK, wordBreak: 'break-word' }}>{e.institution}</div>
-                    {e.qualification && <div style={{ fontSize: '11px', color: DOSSIER_BODY, marginTop: '1px', wordBreak: 'break-word' }}>{e.qualification}</div>}
+                    {e.qualification && <div style={{ fontSize: '11px', color: DOSSIER_BODY, marginTop: '1px', wordBreak: 'break-word' }}>{renderQual(e)}</div>}
                     {e.year && <div style={{ fontSize: '10px', fontStyle: 'italic', color: DOSSIER_MUTED, marginTop: '1px' }}>{e.year}</div>}
                   </div>
                 ))}
@@ -3886,7 +3892,7 @@ function NoirTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hidde
                   return (
                     <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '12px' : 0 }}>
                       {ds && <div style={{ fontSize: '10.5px', fontWeight: 700, color: NOIR_MUTED, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{ds}</div>}
-                      <div style={{ fontSize: '12.5px', fontWeight: 700, color: NOIR_INK, marginTop: '2px', wordBreak: 'break-word' }}>{e.qualification}</div>
+                      <div style={{ fontSize: '12.5px', fontWeight: 700, color: NOIR_INK, marginTop: '2px', wordBreak: 'break-word' }}>{renderQual(e)}</div>
                     </div>
                   );
                 })}
@@ -4058,7 +4064,7 @@ function PortfolioTemplate({ data, wrapperStyle, validEdu, validExp, watermark, 
               {validEdu.map((e: any, i: number) => (
                 <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '10px' : 0 }}>
                   <PortfolioDateRow title={e.institution} date={e.year} />
-                  {e.qualification && <div style={{ fontSize: '11px', color: PORTFOLIO_BODY, marginTop: '2px' }}>{e.qualification}</div>}
+                  {e.qualification && <div style={{ fontSize: '11px', color: PORTFOLIO_BODY, marginTop: '2px' }}>{renderQual(e)}</div>}
                 </div>
               ))}
             </div>
@@ -4251,7 +4257,7 @@ function MosaicTemplate({ data, wrapperStyle, validEdu, validExp, watermark, hid
                 <MosaicLabel>Education</MosaicLabel>
                 {validEdu.map((e: any, i: number) => (
                   <div key={i} style={{ marginBottom: i < validEdu.length - 1 ? '14px' : 0 }}>
-                    {e.qualification && <div style={{ fontSize: '11.5px', fontWeight: 700, color: MOSAIC_INK, wordBreak: 'break-word' }}>{e.qualification}</div>}
+                    {e.qualification && <div style={{ fontSize: '11.5px', fontWeight: 700, color: MOSAIC_INK, wordBreak: 'break-word' }}>{renderQual(e)}</div>}
                     {e.year && <div style={{ fontSize: '10px', fontWeight: 700, color: MOSAIC_MUTED, marginTop: '2px' }}>{e.year}</div>}
                     {e.institution && (
                       <div style={{ display: 'flex', gap: '6px', fontSize: '10.5px', color: MOSAIC_BODY, marginTop: '3px' }}>

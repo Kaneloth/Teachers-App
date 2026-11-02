@@ -686,12 +686,36 @@ function headerTitle(pr: any, exp: any[], fallback = ''): string {
 // A matric/school-leaver can list major subjects on an education entry.
 // Rendered as a line directly beneath that entry (a lightweight extra entry
 // with only a heading), which every template already knows how to lay out.
+// Lines beginning with SUBJ_MARK are drawn as a small, muted, regular-weight
+// sub-line (see installSubjectStyle) so subjects read as part of the
+// qualification above them rather than as another qualification.
+const SUBJ_MARK = '\u00A6';
+function installSubjectStyle(pdf: any) {
+  const origText = pdf.text.bind(pdf);
+  const origSplit = pdf.splitTextToSize.bind(pdf);
+  pdf.splitTextToSize = (t: any, w: number, o?: any) => {
+    if (typeof t === 'string' && t.startsWith(SUBJ_MARK)) {
+      return (origSplit(t.slice(1), w, o) as string[]).map(l => SUBJ_MARK + l);
+    }
+    return origSplit(t, w, o);
+  };
+  pdf.text = (t: any, x: any, y: any, ...rest: any[]) => {
+    const isMarked = (v: any) => typeof v === 'string' && v.startsWith(SUBJ_MARK);
+    if (!(isMarked(t) || (Array.isArray(t) && t.some(isMarked)))) return origText(t, x, y, ...rest);
+    const font = pdf.getFont(), size = pdf.getFontSize(), color = pdf.getTextColor();
+    const strip = (v: any) => (isMarked(v) ? v.slice(1) : v);
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5); pdf.setTextColor(107, 114, 128);
+    const r = origText(Array.isArray(t) ? t.map(strip) : strip(t), x, y, ...rest);
+    pdf.setFont(font.fontName, font.fontStyle); pdf.setFontSize(size); pdf.setTextColor(color);
+    return r;
+  };
+}
 function withEduSubjects(list: any[]): any[] {
   const out: any[] = [];
   for (const e of list) {
     out.push(e);
     const s = String(e?.subjects || '').trim();
-    if (s) out.push({ institution: '', qualification: 'Major subjects: ' + s, year: '' });
+    if (s) out.push({ institution: '', qualification: SUBJ_MARK + 'Major subjects: ' + s, year: '' });
   }
   return out;
 }
@@ -753,6 +777,7 @@ export async function exportElementAsPDF(
   } as any);
   reset(pdf);
   ensureIconFont(pdf);
+  installSubjectStyle(pdf);
 
   const dispatch: Record<string, ()=>void> = {
     classic:      ()=>drawClassic(pdf,pr,edu,exp,sk,refs,customs,wm,owner,isEdu,photoDataUrl),
