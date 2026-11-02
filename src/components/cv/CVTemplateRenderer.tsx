@@ -19,7 +19,7 @@ interface RefEntry {
 
 interface CVData {
   personal: { full_name?: string; email?: string; phone?: string; address?: string; bio?: string; photo_url?: string; id_number?: string; job_title?: string; show_job_title?: boolean };
-  education: { institution: string; qualification: string; year: string }[];
+  education: { institution: string; qualification: string; year: string; subjects?: string }[];
   experience: { school: string; role: string; from: string; to: string; description: string }[];
   skills: { subjects?: string[]; soft_skills?: string[]; languages?: string[] };
   references?: RefEntry[];
@@ -95,7 +95,12 @@ export default function CVTemplateRenderer({ data, forExport = false, watermark 
     ? { width: '794px', fontFamily: templateFont, fontSize: '13px', background: '#fff' }
     : { width: '100%', fontFamily: templateFont, fontSize: '13px', background: '#fff', boxShadow: '0 2px 16px rgba(0,0,0,0.10)', borderRadius: '4px', overflow: 'hidden' };
 
-  const validEdu = (data.education || []).filter(e => e.institution);
+  // Major subjects (e.g. a matric's Mathematics, Physical Sciences) show as a
+  // line directly beneath their qualification.
+  const validEdu = (data.education || []).filter(e => e.institution).flatMap(e => {
+    const s = String(e.subjects || '').trim();
+    return s ? [e, { institution: '', qualification: 'Major subjects: ' + s, year: '' }] : [e];
+  });
   const validExp = (data.experience || []).filter(e => e.school);
   // For general users, 'subjects' holds Key Skills — don't label them as educator subjects
   const isEducatorCV = cvType === 'educator' || cvType === undefined;

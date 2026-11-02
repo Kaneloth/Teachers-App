@@ -683,6 +683,19 @@ function headerTitle(pr: any, exp: any[], fallback = ''): string {
   return String(pr?.job_title || exp?.[0]?.role || fallback || '').trim();
 }
 
+// A matric/school-leaver can list major subjects on an education entry.
+// Rendered as a line directly beneath that entry (a lightweight extra entry
+// with only a heading), which every template already knows how to lay out.
+function withEduSubjects(list: any[]): any[] {
+  const out: any[] = [];
+  for (const e of list) {
+    out.push(e);
+    const s = String(e?.subjects || '').trim();
+    if (s) out.push({ institution: '', qualification: 'Major subjects: ' + s, year: '' });
+  }
+  return out;
+}
+
 export async function exportElementAsPDF(
   _container: HTMLElement,
   filename: string,
@@ -691,7 +704,7 @@ export async function exportElementAsPDF(
   if (!cvData) throw new Error('cvData required');
   const data    = cvData as any;
   const pr      = data.personal      || {};
-  const edu     = (data.education    || []).filter((e:any)=>e.institution);
+  const edu     = withEduSubjects((data.education    || []).filter((e:any)=>e.institution));
   const exp     = (data.experience   || []).filter((e:any)=>e.school);
   const hiddenSections = new Set<string>(data.hidden_sections || []);
   // sk and refs are each a single shared variable passed to EVERY draw

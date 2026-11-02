@@ -4,11 +4,11 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 
-interface EduEntry { institution: string; qualification: string; year: string }
+interface EduEntry { institution: string; qualification: string; year: string; subjects?: string }
 interface Props { data: EduEntry[]; onChange: (d: EduEntry[]) => void }
 
 export default function CVStepEducation({ data, onChange }: Props) {
-  const add = () => onChange([...data, { institution: '', qualification: '', year: '' }]);
+  const add = () => onChange([...data, { institution: '', qualification: '', year: '', subjects: '' }]);
   const remove = (i: number) => onChange(data.filter((_, idx) => idx !== i));
   const set = (i: number, field: keyof EduEntry, value: string) => {
     const updated = [...data];
@@ -26,6 +26,7 @@ export default function CVStepEducation({ data, onChange }: Props) {
           </div>
           <Field label="Institution"><AutoGrowTextarea value={entry.institution} onChange={v => set(i, 'institution', v)} placeholder="e.g. UNISA" /></Field>
           <Field label="Qualification"><AutoGrowTextarea value={entry.qualification} onChange={v => set(i, 'qualification', v)} placeholder="e.g. B.Ed (FET)" /></Field>
+          <Field label="Major Courses / Subjects (optional)"><AutoGrowTextarea value={entry.subjects ?? ''} onChange={v => set(i, 'subjects', v)} placeholder="e.g. Mathematics, Physical Sciences, Accounting" /></Field>
           <Field label="Year Completed"><Input value={entry.year} onChange={e => set(i, 'year', e.target.value)} placeholder="e.g. 2018" className="rounded-xl" /></Field>
         </div>
       ))}

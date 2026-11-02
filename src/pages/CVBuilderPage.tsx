@@ -40,7 +40,7 @@ interface CVData {
     photo_url?: string; id_number?: string; job_title?: string; show_job_title?: boolean;
     gender?: string; population_group?: string; citizenship?: string; drivers_licence?: string[];
   };
-  education: { institution: string; qualification: string; year: string }[];
+  education: { institution: string; qualification: string; year: string; subjects?: string }[];
   experience: { school: string; role: string; from: string; to: string; description: string }[];
   skills: { subjects: string[]; soft_skills: string[]; languages: string[] };
   references: RefEntry[];
@@ -52,7 +52,7 @@ function defaultData(): CVData {
   return {
     cvType: 'general',
     personal: { full_name: '', email: '', phone: '', address: '', bio: '', id_number: '', job_title: '', gender: '', population_group: '', citizenship: '', drivers_licence: [] },
-    education: [{ institution: '', qualification: '', year: '' }],
+    education: [{ institution: '', qualification: '', year: '', subjects: '' }],
     experience: [{ school: '', role: '', from: '', to: '', description: '' }],
     skills: { subjects: [], soft_skills: [], languages: [] },
     references: [
