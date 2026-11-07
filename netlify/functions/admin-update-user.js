@@ -45,11 +45,25 @@ export const handler = async (event) => {
     if (!['active', 'suspended', 'banned'].includes(account_status)) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Invalid account_status' }) };
     }
+    if (target_user_id === adminUser.id && account_status !== 'active') {
+      return { statusCode: 400, body: JSON.stringify({ error: 'You cannot suspend or ban your own account' }) };
+    }
+    // A deleted (anonymised) account must stay disabled.
+    const { data: delRow } = await supabase.from('profiles').select('deleted_at').eq('id', target_user_id).maybeSingle();
+    if (delRow?.deleted_at) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'This user has been deleted and cannot be reactivated' }) };
+    }
     const { error } = await supabase
       .from('educators')
       .update({ account_status })
       .eq('user_id', target_user_id);
     if (error) return { statusCode: 500, body: JSON.stringify({ error: `account_status: ${error.message}` }) };
+    // Actually block sign-in (and session refresh) — the educators column
+    // alone doesn't stop anyone from logging in.
+    const { error: banErr } = await supabase.auth.admin.updateUserById(target_user_id, {
+      ban_duration: account_status === 'active' ? 'none' : '876000h',
+    });
+    if (banErr) return { statusCode: 500, body: JSON.stringify({ error: `login block: ${banErr.message}` }) };
     results.account_status = account_status;
   }
 

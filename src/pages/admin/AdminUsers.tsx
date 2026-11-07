@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import {
   Search, ChevronRight, Crown, X, User, CheckCircle, UserX, Ban,
-  ShieldCheck, FileText, Coins, Save, Loader2, Plus, Minus,
+  ShieldCheck, FileText, Coins, Save, Loader2, Plus, Minus, KeyRound, Trash2, UserPlus, Copy,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -59,11 +59,24 @@ interface CreditInfo {
   transactions: { id: string; created_at: string; type: string; amount: number; description: string | null }[];
 }
 
+async function callUserManage(payload: Record<string, unknown>) {
+  const { data: { session: s } } = await supabase.auth.getSession();
+  if (!s?.access_token) throw new Error('Not signed in');
+  const res = await fetch('/.netlify/functions/admin-user-manage', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.access_token}` },
+    body: JSON.stringify(payload),
+  });
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok || !result.success) throw new Error(result.error || 'Request failed');
+  return result;
+}
+
 const typeLabel = (t: string) => t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
 /* ── Edit user modal ─────────────────────────────────────────── */
 
-function EditUserModal({ user, onClose, onSaved, onBalanceChanged }: { user: AdminUser; onClose: () => void; onSaved: (u: AdminUser) => void; onBalanceChanged: (userId: string, newBalance: number) => void }) {
+function EditUserModal({ user, onClose, onSaved, onBalanceChanged, onDeleted }: { user: AdminUser; onClose: () => void; onSaved: (u: AdminUser) => void; onBalanceChanged: (userId: string, newBalance: number) => void; onDeleted: (userId: string) => void }) {
   const { session } = useAuth();
   const navigate = useNavigate();
   const [accountStatus,     setAccountStatus]     = useState(user.account_status || 'active');
@@ -127,6 +140,47 @@ function EditUserModal({ user, onClose, onSaved, onBalanceChanged }: { user: Adm
 
   const [saving,    setSaving]    = useState(false);
   const [verifying, setVerifying] = useState(false);
+
+  // Account actions: generated password + delete
+  const isDeleted = !!user.deleted_at;
+  const [genPassword,  setGenPassword]  = useState<string | null>(null);
+  const [generating,   setGenerating]   = useState(false);
+  const [showDelete,   setShowDelete]   = useState(false);
+  const [deleteEmail,  setDeleteEmail]  = useState('');
+  const [deleting,     setDeleting]     = useState(false);
+
+  const handleGeneratePassword = async () => {
+    if (!window.confirm(`Generate a new password for ${user.email}? Their current password will stop working immediately.`)) return;
+    setGenerating(true);
+    try {
+      const result = await callUserManage({ action: 'reset_password', target_user_id: user.id });
+      setGenPassword(result.password);
+      toast.success('New password generated — copy it now, it will not be shown again.');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to generate password');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const copyPassword = async () => {
+    if (!genPassword) return;
+    try { await navigator.clipboard.writeText(genPassword); toast.success('Password copied'); }
+    catch { toast.error('Could not copy — select and copy it manually'); }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await callUserManage({ action: 'delete', target_user_id: user.id, confirm_email: deleteEmail });
+      toast.success('User deleted. Credit history and CV data were kept.');
+      onDeleted(user.id);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to delete user');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleVerifyEmail = async () => {
     if (!window.confirm(`Manually verify ${user.email}? This bypasses OTP and marks the account as confirmed.`)) return;
@@ -523,12 +577,148 @@ function EditUserModal({ user, onClose, onSaved, onBalanceChanged }: { user: Adm
               </Button>
             </div>
           )}
+
+          {/* Account actions */}
+          {!isDeleted && (
+            <div className="space-y-3 pt-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Account Actions</p>
+
+              {/* Generate password */}
+              <div className="rounded-xl border border-border px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">Generate Login Password</p>
+                    <p className="text-xs text-muted-foreground">For users who can't reset their own. Replaces their current password.</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleGeneratePassword} disabled={generating} className="shrink-0 rounded-xl gap-1.5">
+                    {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
+                    Generate
+                  </Button>
+                </div>
+                {genPassword && (
+                  <div className="rounded-lg bg-primary/10 border border-primary/20 px-3 py-2 space-y-1.5">
+                    <p className="text-[11px] text-muted-foreground">Share this with {user.email}. It is shown once only.</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <code className="text-base font-mono font-semibold tracking-wider text-foreground select-all">{genPassword}</code>
+                      <button onClick={copyPassword} className="p-1.5 rounded-lg hover:bg-primary/20 transition-colors" title="Copy">
+                        <Copy className="w-4 h-4 text-primary" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Delete */}
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-destructive">Delete User</p>
+                    <p className="text-xs text-muted-foreground">Erases their profile information and disables login. CV data and credit history are kept.</p>
+                  </div>
+                  {!showDelete && (
+                    <Button variant="outline" size="sm" onClick={() => setShowDelete(true)} className="shrink-0 rounded-xl gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10">
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </Button>
+                  )}
+                </div>
+                {showDelete && (
+                  <div className="space-y-2">
+                    <Label className="text-xs">Type <span className="font-mono font-semibold">{user.email}</span> to confirm</Label>
+                    <Input value={deleteEmail} onChange={e => setDeleteEmail(e.target.value)} placeholder={user.email} className="rounded-xl" autoComplete="off" />
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => { setShowDelete(false); setDeleteEmail(''); }} className="flex-1 rounded-xl">Cancel</Button>
+                      <Button variant="destructive" size="sm" onClick={handleDelete}
+                        disabled={deleting || deleteEmail.trim().toLowerCase() !== (user.email || '').toLowerCase()}
+                        className="flex-1 rounded-xl gap-1.5">
+                        {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                        Delete permanently
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {isDeleted && (
+            <p className="text-xs text-muted-foreground bg-muted rounded-xl px-3 py-2">
+              This user was deleted. Their profile information was erased and login is disabled; credit history and CV data are kept.
+            </p>
+          )}
         </div>
 
         <div className="flex gap-3 px-5 pb-5 pt-2">
           <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl">Cancel</Button>
           <Button onClick={handleSave} disabled={saving} className="flex-1 rounded-xl gap-2">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> Save Changes</>}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Add user modal ──────────────────────────────────────────── */
+
+function AddUserModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [fullName, setFullName] = useState('');
+  const [email,    setEmail]    = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw,   setShowPw]   = useState(false);
+  const [saving,   setSaving]   = useState(false);
+
+  const fillRandom = () => {
+    const a = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    const bytes = crypto.getRandomValues(new Uint8Array(12));
+    setPassword(Array.from(bytes, b => a[b % a.length]).join(''));
+    setShowPw(true);
+  };
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      await callUserManage({ action: 'create', email, password, full_name: fullName });
+      toast.success(`Account created for ${email.trim().toLowerCase()}`);
+      onCreated();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to create user');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+      <div className="bg-card rounded-2xl border border-border w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border">
+          <h2 className="text-base font-bold text-foreground">Add User</h2>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted transition-colors"><X className="w-4 h-4 text-muted-foreground" /></button>
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Full name <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <Input value={fullName} onChange={e => setFullName(e.target.value)} className="rounded-xl" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Sign-up email</Label>
+            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="user@example.com" className="rounded-xl" autoComplete="off" />
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Password</Label>
+              <button type="button" onClick={fillRandom} className="text-xs font-semibold text-primary hover:underline">Generate</button>
+            </div>
+            <Input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
+              placeholder="At least 8 characters" className="rounded-xl font-mono" autoComplete="new-password" />
+            <button type="button" onClick={() => setShowPw(v => !v)} className="text-xs text-muted-foreground hover:text-foreground">
+              {showPw ? 'Hide' : 'Show'} password
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">The email is marked verified, so they can sign in straight away. They complete their profile on first login.</p>
+        </div>
+        <div className="flex gap-3 px-5 pb-5">
+          <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl">Cancel</Button>
+          <Button onClick={submit} disabled={saving || !email.trim() || password.length < 8} className="flex-1 rounded-xl gap-2">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><UserPlus className="w-4 h-4" /> Create User</>}
           </Button>
         </div>
       </div>
@@ -544,6 +734,7 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<AdminUser | null>(null);
+  const [adding,  setAdding]  = useState(false);
 
   const load = useCallback(async () => {
     // Wait for the session to actually be populated before firing. On a
@@ -579,9 +770,14 @@ export default function AdminUsers() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Users</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">All users — general and educator profiles</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Users</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">All users — general and educator profiles</p>
+        </div>
+        <Button onClick={() => setAdding(true)} className="rounded-xl gap-1.5 shrink-0">
+          <UserPlus className="w-4 h-4" /> Add User
+        </Button>
       </div>
 
       <div className="relative">
@@ -620,6 +816,7 @@ export default function AdminUsers() {
                   <div className="flex items-center gap-1.5">
                     <p className="text-sm font-semibold text-foreground truncate">{u.full_name || u.email}</p>
                     {u.is_admin && <Crown className="w-3 h-3 text-amber-500 shrink-0" />}
+                    {u.deleted_at && <span className="text-[10px] font-semibold uppercase bg-destructive/10 text-destructive rounded-full px-1.5 py-0.5 shrink-0">Deleted</span>}
                   </div>
                   <p className="text-xs text-muted-foreground truncate">
                     {u.email} · <span className="capitalize">{u.profile_type || 'unset'}</span> · {u.credit_balance} cr
@@ -653,7 +850,12 @@ export default function AdminUsers() {
           onBalanceChanged={(userId, newBalance) => {
             setUsers(list => list.map(u => u.id === userId ? { ...u, credit_balance: newBalance } : u));
           }}
+          onDeleted={() => { setEditing(null); load(); }}
         />
+      )}
+
+      {adding && (
+        <AddUserModal onClose={() => setAdding(false)} onCreated={() => { setAdding(false); load(); }} />
       )}
     </div>
   );

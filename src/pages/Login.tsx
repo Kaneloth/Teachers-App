@@ -139,6 +139,8 @@ export default function Login() {
         await supabase.auth.resend({ type: 'signup', email });
         setStep('email-otp');
         toast.info('A verification code has been sent to your email.');
+      } else if (msg.includes('banned')) {
+        setError('This account has been suspended. Please contact support.');
       } else {
         setError(signInErr.message);
       }
