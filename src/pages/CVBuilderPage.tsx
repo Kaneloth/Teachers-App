@@ -614,9 +614,16 @@ export default function CVBuilderPage() {
     // Keep the account's personal details, but don't throw away a summary the
     // import itself found (previously it was always discarded).
     const mergedBio = (data.personal.bio || '').trim() || (newData.personal?.bio || '').trim();
+    // A summary that came from the AI import (rather than one the person
+    // already had) gets the "please check this" highlight on the Personal step.
+    const bioFromImport = !(data.personal.bio || '').trim() && !!(newData.personal?.bio || '').trim();
     setData(prev => ({
       ...newData,
-      personal: { ...prev.personal, bio: (prev.personal.bio || '').trim() ? prev.personal.bio : (newData.personal?.bio || '') },
+      personal: {
+        ...prev.personal,
+        bio: (prev.personal.bio || '').trim() ? prev.personal.bio : (newData.personal?.bio || ''),
+        bio_ai_review: bioFromImport,
+      },
       cvType: prev.cvType,
     }));
     setShowSummaryPrompt(!mergedBio);
@@ -624,7 +631,7 @@ export default function CVBuilderPage() {
     setShowBuilder(true);
     const savedAt = new Date().toISOString();
     setDraftSavedAt(savedAt);
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: data.cvType, data: { ...newData, personal: { ...data.personal, bio: mergedBio || data.personal.bio }, cvType: data.cvType }, step: 0, savedAt })); } catch {}
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ cvType: data.cvType, data: { ...newData, personal: { ...data.personal, bio: mergedBio || data.personal.bio, bio_ai_review: bioFromImport }, cvType: data.cvType }, step: 0, savedAt })); } catch {}
   };
   // The Professional Summary drives the persistent nudges: amber field in the
   // editor, the "1 action needed" chip, and the locked Download button.
