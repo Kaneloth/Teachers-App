@@ -5,9 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Loader2, ChevronRight, ChevronLeft, GraduationCap, User, X, MapPin, CheckCircle2, Mail, Phone, Users } from 'lucide-react';
+import { Loader2, ChevronRight, ChevronLeft, GraduationCap, User, X, MapPin, CheckCircle2, Mail, Phone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { geocodeLocation } from '@/lib/geocode';
@@ -128,9 +127,7 @@ export default function Onboarding() {
     full_name:           user?.user_metadata?.full_name || '',
     email:               user?.email || '',
     phone:               '',
-    gender:              '',
     sace_number:         '',
-    bio:                 '',
     current_school:      '',
     current_province:    '',
     district:            '',
@@ -150,8 +147,6 @@ export default function Onboarding() {
     full_name: user?.user_metadata?.full_name || '',
     email:     user?.email || '',
     phone:     '',
-    gender:    '',
-    bio:       '',
   });
 
   const set    = (field: string, value: unknown) => setForm(p => ({ ...p, [field]: value }));
@@ -439,8 +434,6 @@ export default function Onboarding() {
         full_name:           genForm.full_name,
         email:               genForm.email,
         phone:               genForm.phone,
-        gender:              genForm.gender,
-        bio:                 genForm.bio,
         profile_type:        'general',
         is_actively_looking: false,
         preferred_provinces: [],
@@ -462,7 +455,7 @@ export default function Onboarding() {
       redeemStoredReferralCode(user?.id ?? '').catch(() => {});
 
       toast.success('Profile created! Welcome to Crosssa!');
-      toast('Tip: add a profile photo and bio to help others recognize you.');
+      toast('Tip: add a profile photo to help others recognize you.');
       setHeardAboutDest('/profile');
     } catch (e: unknown) {
       finishingRef.current = false;
@@ -622,23 +615,6 @@ export default function Onboarding() {
                 <Input type="tel" value={genForm.phone} onChange={e => setGen('phone', e.target.value)} placeholder="+27 71 000 0000" className="rounded-xl pl-9" />
               </div>
             </Field>
-            <Field label="Gender">
-              <div className="relative">
-                <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
-                <Select value={genForm.gender} onValueChange={v => setGen('gender', v)}>
-                  <SelectTrigger className="rounded-xl pl-9"><SelectValue placeholder="Select gender" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Male">Male</SelectItem>
-                    <SelectItem value="Female">Female</SelectItem>
-                    <SelectItem value="Non-binary">Non-binary</SelectItem>
-                    <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </Field>
-            <Field label="Bio / Short Introduction">
-              <Textarea value={genForm.bio} onChange={e => setGen('bio', e.target.value)} placeholder="A few words about yourself..." rows={3} className="rounded-xl" />
-            </Field>
           </div>
 
           <div className="flex gap-3 mt-6">
@@ -696,24 +672,7 @@ export default function Onboarding() {
                   Please enter it twice to make sure it's correct — an incorrect number means we won't be able to reach you.
                 </p>
               </Field>
-              <Field label="Gender">
-                <div className="relative">
-                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
-                  <Select value={form.gender} onValueChange={v => set('gender', v)}>
-                    <SelectTrigger className="rounded-xl pl-9"><SelectValue placeholder="Select gender" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Male">Male</SelectItem>
-                      <SelectItem value="Female">Female</SelectItem>
-                      <SelectItem value="Non-binary">Non-binary</SelectItem>
-                      <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </Field>
               <Field label="SACE Number *"><Input value={form.sace_number} onChange={e => set('sace_number', e.target.value)} placeholder="e.g. 20012345" className="rounded-xl" /></Field>
-              <Field label="Bio / Professional Summary">
-                <Textarea value={form.bio} onChange={e => set('bio', e.target.value)} placeholder="Tell other educators about yourself..." rows={3} className="rounded-xl" />
-              </Field>
             </>
           )}
 

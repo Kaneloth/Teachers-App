@@ -3,8 +3,9 @@ import AutoGrowTextarea from '@/components/AutoGrowTextarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
+import AiReviewFlag from '@/components/cv/AiReviewFlag';
 
-interface EduEntry { institution: string; qualification: string; year: string; subjects?: string }
+interface EduEntry { institution: string; qualification: string; year: string; subjects?: string; ai_review?: boolean }
 interface Props { data: EduEntry[]; onChange: (d: EduEntry[]) => void }
 
 export default function CVStepEducation({ data, onChange }: Props) {
@@ -12,14 +13,17 @@ export default function CVStepEducation({ data, onChange }: Props) {
   const remove = (i: number) => onChange(data.filter((_, idx) => idx !== i));
   const set = (i: number, field: keyof EduEntry, value: string) => {
     const updated = [...data];
-    updated[i] = { ...updated[i], [field]: value };
+    updated[i] = { ...updated[i], [field]: value, ai_review: false };
     onChange(updated);
   };
 
   return (
     <div className="space-y-3">
       {data.map((entry, i) => (
-        <div key={i} className="bg-card rounded-2xl border border-border p-4 space-y-3">
+        <AiReviewFlag key={i} active={!!entry.ai_review}
+          onReviewed={() => onChange(data.map((x, idx) => idx === i ? { ...x, ai_review: false } : x))}
+          label="Filled in by AI — check these details match your certificate">
+        <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-sm text-foreground">Qualification {i + 1}</h3>
             {data.length > 1 && <button onClick={() => remove(i)} className="text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>}
@@ -29,6 +33,7 @@ export default function CVStepEducation({ data, onChange }: Props) {
           <Field label="Major Courses / Subjects (optional)"><AutoGrowTextarea value={entry.subjects ?? ''} onChange={v => set(i, 'subjects', v)} placeholder="e.g. Mathematics, Physical Sciences, Accounting" /></Field>
           <Field label="Year Completed"><Input value={entry.year} onChange={e => set(i, 'year', e.target.value)} placeholder="e.g. 2018" className="rounded-xl" /></Field>
         </div>
+        </AiReviewFlag>
       ))}
       <Button variant="outline" onClick={add} className="w-full rounded-xl gap-2"><Plus className="w-4 h-4" /> Add Qualification</Button>
     </div>

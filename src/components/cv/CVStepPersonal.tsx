@@ -11,6 +11,7 @@ import { useCredits } from '@/hooks/useCredits';
 import { usePricing, PurchaseModal } from '@/components/credits/CreditBalance';
 import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
 import AIPromptBar from '@/components/cv/AIPromptBar';
+import AiReviewFlag from '@/components/cv/AiReviewFlag';
 
 function publicStorageUrl(bucket: string, path: string): string {
   const base = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, '');
@@ -27,6 +28,8 @@ interface PersonalData {
   id_number?: string;
   job_title?: string;
   show_job_title?: boolean;
+  // true right after AI wrote the summary; cleared when the person edits it or taps "Looks good"
+  bio_ai_review?: boolean;
 }
 
 interface Props {
@@ -76,7 +79,7 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
     try {
       const { data: profile } = await supabase
         .from('educators')
-        .select('full_name, email, phone, bio, town, current_province')
+        .select('full_name, email, phone, town, current_province')
         .eq('user_id', user.id)
         .maybeSingle();
       const location = [profile?.town, profile?.current_province].filter(Boolean).join(', ');
@@ -90,7 +93,8 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
         email:   profile?.email || user.email || '',
         phone:   profile?.phone || user.user_metadata?.phone || '',
         address: data.address || location || '',
-        bio:     data.bio     || profile?.bio || '',
+        // keep the job-title default (off) from being lost by this async sync
+        show_job_title: data.show_job_title ?? false,
       });
       if (manual) toast.success('Updated from your profile.');
     } catch {
@@ -99,6 +103,13 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
       if (manual) setRefreshingProfile(false);
     }
   };
+
+  // Job title is OFF unless the person turns it on — also applies to older
+  // drafts / saved CVs that predate the option.
+  useEffect(() => {
+    if (data.show_job_title === undefined) onChange({ ...data, show_job_title: false });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     syncFromProfile(false);
@@ -142,7 +153,7 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
           result.error?.toLowerCase().includes('limit');
         if (isRateLimit && attempt < MAX_ATTEMPTS - 1) continue;
         if (!res.ok || !result.success) throw new Error(result.error || 'AI failed');
-        set('bio', result.summary);
+        onChange({ ...data, bio: result.summary, bio_ai_review: true });
         if (onAiUsed) onAiUsed(pricing.letterCost);
         toast.success('Professional summary generated!');
         setGeneratingSummary(false);
@@ -265,14 +276,14 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
       <div className="space-y-2 rounded-xl border border-border p-3">
         <label className="flex items-start gap-3 cursor-pointer">
           <input type="checkbox" className="mt-0.5 w-4 h-4 accent-primary"
-            checked={data.show_job_title !== false}
+            checked={data.show_job_title === true}
             onChange={e => set('show_job_title', e.target.checked)} />
           <span>
             <span className="text-sm font-medium text-foreground block">Show a job title under my name</span>
-            <span className="text-xs text-muted-foreground">Turn off if you're not currently employed or don't have a fitting title.</span>
+            <span className="text-xs text-muted-foreground">Off by default. Turn on only if you have a job title you'd like shown on your CV.</span>
           </span>
         </label>
-        {data.show_job_title !== false && (
+        {data.show_job_title === true && (
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Job title <span className="text-muted-foreground font-normal">(optional)</span></Label>
             <Input value={data.job_title ?? ''} onChange={e => set('job_title', e.target.value)}
@@ -282,6 +293,8 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
       </div>
 
       {/* Professional Summary */}
+      <AiReviewFlag active={!!data.bio_ai_review && !summaryEmpty} onReviewed={() => onChange({ ...data, bio_ai_review: false })}
+        label="Written by AI — please read your summary and check it's accurate">
       <div id="cv-summary-section" className={`space-y-1.5 rounded-2xl transition-colors ${summaryEmpty ? 'border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/10 p-3' : ''}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -300,7 +313,7 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
               : <><Sparkles className="w-3 h-3" /> Generate with AI</>}
           </button>
         </div>
-        <Textarea id="cv-summary-field" value={data.bio} onChange={e => set('bio', e.target.value)}
+        <Textarea id="cv-summary-field" value={data.bio} onChange={e => onChange({ ...data, bio: e.target.value, bio_ai_review: false })}
           placeholder="A brief overview of your professional background, experience, and career goals..."
           rows={4} className="rounded-xl" />
         {!summaryEmpty && (
@@ -308,7 +321,7 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
             section="summary"
             chips={['Make it longer', 'Make it shorter', 'More professional', 'Focus on my skills']}
             text={data.bio}
-            onApply={t => set('bio', t)}
+            onApply={t => onChange({ ...data, bio: t, bio_ai_review: true })}
             onAiUsed={onAiUsed}
             isEducator={fullCvData?.skills?.subjects ? fullCvData.skills.subjects.length > 0 : undefined}
             defaultOpen
@@ -331,6 +344,8 @@ export default function CVStepPersonal({ data, fullCvData, onChange, onAiUsed, j
           <p className="text-xs text-muted-foreground">Tap "Generate with AI" for a suggested summary, then edit to personalise it.</p>
         )}
       </div>
+
+      </AiReviewFlag>
 
       <p className="text-xs text-muted-foreground bg-muted rounded-xl px-3 py-2">
         To update your name, email or phone, go to your <strong>Profile page</strong>, then tap <strong>Refresh</strong> above — no need to re-upload your CV.

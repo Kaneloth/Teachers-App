@@ -37,11 +37,11 @@ interface CVData {
   cvType: CVType;
   personal: {
     full_name: string; email: string; phone: string; address: string; bio: string;
-    photo_url?: string; id_number?: string; job_title?: string; show_job_title?: boolean;
+    photo_url?: string; id_number?: string; job_title?: string; show_job_title?: boolean; bio_ai_review?: boolean;
     gender?: string; population_group?: string; citizenship?: string; drivers_licence?: string[];
   };
-  education: { institution: string; qualification: string; year: string; subjects?: string }[];
-  experience: { school: string; role: string; from: string; to: string; description: string }[];
+  education: { institution: string; qualification: string; year: string; subjects?: string; ai_review?: boolean }[];
+  experience: { school: string; role: string; from: string; to: string; description: string; ai_review?: boolean }[];
   skills: { subjects: string[]; soft_skills: string[]; languages: string[] };
   references: RefEntry[];
   custom_sections: CustomSection[];
@@ -51,7 +51,7 @@ interface CVData {
 function defaultData(): CVData {
   return {
     cvType: 'general',
-    personal: { full_name: '', email: '', phone: '', address: '', bio: '', id_number: '', job_title: '', gender: '', population_group: '', citizenship: '', drivers_licence: [] },
+    personal: { full_name: '', email: '', phone: '', address: '', bio: '', id_number: '', job_title: '', show_job_title: false, gender: '', population_group: '', citizenship: '', drivers_licence: [] },
     education: [{ institution: '', qualification: '', year: '', subjects: '' }],
     experience: [{ school: '', role: '', from: '', to: '', description: '' }],
     skills: { subjects: [], soft_skills: [], languages: [] },
@@ -538,7 +538,7 @@ export default function CVBuilderPage() {
   }, []);
   useEffect(() => {
     if (!user || initialState.draft) return;
-    supabase.from('educators').select('full_name, phone, bio, town, current_province').eq('user_id', user.id).maybeSingle()
+    supabase.from('educators').select('full_name, phone, town, current_province').eq('user_id', user.id).maybeSingle()
       .then(({ data: profile }) => {
         const location = [profile?.town, profile?.current_province].filter(Boolean).join(', ');
         setData(prev => ({
@@ -549,7 +549,6 @@ export default function CVBuilderPage() {
             email:     prev.personal.email     || user.email || '',
             phone:     prev.personal.phone     || profile?.phone || user.user_metadata?.phone || '',
             address:   prev.personal.address   || location || '',
-            bio:       prev.personal.bio       || profile?.bio || '',
           },
         }));
       });
@@ -809,7 +808,7 @@ export default function CVBuilderPage() {
           onAiUsed={(amt: number) => setAiCreditsSpent(prev => prev + amt)}
           aiCost={pricing.letterCost}
           onAccept={summary => {
-            setData(d => ({ ...d, personal: { ...d.personal, bio: summary } }));
+            setData(d => ({ ...d, personal: { ...d.personal, bio: summary, bio_ai_review: true } }));
             setShowSummaryPrompt(false);
             toast.success('Professional summary added!');
           }}

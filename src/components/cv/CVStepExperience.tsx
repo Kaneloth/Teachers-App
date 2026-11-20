@@ -10,8 +10,9 @@ import { useCredits } from '@/hooks/useCredits';
 import { usePricing, PurchaseModal } from '@/components/credits/CreditBalance';
 import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
 import AIPromptBar from '@/components/cv/AIPromptBar';
+import AiReviewFlag from '@/components/cv/AiReviewFlag';
 
-interface ExpEntry { school: string; role: string; from: string; to: string; description: string }
+interface ExpEntry { school: string; role: string; from: string; to: string; description: string; ai_review?: boolean }
 interface Props {
   data: ExpEntry[];
   onChange: (d: ExpEntry[]) => void;
@@ -57,7 +58,7 @@ export default function CVStepExperience({ data, onChange, onAiUsed, isEducator 
   const remove = (i: number) => onChange(data.filter((_, idx) => idx !== i));
   const set    = (i: number, field: keyof ExpEntry, value: string) => {
     const updated = [...data];
-    updated[i] = { ...updated[i], [field]: value };
+    updated[i] = { ...updated[i], [field]: value, ai_review: false };
     onChange(updated);
   };
 
@@ -217,7 +218,10 @@ export default function CVStepExperience({ data, onChange, onAiUsed, isEducator 
         const bullets = getBullets(entry.description);
         const entrySuggestions = suggestions[i];
         return (
-          <div key={i} className="bg-card rounded-2xl border border-border p-4 space-y-3">
+          <AiReviewFlag key={i} active={!!entry.ai_review}
+            onReviewed={() => onChange(data.map((x, idx) => idx === i ? { ...x, ai_review: false } : x))}
+            label="Filled in by AI — check the role, dates and duties are correct">
+          <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-sm text-foreground">Experience {i + 1}</h3>
               {data.length > 1 && (
@@ -388,6 +392,7 @@ export default function CVStepExperience({ data, onChange, onAiUsed, isEducator 
               </div>
             )}
           </div>
+          </AiReviewFlag>
         );
       })}
       <Button variant="outline" onClick={add} className="w-full rounded-xl gap-2">

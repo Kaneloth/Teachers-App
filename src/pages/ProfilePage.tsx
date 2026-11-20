@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Switch } from '@/components/ui/switch';
@@ -14,7 +13,7 @@ import {
 import { toast } from 'sonner';
 import {
   Loader2, Camera, Flame, Save, ArrowLeft, RefreshCw, X, Plus,
-  Phone, Mail, Users, CreditCard, BookOpen, Upload, ImagePlus,
+  Phone, Mail, CreditCard, BookOpen, Upload, ImagePlus,
   CheckCircle2, AlertCircle, XCircle, ShieldCheck, ShieldVerified, Copy,
   GraduationCap, User, Lock, MapPin,
 } from 'lucide-react';
@@ -1228,28 +1227,11 @@ export default function ProfilePage() {
                 </p>
               </Field>
             )}
-            <Field label="Gender">
-              <div className="relative">
-                <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
-                <Select value={profile.gender} onValueChange={v => setProfileField('gender', v)}>
-                  <SelectTrigger className="rounded-xl pl-9"><SelectValue placeholder="Select gender" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Male">Male</SelectItem>
-                    <SelectItem value="Female">Female</SelectItem>
-                    <SelectItem value="Non-binary">Non-binary</SelectItem>
-                    <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </Field>
             {isEducator && (
               <Field label="SACE Number *">
                 <Input value={profile.sace_number} onChange={e => setProfileField('sace_number', e.target.value)} placeholder="e.g. 20012345" className="rounded-xl" />
               </Field>
             )}
-            <Field label="Bio">
-              <Textarea value={profile.bio} onChange={e => setProfileField('bio', e.target.value)} placeholder="Tell others about yourself..." rows={3} className="rounded-xl resize-none" />
-            </Field>
           </SectionCard>
 
           {isEducator && isPro && <IdentityVerificationSection />}
@@ -1508,8 +1490,6 @@ export default function ProfilePage() {
           <Field label="Full Name"><p className="text-sm">{profile.full_name || '—'}</p></Field>
           <Field label="Email"><p className="text-sm">{profile.email}</p></Field>
           <Field label="Phone"><p className="text-sm">{profile.phone || '—'}</p></Field>
-          <Field label="Gender"><p className="text-sm">{profile.gender || '—'}</p></Field>
-          <Field label="Bio"><p className="text-sm whitespace-pre-wrap">{profile.bio || '—'}</p></Field>
         </SectionCard>
 
         {isEducator && (
